@@ -1,0 +1,15 @@
+CPU1, 1, 1, 192.168.86.131, 15820, 5821;
+CPU2, 2, 1, 192.168.86.132, 15820, 5822;
+CPU3, 3, 1, 192.168.86.133, 15820, 5823;
+CPU4, 4, 1, 192.168.86.134, 15820, 5824;
+!
+! Name, ProcessorId, ProtocolId, Addr, DataPort,  ProtoPort;
+!
+! The '!' is inserted after the last valid peer line, it is not a comment character
+! 
+! Colunms 1 and 2 should be CFE_CPU_NAME and CFE_CPU_ID respectivly from cfe_platform_cfg.h
+! 
+! The ProtoPort is arbitrary, but must be unique for processor/system.
+! The file may contain up to SBN_MAX_NETWORK_PEERS as defined in sbn_app.h 
+! Colunm 3 is protocol id 1 = IPv4, 2 = IPv6, 3 = SpacewireRMAP, 4 = Spacewire packet
+! Only IPv4 is currently implemented
