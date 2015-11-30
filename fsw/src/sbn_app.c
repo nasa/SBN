@@ -731,7 +731,7 @@ void SBN_CheckSubscriptionPipe(void)
 
             case CFE_SB_ONESUB_TLM_MID:
                 SubRprtMsgPtr = (CFE_SB_SubRprtMsg_t *) SBMsgPtr;
-                SubEntry.MsgId = SubRprtMsgPtr->.MsgId;
+                SubEntry.MsgId = SubRprtMsgPtr->MsgId;
                 SubEntry.Qos = SubRprtMsgPtr->Qos;
                 SubEntry.Pipe = SubRprtMsgPtr->Pipe;
                 if (SubRprtMsgPtr->SubType == CFE_SB_SUBSCRIPTION)
