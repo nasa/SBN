@@ -55,6 +55,7 @@
  */
 #include <fcntl.h>
 #include <string.h>
+#include <strings.h>
 
 #include "cfe.h"
 #include "cfe_sb_msg.h"
@@ -63,6 +64,7 @@
 #include "sbn_netif.h"
 #include "sbn_msgids.h"
 /* #include "app_msgids.h" */
+#include <arpa/inet.h>
 
 /*
  **   Task Globals
@@ -506,16 +508,23 @@ void SBN_RunProtocol(void)
 
             msgCount++;
             /* the order is optimized for normal operations */
-            if (SBN.ProtoMsgBuf.Hdr.Type == SBN_HEARTBEAT_MSG)
-                HeartBeatRcved++;
-            else if (SBN.ProtoMsgBuf.Hdr.Type == SBN_HEARTBEAT_ACK_MSG)
-                HeartBeatAckRcved++;
-            else if (SBN.ProtoMsgBuf.Hdr.Type == SBN_ANNOUNCE_MSG)
-                AnnounceRcved++;
-            else if (SBN.ProtoMsgBuf.Hdr.Type == SBN_ANNOUNCE_ACK_MSG)
-                AnnounceAckRcved++;
-            else
-                UnkownRcved++; /* Currently not used, but left in for debugging */
+	    switch(ntohl(SBN.ProtoMsgBuf.Hdr.Type)) {
+		case SBN_HEARTBEAT_MSG:
+		    HeartBeatRcved++;
+		    break;
+		case SBN_HEARTBEAT_ACK_MSG:
+		    HeartBeatAckRcved++;
+		    break;
+		case SBN_ANNOUNCE_MSG:
+		    AnnounceRcved++;
+		    break;
+		case SBN_ANNOUNCE_ACK_MSG:
+		    AnnounceAckRcved++;
+		    break;
+		default:
+		    UnkownRcved++; /* Currently not used, but left in for debugging */
+		    break;
+	    } /* end switch */
         } /* end while */
 
         switch (SBN.Peer[PeerIdx].State)
@@ -697,7 +706,7 @@ void SBN_SendLocalSubsToPeer(uint32 PeerIdx)
     {
 
         /* Load the Protocol Buffer with the subscription details */
-        SBN.DataMsgBuf.Sub.MsgId = SBN.LocalSubs[i].MsgId;
+        SBN.DataMsgBuf.Sub.MsgId = htons(SBN.LocalSubs[i].MsgId);
         SBN.DataMsgBuf.Sub.Qos = SBN.LocalSubs[i].Qos;
 
         SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, sizeof(SBN_NetSub_t), PeerIdx, NULL );
@@ -722,7 +731,7 @@ void SBN_CheckSubscriptionPipe(void)
 
             case CFE_SB_ONESUB_TLM_MID:
                 SubRprtMsgPtr = (CFE_SB_SubRprtMsg_t *) SBMsgPtr;
-                SubEntry.MsgId = SubRprtMsgPtr->MsgId;
+                SubEntry.MsgId = SubRprtMsgPtr->.MsgId;
                 SubEntry.Qos = SubRprtMsgPtr->Qos;
                 SubEntry.Pipe = SubRprtMsgPtr->Pipe;
                 if (SubRprtMsgPtr->SubType == CFE_SB_SUBSCRIPTION)
@@ -778,23 +787,23 @@ void SBN_ProcessSubFromPeer(uint32 PeerIdx)
     }/* end if */
 
     /* if msg id already in the list, ignore */
-    if (SBN_CheckPeerSubs4MsgId(&idx, SBN.DataMsgBuf.Sub.MsgId,
+    if (SBN_CheckPeerSubs4MsgId(&idx, ntohs(SBN.DataMsgBuf.Sub.MsgId),
             PeerIdx) == SBN_MSGID_FOUND)
     {
         CFE_EVS_SendEvent(SBN_DUP_SUB_EID, CFE_EVS_INFORMATION,
                 "%s:subscription from %s ignored,msg 0x%04X already logged",
-                CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, SBN.DataMsgBuf.Sub.MsgId);
+                CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, ntohs(SBN.DataMsgBuf.Sub.MsgId));
         return;
     }/* end if */
 
     /* SubscibeLocal suppresses the subscribption report */
-    CFE_SB_SubscribeLocal(SBN.DataMsgBuf.Sub.MsgId, SBN.Peer[PeerIdx].Pipe,
+    CFE_SB_SubscribeLocal(ntohs(SBN.DataMsgBuf.Sub.MsgId), SBN.Peer[PeerIdx].Pipe,
             SBN_DEFAULT_MSG_LIM);
 
     FirstOpenSlot = SBN.Peer[PeerIdx].SubCnt;
 
     /* log the subscription in the peer table */
-    SBN.Peer[PeerIdx].Sub[FirstOpenSlot].MsgId = SBN.DataMsgBuf.Sub.MsgId;
+    SBN.Peer[PeerIdx].Sub[FirstOpenSlot].MsgId = ntohs(SBN.DataMsgBuf.Sub.MsgId);
     SBN.Peer[PeerIdx].Sub[FirstOpenSlot].Qos = SBN.DataMsgBuf.Sub.Qos;
 
     SBN.Peer[PeerIdx].SubCnt++;
@@ -823,12 +832,12 @@ void SBN_ProcessUnsubFromPeer(uint32 PeerIdx)
         return;
     }/* end if */
 
-    if (SBN_CheckPeerSubs4MsgId(&idx, SBN.DataMsgBuf.Sub.MsgId,
+    if (SBN_CheckPeerSubs4MsgId(&idx, ntohs(SBN.DataMsgBuf.Sub.MsgId),
             PeerIdx)==SBN_MSGID_NOT_FOUND)
     {
         CFE_EVS_SendEvent(SBN_SUB_NOT_FOUND_EID, CFE_EVS_INFORMATION,
                 "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
-                CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, SBN.DataMsgBuf.Sub.MsgId);
+                CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, noths(SBN.DataMsgBuf.Sub.MsgId));
         return;
     }/* end if */
 
@@ -844,7 +853,7 @@ void SBN_ProcessUnsubFromPeer(uint32 PeerIdx)
     SBN.Peer[PeerIdx].SubCnt--;
 
     /* unsubscribe to the msg id on the peer pipe */
-    CFE_SB_UnsubscribeLocal(SBN.DataMsgBuf.Sub.MsgId, SBN.Peer[PeerIdx].Pipe);
+    CFE_SB_UnsubscribeLocal(ntohs(SBN.DataMsgBuf.Sub.MsgId), SBN.Peer[PeerIdx].Pipe);
 
 }/* SBN_ProcessUnsubFromPeer */
 
@@ -858,7 +867,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
     if (PeerIdx >= SBN_MAX_NETWORK_PEERS)
         return;
 
-    switch (SBN.DataMsgBuf.Hdr.Type)
+    switch (htonl(SBN.DataMsgBuf.Hdr.Type))
     {
 
         case SBN_APP_MSG:
@@ -875,7 +884,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
             {
                 status = CFE_SB_SendMsgFull(
                         (CFE_SB_Msg_t *) &SBN.DataMsgBuf.Pkt.Data[0],
-                        CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY,
+                        0, 1,
                         &SBN.DataMsgBuf.Hdr.MsgSender);
 
                 if (status != CFE_SUCCESS)
@@ -883,7 +892,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
                     CFE_EVS_SendEvent(SBN_SB_SEND_ERR_EID, CFE_EVS_ERROR,
                             "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
                             CFE_CPU_NAME, status, SBN.DataMsgBuf.Hdr.SrcCpuName,
-                            SBN.DataMsgBuf.Hdr.Type);
+                            htonl(SBN.DataMsgBuf.Hdr.Type));
                 }/* end if */
             }/* end if */
             break;
@@ -893,7 +902,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
             if (SBN.DebugOn == SBN_TRUE)
             {
                 OS_printf("%s:Sub Rcvd from %s,Msg 0x%04X\n", CFE_CPU_NAME,
-                        SBN.Peer[PeerIdx].Name, SBN.DataMsgBuf.Sub.MsgId);
+                        SBN.Peer[PeerIdx].Name, ntohs(SBN.DataMsgBuf.Sub.MsgId));
             }/* end if */
             SBN_ProcessSubFromPeer(PeerIdx);
             break;
@@ -903,7 +912,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
             if (SBN.DebugOn == SBN_TRUE)
             {
                 OS_printf("%s:Unsub Rcvd from %s,Msg 0x%04X\n", CFE_CPU_NAME,
-                        SBN.Peer[PeerIdx].Name, SBN.DataMsgBuf.Sub.MsgId);
+                        SBN.Peer[PeerIdx].Name, ntohs(SBN.DataMsgBuf.Sub.MsgId));
             }/* end if */
             SBN_ProcessUnsubFromPeer(PeerIdx);
             break;
@@ -912,7 +921,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
             SBN.DataMsgBuf.Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0'; /* make sure of termination */
             CFE_EVS_SendEvent(SBN_MSGTYPE_ERR_EID, CFE_EVS_ERROR,
                     "%s:Unknown Msg Type 0x%x from %s", CFE_CPU_NAME,
-                    SBN.DataMsgBuf.Hdr.Type, SBN.DataMsgBuf.Hdr.SrcCpuName);
+                    ntohl(SBN.DataMsgBuf.Hdr.Type), SBN.DataMsgBuf.Hdr.SrcCpuName);
             break;
     } /* end switch */
 }/* end SBN_ProcessNetAppMsg */
@@ -953,10 +962,10 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
     SBN.LocalSubCnt++;
 
     /* initialize the network msg */
-    SBN.DataMsgBuf.Hdr.Type = SBN_SUBSCRIBE_MSG;
+    SBN.DataMsgBuf.Hdr.Type = htonl(SBN_SUBSCRIBE_MSG);
     strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
-    SBN.DataMsgBuf.Sub.MsgId = Ptr->MsgId;
+    SBN.DataMsgBuf.Sub.MsgId = htons(Ptr->MsgId);
     SBN.DataMsgBuf.Sub.Qos = Ptr->Qos;
 
     /* send subscription to all peers if peer state is heartbeating */
@@ -996,10 +1005,10 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
     SBN.LocalSubCnt--;
 
     /* initialize the network msg */
-    SBN.DataMsgBuf.Hdr.Type = SBN_UN_SUBSCRIBE_MSG;
+    SBN.DataMsgBuf.Hdr.Type = htonl(SBN_UN_SUBSCRIBE_MSG);
     strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
-    SBN.DataMsgBuf.Sub.MsgId = Ptr->MsgId;
+    SBN.DataMsgBuf.Sub.MsgId = htons(Ptr->MsgId);
     SBN.DataMsgBuf.Sub.Qos = Ptr->Qos;
 
     /* send unsubscription to all peers if peer state is heartbeating and */
@@ -1264,8 +1273,7 @@ void SBN_NetMsgSendDbgEvt(uint32 MsgType, uint32 PeerIdx, int Status)
         case SBN_UN_SUBSCRIBE_MSG:
             OS_printf("%s:%s for 0x%x sent to %s sz=%d\n", CFE_CPU_NAME,
                     SBN_GetMsgName(MsgType),
-                    CFE_SB_GetMsgId(
-                            (CFE_SB_MsgPtr_t) &SBN.DataMsgBuf.Sub.MsgId),
+                    ntohs(SBN.DataMsgBuf.Sub.MsgId),
                     SBN.Peer[PeerIdx].Name, Status);
             break;
 

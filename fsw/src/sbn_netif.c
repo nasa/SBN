@@ -32,7 +32,9 @@
  /* #include "app_msgids.h" */
 #include <network_includes.h>
 #include <string.h>
+#include <strings.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 
 /*
@@ -274,7 +276,7 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_Send
          break;
       /* Then no break, so fill in the sender application infomation*/ 
       strncpy((char *)&SBN.DataMsgBuf.Hdr.MsgSender.AppName, &SenderPtr->AppName[0], OS_MAX_API_NAME);
-      SBN.DataMsgBuf.Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
+      SBN.DataMsgBuf.Hdr.MsgSender.ProcessorId = htonl(SenderPtr->ProcessorId);
 
     case SBN_SUBSCRIBE_MSG:
     case SBN_UN_SUBSCRIBE_MSG:
@@ -285,7 +287,7 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_Send
       /* Initialize the SBN hdr of the outgoing network message */
       strncpy((char *)&SBN.DataMsgBuf.Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
  
-      SBN.DataMsgBuf.Hdr.Type = MsgType;
+      SBN.DataMsgBuf.Hdr.Type = htonl(MsgType);
     
       status = sendto(SBN.DataSockId, (char *)&SBN.DataMsgBuf, MsgSize,
                       0, (struct sockaddr *) &s_addr, sizeof(s_addr) );    
@@ -299,7 +301,7 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_Send
  
       s_addr.sin_port = htons(SBN.ProtoXmtPort); /* dest port is always the same for each IP addr*/
     
-      ProtoMsgBuf.Hdr.Type = MsgType;
+      ProtoMsgBuf.Hdr.Type = htonl(MsgType);
       strncpy(ProtoMsgBuf.Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
 
       status = sendto(SBN.ProtoSockId, (char *)&ProtoMsgBuf, MsgSize,
@@ -346,12 +348,12 @@ int32 SBN_CheckForNetProtoMsg(uint32 PeerIdx){
        CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
                          "%s:Socket recv err in CheckForNetProtoMsgs stat=%d,err=%d",
                          CFE_CPU_NAME, status, errno);
-       SBN.ProtoMsgBuf.Hdr.Type = SBN_NO_MSG;
+       SBN.ProtoMsgBuf.Hdr.Type = htonl(SBN_NO_MSG);
        return (-1);
      }
 
    /* status = 0, so no messages and no errors */
-   SBN.ProtoMsgBuf.Hdr.Type = SBN_NO_MSG;
+   SBN.ProtoMsgBuf.Hdr.Type = htonl(SBN_NO_MSG);
    return SBN_NO_MSG; 
   
 }/* end SBN_CheckForNetProtoMsg */
