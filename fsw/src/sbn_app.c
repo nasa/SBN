@@ -837,7 +837,7 @@ void SBN_ProcessUnsubFromPeer(uint32 PeerIdx)
     {
         CFE_EVS_SendEvent(SBN_SUB_NOT_FOUND_EID, CFE_EVS_INFORMATION,
                 "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
-                CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, noths(SBN.DataMsgBuf.Sub.MsgId));
+                CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, ntohs(SBN.DataMsgBuf.Sub.MsgId));
         return;
     }/* end if */
 
