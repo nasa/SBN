@@ -276,11 +276,13 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_Send
          break;
       /* Then no break, so fill in the sender application infomation*/ 
       strncpy((char *)&SBN.DataMsgBuf.Hdr.MsgSender.AppName, &SenderPtr->AppName[0], OS_MAX_API_NAME);
+      SBN.DataMsgBuf.Hdr.Type = htonl(MsgType);
+      SBN.DataMsgBuf.Hdr.Length = htonl(MsgSize);
+
       SBN.DataMsgBuf.Hdr.MsgSender.ProcessorId = htonl(SenderPtr->ProcessorId);
 
     case SBN_SUBSCRIBE_MSG:
     case SBN_UN_SUBSCRIBE_MSG:
-
 
       s_addr.sin_port = htons(SBN.Peer[PeerIdx].DataPort);
     
@@ -288,6 +290,7 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_Send
       strncpy((char *)&SBN.DataMsgBuf.Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
  
       SBN.DataMsgBuf.Hdr.Type = htonl(MsgType);
+      SBN.DataMsgBuf.Hdr.Length = htonl(MsgSize);
     
       status = sendto(SBN.DataSockId, (char *)&SBN.DataMsgBuf, MsgSize,
                       0, (struct sockaddr *) &s_addr, sizeof(s_addr) );    
@@ -301,8 +304,11 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_Send
  
       s_addr.sin_port = htons(SBN.ProtoXmtPort); /* dest port is always the same for each IP addr*/
     
-      ProtoMsgBuf.Hdr.Type = htonl(MsgType);
       strncpy(ProtoMsgBuf.Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
+
+      ProtoMsgBuf.Hdr.Type = htonl(MsgType);
+      ProtoMsgBuf.Hdr.Length = htonl(MsgSize);
+    
 
       status = sendto(SBN.ProtoSockId, (char *)&ProtoMsgBuf, MsgSize,
                       0, (struct sockaddr *) &s_addr, sizeof(s_addr) );
@@ -342,18 +348,34 @@ int32 SBN_CheckForNetProtoMsg(uint32 PeerIdx){
                      (struct sockaddr *) &s_addr, &addr_len);
 
   if (status > 0) /* Positive number indicates byte length of message */
-     return SBN_TRUE; /* Message available and no errors */
+  {
+     uint32 expected_len = ntohl(SBN.ProtoMsgBuf.Hdr.Length);
+     if (status < expected_len)
+     {
+       CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
+                         "%s:Socket recv err in CheckForNetProtoMsgs received (%d) < expected (%d)",
+                         CFE_CPU_NAME, status, expected_len);
+	return SBN_FALSE;
+     }
+     else
+     {
+        return SBN_TRUE; /* Message available and no errors */
+     }/* end if */
+    }/* end if */
     else
-     if ( (status <=0) && (errno != EWOULDBLOCK) ) {
+    {
+     if ( (status <=0) && (errno != EWOULDBLOCK) )
+     {
        CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
                          "%s:Socket recv err in CheckForNetProtoMsgs stat=%d,err=%d",
                          CFE_CPU_NAME, status, errno);
-       SBN.ProtoMsgBuf.Hdr.Type = htonl(SBN_NO_MSG);
+       SBN.ProtoMsgBuf.Hdr.Type = SBN_NO_MSG;
        return (-1);
-     }
+     }/* end if */
+   }/* end if */
 
    /* status = 0, so no messages and no errors */
-   SBN.ProtoMsgBuf.Hdr.Type = htonl(SBN_NO_MSG);
+   SBN.ProtoMsgBuf.Hdr.Type = SBN_NO_MSG;
    return SBN_NO_MSG; 
   
 }/* end SBN_CheckForNetProtoMsg */

@@ -107,7 +107,7 @@
 
 
 /* Message types definitions */
-#define SBN_NO_MSG                    0
+#define SBN_NO_MSG                    0x0000
 #define SBN_ANNOUNCE_MSG              0x0010
 #define SBN_ANNOUNCE_ACK_MSG          0x0011
 #define SBN_HEARTBEAT_MSG             0x0020
@@ -180,10 +180,16 @@ typedef struct {
   CFE_SB_Qos_t      Qos;  
 }SBN_Subs_t;
 
+typedef struct { /* cribbed from cfe_sb.h, alas some versions have a different sized AppName field. */
+  uint32 ProcessorId; 
+  char AppName[OS_MAX_API_NAME];
+} SBN_SenderId_t;
+
 typedef struct {
+  uint32            Length;
   uint32            Type;
   char              SrcCpuName[SBN_MAX_PEERNAME_LENGTH]; /* Protocol message originator */
-  CFE_SB_SenderId_t MsgSender; /* This is the SB message originator metadata */
+  SBN_SenderId_t   MsgSender; /* This is the SB message originator metadata */
 } SBN_Hdr_t;
 
 typedef struct {

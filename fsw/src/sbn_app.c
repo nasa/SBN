@@ -867,7 +867,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
     if (PeerIdx >= SBN_MAX_NETWORK_PEERS)
         return;
 
-    switch (htonl(SBN.DataMsgBuf.Hdr.Type))
+    switch (ntohl(SBN.DataMsgBuf.Hdr.Type))
     {
 
         case SBN_APP_MSG:
@@ -892,7 +892,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
                     CFE_EVS_SendEvent(SBN_SB_SEND_ERR_EID, CFE_EVS_ERROR,
                             "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
                             CFE_CPU_NAME, status, SBN.DataMsgBuf.Hdr.SrcCpuName,
-                            htonl(SBN.DataMsgBuf.Hdr.Type));
+                            ntohl(SBN.DataMsgBuf.Hdr.Type));
                 }/* end if */
             }/* end if */
             break;
