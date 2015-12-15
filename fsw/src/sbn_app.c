@@ -882,10 +882,14 @@ void SBN_ProcessNetAppMsg(int MsgLength)
 
             if (SBN.Peer[PeerIdx].State == SBN_HEARTBEATING)
             {
+		CFE_SB_SenderId_t msgsender;
+		msgsender.ProcessorId = SBN.DataMsgBuf.Hdr.MsgSender.ProcessorId;
+		strncpy(msgsender.AppName, SBN.DataMsgBuf.Hdr.MsgSender.AppName, OS_MAX_API_NAME);
+
                 status = CFE_SB_SendMsgFull(
                         (CFE_SB_Msg_t *) &SBN.DataMsgBuf.Pkt.Data[0],
                         0, 1,
-                        &SBN.DataMsgBuf.Hdr.MsgSender);
+                        &msgsender);
 
                 if (status != CFE_SUCCESS)
                 {
