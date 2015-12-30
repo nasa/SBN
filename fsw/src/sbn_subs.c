@@ -50,7 +50,7 @@ void SBN_SendLocalSubsToPeer(uint32 PeerIdx) {
 
     for (i = 0; i < SBN.LocalSubCnt; i++) {
         /* Load the Protocol Buffer with the subscription details */
-        SBN.DataMsgBuf.Sub.MsgId = SBN.LocalSubs[i].MsgId;
+        SBN.DataMsgBuf.Sub.MsgId = htons(SBN.LocalSubs[i].MsgId);
         SBN.DataMsgBuf.Sub.Qos = SBN.LocalSubs[i].Qos;
 
         SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, sizeof(SBN_NetSub_t), PeerIdx, NULL, SBN_FALSE);
@@ -138,7 +138,7 @@ void SBN_ProcessSubFromPeer(uint32 PeerIdx) {
     }/* end if */
 
     /* SubscibeLocal suppresses the subscribption report */
-    CFE_SB_SubscribeLocal(SBN.DataMsgBuf.Sub.MsgId, SBN.Peer[PeerIdx].Pipe,
+    CFE_SB_SubscribeLocal(ntohs(SBN.DataMsgBuf.Sub.MsgId), SBN.Peer[PeerIdx].Pipe,
             SBN_DEFAULT_MSG_LIM);
 
     FirstOpenSlot = SBN.Peer[PeerIdx].SubCnt;
@@ -175,7 +175,7 @@ void SBN_ProcessUnsubFromPeer(uint32 PeerIdx) {
         return;
     }/* end if */
 
-    if (SBN_CheckPeerSubs4MsgId(&idx, SBN.DataMsgBuf.Sub.MsgId,
+    if (SBN_CheckPeerSubs4MsgId(&idx, ntohs(SBN.DataMsgBuf.Sub.MsgId),
             PeerIdx)==SBN_MSGID_NOT_FOUND)
     {
         CFE_EVS_SendEvent(SBN_SUB_NOT_FOUND_EID, CFE_EVS_INFORMATION,
@@ -196,7 +196,7 @@ void SBN_ProcessUnsubFromPeer(uint32 PeerIdx) {
     SBN.Peer[PeerIdx].SubCnt--;
 
     /* unsubscribe to the msg id on the peer pipe */
-    CFE_SB_UnsubscribeLocal(SBN.DataMsgBuf.Sub.MsgId, SBN.Peer[PeerIdx].Pipe);
+    CFE_SB_UnsubscribeLocal(ntohs(SBN.DataMsgBuf.Sub.MsgId), SBN.Peer[PeerIdx].Pipe);
 
 }/* SBN_ProcessUnsubFromPeer */
 
@@ -237,7 +237,7 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr) {
     SBN.DataMsgBuf.Hdr.Type = SBN_SUBSCRIBE_MSG;
     strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
-    SBN.DataMsgBuf.Sub.MsgId = Ptr->MsgId;
+    SBN.DataMsgBuf.Sub.MsgId = htons(Ptr->MsgId);
     SBN.DataMsgBuf.Sub.Qos = Ptr->Qos;
 
     /* send subscription to all peers if peer state is heartbeating */
@@ -283,7 +283,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr) {
     SBN.DataMsgBuf.Hdr.Type = SBN_UN_SUBSCRIBE_MSG;
     strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
-    SBN.DataMsgBuf.Sub.MsgId = Ptr->MsgId;
+    SBN.DataMsgBuf.Sub.MsgId = htons(Ptr->MsgId);
     SBN.DataMsgBuf.Sub.Qos = Ptr->Qos;
 
     /* send unsubscription to all peers if peer state is heartbeating and */
