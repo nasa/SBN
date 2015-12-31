@@ -216,8 +216,8 @@ int32 SBN_WaitForSBStartup() {
                 EvsPacket = (CFE_EVS_Packet_t *)SBMsgPtr;
 
                 /* If it's an event message from SB, make sure it's the init message */
-                if ( strcmp(EvsPacket->PacketID.AppName, "CFE_SB") == 0 ) {
-                    if (EvsPacket->PacketID.EventID == CFE_SB_INIT_EID) {
+                if ( strcmp(EvsPacket->Payload.PacketID.AppName, "CFE_SB") == 0 ) {
+                    if (EvsPacket->Payload.PacketID.EventID == CFE_SB_INIT_EID) {
                         /* Unsubscribe from event messages */
                         CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
                         MsgFound = SBN_TRUE;
@@ -737,7 +737,7 @@ void SBN_CheckPipe(uint32 PeerIdx, int32 * priority_remaining) {
         /* copy message from SB buffer to network data msg buffer */
         CFE_PSP_MemCpy(&SBN.DataMsgBuf.Pkt.Data[0], SBMsgPtr, AppMsgSize);
         strncpy((char *) &SBN.DataMsgBuf.Hdr.MsgSender.AppName,
-                lastSenderPtr->AppName, OS_MAX_API_NAME);
+                lastSenderPtr->AppName, OS_MAX_API_NAME * 2);
         strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
 
@@ -809,10 +809,15 @@ void SBN_ProcessNetAppMsg(int MsgLength) {
 
             if (SBN.Peer[PeerIdx].State == SBN_HEARTBEATING)
             {
+                CFE_SB_SenderId_t sender;
+
+                sender.ProcessorId = SBN.DataMsgBuf.Hdr.MsgSender.ProcessorId;
+                strncpy(sender.AppName, SBN.DataMsgBuf.Hdr.MsgSender.AppName, sizeof(sender.AppName));
+
                 status = CFE_SB_SendMsgFull(
                         (CFE_SB_Msg_t *) &SBN.DataMsgBuf.Pkt.Data[0],
                         CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY,
-                        &SBN.DataMsgBuf.Hdr.MsgSender);
+                        &sender);
 
                 if (status != CFE_SUCCESS)
                 {

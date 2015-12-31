@@ -73,17 +73,17 @@ int32 SBN_CheckSubscriptionPipe(void) {
 
             case CFE_SB_ONESUB_TLM_MID:
                 SubRprtMsgPtr = (CFE_SB_SubRprtMsg_t *) SBMsgPtr;
-                SubEntry.MsgId = SubRprtMsgPtr->MsgId;
-                SubEntry.Qos = SubRprtMsgPtr->Qos;
-                SubEntry.Pipe = SubRprtMsgPtr->Pipe;
-                if (SubRprtMsgPtr->SubType == CFE_SB_SUBSCRIPTION)
+                SubEntry.MsgId = SubRprtMsgPtr->Payload.MsgId;
+                SubEntry.Qos = SubRprtMsgPtr->Payload.Qos;
+                SubEntry.Pipe = SubRprtMsgPtr->Payload.Pipe;
+                if (SubRprtMsgPtr->Payload.SubType == CFE_SB_SUBSCRIPTION)
                     SBN_ProcessLocalSub(SubEntryPtr);
-                else if (SubRprtMsgPtr->SubType == CFE_SB_UNSUBSCRIPTION)
+                else if (SubRprtMsgPtr->Payload.SubType == CFE_SB_UNSUBSCRIPTION)
                     SBN_ProcessLocalUnsub(SubEntryPtr);
                 else
                     CFE_EVS_SendEvent(SBN_SUBTYPE_ERR_EID, CFE_EVS_ERROR,
                             "%s:Unexpected SubType %d in SBN_CheckSubscriptionPipe",
-                            CFE_CPU_NAME, SubRprtMsgPtr->SubType);
+                            CFE_CPU_NAME, SubRprtMsgPtr->Payload.SubType);
 
                 ResponseReceived = SBN_TRUE;
                 break;
@@ -308,19 +308,19 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr) {
         printf("SBN_ProcessAllSubscriptions\n");
     }
 
-    if (Ptr->Entries > CFE_SB_SUB_ENTRIES_PER_PKT)
+    if (Ptr->Payload.Entries > CFE_SB_SUB_ENTRIES_PER_PKT)
     {
         CFE_EVS_SendEvent(SBN_ENTRY_ERR_EID, CFE_EVS_ERROR,
                 "%s:Entries value %d in SB PrevSubMsg exceeds max %d, aborting",
-                CFE_CPU_NAME, Ptr->Entries, CFE_SB_SUB_ENTRIES_PER_PKT);
+                CFE_CPU_NAME, Ptr->Payload.Entries, CFE_SB_SUB_ENTRIES_PER_PKT);
         return;
     }/* end if */
 
-    for (i = 0; i < Ptr->Entries; i++)
+    for (i = 0; i < Ptr->Payload.Entries; i++)
     {
-        SubEntry.MsgId = Ptr->Entry[i].MsgId;
-        SubEntry.Pipe = Ptr->Entry[i].Pipe;
-        SubEntry.Qos = Ptr->Entry[i].Qos;
+        SubEntry.MsgId = Ptr->Payload.Entry[i].MsgId;
+        SubEntry.Pipe = Ptr->Payload.Entry[i].Pipe;
+        SubEntry.Qos = Ptr->Payload.Entry[i].Qos;
 
         SBN_ProcessLocalSub(SubEntryPtr);
     }/* end for */

@@ -17,12 +17,18 @@ typedef struct {
   CFE_SB_Qos_t      Qos;
 } SBN_Subs_t;
 
+/* mirrors CFE_SB_SenderId_t, but some versions of CFS have the larger AppName */
+typedef struct {
+  uint32 ProcessorId;
+  char AppName[OS_MAX_API_NAME * 2];
+} SBN_SenderId_t;
+
 typedef struct {
   uint8             Sync[SBN_SYNC_LENGTH]; /* 4 byte sync word, used by modules (optional) */
   uint32            MsgSize; /* total size of message including header */
   uint32            Type;
   char              SrcCpuName[SBN_MAX_PEERNAME_LENGTH]; /* Protocol message originator */
-  CFE_SB_SenderId_t MsgSender; /* This is the SB message originator metadata */
+  SBN_SenderId_t    MsgSender; /* This is the SB message originator metadata */
   uint16            SequenceCount;
   uint16            GapAfter;
   uint16            GapTo;
