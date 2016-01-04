@@ -1,10 +1,4 @@
 cmake_minimum_required(VERSION 2.6.4)
-<<<<<<< HEAD
-project(CFS_SBN C)
-
-include_directories(fsw/platform_inc)
-
-=======
 project(SBN_APP C)
 
 # workaround until these definitions are exposed by cfe_sb
@@ -18,7 +12,6 @@ endif()
 
 include_directories(${SBN_LIB_SOURCE_DIR}/fsw/public_inc)
 
->>>>>>> e2afa232589b8cb2d665d5cc6e7269fc626a6a30
 aux_source_directory(fsw/src APP_SRC_FILES)
 
 # Create the app module
