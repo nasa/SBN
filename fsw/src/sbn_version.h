@@ -16,13 +16,12 @@
 ** References:
 **
 ** Notes:
-**   Version 1.0.0 of the SBN is a prototype version and has not completed 
+**   Version 1.1.0 of the SBN is a prototype version and has not completed 
 **   GSFC 582 Flight Software Systems Branch CMMI procedures and processes.  
 **   This version of the SBN has been beta tested and is compatable with 
-**   the VxWorks and Linux operating systems.  Version 1.0.0 of the SBN has 
+**   the VxWorks and Linux operating systems.  Version 1.1.0 of the SBN has 
 **   not completed beta testing on the RTEMS operating system and may not be 
 **   compatable.  
-**
 ** 
 *************************************************************************/
 #ifndef _sbn_version_
@@ -37,7 +36,7 @@
 *************************************************************************/
 
 #define SBN_MAJOR_VERSION    1
-#define SBN_MINOR_VERSION    0
+#define SBN_MINOR_VERSION    1
 #define SBN_REVISION         0
 
 #endif
