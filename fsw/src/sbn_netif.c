@@ -36,8 +36,6 @@
 #include <string.h>
 #include <errno.h>
 
-#include <stdlib.h>  /* for qsort */
-
 int32 SBN_CheckForMissedPkts(uint32 HostIdx, int32 PeerIdx);
 
 char * SBN_FindFileEntryAppData(char *entry, int num_fields) {
@@ -204,9 +202,6 @@ int32 SBN_InitPeerInterface(void) {
         }
 
     }/* end for */
-
-    /* ensure that peers are sorted by QoS priority */
-    qsort(SBN.Peer, SBN.NumEntries, sizeof(*(SBN.Peer)), SBN_ComparePeerQoS);
 
     OS_printf("SBN: Num Hosts = %d, Num Peers = %d\n", SBN.NumHosts, SBN.NumPeers);
     return SBN_OK;
