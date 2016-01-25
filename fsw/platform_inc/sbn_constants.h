@@ -107,8 +107,6 @@
 #define SBN_SYNC_3                    0x98
 #define SBN_SYNC_4                    0xB9
 
-static uint8 sbn_sync[] = {SBN_SYNC_1, SBN_SYNC_2, SBN_SYNC_3, SBN_SYNC_4};
-
 /*
 ** Event IDs
 */
