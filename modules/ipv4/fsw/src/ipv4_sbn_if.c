@@ -4,6 +4,7 @@
 #include "sbn_lib_utils.h"
 #include <network_includes.h>
 #include <string.h>
+#include <strings.h> /* for bzero */
 #include <errno.h>
 
 /**
@@ -91,7 +92,7 @@ int SBN_CreateSocket(int Port) {
  */
 void SBN_ClearSocket(int SockID) {
     struct sockaddr_in  s_addr;
-    int                 addr_len;
+    socklen_t addr_len;
     int                 i;
     int                 status;
 
@@ -122,7 +123,7 @@ void SBN_ClearSocket(int SockID) {
 int32 SBN_CheckForIPv4NetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *ProtoMsgBuf) {
     struct sockaddr_in s_addr;
     int                status;
-    int                addr_len;
+    socklen_t addr_len;
     IPv4_SBNPeerData_t *peer = Peer->PeerData;
     bzero((char *) &s_addr, sizeof(s_addr));
 
@@ -170,9 +171,8 @@ int32 SBN_CheckForIPv4NetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *Pr
 int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
 
     struct sockaddr_in s_addr;
-    int                i;
     int                status;
-    int                addr_len;
+    socklen_t addr_len;
 
     bzero((char *) &s_addr, sizeof(s_addr));
 
@@ -208,7 +208,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
  * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
  *
  */
-int32 SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, int *EntryAddr) {
+int32 SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr) {
     int     ScanfStatus;
     char    Addr[16];
     int     DataPort;
@@ -250,7 +250,6 @@ int32 SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, int *EntryAddr) {
  */
 int32 SBN_InitIPv4IF(SBN_InterfaceData *Data) {
 
-    int32 Stat;
     IPv4_SBNEntry_t *entry = Data->EntryData;
 
     /* CPU names match - this is host data.
@@ -279,8 +278,6 @@ int32 SBN_InitIPv4IF(SBN_InterfaceData *Data) {
     }
     /* CPU names do not match - this is peer data. */
     else {
-        int i;
-
         /* create, fill, and store an IPv4-specific host data structure */
         IPv4_SBNPeerData_t *peer = malloc(sizeof(IPv4_SBNPeerData_t));
 

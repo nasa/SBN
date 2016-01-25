@@ -103,7 +103,7 @@ int32 Serial_SbnCheckForNetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *
  * @return SBN_ERROR on error
  */
 int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
-        int *EntryAddr) {
+        void** EntryAddr) {
 
     int     ScanfStatus;
     uint32  BaudRate;
@@ -126,14 +126,14 @@ int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
         return SBN_ERROR;
     }
 
-    entry = (void*)malloc(sizeof(Serial_SBNEntry_t));
+    entry = malloc(sizeof(Serial_SBNEntry_t));
     if (entry == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
                 "Serial cannot allocate memory for host/peer file entry.\n");
         return SBN_ERROR;
     }
 
-    *EntryAddr = (int)entry;
+    *EntryAddr = entry;
     entry->PairNum  = PairNum;
     entry->BaudRate = BaudRate;
     strcpy(entry->DevNameHost, DevNameHost);

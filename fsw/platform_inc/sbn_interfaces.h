@@ -74,9 +74,9 @@ typedef struct {
     uint32 SpaceCraftId;    /* spacecraft id from SbnPeerData.dat file */
     uint8  QoS;             /* QoS from SbnPeerData.dat file */
     uint8  IsValid;         /* used by interfaces that require a match - 1 if match exists, 0 if not */
-    int32  EntryData;       /* address of an interface's entry data structure */
-    int32  HostData;        /* address of an interface's host data structure */
-    int32  PeerData;        /* address of an interface's peer data structure */
+    void*  EntryData;       /* address of an interface's entry data structure */
+    void*  HostData;        /* address of an interface's host data structure */
+    void*  PeerData;        /* address of an interface's peer data structure */
 } SBN_InterfaceData;
 
 
@@ -118,10 +118,10 @@ typedef struct {
      *
      * @param char*   Interface description line as read from file
      * @param uint32  The line number in the peer file
-     * @param int*    The address of the filled entry struct
+     * @param void**    The address of the filled entry struct
      * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
      */
-    int32 (*ParseInterfaceFileEntry)(char *, uint32, int*);
+    int32 (*ParseInterfaceFileEntry)(char *, uint32, void**);
 
     /**
      * Initializes the interface, classifies each interface based as a host

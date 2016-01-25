@@ -11,7 +11,7 @@
 void  SBN_ShowSerialPeerData(int i);
 
 /* SBN_InterfaceOperations functions */
-int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum, int *EntryAddr);
+int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum, void** EntryAddr);
 int32 Serial_SbnInitPeerInterface(SBN_InterfaceData* data);
 int32 Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf);
 int32 Serial_SbnCheckForNetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *ProtoMsgBuf);

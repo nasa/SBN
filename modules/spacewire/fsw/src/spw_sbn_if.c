@@ -183,7 +183,7 @@ int SBN_SPWRcvMsg(SBN_InterfaceData *Peer, NetDataUnion *DataMsgBuf) {
  * @param EntryAddr  Address in which to return the filled entry struct
  * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
  */
-int32 SBN_ParseSPWFileEntry(char *FileEntry, uint32 LineNum, int *EntryAddr) {
+int32 SBN_ParseSPWFileEntry(char *FileEntry, uint32 LineNum, void** EntryAddr) {
     int     ScanfStatus;
     char    ProtoDev[SBN_SPW_MAX_CHAR_NAME];
     char    DevInstance[SBN_SPW_MAX_CHAR_NAME];
