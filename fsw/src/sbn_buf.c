@@ -94,8 +94,6 @@ int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer,
     NetMsgSize = Msg->Hdr.MsgSize;
     status = CFE_PSP_MemCpy(&buffer->Msgs[addIdx], Msg, NetMsgSize);
 
-    printf("SBN_AddMsgToMsgBufSend: Added Seq = %d to Idx = %d\n", Msg->Hdr.SequenceCount, addIdx);
-
     if(buffer->OldestIndex == -1) {
         buffer->OldestIndex = (buffer->OldestIndex + 1) % SBN_MSG_BUFFER_SIZE;
     }
@@ -143,9 +141,7 @@ int32 SBN_ClearMsgBufBeforeSeq(SBN_NetProtoMsg_t* Ack, SBN_PeerMsgBuf_t* buffer)
     oldest = buffer->OldestIndex;
     idx = oldest;
 
-    //printf("SBN_ClearMsgBufBeforeSeq\n");
     while(checked < count) {
-      //  printf("Checking index %d\n", idx);
         if(buffer->Msgs[idx].Hdr.SequenceCount <= seq) {
             CFE_PSP_MemSet(&buffer->Msgs[idx], 0, sizeof(NetDataUnion));
             buffer->MsgCount--;
@@ -162,8 +158,6 @@ int32 SBN_ClearMsgBufBeforeSeq(SBN_NetProtoMsg_t* Ack, SBN_PeerMsgBuf_t* buffer)
     }
 
     buffer->OldestIndex = oldest;
-    printf("Removed Msgs From Send Buffer.  MsgCount = %d, OldestIdx = %d\n", 
-            buffer->MsgCount, buffer->OldestIndex);
     return SBN_OK;
 }
 
@@ -188,9 +182,7 @@ int32 SBN_SendConsecutiveFromBuf(SBN_PeerMsgBuf_t* buffer, int32 seq,
     sent = 0;
 
     while(checked < count) {
-        printf("SBN_SendConsecutiveFromBuf: Checking idx %d, Seq = %d, ExpSeq = %d\n", idx, buffer->Msgs[idx].Hdr.SequenceCount, currentSeq);
         if(buffer->Msgs[idx].Hdr.SequenceCount == currentSeq) {
-            printf("SBN_SendConsecutiveFromBuf: sending message with seq = %d\n", buffer->Msgs[idx].Hdr.SequenceCount);
             NetMsgSize = buffer->Msgs[idx].Hdr.MsgSize;
             status = CFE_PSP_MemCpy(&SBN.DataMsgBuf, 
                     &buffer->Msgs[idx], NetMsgSize);
@@ -222,8 +214,6 @@ int32 SBN_SendConsecutiveFromBuf(SBN_PeerMsgBuf_t* buffer, int32 seq,
     }
 
     buffer->OldestIndex = oldest;
-    printf("Removed Msgs From Send Buffer.  MsgCount = %d, OldestIdx = %d\n", 
-            buffer->MsgCount, buffer->OldestIndex);
     return sent;
 }
 
@@ -244,12 +234,8 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx) {
     count = buffer->MsgCount;
     idx = buffer->OldestIndex;
     
-    printf("Retransmitting Message %d\n", seq);
     while(checked < count) {
-
- //       printf("Checking idx %d, seq = %d\n", idx, buffer->Msgs[idx].Hdr.SequenceCount);
         if(buffer->Msgs[idx].Hdr.SequenceCount == seq) {
-   //         printf("#retransmis = %d\n", buffer->Retransmits[idx]);
             if(buffer->Retransmits[idx] < SBN_MAX_MSG_RETRANSMISSIONS) {
                 NetMsgSize = buffer->Msgs[idx].Hdr.MsgSize;
                 status = CFE_PSP_MemCpy(&SBN.DataMsgBuf, 
@@ -264,7 +250,6 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx) {
 
                 SBN_SendNetMsg(SBN_APP_MSG, NetMsgSize, PeerIdx, &sender, SBN_TRUE);
                 buffer->Retransmits[idx]++;
-                printf("Sent Retransmitted Message!\n");
             }
             break;
         }
