@@ -38,7 +38,7 @@ void SBN_SendLocalSubsToPeer(uint32 PeerIdx) {
     uint32 i;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_SendLocalSubsToPeer\n");
+        OS_printf("SBN_SendLocalSubsToPeer\n");
     }
 
     if (SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER) {
@@ -64,7 +64,7 @@ int32 SBN_CheckSubscriptionPipe(void) {
     int32 ResponseReceived = SBN_FALSE;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckSubscriptionPipe\n");
+        OS_printf("SBN_CheckSubscriptionPipe\n");
     }
 
     while (CFE_SB_RcvMsg(&SBMsgPtr, SBN.SubPipe, CFE_SB_POLL) == CFE_SUCCESS) {
@@ -126,7 +126,7 @@ void SBN_ProcessSubFromPeer(uint32 PeerIdx) {
     uint32 idx;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessSubFromPeer\n");
+        OS_printf("SBN_ProcessSubFromPeer\n");
     }
 
     if (PeerIdx == SBN_ERROR) {
@@ -173,7 +173,7 @@ void SBN_ProcessUnsubFromPeer(uint32 PeerIdx) {
     uint32 idx;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessUnsubFromPeer\n");
+        OS_printf("SBN_ProcessUnsubFromPeer\n");
     }
 
     if (PeerIdx == SBN_ERROR)
@@ -223,7 +223,7 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr) {
     uint32 index;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessLocalSub\n");
+        OS_printf("SBN_ProcessLocalSub\n");
     }
 
     if (SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER)
@@ -274,7 +274,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr) {
     uint32 index;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessLocalUnsub\n");
+        OS_printf("SBN_ProcessLocalUnsub\n");
     }
 
     /* find index of matching subscription */
@@ -322,7 +322,7 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr) {
     CFE_SB_SubEntries_t SubEntry;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessAllSubscriptions\n");
+        OS_printf("SBN_ProcessAllSubscriptions\n");
     }
 
 #ifdef SBN_PAYLOAD
@@ -366,7 +366,7 @@ int32 SBN_CheckLocSubs4MsgId(uint32 *IdxPtr, CFE_SB_MsgId_t MsgId) {
     uint32 i;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckLocSubs4MsgId\n");
+        OS_printf("SBN_CheckLocSubs4MsgId\n");
     }
 
     for (i = 0; i < SBN.LocalSubCnt; i++)
@@ -387,7 +387,7 @@ int32 SBN_CheckPeerSubs4MsgId(uint32 *SubIdxPtr, CFE_SB_MsgId_t MsgId,
     uint32 i;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckPeerSubs4MsgId\n");
+        OS_printf("SBN_CheckPeerSubs4MsgId\n");
     }
 
     for (i = 0; i < SBN.Peer[PeerIdx].SubCnt; i++)
@@ -407,7 +407,7 @@ void SBN_RemoveAllSubsFromPeer(uint32 PeerIdx) {
     uint32 i;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_RemoveAllSubsFromPeer\n");
+        OS_printf("SBN_RemoveAllSubsFromPeer\n");
     }
 
     if (PeerIdx == SBN_ERROR)

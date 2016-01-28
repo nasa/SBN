@@ -226,7 +226,7 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx,
     uint32 ProtocolId;
    
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_SendNetMsg\n");
+        OS_printf("SBN_SendNetMsg\n");
     }
 
     /* switch based on protocol type */
@@ -267,7 +267,6 @@ int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx,
 
                 #ifdef TEST_MISSED_MSG
                 if(SBN.Peer[PeerIdx].SentCount == 80) {
-                    printf("Skipping Message %d\n", SBN.Peer[PeerIdx].SentCount);
                     SBN.DataMsgBuf.Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
                     strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
                          SBN_MAX_PEERNAME_LENGTH);
@@ -333,7 +332,7 @@ int32 SBN_CheckForNetProtoMsg(uint32 PeerIdx) {
     uint32 ProtocolId;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckForNetProtoMsg\n");
+        OS_printf("SBN_CheckForNetProtoMsg\n");
     }
         
     /* switch based on protocol type */
@@ -368,27 +367,23 @@ int32 SBN_CheckForMissedPkts(uint32 HostIdx, int32 PeerIdx) {
     int32 numMissed;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckForMissedPkts\n");
+        OS_printf("SBN_CheckForMissedPkts\n");
     }
 
     msgsSentToUs = SBN.DataMsgBuf.Hdr.SequenceCount;
    
     PeerIdx = SBN_GetPeerIndex(SBN.DataMsgBuf.Hdr.SrcCpuName);
     if(PeerIdx == SBN_ERROR) {
-        printf("SBN_CheckForMissedPkts: SrcCpuName = %s\n", SBN.DataMsgBuf.Hdr.SrcCpuName);
-        printf("SBN_CheckForMissedPkts: PeerIdx = %u\n", PeerIdx);
-
         // TODO event message
         return;
     }
     msgsRcvdByUs = SBN.Peer[PeerIdx].RcvdCount;
-    printf("SBN_CheckForMissedPkts: Received %u\n", msgsSentToUs);
     numMissed = msgsSentToUs - msgsRcvdByUs;
     if(numMissed > 0) {
-        printf("Missed Packet!  Expected %u, Received %u\n", msgsRcvdByUs,  msgsSentToUs);
+        OS_printf("Missed Packet!  Expected %u, Received %u\n", msgsRcvdByUs,  msgsSentToUs);
         // TODO event message
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
-        printf("Adding Msg %d to Deferred Buffer\n", msgsSentToUs);
+        OS_printf("Adding Msg %d to Deferred Buffer\n", msgsSentToUs);
         SBN_AddMsgToMsgBufSend(&SBN.DataMsgBuf, &SBN.Peer[PeerIdx].DeferredBuf, PeerIdx);
         SBN.DataMsgBuf.Hdr.SequenceCount = msgsRcvdByUs;
         SBN_SendNetMsg(SBN_COMMAND_NACK_MSG,
@@ -426,7 +421,7 @@ int SBN_IFRcv(int HostIdx) {
     uint32 ProtocolId;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_IFRcv\n");
+        OS_printf("SBN_IFRcv\n");
     }
 
     ProtocolId = SBN.Host[HostIdx]->ProtocolId;
@@ -441,7 +436,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx) {
     int32 i, status, PeerIdx, missed;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessNetAppMsgsFromHost\n");
+        OS_printf("SBN_ProcessNetAppMsgsFromHost\n");
     }
 
     /* Process all the received messages */
@@ -453,16 +448,15 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx) {
         if (status > 0) {
             PeerIdx = SBN_GetPeerIndex(SBN.DataMsgBuf.Hdr.SrcCpuName);
             if(PeerIdx == SBN_ERROR) {
-                printf("PeerIdx Bad.  PeerIdx = %d\n", PeerIdx);
+                OS_printf("PeerIdx Bad.  PeerIdx = %d\n", PeerIdx);
                 continue;
             }
 
             if(SBN.DataMsgBuf.Hdr.Type == SBN_COMMAND_ACK_MSG) {
-                printf("Got ACK for packet %u\n", SBN.DataMsgBuf.Hdr.SequenceCount);
                 SBN_ClearMsgBufBeforeSeq(&SBN.ProtoMsgBuf, &SBN.Peer[PeerIdx].SentMsgBuf);
             }
             else if(SBN.DataMsgBuf.Hdr.Type == SBN_COMMAND_NACK_MSG) {
-                printf("Got NACK for packet %u\n", SBN.DataMsgBuf.Hdr.SequenceCount);
+                OS_printf("Got NACK for packet %u\n", SBN.DataMsgBuf.Hdr.SequenceCount);
                 SBN_RetransmitSeq(&SBN.Peer[PeerIdx].SentMsgBuf, 
                                   SBN.DataMsgBuf.Hdr.SequenceCount,
                                   PeerIdx);
@@ -498,7 +492,7 @@ void SBN_CheckForNetAppMsgs(void) {
     int32 priority;
    
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckForNetAppMsgs\n");
+        OS_printf("SBN_CheckForNetAppMsgs\n");
     }
 
     priority = 0;
@@ -532,7 +526,7 @@ void SBN_VerifyPeerInterfaces() {
             SBN.Peer[PeerIdx].IfData->IsValid = SBN_NOT_VALID;
             SBN.Peer[PeerIdx].InUse = SBN_NOT_IN_USE;
             /* TODO - send EVS Message */
-            printf("Peer %s Not Valid\n", SBN.Peer[PeerIdx].IfData->Name);
+            OS_printf("Peer %s Not Valid\n", SBN.Peer[PeerIdx].IfData->Name);
         }
     }
 }
@@ -552,7 +546,7 @@ void SBN_VerifyHostInterfaces() {
             SBN.Host[HostIdx]->IsValid = SBN_NOT_VALID;
 
             /* TODO - send EVS Message */
-            printf("Host %s Not Valid\n", SBN.Host[HostIdx]->Name);
+            OS_printf("Host %s Not Valid\n", SBN.Host[HostIdx]->Name);
         }
     }
 }

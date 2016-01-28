@@ -396,9 +396,9 @@ int32 SBN_GetPeerFileData(void) {
 
     /* First check for the file in RAM */
     PeerFile = OS_open(SBN_VOL_PEER_FILENAME, O_RDONLY, 0);
-    printf("SBN_VOL_PEER_FILENAME = %s\n", SBN_VOL_PEER_FILENAME);
+    OS_printf("SBN_VOL_PEER_FILENAME = %s\n", SBN_VOL_PEER_FILENAME);
     if (PeerFile != OS_ERROR) {
-        printf("thinks it opened the vol...\n");
+        OS_printf("thinks it opened the vol...\n");
         SBN_SendFileOpenedEvent(SBN_VOL_PEER_FILENAME);
         FileOpened = TRUE;
     }
@@ -414,7 +414,7 @@ int32 SBN_GetPeerFileData(void) {
         PeerFile = OS_open(SBN_NONVOL_PEER_FILENAME, O_RDONLY, 0);
 
         if (PeerFile != OS_ERROR) {
-            printf("thinks it opened the nonvol...\n");
+            OS_printf("thinks it opened the nonvol...\n");
             SBN_SendFileOpenedEvent(SBN_NONVOL_PEER_FILENAME);
             FileOpened = TRUE;
         }
@@ -535,7 +535,7 @@ void SBN_RunProtocol(void) {
     uint32 UnkownRcved;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_RunProtocol\n");
+        OS_printf("SBN_RunProtocol\n");
     }
 
     /* The protocol is run for each peer in use. In Linux, the UDP/IP message
@@ -690,7 +690,7 @@ void SBN_RunProtocol(void) {
 
 int32 SBN_PollPeerPipe(uint32 PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr) {
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_PollPeerPipe\n");
+        OS_printf("SBN_PollPeerPipe\n");
     }
     return CFE_SB_RcvMsg((CFE_SB_Msg_t**)SBMsgPtr, SBN.Peer[PeerIdx].Pipe, CFE_SB_POLL);
 }
@@ -700,7 +700,7 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, uint32 PeerIdx) {
     uint16 AppMsgSize, MaxAppMsgSize;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckMsgSize\n");
+        OS_printf("SBN_CheckMsgSize\n");
     }
 
     /* Find size of app msg without SBN hdr */
@@ -731,7 +731,7 @@ void SBN_CheckPipe(uint32 PeerIdx, int32 * priority_remaining) {
     int32 status;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckPipe\n");
+        OS_printf("SBN_CheckPipe\n");
     }
 
     status = SBN_PollPeerPipe(PeerIdx, &SBMsgPtr);
@@ -765,7 +765,7 @@ void SBN_CheckPeerPipes(void) {
     int32 priority_remaining = 0;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_CheckPeerPipes\n");
+        OS_printf("SBN_CheckPeerPipes\n");
     }
 
     while(priority < SBN_MAX_PEER_PRIORITY) {
@@ -795,12 +795,10 @@ void SBN_ProcessNetAppMsg(int MsgLength) {
     int32 status;
 
     if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_ProcessNetAppMsg\n");
+        OS_printf("SBN_ProcessNetAppMsg\n");
     }
 
     PeerIdx = SBN_GetPeerIndex(SBN.DataMsgBuf.Hdr.SrcCpuName);
-
-    printf("SBN_ProcessNetAppMsg:  PeerIdx = %d, Type = %x\n", PeerIdx, SBN.DataMsgBuf.Hdr.Type);
 
     if (PeerIdx == SBN_ERROR)
         return;
