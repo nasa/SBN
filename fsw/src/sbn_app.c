@@ -216,6 +216,7 @@ int32 SBN_WaitForSBStartup() {
                 EvsPacket = (CFE_EVS_Packet_t *)SBMsgPtr;
 
                 /* If it's an event message from SB, make sure it's the init message */
+#ifdef SBN_PAYLOAD
                 if ( strcmp(EvsPacket->Payload.PacketID.AppName, "CFE_SB") == 0 ) {
                     if (EvsPacket->Payload.PacketID.EventID == CFE_SB_INIT_EID) {
                         /* Unsubscribe from event messages */
@@ -224,6 +225,16 @@ int32 SBN_WaitForSBStartup() {
                         return SBN_TRUE; /* SBN needs to re-send request messages */
                     }
                 }
+#else /* !SBN_PAYLOAD */
+                if ( strcmp(EvsPacket->PacketID.AppName, "CFE_SB") == 0 ) {
+                    if (EvsPacket->PacketID.EventID == CFE_SB_INIT_EID) {
+                        /* Unsubscribe from event messages */
+                        CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
+                        MsgFound = SBN_TRUE;
+                        return SBN_TRUE; /* SBN needs to re-send request messages */
+                    }
+                }
+#endif /* SBN_PAYLOAD */
             }
         }
 
@@ -302,7 +313,7 @@ int32 SBN_RcvMsg(int32 iTimeOut) {
 
   /* success or timeout is ok to proceed through main loop */
   if (iStatus == CFE_SUCCESS) {
-    MsgId = CFE_SB_GetMsgId(MsgPtr);
+    MsgId = CFE_SB_GetMsgId(MsgPtr); /* note MsgId is platform-endian */
     switch (MsgId) {
       case SBN_WAKEUP_MID:
         /* cyclic processing at sch wakeup rate */
@@ -318,7 +329,7 @@ int32 SBN_RcvMsg(int32 iTimeOut) {
 
       default:
         CFE_EVS_SendEvent(SBN_MSGID_ERR_EID, CFE_EVS_ERROR,
-                          "SBN - Recvd invalid SCH msgId (0x%08X)", MsgId);
+                          "SBN - Recvd invalid SCH msgId (0x%04X)", MsgId);
     }
   }
   else if (iStatus == CFE_SB_TIME_OUT) {
@@ -834,7 +845,8 @@ void SBN_ProcessNetAppMsg(int MsgLength) {
             if (SBN.DebugOn == SBN_TRUE)
             {
                 OS_printf("%s:Sub Rcvd from %s,Msg 0x%04X\n", CFE_CPU_NAME,
-                        SBN.Peer[PeerIdx].Name, SBN.DataMsgBuf.Sub.MsgId);
+                        SBN.Peer[PeerIdx].Name,
+                        ntohs(SBN.DataMsgBuf.Sub.MsgId));
             }/* end if */
             SBN_ProcessSubFromPeer(PeerIdx);
             break;
@@ -844,7 +856,8 @@ void SBN_ProcessNetAppMsg(int MsgLength) {
             if (SBN.DebugOn == SBN_TRUE)
             {
                 OS_printf("%s:Unsub Rcvd from %s,Msg 0x%04X\n", CFE_CPU_NAME,
-                        SBN.Peer[PeerIdx].Name, SBN.DataMsgBuf.Sub.MsgId);
+                        SBN.Peer[PeerIdx].Name,
+                        ntohs(SBN.DataMsgBuf.Sub.MsgId));
             }/* end if */
             SBN_ProcessUnsubFromPeer(PeerIdx);
             break;
@@ -952,7 +965,7 @@ void SBN_NetMsgSendDbgEvt(uint32 MsgType, uint32 PeerIdx, int Status) {
 
     switch (MsgType) {
         case SBN_APP_MSG:
-            OS_printf("%s:Sent MsgId 0x%x to %s sz=%d\n", CFE_CPU_NAME,
+            OS_printf("%s:Sent MsgId 0x%04X to %s sz=%d\n", CFE_CPU_NAME,
                     CFE_SB_GetMsgId(
                             (CFE_SB_MsgPtr_t) &SBN.DataMsgBuf.Pkt.Data[0]),
                     SBN.Peer[PeerIdx].Name, Status);
@@ -960,7 +973,7 @@ void SBN_NetMsgSendDbgEvt(uint32 MsgType, uint32 PeerIdx, int Status) {
 
         case SBN_SUBSCRIBE_MSG:
         case SBN_UN_SUBSCRIBE_MSG:
-            OS_printf("%s:%s for 0x%x sent to %s sz=%d\n", CFE_CPU_NAME,
+            OS_printf("%s:%s for 0x%04X sent to %s sz=%d\n", CFE_CPU_NAME,
                     SBN_LIB_GetMsgName(MsgType),
                     CFE_SB_GetMsgId(
                             (CFE_SB_MsgPtr_t) &SBN.DataMsgBuf.Sub.MsgId),

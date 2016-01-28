@@ -156,11 +156,11 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength);
 /*******************************************************************/
 void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr) {
 
-    CFE_SB_MsgId_t MessageID = 0;
+    CFE_SB_MsgId_t MsgId = 0;
     uint16         CommandCode = 0;
 
-    MessageID = CFE_SB_GetMsgId(MessagePtr);
-    switch (MessageID) {
+    MsgId = CFE_SB_GetMsgId(MessagePtr);
+    switch (MsgId) {
         /* Housekeeping Telemetry Requests */
         case SBN_SEND_HK_MID:
             SBN_HousekeepingReq(MessagePtr);
@@ -189,7 +189,7 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr) {
                     SBN.HkPkt.CmdErrCount++;
                     CFE_EVS_SendEvent(SBN_CC_ERR_EID, CFE_EVS_ERROR,
                                       "Invalid command code: ID = 0x%04X, CC = %d", 
-                                      MessageID, CommandCode);
+                                      MsgId, CommandCode);
                     break;
             }
             break;
@@ -197,7 +197,8 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr) {
         default:
             SBN.HkPkt.CmdErrCount++;
             CFE_EVS_SendEvent(SBN_MID_ERR_EID, CFE_EVS_ERROR,
-                              "Invalid command pipe message ID: 0x%04X", MessageID);
+                "Invalid command pipe message ID: 0x%04X",
+                MsgId);
             break;
     }
 
@@ -431,17 +432,17 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength) {
     boolean result = TRUE;
     uint16  CommandCode;
     uint16  ActualLength;
-    CFE_SB_MsgId_t MessageID;
+    CFE_SB_MsgId_t MsgId;
 
     /*
     ** Verify the message packet length...
     */
     ActualLength = CFE_SB_GetTotalMsgLength(msg);
     if (ExpectedLength != ActualLength) {
-        MessageID   = CFE_SB_GetMsgId(msg);
+        MsgId   = CFE_SB_GetMsgId(msg);
         CommandCode = CFE_SB_GetCmdCode(msg);
 
-        if (MessageID == SBN_SEND_HK_MID) {
+        if (MsgId == SBN_SEND_HK_MID) {
 
             /*
             ** For a bad HK request, just send the event.  We only increment
@@ -449,7 +450,7 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength) {
             */
             CFE_EVS_SendEvent(SBN_HKREQ_LEN_ERR_EID, CFE_EVS_ERROR,
                     "Invalid HK request msg length: ID = 0x%04X, CC = %d, Len = %d, Expected = %d",
-                    MessageID, CommandCode, ActualLength, ExpectedLength);
+                    MsgId, CommandCode, ActualLength, ExpectedLength);
         }
         else {
 
@@ -458,7 +459,7 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength) {
             */
             CFE_EVS_SendEvent(SBN_LEN_ERR_EID, CFE_EVS_ERROR,
                     "Invalid msg length: ID = 0x%04X, CC = %d, Len = %d, Expected = %d",
-                    MessageID, CommandCode, ActualLength, ExpectedLength);
+                    MsgId, CommandCode, ActualLength, ExpectedLength);
 
             SBN.HkPkt.CmdErrCount++;
         }
