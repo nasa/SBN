@@ -51,10 +51,6 @@ void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr);
 **         - App message send error counter for each peer
 **         - App messages received counter for each peer
 **         - App message receive error counter for each peer
-**         - Protocol messages sent counter for each peer
-**         - Protocol message send error counter for each peer
-**         - Protocol messages received counter for each peer
-**         - Protocol message receive error counter for each peer
 **
 **  \par Assumptions, External Events, and Notes:
 **       None
@@ -220,10 +216,6 @@ void SBN_InitializeCounters(void) {
         SBN.HkPkt.PeerAppMsgSendCount[i] = 0;
         SBN.HkPkt.PeerAppMsgRecvErrCount[i] = 0;
         SBN.HkPkt.PeerAppMsgSendErrCount[i] = 0;
-        SBN.HkPkt.PeerProtoMsgRecvCount[i] = 0;
-        SBN.HkPkt.PeerProtoMsgSendCount[i] = 0;
-        SBN.HkPkt.PeerProtoMsgRecvErrCount[i] = 0;
-        SBN.HkPkt.PeerProtoMsgSendErrCount[i] = 0;
     }
 
     return;

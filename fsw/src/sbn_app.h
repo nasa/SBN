@@ -60,21 +60,20 @@
 #include "cfe_sb.h"
 
 typedef struct {
-  SBN_NetProtoMsg_t ProtoMsgBuf;/* rcving proto msgs (announce/heartbeat)*/
   SBN_InterfaceData IfData[SBN_MAX_NETWORK_PEERS*2];  /* Data on all devices in the peer file (allow a host for every peer) */
   SBN_InterfaceData *Host[SBN_MAX_NETWORK_PEERS];   /* Data only on devices that are the host */
   SBN_PeerData_t    Peer[SBN_MAX_NETWORK_PEERS];    /* Data only no devices that are not the host */
   uint32            AppId;
-  int32             NumPeers;
-  int32             NumHosts;
-  int32             NumEntries;
+  int               NumPeers;
+  int               NumHosts;
+  int               NumEntries;
   CFE_SB_PipeId_t   SubPipe;
   CFE_SB_PipeId_t   CmdPipe;
   CFE_SB_PipeId_t   EventPipe;
   CFE_SB_MsgPtr_t   CmdMsgPtr;
 
-  NetDataUnion      DataMsgBuf;
-  uint32            LocalSubCnt;
+  NetDataUnion      MsgBuf;
+  int               LocalSubCnt;
   SBN_Subs_t        LocalSubs[SBN_MAX_SUBS_PER_PEER];
   uint8             DebugOn;
 
@@ -95,27 +94,26 @@ sbn_t SBN;
 ** Prototypes
 */
 void  SBN_AppMain(void);
-int32 SBN_Init(void);
-int32 SBN_WaitForSBStartup(void);
+int   SBN_Init(void);
+int   SBN_WaitForSBStartup(void);
 int32 SBN_RcvMsg(int32 iTimeOut);
-int32 SBN_InitProtocol(void);
+int   SBN_InitProtocol(void);
 void  SBN_InitPeerVariables(void);
 
-int32 SBN_CreatePipe4Peer(uint32 PeerIdx);
-int32 SBN_SendNetMsg(uint32 MsgType,uint32 MsgSize,uint32 PeerIdx, CFE_SB_SenderId_t *SenderPtr, uint8 IsRetransmit);
+int SBN_CreatePipe4Peer(int PeerIdx);
 void  SBN_RcvNetMsgs(void);
 void  SBN_RunProtocol(void);
 
-int32 SBN_PollPeerPipe(uint32 PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr);
-uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, uint32 PeerIdx);
-void  SBN_CheckPipe(uint32 PeerIdx, int32 * priority_remaining);
+int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr);
+uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx);
+void  SBN_CheckPipe(int PeerIdx, int32 * priority_remaining);
 void  SBN_CheckPeerPipes(void);
 
 void  SBN_ProcessNetProtoMsg(void);
 
 void  SBN_ProcessNetAppMsg(int MsgLength);
 int32 SBN_CheckCmdPipe(void);
-int32 SBN_GetPeerIndex (char *NamePtr);
+int SBN_GetPeerIndex (char *NamePtr);
 void  SBN_ShowStates(void);
 char  *SBN_StateNum2Str(uint32 StateNum);
 void  SBN_ShowPeerData(void);
@@ -131,7 +129,6 @@ char  *SBN_GetMsgName(uint32 MsgType);
 void  SBN_SendWakeUpDebugMsg(void);
 void  SBN_DebugOn(void);
 void  SBN_DebugOff(void);
-int32 CFE_SB_SendMsgFull(CFE_SB_Msg_t   *MsgPtr, uint32 TlmCntIncrements, uint32 CopyMode, CFE_SB_SenderId_t *SenderPtr);
 
 void SBN_ResetPeerMsgCounts(uint32 PeerIdx);
 

@@ -99,7 +99,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum) {
     uint32  StructAddr;
 
     /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%lu %s %s %s", &ProtocolId, ModuleName, ModuleFile, StructName);
+    ScanfStatus = sscanf(FileEntry, "%lu %s %s %s", (unsigned long int *)&ProtocolId, ModuleName, ModuleFile, StructName);
 
     /*
     ** Check to see if the correct number of items were parsed
@@ -109,7 +109,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum) {
         /*CFE_EVS_SendEvent(SBN_INV_LINE_EID,CFE_EVS_ERROR,
                           "%s:Invalid SBN module file line,exp %d items,found %d",
                           CFE_CPU_NAME, 4, ScanfStatus); */
-        printf("%s:Invalid SBN module file line,exp %d items,found %d",
+        OS_printf("%s:Invalid SBN module file line,exp %d items,found %d",
                           CFE_CPU_NAME, 4, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
@@ -125,7 +125,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum) {
     SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
 
     if(ReturnCode != OS_SUCCESS) {
-        printf("Failed to find symbol %s\n", StructName);
+        OS_printf("Failed to find symbol %s\n", StructName);
         return SBN_ERROR;
     }
 

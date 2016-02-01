@@ -49,8 +49,7 @@ void SBN_SendBindFailedEvent(uint32 Line, int RtnVal){
  * @param Port port number
  * @return socket id
  */
-int SBN_CreateSocket(int Port) {
-
+int SBN_CreateSocket(char *Addr, int Port) {
     static struct sockaddr_in   my_addr;
     int    SockId;
 
@@ -60,7 +59,8 @@ int SBN_CreateSocket(int Port) {
         return SockId;
     }
 
-    my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    my_addr.sin_addr.s_addr = inet_addr(Addr);
+    my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(Port);
 
     if(bind(SockId, (struct sockaddr *) &my_addr, sizeof(my_addr)) < 0 )
@@ -114,54 +114,6 @@ void SBN_ClearSocket(int SockID) {
 } /* end SBN_ClearSocket */
 
 /**
- * Checks for a single protocol message.
- *
- * @param Peer         Structure of interface data for a peer
- * @param ProtoMsgBuf  Pointer to the SBN's protocol message buffer
- * @return 1 for message available and 0 for no messages or an error
- */
-int32 SBN_CheckForIPv4NetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *ProtoMsgBuf) {
-    struct sockaddr_in s_addr;
-    int                status;
-    socklen_t addr_len;
-    IPv4_SBNPeerData_t *peer = Peer->PeerData;
-    bzero((char *) &s_addr, sizeof(s_addr));
-
-    addr_len = sizeof(s_addr);
-
-    status = recvfrom(peer->ProtoSockId,
-                      (char *)ProtoMsgBuf,
-                      sizeof(SBN_NetProtoMsg_t),
-                      MSG_DONTWAIT,
-                      (struct sockaddr *) &s_addr,
-                      &addr_len);
-
-    if (status > 0) /* Positive number indicates byte length of message */
-    {
-        ProtoMsgBuf->Hdr.MsgSize = ntohl(ProtoMsgBuf->Hdr.MsgSize);
-        ProtoMsgBuf->Hdr.Type = ntohl(ProtoMsgBuf->Hdr.Type);
-        ProtoMsgBuf->Hdr.MsgSender.ProcessorId = ntohs(ProtoMsgBuf->Hdr.MsgSender.ProcessorId);
-        ProtoMsgBuf->Hdr.SequenceCount = ntohs(ProtoMsgBuf->Hdr.SequenceCount);
-        ProtoMsgBuf->Hdr.GapAfter = ntohs(ProtoMsgBuf->Hdr.GapAfter);
-        ProtoMsgBuf->Hdr.GapTo = ntohs(ProtoMsgBuf->Hdr.GapTo);
-
-        return SBN_TRUE; /* Message available and no errors */
-    }
-    else
-        if ( (status <=0) && (errno != EWOULDBLOCK) && (errno != EAGAIN)) {
-            CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
-                              "%s:Socket recv err in CheckForNetProtoMsgs stat=%d,err=%d",
-                              CFE_CPU_NAME, status, errno);
-            ProtoMsgBuf->Hdr.Type = SBN_NO_MSG;
-            return SBN_ERROR;
-        }
-
-    /* status = 0, so no messages and no errors */
-    ProtoMsgBuf->Hdr.Type = SBN_NO_MSG;
-    return SBN_NO_MSG;
-}/* end SBN_CheckForNetProtoMsg */
-
-/**
  * Receives a message from a peer over the appropriate interface.
  *
  * @param Host        Structure of interface data for a peer
@@ -180,7 +132,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
 
     host = Host->HostData;
     addr_len = sizeof(s_addr);
-    status = recvfrom(host->DataSockId,
+    status = recvfrom(host->SockId,
                       (char *)DataMsgBuf,
                       SBN_MAX_MSG_SIZE,
                       MSG_DONTWAIT,
@@ -211,14 +163,13 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
 int32 SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr) {
     int     ScanfStatus;
     char    Addr[16];
-    int     DataPort;
-    int     ProtoPort;
+    int     Port;
 
     /*
     ** Using sscanf to parse the string.
     ** Currently no error handling
     */
-    ScanfStatus = sscanf(FileEntry, "%s %d %d", Addr, &DataPort, &ProtoPort);
+    ScanfStatus = sscanf(FileEntry, "%s %d", Addr, &Port);
 
     /*
     ** Check to see if the correct number of items were parsed
@@ -226,7 +177,7 @@ int32 SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr) 
     if (ScanfStatus != IPV4_ITEMS_PER_FILE_LINE) {
         CFE_EVS_SendEvent(SBN_INV_LINE_EID,CFE_EVS_ERROR,
                 "%s:Invalid SBN peer file line,exp %d items,found %d",
-                CFE_CPU_NAME, SBN_IPv4_ITEMS_PER_FILE_LINE, ScanfStatus);
+                CFE_CPU_NAME, IPV4_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;
     }
 
@@ -234,8 +185,7 @@ int32 SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr) 
     *EntryAddr = entry;
 
     strncpy(entry->Addr, Addr, 16);
-    entry->DataPort = DataPort;
-    entry->ProtoPort = ProtoPort;
+    entry->Port = Port;
 
     return SBN_OK;
 }
@@ -260,16 +210,10 @@ int32 SBN_InitIPv4IF(SBN_InterfaceData *Data) {
         /* create, fill, and store an IPv4-specific host data structure */
         IPv4_SBNHostData_t *host = malloc(sizeof(IPv4_SBNHostData_t));
 
-        host->DataRcvPort = entry->DataPort;
-        host->DataSockId = SBN_CreateSocket(host->DataRcvPort);
-        if(host->DataSockId == SBN_ERROR){
-            return SBN_ERROR;
-        }
-
-        host->ProtoXmtPort = entry->ProtoPort;
-        host->ProtoSockId = SBN_CreateSocket(host->ProtoXmtPort);
-
-        if(host->ProtoSockId == SBN_ERROR){
+        strncpy(host->Addr, entry->Addr, sizeof(entry->Addr));
+        host->Port = entry->Port;
+        host->SockId = SBN_CreateSocket(host->Addr, host->Port);
+        if(host->SockId == SBN_ERROR){
             return SBN_ERROR;
         }
 
@@ -282,12 +226,7 @@ int32 SBN_InitIPv4IF(SBN_InterfaceData *Data) {
         IPv4_SBNPeerData_t *peer = malloc(sizeof(IPv4_SBNPeerData_t));
 
         strncpy(peer->Addr, entry->Addr, sizeof(entry->Addr));
-        peer->DataPort = entry->DataPort;
-        peer->ProtoRcvPort = entry->ProtoPort;
-        peer->ProtoSockId  = SBN_CreateSocket(peer->ProtoRcvPort);
-        if(peer->ProtoSockId == SBN_ERROR){
-            return SBN_ERROR;
-        }
+        peer->Port = entry->Port;
         Data->PeerData = peer;
         return SBN_PEER;
     }
@@ -301,10 +240,10 @@ int32 SBN_InitIPv4IF(SBN_InterfaceData *Data) {
  * @param HostList     The array of SBN_InterfaceData structs that describes the host
  * @param SenderPtr    Sender information
  * @param IfData       The SBN_InterfaceData struct describing this peer
- * @param ProtoMsgBuf  Protocol message
  * @param DataMsgBuf   Data message
  */
-int32 SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf) {
+
+int32 SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, NetDataUnion *DataMsgBuf) {
     static struct sockaddr_in s_addr;
     int    status, found = 0;
     IPv4_SBNPeerData_t *peer;
@@ -344,67 +283,34 @@ int32 SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *Host
  //           return SBN_OK;
  //       }
  //   }
-    if(SBN_LIB_MsgTypeIsData(MsgType)) {
-	SBN_Hdr_t orig_hdr;
+    SBN_Hdr_t orig_hdr;
 
 
-        s_addr.sin_port = htons(peer->DataPort);
+    s_addr.sin_port = htons(peer->Port);
 
-        /* Initialize the SBN hdr of the outgoing network message */
-        strncpy((char *)&DataMsgBuf->Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
+    /* Initialize the SBN hdr of the outgoing network message */
+    strncpy((char *)&DataMsgBuf->Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
 
-        DataMsgBuf->Hdr.Type = MsgType;
+    DataMsgBuf->Hdr.Type = MsgType;
 
-        memcpy(&orig_hdr, &(DataMsgBuf->Hdr), sizeof(orig_hdr));
-        DataMsgBuf->Hdr.MsgSize = htonl(orig_hdr.MsgSize);
-        DataMsgBuf->Hdr.Type = htonl(orig_hdr.Type);
-        DataMsgBuf->Hdr.SequenceCount = htons(orig_hdr.SequenceCount);
-        DataMsgBuf->Hdr.MsgSender.ProcessorId = ntohs(orig_hdr.MsgSender.ProcessorId);
-        DataMsgBuf->Hdr.SequenceCount = ntohs(orig_hdr.SequenceCount);
-        DataMsgBuf->Hdr.GapAfter = ntohs(orig_hdr.GapAfter);
-        DataMsgBuf->Hdr.GapTo = ntohs(orig_hdr.GapTo);
+    memcpy(&orig_hdr, &(DataMsgBuf->Hdr), sizeof(orig_hdr));
+    DataMsgBuf->Hdr.MsgSize = htonl(orig_hdr.MsgSize);
+    DataMsgBuf->Hdr.Type = htonl(orig_hdr.Type);
+    DataMsgBuf->Hdr.SequenceCount = htons(orig_hdr.SequenceCount);
+    DataMsgBuf->Hdr.MsgSender.ProcessorId = ntohs(orig_hdr.MsgSender.ProcessorId);
+    DataMsgBuf->Hdr.SequenceCount = ntohs(orig_hdr.SequenceCount);
+    DataMsgBuf->Hdr.GapAfter = ntohs(orig_hdr.GapAfter);
+    DataMsgBuf->Hdr.GapTo = ntohs(orig_hdr.GapTo);
 
-        status = sendto(host->DataSockId,
-                        (char *)DataMsgBuf,
-                        MsgSize,
-                        0,
-                        (struct sockaddr *) &s_addr,
-                        sizeof(s_addr) );
+    status = sendto(host->SockId,
+        (char *)DataMsgBuf,
+        MsgSize,
+        0,
+        (struct sockaddr *) &s_addr,
+        sizeof(s_addr) );
 
-        memcpy(&(DataMsgBuf->Hdr), &orig_hdr, sizeof(orig_hdr));
+    memcpy(&(DataMsgBuf->Hdr), &orig_hdr, sizeof(orig_hdr));
  //       printf("IPv4 Sending Msg with Seq = %d, MsgSize = %d, Status = %d\n", DataMsgBuf->Hdr.SequenceCount, MsgSize, status);
-    }
-    else if(SBN_LIB_MsgTypeIsProto(MsgType)) {
-	SBN_Hdr_t orig_hdr;
-
-        s_addr.sin_port = htons(host->ProtoXmtPort); /* dest port is always the same for each IP addr */
-
-        ProtoMsgBuf->Hdr.Type = MsgType;
-        strncpy(ProtoMsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
-
-        memcpy(&orig_hdr, &(ProtoMsgBuf->Hdr), sizeof(orig_hdr));
-        ProtoMsgBuf->Hdr.MsgSize = htonl(ProtoMsgBuf->Hdr.MsgSize);
-        ProtoMsgBuf->Hdr.Type = htonl(ProtoMsgBuf->Hdr.Type);
-        ProtoMsgBuf->Hdr.SequenceCount = htons(ProtoMsgBuf->Hdr.SequenceCount);
-        ProtoMsgBuf->Hdr.MsgSender.ProcessorId = ntohs(orig_hdr.MsgSender.ProcessorId);
-        ProtoMsgBuf->Hdr.SequenceCount = ntohs(orig_hdr.SequenceCount);
-        ProtoMsgBuf->Hdr.GapAfter = ntohs(orig_hdr.GapAfter);
-        ProtoMsgBuf->Hdr.GapTo = ntohs(orig_hdr.GapTo);
-
-        status = sendto(host->ProtoSockId,
-                        (char *)ProtoMsgBuf,
-                        MsgSize,
-                        0,
-                        (struct sockaddr *) &s_addr,
-                        sizeof(s_addr) );
-
-        memcpy(&(ProtoMsgBuf->Hdr), &orig_hdr, sizeof(orig_hdr));
-    }
-    else {
-        OS_printf("Unexpected msg type\n");
-        /*  TODO send event to indicate unexpected msgtype */
-        status = SBN_ERROR;
-    } /* end switch */
 
     return (status);
 }/* end SBN_SendNetMsg */

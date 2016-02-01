@@ -21,7 +21,7 @@ int32 SBN_AddMsgToMsgBufOverwrite(NetDataUnion* SentMsg, SBN_PeerMsgBuf_t* buffe
 int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer, 
         int32 PeerIdx);
 int32 SBN_ClearMsgBuf(SBN_PeerMsgBuf_t* buffer);
-int32 SBN_ClearMsgBufBeforeSeq(SBN_NetProtoMsg_t* Ack, SBN_PeerMsgBuf_t* buffer);
+int32 SBN_ClearMsgBufBeforeSeq(int seq, SBN_PeerMsgBuf_t* buffer);
 int32 SBN_SendConsecutiveFromBuf(SBN_PeerMsgBuf_t* buffer, int32 seq, 
         int32 PeerIdx);
 int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx);

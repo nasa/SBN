@@ -28,14 +28,16 @@
 #include "cfe.h"
 
 char *SBN_FindFileEntryAppData(char *entry, int num_fields);
-int32 SBN_ParseFileEntry(char *FileEntry, uint32 LineNum);
-int32 SBN_InitPeerInterface(void);
-int32 SBN_CheckForNetProtoMsg(uint32 PeerIdx);
+int SBN_ParseFileEntry(char *FileEntry, int LineNum);
+int SBN_InitPeerInterface(void);
+int SBN_CheckForNetProtoMsg(int PeerIdx);
 void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx);
 void  SBN_CheckForNetAppMsgs(void);
-//int32 SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, uint32 PeerIdx, CFE_SB_SenderId_t *SenderPtr, uint8 IsRetransmit);
 void  SBN_VerifyPeerInterfaces(void);
 void  SBN_VerifyHostInterfaces(void);
+
+int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *SenderPtr);
+int SBN_SendNetMsgNoBuf(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *SenderPtr);
 
 uint8 inline SBN_GetReliabilityFromQoS(uint8 QoS);
 uint8 inline SBN_GetPriorityFromQoS(uint8 QoS);

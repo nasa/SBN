@@ -49,10 +49,6 @@ typedef struct {
     uint16 PeerAppMsgSendCount[SBN_MAX_NETWORK_PEERS];
     uint16 PeerAppMsgRecvErrCount[SBN_MAX_NETWORK_PEERS];
     uint16 PeerAppMsgSendErrCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerProtoMsgRecvCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerProtoMsgSendCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerProtoMsgRecvErrCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerProtoMsgSendErrCount[SBN_MAX_NETWORK_PEERS];
 
     uint32 PeerSubsCount[SBN_MAX_NETWORK_PEERS];
 

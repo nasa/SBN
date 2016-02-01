@@ -1,3 +1,4 @@
+#undef SBN_PAYLOAD
 /******************************************************************************
  ** \file sbn_app.c
  **
@@ -54,6 +55,7 @@
  ** Include Files
  */
 #include <fcntl.h>
+#include <arpa/inet.h>
 #include <string.h>
 
 #include "cfe.h"
@@ -74,7 +76,7 @@
 
 /** \brief SBN Main Routine */
 void SBN_AppMain(void) {
-    int32 Status = CFE_SUCCESS;
+    int Status = CFE_SUCCESS;
     uint32 RunStatus = CFE_ES_APP_RUN;
 
     Status = SBN_Init();
@@ -91,8 +93,8 @@ void SBN_AppMain(void) {
 }/* end SBN_AppMain */
 
 /** \brief Initializes SBN */
-int32 SBN_Init(void) {
-    int32  iStatus = CFE_SUCCESS;
+int SBN_Init(void) {
+    int iStatus = CFE_SUCCESS;
 
     iStatus = CFE_ES_RegisterApp();
     if(iStatus != CFE_SUCCESS) {
@@ -169,7 +171,7 @@ int32 SBN_Init(void) {
     /* Wait for event from SB saying it is initialized OR a response from SB
        to the above messages. SBN_TRUE means it needs to re-send subscription
        requests */
-    if (SBN_WaitForSBStartup() == SBN_TRUE) {
+    if (SBN_WaitForSBStartup()) {
         SBN_SendSubsRequests();
     }
 
@@ -186,8 +188,8 @@ int32 SBN_Init(void) {
  *                  need to be sent again, or
  * @return SBN_FALSE if message received was a response
  */
-int32 SBN_WaitForSBStartup() {
-    CFE_EVS_Packet_t *EvsPacket;
+int SBN_WaitForSBStartup() {
+    CFE_EVS_Packet_t *EvsPacket = NULL;
     CFE_SB_MsgPtr_t SBMsgPtr;
     uint8 MsgFound = SBN_FALSE;
     uint8 counter = 0;
@@ -195,10 +197,10 @@ int32 SBN_WaitForSBStartup() {
     /* Subscribe to event messages temporarily to be notified when SB is done initializing */
     CFE_SB_Subscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
 
-    while (MsgFound == SBN_FALSE)
+    while (!MsgFound)
     {
         /* Check for subscription message from SB */
-        if (SBN_CheckSubscriptionPipe() == SBN_TRUE) {
+        if (SBN_CheckSubscriptionPipe()) {
             /* Unsubscribe from event messages */
             CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
             MsgFound = SBN_TRUE;
@@ -363,7 +365,7 @@ int32 SBN_RcvMsg(int32 iTimeOut) {
   return iStatus;
 }/* end SBN_RcvMsg */
 
-int32 SBN_InitProtocol(void) {
+int SBN_InitProtocol(void) {
     SBN_InitPeerVariables();
     SBN_InitPeerInterface();
     SBN_VerifyPeerInterfaces();
@@ -372,7 +374,7 @@ int32 SBN_InitProtocol(void) {
 }/* end SBN_InitProtocol */
 
 void SBN_InitPeerVariables(void) {
-    int32 PeerIdx, j;
+    int PeerIdx = 0, j = 0;
 
     for (PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++) {
         SBN.Peer[PeerIdx].InUse = SBN_NOT_IN_USE;
@@ -388,11 +390,11 @@ void SBN_InitPeerVariables(void) {
 
 int32 SBN_GetPeerFileData(void) {
     static char SBN_PeerData[SBN_PEER_FILE_LINE_SIZE];
-    int BuffLen; /* Length of the current buffer */
+    int BuffLen = 0; /* Length of the current buffer */
     int PeerFile = 0;
-    char c;
-    uint32 FileOpened = FALSE;
-    uint32 LineNum = 0;
+    char c = '\0';
+    int FileOpened = FALSE;
+    int LineNum = 0;
 
     /* First check for the file in RAM */
     PeerFile = OS_open(SBN_VOL_PEER_FILENAME, O_RDONLY, 0);
@@ -502,8 +504,8 @@ void SBN_SendFileOpenedEvent(char *Filename) {
 
 }/* end SBN_SendFileOpenedEvent */
 
-int32 SBN_CreatePipe4Peer(uint32 PeerIdx) {
-    int32 Stat;
+int SBN_CreatePipe4Peer(int PeerIdx) {
+    int32 Stat = 0;
     char PipeName[OS_MAX_API_NAME];
 
     /* create a pipe name string similar to SBN_CPU2_Pipe */
@@ -521,20 +523,12 @@ int32 SBN_CreatePipe4Peer(uint32 PeerIdx) {
             CFE_CPU_NAME, PipeName);
 
     return SBN_OK;
-
 }/* end SBN_CreatePipe4Peer */
 
 void SBN_RunProtocol(void) {
-    uint32 PeerIdx;
-    int32 status, origDebug;
-    uint32 msgCount;
-    uint32 AnnounceRcved;
-    uint32 AnnounceAckRcved;
-    uint32 HeartBeatRcved;
-    uint32 HeartBeatAckRcved;
-    uint32 UnkownRcved;
+    int PeerIdx = 0;
 
-    if(SBN.DebugOn == SBN_TRUE) {
+    if(SBN.DebugOn) {
         OS_printf("SBN_RunProtocol\n");
     }
 
@@ -550,156 +544,52 @@ void SBN_RunProtocol(void) {
         if (SBN.Peer[PeerIdx].InUse != SBN_IN_USE)
             continue;
 
-        if (SBN.DebugOn == SBN_TRUE) {
+        if (SBN.DebugOn) {
             OS_printf("Running Protocol for %s\n", SBN.Peer[PeerIdx].Name);
         }
 
-        AnnounceRcved = 0;
-        AnnounceAckRcved = 0;
-        HeartBeatRcved = 0;
-        HeartBeatAckRcved = 0;
-        UnkownRcved = 0;
-        msgCount = 0;
-
-        /* Read all messages prior to executing the protocol state machine */
-        while (msgCount < 6) {
-            status = SBN_CheckForNetProtoMsg(PeerIdx);
-            /* Assumes 0 or negative for no msg or errors on read */
-            if (status <= SBN_NO_MSG)
-                break;
-            msgCount++;
-            
-            /* the order is optimized for normal operations */
-            if (SBN.ProtoMsgBuf.Hdr.Type == SBN_HEARTBEAT_MSG) {
-                HeartBeatRcved++;
-            }
-            else if (SBN.ProtoMsgBuf.Hdr.Type == SBN_HEARTBEAT_ACK_MSG) {
-                HeartBeatAckRcved++;
-            }
-            else if (SBN.ProtoMsgBuf.Hdr.Type == SBN_ANNOUNCE_MSG) {
-                AnnounceRcved++;
-            }
-            else if (SBN.ProtoMsgBuf.Hdr.Type == SBN_ANNOUNCE_ACK_MSG) {
-                AnnounceAckRcved++;
-            }
-            else {
-                UnkownRcved++; /* Currently not used, but left for debugging */
-            }
-        } /* end while */
-
-        strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
+        strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
 
-        switch (SBN.Peer[PeerIdx].State) {
-          /*
-           * This is the peer discovery state. It will transtition to
-           * SBN_HEARTBEATING when an SBN_ANNOUNCE_ACK_MSG has been received
-           */
-          case SBN_ANNOUNCING: {
-            if (msgCount > 0) { /* at least one message */
-              if (AnnounceRcved > 0) {
-                SBN_SendNetMsg(SBN_ANNOUNCE_ACK_MSG,
-                        sizeof(SBN_NetProtoMsg_t), PeerIdx, NULL, SBN_FALSE);
-              }
+        OS_time_t current_time;
+        OS_GetLocalTime(&current_time);
 
-              if (AnnounceAckRcved > 0) {
-                SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
-
-
-                origDebug = SBN.DebugOn;
-                SBN.DebugOn = SBN_TRUE;
-                SBN_ResetPeerMsgCounts(PeerIdx);
-                SBN.DebugOn = origDebug;
-
-                SBN_SendNetMsg(SBN_HEARTBEAT_MSG,
-                        sizeof(SBN_NetProtoMsg_t), PeerIdx, NULL, SBN_FALSE);
-
-                CFE_EVS_SendEvent(SBN_PEER_ALIVE_EID,
-                        CFE_EVS_INFORMATION,
-                        "%s:%s Alive, changing state to SBN_HEARTBEATING ",
-                        CFE_CPU_NAME, SBN.Peer[PeerIdx].Name);
-
-
-              }
-              else {
-                  /* no ack received, so keep announcing */
-                  SBN_SendNetMsg(SBN_ANNOUNCE_MSG,
-                          sizeof(SBN_NetProtoMsg_t), PeerIdx, NULL, SBN_FALSE);
-              }
-
-              /* ignore if (HeartBeatAckRcved > 0) */
-              /* ignore if (HeartBeatRcved > 0) */
+        if (SBN.Peer[PeerIdx].State == SBN_ANNOUNCING) {
+            if (current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
+                    > SBN_ANNOUNCE_TIMEOUT) { /* TODO: make configurable */
+                SBN_SendNetMsgNoBuf(SBN_ANNOUNCE_MSG,
+                        sizeof(SBN_Hdr_t), PeerIdx, NULL);
             }
-            else {
-                /* No messages, so keep announcing  */
-                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, sizeof(SBN_NetProtoMsg_t),
-                        PeerIdx, NULL, SBN_FALSE);
-            }
-            break;
-          } /* SBN_ANNOUNCING */
-          case SBN_HEARTBEATING: {
-            if (msgCount > 0) {
-              if (HeartBeatRcved > 0) {
-                SBN_SendNetMsg(SBN_HEARTBEAT_ACK_MSG,
-                    sizeof(SBN_NetProtoMsg_t), PeerIdx, NULL, SBN_FALSE);
-              }
+            return;
+        }
+        if (current_time.seconds - SBN.Peer[PeerIdx].last_received.seconds
+                    > SBN_HEARTBEAT_TIMEOUT) {
+            /* lost connection, reset */
+	    OS_printf("peer %d lost connection, resetting\n");
+            SBN_RemoveAllSubsFromPeer(PeerIdx);
+            SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
 
-              if (HeartBeatAckRcved > 0) {
-                SBN.Peer[PeerIdx].Timer = 0;
-                if (SBN.Peer[PeerIdx].SentLocalSubs == SBN_FALSE) {
-                  /* Send on first ack message only */
-                  SBN_SendLocalSubsToPeer(PeerIdx);
-                  SBN.Peer[PeerIdx].SentLocalSubs = SBN_TRUE;
-                }
-              } else {
-                SBN.Peer[PeerIdx].Timer++;
-              }
-              /* ignore if (AnnounceRcved > 0) */
-              /* ignore if (AnnounceRcved > 0) */
-            } else {
-              SBN.Peer[PeerIdx].Timer++;
-            }
-
-            if (SBN.Peer[PeerIdx].Timer >= SBN_TIMEOUT_CYCLES) {
-              SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
-              SBN_SendNetMsg(SBN_ANNOUNCE_MSG, sizeof(SBN_NetProtoMsg_t),
-                  PeerIdx, NULL, SBN_FALSE);
-              CFE_EVS_SendEvent(SBN_HB_LOST_EID, CFE_EVS_INFORMATION,
-                  "%s:%s Heartbeat lost, changing state to SBN_ANNOUNCING",
-                  CFE_CPU_NAME, SBN.Peer[PeerIdx].Name);
-              /* unsubscribe to all subscriptions from that peer and reset timer */
-              SBN_RemoveAllSubsFromPeer(PeerIdx);
-              SBN.Peer[PeerIdx].SentLocalSubs = SBN_FALSE;
-              SBN.Peer[PeerIdx].Timer = 0;
-            }
-            else {
-              /* No timeout, so keep sending heart beats */
-              SBN_SendNetMsg(SBN_HEARTBEAT_MSG, sizeof(SBN_NetProtoMsg_t),
-                  PeerIdx, NULL, SBN_FALSE);
-            }
-            break;
-          } /* SBN_HEARTBEATING */
-          default:
-            CFE_EVS_SendEvent(SBN_STATE_ERR_EID, CFE_EVS_ERROR,
-                "%s:Unexpected state(%d) in SBN_RunProtocol for %s",
-                CFE_CPU_NAME, SBN.Peer[PeerIdx].State,
-                SBN.Peer[PeerIdx].Name);
-        }/* end .State switch */
-    }/* end PeerIdx for */
+        }
+        if (current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
+                    > SBN_HEARTBEAT_SENDTIME) {
+                SBN_SendNetMsgNoBuf(SBN_HEARTBEAT_MSG,
+                        sizeof(SBN_Hdr_t), PeerIdx, NULL);
+	}
+    }
 }/* end SBN_RunProtocol */
 
-int32 SBN_PollPeerPipe(uint32 PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr) {
-    if(SBN.DebugOn == SBN_TRUE) {
+int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr) {
+    if(SBN.DebugOn) {
         OS_printf("SBN_PollPeerPipe\n");
     }
     return CFE_SB_RcvMsg((CFE_SB_Msg_t**)SBMsgPtr, SBN.Peer[PeerIdx].Pipe, CFE_SB_POLL);
 }
 
-uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, uint32 PeerIdx) {
-    CFE_SB_SenderId_t *lastSenderPtr;
-    uint16 AppMsgSize, MaxAppMsgSize;
+uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx) {
+    CFE_SB_SenderId_t *lastSenderPtr = NULL;
+    uint16 AppMsgSize = 0, MaxAppMsgSize = 0;
 
-    if(SBN.DebugOn == SBN_TRUE) {
+    if(SBN.DebugOn) {
         OS_printf("SBN_CheckMsgSize\n");
     }
 
@@ -723,14 +613,14 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, uint32 PeerIdx) {
     return AppMsgSize;
 }
 
-void SBN_CheckPipe(uint32 PeerIdx, int32 * priority_remaining) {
-    CFE_SB_MsgPtr_t SBMsgPtr;
-    uint16 AppMsgSize;
-    uint32 NetMsgSize;
-    CFE_SB_SenderId_t * lastSenderPtr;
-    int32 status;
+void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining) {
+    CFE_SB_MsgPtr_t SBMsgPtr = 0;
+    uint16 AppMsgSize = 0;
+    uint32 NetMsgSize = 0;
+    CFE_SB_SenderId_t * lastSenderPtr = NULL;
+    int status = 0;
 
-    if(SBN.DebugOn == SBN_TRUE) {
+    if(SBN.DebugOn) {
         OS_printf("SBN_CheckPipe\n");
     }
 
@@ -746,25 +636,27 @@ void SBN_CheckPipe(uint32 PeerIdx, int32 * priority_remaining) {
         CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
 
         /* copy message from SB buffer to network data msg buffer */
-        CFE_PSP_MemCpy(&SBN.DataMsgBuf.Pkt.Data[0], SBMsgPtr, AppMsgSize);
-        strncpy((char *) &SBN.DataMsgBuf.Hdr.MsgSender.AppName,
-                lastSenderPtr->AppName, OS_MAX_API_NAME * 2);
-        strncpy(SBN.DataMsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
+        CFE_PSP_MemCpy(&SBN.MsgBuf.Pkt.Data[0], SBMsgPtr, AppMsgSize);
+        strncpy((char *) &SBN.MsgBuf.Hdr.MsgSender.AppName,
+            lastSenderPtr->AppName,
+            sizeof(SBN.MsgBuf.Hdr.MsgSender.AppName));
+        SBN.MsgBuf.Hdr.MsgSender.ProcessorId = lastSenderPtr->ProcessorId;
+        strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
 
         NetMsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
-        SBN.DataMsgBuf.Hdr.MsgSize = NetMsgSize;
-        SBN_SendNetMsg(SBN_APP_MSG, NetMsgSize, PeerIdx, lastSenderPtr, SBN_FALSE);
+        SBN.MsgBuf.Hdr.MsgSize = NetMsgSize;
+        SBN_SendNetMsg(SBN_APP_MSG, NetMsgSize, PeerIdx, &SBN.MsgBuf.Hdr.MsgSender);
         (*priority_remaining)++;
     }
 }
 
 void SBN_CheckPeerPipes(void) {
-    uint32 PeerIdx;
+    int PeerIdx = 0;
     int32 priority = 0;
     int32 priority_remaining = 0;
 
-    if(SBN.DebugOn == SBN_TRUE) {
+    if(SBN.DebugOn) {
         OS_printf("SBN_CheckPeerPipes\n");
     }
 
@@ -791,86 +683,92 @@ void SBN_RcvNetMsgs(void) {
 }/* end SBN_RcvNetMsgs */
 
 void SBN_ProcessNetAppMsg(int MsgLength) {
-    int32 PeerIdx;
-    int32 status;
+    int PeerIdx = 0;
+    int status = 0;
 
-    if(SBN.DebugOn == SBN_TRUE) {
+    if(SBN.DebugOn) {
         OS_printf("SBN_ProcessNetAppMsg\n");
     }
 
-    PeerIdx = SBN_GetPeerIndex(SBN.DataMsgBuf.Hdr.SrcCpuName);
+    PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.SrcCpuName);
 
     if (PeerIdx == SBN_ERROR)
         return;
 
-    switch (SBN.DataMsgBuf.Hdr.Type)
+    if (SBN.Peer[PeerIdx].State == SBN_ANNOUNCING || SBN.MsgBuf.Hdr.Type == SBN_ANNOUNCE_MSG) {
+	OS_printf("peer #%d alive, resetting\n", PeerIdx);
+        SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
+        SBN_ResetPeerMsgCounts(PeerIdx);
+        SBN_SendLocalSubsToPeer(PeerIdx);
+    }
+
+    switch (SBN.MsgBuf.Hdr.Type)
     {
+        case SBN_ANNOUNCE_MSG:
+        case SBN_ANNOUNCE_ACK_MSG:
+        case SBN_HEARTBEAT_MSG:
+        case SBN_HEARTBEAT_ACK_MSG:
+            break;
 
         case SBN_APP_MSG:
-            if (SBN.DebugOn == SBN_TRUE)
+            if (SBN.DebugOn)
             {
                 OS_printf("%s:Recvd AppMsg 0x%04x from %s,%d bytes\n",
                         CFE_CPU_NAME,
                         CFE_SB_GetMsgId(
-                                (CFE_SB_Msg_t *) &SBN.DataMsgBuf.Pkt.Data[0]),
-                        SBN.DataMsgBuf.Hdr.SrcCpuName, MsgLength);
+                                (CFE_SB_Msg_t *) &SBN.MsgBuf.Pkt.Data[0]),
+                        SBN.MsgBuf.Hdr.SrcCpuName, MsgLength);
             }/* end if */
 
-            if (SBN.Peer[PeerIdx].State == SBN_HEARTBEATING)
+	    CFE_SB_SenderId_t sender;
+	    sender.ProcessorId = SBN.MsgBuf.Hdr.MsgSender.ProcessorId;
+	    strncpy(sender.AppName, SBN.MsgBuf.Hdr.MsgSender.AppName, sizeof(sender.AppName));
+
+            status = CFE_SB_SendMsgFull(
+                (CFE_SB_Msg_t *) &SBN.MsgBuf.Pkt.Data[0],
+                CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY,
+                &sender);
+
+            if (status != CFE_SUCCESS)
             {
-                CFE_SB_SenderId_t sender;
-
-                sender.ProcessorId = SBN.DataMsgBuf.Hdr.MsgSender.ProcessorId;
-                strncpy(sender.AppName, SBN.DataMsgBuf.Hdr.MsgSender.AppName, sizeof(sender.AppName));
-
-                status = CFE_SB_SendMsgFull(
-                        (CFE_SB_Msg_t *) &SBN.DataMsgBuf.Pkt.Data[0],
-                        CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY,
-                        &sender);
-
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(SBN_SB_SEND_ERR_EID, CFE_EVS_ERROR,
-                            "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
-                            CFE_CPU_NAME, status, SBN.DataMsgBuf.Hdr.SrcCpuName,
-                            SBN.DataMsgBuf.Hdr.Type);
-                }/* end if */
+                CFE_EVS_SendEvent(SBN_SB_SEND_ERR_EID, CFE_EVS_ERROR,
+                    "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
+                    CFE_CPU_NAME, status, SBN.MsgBuf.Hdr.SrcCpuName,
+                    SBN.MsgBuf.Hdr.Type);
             }/* end if */
             break;
 
         case SBN_SUBSCRIBE_MSG:
             /*CFE_EVS_SendEvent(SBN_SUB_RCVD_EID,CFE_EVS_DEBUG,*/
-            if (SBN.DebugOn == SBN_TRUE)
+            if (SBN.DebugOn)
             {
                 OS_printf("%s:Sub Rcvd from %s,Msg 0x%04X\n", CFE_CPU_NAME,
-                        SBN.Peer[PeerIdx].Name,
-                        ntohs(SBN.DataMsgBuf.Sub.MsgId));
+                        SBN.Peer[PeerIdx].Name, ntohs(SBN.MsgBuf.Sub.MsgId));
             }/* end if */
             SBN_ProcessSubFromPeer(PeerIdx);
             break;
 
         case SBN_UN_SUBSCRIBE_MSG:
             /*CFE_EVS_SendEvent(SBN_UNSUB_RCVD_EID,CFE_EVS_DEBUG,*/
-            if (SBN.DebugOn == SBN_TRUE)
+            if (SBN.DebugOn)
             {
                 OS_printf("%s:Unsub Rcvd from %s,Msg 0x%04X\n", CFE_CPU_NAME,
-                        SBN.Peer[PeerIdx].Name,
-                        ntohs(SBN.DataMsgBuf.Sub.MsgId));
+                        SBN.Peer[PeerIdx].Name, ntohs(SBN.MsgBuf.Sub.MsgId));
             }/* end if */
             SBN_ProcessUnsubFromPeer(PeerIdx);
             break;
 
         default:
-            SBN.DataMsgBuf.Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0'; /* make sure of termination */
+            SBN.MsgBuf.Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0'; /* make sure of termination */
             CFE_EVS_SendEvent(SBN_MSGTYPE_ERR_EID, CFE_EVS_ERROR,
                     "%s:Unknown Msg Type 0x%x from %s", CFE_CPU_NAME,
-                    SBN.DataMsgBuf.Hdr.Type, SBN.DataMsgBuf.Hdr.SrcCpuName);
+                    SBN.MsgBuf.Hdr.Type, SBN.MsgBuf.Hdr.SrcCpuName);
             break;
     } /* end switch */
 }/* end SBN_ProcessNetAppMsg */
 
 int32 SBN_CheckCmdPipe(void) {
-    int32 Status;
+    int Status = 0;
 
     /* Command and HK requests pipe */
     while (Status == CFE_SUCCESS) {
@@ -890,11 +788,13 @@ int32 SBN_CheckCmdPipe(void) {
     return Status;
 }/* end SBN_CheckCmdPipe */
 
-int32 SBN_GetPeerIndex(char *NamePtr) {
-    uint32 PeerIdx;
+int SBN_GetPeerIndex(char *NamePtr) {
+    /* TODO: rearchitect, terribly inefficient,
+        we're checking for the peer index for every packet received! */
+    int PeerIdx = 0;
 
-    if(SBN.DebugOn == SBN_TRUE) {
-        printf("SBN_GetPeerIndex:  NamePtr = %s\n", NamePtr);
+    if(SBN.DebugOn) {
+        OS_printf("SBN_GetPeerIndex:  NamePtr = %s\n", NamePtr);
     }
 
     for (PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
@@ -913,14 +813,14 @@ int32 SBN_GetPeerIndex(char *NamePtr) {
 } /* end SBN_GetPeerIndex */
 
 void SBN_SendWakeUpDebugMsg(void) {
-    if (SBN.DebugOn == SBN_TRUE)
+    if (SBN.DebugOn)
     {
         OS_printf(" awake ");
     }/* end if */
 }/* end  SBN_SendWakeUpDebugMsg */
 
 void SBN_ShowStates(void) {
-    uint32 i;
+    int i = 0;
 
     for (i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
     {
@@ -930,25 +830,23 @@ void SBN_ShowStates(void) {
                     SBN.Peer[i].Name, i, SBN_LIB_StateNum2Str(SBN.Peer[i].State));
         }/* end if */
     }/* end for */
-
 }/* end SBN_ShowStates */
 
 void SBN_ShowPeerData(void) {
-    uint32 i, protocol;
+    int i = 0;
 
     for (i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
     {
         if (SBN.Peer[i].InUse == SBN_IN_USE)
         {
-            protocol = SBN.Peer[i].ProtocolId;
-            switch(protocol) {
+            switch(SBN.Peer[i].ProtocolId) {
               /*
                 case SBN_IPv4:
                     SBN_ShowIPv4PeerData(i);
                     break;
               */
                 default:
-                    OS_printf("Unknown protocol id %d\n", protocol);
+                    OS_printf("Unknown protocol id %d\n", SBN.Peer[i].ProtocolId);
                     break;
             }
         }/* end if */
@@ -957,7 +855,7 @@ void SBN_ShowPeerData(void) {
 
 void SBN_NetMsgSendDbgEvt(uint32 MsgType, uint32 PeerIdx, int Status) {
     /*CFE_EVS_SendEvent(SBN_PROTO_SENT_EID,CFE_EVS_DEBUG,*/
-    if (SBN.DebugOn == SBN_FALSE) {
+    if (!SBN.DebugOn) {
         return;
     }
 
@@ -965,7 +863,7 @@ void SBN_NetMsgSendDbgEvt(uint32 MsgType, uint32 PeerIdx, int Status) {
         case SBN_APP_MSG:
             OS_printf("%s:Sent MsgId 0x%04X to %s sz=%d\n", CFE_CPU_NAME,
                     CFE_SB_GetMsgId(
-                            (CFE_SB_MsgPtr_t) &SBN.DataMsgBuf.Pkt.Data[0]),
+                            (CFE_SB_MsgPtr_t) &SBN.MsgBuf.Pkt.Data[0]),
                     SBN.Peer[PeerIdx].Name, Status);
             break;
 
@@ -974,7 +872,7 @@ void SBN_NetMsgSendDbgEvt(uint32 MsgType, uint32 PeerIdx, int Status) {
             OS_printf("%s:%s for 0x%04X sent to %s sz=%d\n", CFE_CPU_NAME,
                     SBN_LIB_GetMsgName(MsgType),
                     CFE_SB_GetMsgId(
-                            (CFE_SB_MsgPtr_t) &SBN.DataMsgBuf.Sub.MsgId),
+                            (CFE_SB_MsgPtr_t) &SBN.MsgBuf.Sub.MsgId),
                     SBN.Peer[PeerIdx].Name, Status);
             break;
 
@@ -1002,7 +900,7 @@ void SBN_DebugOff(void) {
 }/* end SBN_DebugOff */
 
 void SBN_ResetPeerMsgCounts(uint32 PeerIdx) {
-  if(SBN.DebugOn == SBN_TRUE) {
+  if(SBN.DebugOn) {
     OS_printf("[sbn_app.c : %d : %s]:\n\tresetting count of "
         "messages received from %s\n",
         __LINE__, __FUNCTION__, SBN.Peer[PeerIdx].Name);
@@ -1019,6 +917,3 @@ void SBN_ResetPeerMsgCounts(uint32 PeerIdx) {
   SBN.Peer[PeerIdx].RcvdCount = 0;
   SBN.Peer[PeerIdx].MissCount = 0;
 }
-
-
-

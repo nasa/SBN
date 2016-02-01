@@ -46,12 +46,6 @@ typedef struct {
   CFE_SB_Qos_t      Qos;
 } SBN_NetSub_t;
 
-/* net msgs on proto port may be either announce, heartbeat, 
- * or cmd ack messages */
-typedef struct {
-  SBN_Hdr_t         Hdr;
-} SBN_NetProtoMsg_t;
-
 /* union used because buffer at data socket used for subs and app pkts*/
 typedef union {
     SBN_Hdr_t         Hdr; /* this line to simplify references only */
@@ -69,7 +63,7 @@ typedef struct {
 
 typedef struct {
     char   Name[SBN_MAX_PEERNAME_LENGTH];
-    uint32 ProtocolId;      /* protocol id from SbnPeerData.dat file */
+    int    ProtocolId;      /* protocol id from SbnPeerData.dat file */
     uint32 ProcessorId;     /* cpu id from SbnPeerData.dat file */
     uint32 SpaceCraftId;    /* spacecraft id from SbnPeerData.dat file */
     uint8  QoS;             /* QoS from SbnPeerData.dat file */
@@ -91,11 +85,10 @@ typedef struct {
     uint16            MissCount; /* number of msgs missed by this peer */
     uint16            RcvdInOrderCount; /* number of msgs received without misses */
     uint32            ProcessorId;
-    uint32            ProtocolId;
+    int               ProtocolId;
     uint32            SpaceCraftId;
     uint32            State;
-    uint32            SentLocalSubs;
-    uint32            Timer;
+    OS_time_t         last_sent, last_received;
     uint32            SubCnt;
     SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER];
     SBN_InterfaceData *IfData;
@@ -146,21 +139,10 @@ typedef struct {
      * @param int32                  Number of host interfaces in the SBN
      * @param CFE_SB_SenderId_t *    Sender information
      * @param SBN_InterfaceData *    Interface data describing the intended peer recipient
-     * @param SBN_NetProtoMsg_t *    Buffer containing a protocol message to send
      * @param NetDataUnion *         Buffer containing a data message to send
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int32 (*SendNetMsg)(uint32, uint32, SBN_InterfaceData *[], int32, CFE_SB_SenderId_t *, SBN_InterfaceData *, SBN_NetProtoMsg_t *, NetDataUnion *);
-
-    /**
-     * Checks for a single protocol message.
-     *
-     * @param SBN_InterfaceData *  Peer from which a protocol message was expected
-     * @param SBN_NetProtoMsg_t *  Pointer to the SBN's protocol message buffer
-     *                             (received protocol message is put here)
-     * @return SBN_TRUE for message received, SBN_NO_MSG for no message, SBN_ERROR for error
-     */
-    int32 (*CheckForNetProtoMsg)(SBN_InterfaceData *, SBN_NetProtoMsg_t *);
+    int32 (*SendNetMsg)(uint32, uint32, SBN_InterfaceData *[], int32, SBN_SenderId_t *, SBN_InterfaceData *, NetDataUnion *);
 
     /**
      * Receives a data message from the specified interface.

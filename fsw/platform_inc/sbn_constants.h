@@ -84,11 +84,25 @@
 #define SBN_NA_BUS                    (-1)
 
 #define SBN_MAIN_LOOP_DELAY           200 /* milli-seconds */
-#define SBN_TIMEOUT_CYCLES            3
+/* A peer can either be disconnected (and we have it marked as "ANNOUNCING")
+ * or it is connected and we expect traffic or if we don't see any in a period
+ * of time, we send a heartbeat to see if the peer is alive.
+ */
+/* How many seconds to wait between announce messages. */
+#define SBN_ANNOUNCE_TIMEOUT          10
+/* If I don't send out traffic for a period of time, send out a heartbeat
+ * so that my peer doesn't think I've disappeared. (This should be shorter
+ * than the SBN_HEARTBEAT_TIMEOUT below!)
+ */
+#define SBN_HEARTBEAT_SENDTIME        5
+/* How many seconds since I last saw a message from my peer do I mark it as
+ * timed out?
+ */
+#define SBN_HEARTBEAT_TIMEOUT         10
 #define SBN_PEER_PIPE_DEPTH           64
 #define SBN_DEFAULT_MSG_LIM           8
 #define SBN_ITEMS_PER_FILE_LINE       6
-#define SBN_MSG_BUFFER_SIZE           (SBN_PEER_PIPE_DEPTH * 2)
+#define SBN_MSG_BUFFER_SIZE           (SBN_PEER_PIPE_DEPTH * 2) /* uint8 */
 
 /* Interface Roles */
 #define SBN_HOST         1

@@ -24,18 +24,19 @@
 #define _sbn_subs_h_
 
 #include "sbn_app.h"
+#include "sbn_netif.h"
 
-void  SBN_SendLocalSubsToPeer(uint32 PeerIdx); 
+void  SBN_SendLocalSubsToPeer(int PeerIdx); 
 int32 SBN_CheckSubscriptionPipe(void); 
-void  SBN_ProcessSubFromPeer(uint32 PeerIdx); 
-void  SBN_ProcessUnsubFromPeer(uint32 PeerIdx); 
+void  SBN_ProcessSubFromPeer(int PeerIdx); 
+void  SBN_ProcessUnsubFromPeer(int PeerIdx); 
 void  SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr); 
 void  SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr); 
 void  SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr); 
-int32 SBN_CheckLocSubs4MsgId(uint32 *IdxPtr,CFE_SB_MsgId_t MsgId); 
-int32 SBN_CheckPeerSubs4MsgId(uint32 *SubIdxPtr,CFE_SB_MsgId_t MsgId, uint32 PeerIdx); 
-void  SBN_RemoveAllSubsFromPeer(uint32 PeerIdx); 
-void  SBN_ShowPeerSubs(uint32 PeerIdx);
+int SBN_CheckLocSubs4MsgId(int *IdxPtr, CFE_SB_MsgId_t MsgId); 
+int SBN_CheckPeerSubs4MsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId, int PeerIdx); 
+void  SBN_RemoveAllSubsFromPeer(int PeerIdx); 
+void  SBN_ShowPeerSubs(int PeerIdx);
 void  SBN_ShowLocSubs(void);
 void  SBN_ShowAllSubs(void);
 void  SBN_SendSubsRequests(void); 
