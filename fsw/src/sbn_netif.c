@@ -214,7 +214,7 @@ int SBN_SendNetMsgNoBuf(uint32 MsgType, uint32 MsgSize, int PeerIdx,
     int status = 0;
 
     if(SBN.DebugOn) {
-        OS_printf("SendNetMsgNoBuf(MsgType=0x%04X, MsgSize=%d, PeerIdx=%d, SenderPtr=0x%x)\n", MsgType, MsgSize, PeerIdx, SenderPtr);
+        OS_printf("SendNetMsgNoBuf(MsgType=0x%04X, MsgSize=%d, PeerIdx=%d, SenderPtr=0x%X)\n", MsgType, MsgSize, PeerIdx, (unsigned int)SenderPtr);
     }
 
     SBN.MsgBuf.Hdr.Type = MsgType;
@@ -250,7 +250,7 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
     int status = 0;
 
     if(SBN.DebugOn) {
-	OS_printf("SendNetMsg(MsgType=0x%04X, MsgSize=%d, PeerIdx=%d, SenderPtr=0x%x)\n", MsgType, MsgSize, PeerIdx, SenderPtr);
+	OS_printf("SendNetMsg(MsgType=0x%04X, MsgSize=%d, PeerIdx=%d, SenderPtr=0x%x)\n", MsgType, MsgSize, PeerIdx, (unsigned int)SenderPtr);
     }
 
     /* if I'm not the sender, don't send (prevent loops) */
