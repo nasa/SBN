@@ -566,7 +566,7 @@ void SBN_RunProtocol(void) {
         if (current_time.seconds - SBN.Peer[PeerIdx].last_received.seconds
                     > SBN_HEARTBEAT_TIMEOUT) {
             /* lost connection, reset */
-	    OS_printf("peer %d lost connection, resetting\n");
+	    OS_printf("peer %d lost connection, resetting\n", PeerIdx);
             SBN_RemoveAllSubsFromPeer(PeerIdx);
             SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
 
@@ -727,8 +727,7 @@ void SBN_ProcessNetAppMsg(int MsgLength) {
 
             status = CFE_SB_SendMsgFull(
                 (CFE_SB_Msg_t *) &SBN.MsgBuf.Pkt.Data[0],
-                CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY,
-                &sender);
+                CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
 
             if (status != CFE_SUCCESS)
             {
