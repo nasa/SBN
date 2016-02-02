@@ -69,6 +69,7 @@
 #include "sbn_buf.h"
 #include "sbn_subs.h"
 #include "cfe_sb_events.h" /* For event message IDs */
+#include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 
 /*
  **   Task Globals
