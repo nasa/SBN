@@ -143,7 +143,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
         return SBN_IF_EMPTY;
 
     DataMsgBuf->Hdr.MsgSize = ntohl(DataMsgBuf->Hdr.MsgSize);
-    DataMsgBuf->Hdr.ProcessorId = ntohl(DataMsgBuf->Hdr.ProcessorId);
+    DataMsgBuf->Hdr.MsgSender.ProcessorId = ntohl(DataMsgBuf->Hdr.MsgSender.ProcessorId);
     DataMsgBuf->Hdr.Type = ntohl(DataMsgBuf->Hdr.Type);
     DataMsgBuf->Hdr.SequenceCount = ntohs(DataMsgBuf->Hdr.SequenceCount);
         return status;
@@ -298,7 +298,7 @@ int32 SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *Host
     DataMsgBuf->Hdr.MsgSize = htonl(orig_hdr.MsgSize);
     DataMsgBuf->Hdr.Type = htonl(orig_hdr.Type);
     DataMsgBuf->Hdr.SequenceCount = htons(orig_hdr.SequenceCount);
-    DataMsgBuf->Hdr.MsgSender.ProcessorId = ntohs(orig_hdr.MsgSender.ProcessorId);
+    DataMsgBuf->Hdr.MsgSender.ProcessorId = ntohl(orig_hdr.MsgSender.ProcessorId);
     DataMsgBuf->Hdr.SequenceCount = ntohs(orig_hdr.SequenceCount);
     DataMsgBuf->Hdr.GapAfter = ntohs(orig_hdr.GapAfter);
     DataMsgBuf->Hdr.GapTo = ntohs(orig_hdr.GapTo);
