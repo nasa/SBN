@@ -143,6 +143,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
         return SBN_IF_EMPTY;
 
     DataMsgBuf->Hdr.MsgSize = ntohl(DataMsgBuf->Hdr.MsgSize);
+    DataMsgBuf->Hdr.ProcessorId = ntohl(DataMsgBuf->Hdr.ProcessorId);
     DataMsgBuf->Hdr.Type = ntohl(DataMsgBuf->Hdr.Type);
     DataMsgBuf->Hdr.SequenceCount = ntohs(DataMsgBuf->Hdr.SequenceCount);
         return status;
