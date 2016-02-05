@@ -3,18 +3,21 @@
 
 #define IPV4_ITEMS_PER_FILE_LINE 2
 
-typedef struct {
+typedef struct
+{
     char Addr[16];
     int  Port;
 } IPv4_SBNEntry_t;
 
-typedef struct {
+typedef struct
+{
     char            Addr[16];
     int                SockId;
     int                Port;
 } IPv4_SBNHostData_t;
 
-typedef struct {
+typedef struct
+{
     char            Addr[16];
     int             Port;
     int             SockId;
