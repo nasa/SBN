@@ -220,6 +220,7 @@ int SBN_SendNetMsgNoBuf(uint32 MsgType, uint32 MsgSize, int PeerIdx,
     SBN.MsgBuf.Hdr.Type = MsgType;
     
     strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+    SBN.MsgBuf.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(MsgType,
 	MsgSize, SBN.Host, SBN.NumHosts, SenderPtr, SBN.Peer[PeerIdx].IfData,
@@ -254,7 +255,7 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
     }
 
     /* if I'm not the sender, don't send (prevent loops) */
-    if (CFE_PSP_GetProcessorId() != SenderPtr->ProcessorId) return SBN_OK;
+    if (SenderPtr->ProcessorId != CFE_CPU_ID) return SBN_OK;
 
     strncpy((char *)&(SBN.MsgBuf.Hdr.MsgSender.AppName),
 	&SenderPtr->AppName[0], OS_MAX_API_NAME);
@@ -352,7 +353,7 @@ uint8 SBN_CheckForMissedPkts(int PeerIdx) {
  *
  * @param HostIdx   Index of host data in host array
  *
- * @return Bytes received on success, SBN_IF_EMPTY if empty, SBN_ERROR on error
+ * @return SBN_OK on success, SBN_ERROR on failure
  */
 int SBN_IFRcv(int HostIdx) {
     if(SBN.DebugOn) {
@@ -376,8 +377,8 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx) {
         if(status == SBN_IF_EMPTY)
             break; /* no (more) messages */
 
-        if (status > 0) {
-            PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.SrcCpuName);
+        if (status == SBN_OK) {
+            PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.MsgSender.ProcessorId);
             if(PeerIdx == SBN_ERROR) {
                 OS_printf("PeerIdx Bad.  PeerIdx = %d\n", PeerIdx);
                 continue;

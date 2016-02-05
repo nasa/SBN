@@ -113,7 +113,7 @@ void  SBN_ProcessNetProtoMsg(void);
 
 void  SBN_ProcessNetAppMsg(int MsgLength);
 int32 SBN_CheckCmdPipe(void);
-int SBN_GetPeerIndex (char *NamePtr);
+int SBN_GetPeerIndex (uint32 ProcessorId);
 void  SBN_ShowStates(void);
 char  *SBN_StateNum2Str(uint32 StateNum);
 void  SBN_ShowPeerData(void);

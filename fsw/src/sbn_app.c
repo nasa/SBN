@@ -690,7 +690,7 @@ void SBN_ProcessNetAppMsg(int MsgLength) {
         OS_printf("SBN_ProcessNetAppMsg\n");
     }
 
-    PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.SrcCpuName);
+    PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.MsgSender.ProcessorId);
 
     if (PeerIdx == SBN_ERROR)
         return;
@@ -787,28 +787,24 @@ int32 SBN_CheckCmdPipe(void) {
     return Status;
 }/* end SBN_CheckCmdPipe */
 
-int SBN_GetPeerIndex(char *NamePtr) {
+int SBN_GetPeerIndex(uint32 ProcessorId) {
     /* TODO: rearchitect, terribly inefficient,
         we're checking for the peer index for every packet received! */
     int PeerIdx = 0;
 
     if(SBN.DebugOn) {
-        OS_printf("SBN_GetPeerIndex:  NamePtr = %s\n", NamePtr);
+        OS_printf("SBN_GetPeerIndex:  ProcessorId = %d\n", ProcessorId);
     }
 
     for (PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-
         if (SBN.Peer[PeerIdx].InUse == SBN_NOT_IN_USE)
             continue;
 
-        if (strcmp(SBN.Peer[PeerIdx].Name, NamePtr) == 0)
-            return (PeerIdx);/* Found it, so stop searching */
-
+        if (SBN.Peer[PeerIdx].ProcessorId == ProcessorId) return PeerIdx;
     }/* end for */
 
     return SBN_ERROR;
-
 } /* end SBN_GetPeerIndex */
 
 void SBN_SendWakeUpDebugMsg(void) {
