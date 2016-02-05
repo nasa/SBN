@@ -74,8 +74,7 @@ typedef struct {
 
   NetDataUnion      MsgBuf;
   int               LocalSubCnt;
-  SBN_Subs_t        LocalSubs[SBN_MAX_SUBS_PER_PEER];
-  uint8             DebugOn;
+  SBN_Subs_t        LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
 
   /* CFE scheduling pipe */
   CFE_SB_PipeId_t  SchPipeId;

@@ -8,18 +8,18 @@
  *
  * The format is the same as that for the peer file.
  */
-int32 SBN_ReadModuleFile(void) {
-    static char SBN_ModuleData[SBN_MODULE_FILE_LINE_SIZE];  /* A buffer for a line in a file */
-    int BuffLen; /* Length of the current buffer */
-    int ModuleFile = 0;
-    char c;
-    uint32 LineNum = 0;
+int32 SBN_ReadModuleFile(void)
+{
+    /* A buffer for a line in a file */
+    static char     SBN_ModuleData[SBN_MODULE_FILE_LINE_SIZE];
+    int             BuffLen = 0, /* Length of the current buffer */
+                    ModuleFile = 0;
+    char            c = '\0';
+    uint32          LineNum = 0;
 
     ModuleFile = OS_open(SBN_NONVOL_MODULE_FILENAME, OS_READ_ONLY, 0);
 
-    if(ModuleFile == OS_ERROR) {
-        return SBN_ERROR;
-    }
+    if(ModuleFile == OS_ERROR) return SBN_ERROR;
 
     memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
     BuffLen = 0;
@@ -27,11 +27,11 @@ int32 SBN_ReadModuleFile(void) {
     /*
      ** Parse the lines from the file
      */
-    while(1) {
+    while(1)
+    {
         OS_read(ModuleFile, &c, 1);
 
-        if (c == '!')
-            break;
+        if (c == '!') break;
 
         if (c == '\n' || c == ' ' || c == '\t')
         {
@@ -69,14 +69,14 @@ int32 SBN_ReadModuleFile(void) {
             LineNum++;
             memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
             BuffLen = 0;
-        }
+        } /* end if */
 
     }/* end while */
 
     OS_close(ModuleFile);
 
     return SBN_OK;
-}
+} /* end SBN_ReadModuleFile */
 
 /**
  * Parses a module file entry to obtain the protocol id, name,
@@ -87,47 +87,45 @@ int32 SBN_ReadModuleFile(void) {
 
  * @return  SBN_OK on success, SBN_ERROR on error
  */
-int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum) {
-    uint32  ProtocolId;
+int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
+{
+    uint32  ProtocolId = 0;
     char    ModuleName[50];
     char    ModuleFile[50];
     char    StructName[50];
-    int     ScanfStatus;
+    int     ScanfStatus = 0;
 
-    int32   ReturnCode;
-    uint32  ModuleId;
-    uint32  StructAddr;
+    int32   ReturnCode = 0;
+    uint32  ModuleId = 0;
+    uint32  StructAddr = 0;
 
     /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%lu %s %s %s", (unsigned long int *)&ProtocolId, ModuleName, ModuleFile, StructName);
+    ScanfStatus = sscanf(FileEntry, "%lu %s %s %s",
+        (unsigned long int *)&ProtocolId, ModuleName, ModuleFile, StructName);
 
     /*
     ** Check to see if the correct number of items were parsed
     */
-    if (ScanfStatus != 4) {
-
-        /*CFE_EVS_SendEvent(SBN_INV_LINE_EID,CFE_EVS_ERROR,
-                          "%s:Invalid SBN module file line,exp %d items,found %d",
-                          CFE_CPU_NAME, 4, ScanfStatus); */
+    if (ScanfStatus != 4)
+    {
         OS_printf("%s:Invalid SBN module file line,exp %d items,found %d",
-                          CFE_CPU_NAME, 4, ScanfStatus);
+            CFE_CPU_NAME, 4, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
     ReturnCode = OS_ModuleLoad(&ModuleId, ModuleName, ModuleFile);
 
-    if(ReturnCode != OS_SUCCESS) {
-        return SBN_ERROR;
-    }
+    if(ReturnCode != OS_SUCCESS) return SBN_ERROR;
 
     ReturnCode = OS_SymbolLookup(&StructAddr, StructName);
 
     SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
 
-    if(ReturnCode != OS_SUCCESS) {
+    if(ReturnCode != OS_SUCCESS)
+    {
         OS_printf("Failed to find symbol %s\n", StructName);
         return SBN_ERROR;
-    }
+    } /* end if */
 
     return SBN_OK;
-}
+} /* end SBN_ParseModuleEntry */

@@ -150,22 +150,23 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength);
 /* Process a command pipe message                                  */
 /*                                                                 */
 /*******************************************************************/
-void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr) {
-
-    CFE_SB_MsgId_t MsgId = 0;
-    uint16         CommandCode = 0;
+void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
+{
+    CFE_SB_MsgId_t  MsgId = 0;
+    uint16          CommandCode = 0;
 
     MsgId = CFE_SB_GetMsgId(MessagePtr);
-    switch (MsgId) {
+    switch(MsgId)
+    {
         /* Housekeeping Telemetry Requests */
         case SBN_SEND_HK_MID:
             SBN_HousekeepingReq(MessagePtr);
             break;
 
         case SBN_CMD_MID:
-
             CommandCode = CFE_SB_GetCmdCode(MessagePtr);
-            switch(CommandCode) {
+            switch(CommandCode)
+            {
                 case SBN_NOOP_CC:
                     SBN_NoopCmd(MessagePtr);
                     break;
@@ -184,10 +185,10 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr) {
                 default:
                     SBN.HkPkt.CmdErrCount++;
                     CFE_EVS_SendEvent(SBN_CC_ERR_EID, CFE_EVS_ERROR,
-                                      "Invalid command code: ID = 0x%04X, CC = %d", 
-                                      MsgId, CommandCode);
+                        "Invalid command code: ID = 0x%04X, CC = %d", 
+                        MsgId, CommandCode);
                     break;
-            }
+            } /* end switch */
             break;
 
         default:
@@ -196,95 +197,84 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr) {
                 "Invalid command pipe message ID: 0x%04X",
                 MsgId);
             break;
-    }
-
-}
+    } /* end switch */
+} /* end SBN_AppPipe */
 
 /*******************************************************************/
 /*                                                                 */
 /* Reset telemetry counters                                        */
 /*                                                                 */
 /*******************************************************************/
-void SBN_InitializeCounters(void) {
-    int32 i;
+void SBN_InitializeCounters(void)
+{
+    int32   i = 0;
 
     SBN.HkPkt.CmdCount = 0;
     SBN.HkPkt.CmdErrCount = 0;
 
-    for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++) {
+    for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
+    {
         SBN.HkPkt.PeerAppMsgRecvCount[i] = 0;
         SBN.HkPkt.PeerAppMsgSendCount[i] = 0;
         SBN.HkPkt.PeerAppMsgRecvErrCount[i] = 0;
         SBN.HkPkt.PeerAppMsgSendErrCount[i] = 0;
-    }
-
-    return;
-}
+    } /* end for */
+} /* end SBN_InitializeCounters */
 
 /*******************************************************************/
 /*                                                                 */
 /* Housekeeping request                                            */
 /*                                                                 */
 /*******************************************************************/
-void SBN_HousekeepingReq(CFE_SB_MsgPtr_t MessagePtr) {
-    int32  i;
-    uint16 ExpectedLength = sizeof(SBN_NoArgsCmd_t);
+void SBN_HousekeepingReq(CFE_SB_MsgPtr_t MessagePtr)
+{
+    int32   i = 0;
+    uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
-    /*
-    ** Verify message packet length
-    */
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
-
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
+    {
         /* 
         ** Update with the latest subscription counts 
         */
-        for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++) {
+        for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
             SBN.HkPkt.PeerSubsCount[i] = SBN.Peer[i].SubCnt;
-        }
 
         /* 
         ** Timestamp and send packet
         */
         CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.HkPkt);
         CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.HkPkt);
-    }
-    return;
-}
+    } /* end if */
+} /* end SBN_HousekeepingReq */
 
 /*******************************************************************/
 /*                                                                 */
 /* Noop command                                                    */
 /*                                                                 */
 /*******************************************************************/
-void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr) {
+void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
-    uint16 ExpectedLength = sizeof(SBN_NoArgsCmd_t);
-
-    /*
-    ** Verify message packet length
-    */
-    if (SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
+    {
         SBN.HkPkt.CmdCount++;
 
         CFE_EVS_SendEvent(SBN_NOOP_INF_EID, CFE_EVS_INFORMATION,
                           "No-op command");
-    }
-
-    return;
-}
+    } /* end if */
+} /* end SBN_NoopCmd */
 
 /*******************************************************************/
 /*                                                                 */
 /* Reset counters command                                          */
 /*                                                                 */
 /*******************************************************************/
-void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr) {
-    uint16 ExpectedLength = sizeof(SBN_NoArgsCmd_t);
+void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
-    /*
-    ** Verify message packet length
-    */
-    if (SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
         /*
         ** Don't increment counter because we're resetting anyway
         */
@@ -292,36 +282,36 @@ void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr) {
 
         CFE_EVS_SendEvent(SBN_RESET_DBG_EID, CFE_EVS_DEBUG,
                           "Reset counters command");
-    }
-    return;
-}
+    } /* end if */
+} /* end SBN_ResetCountersCmd */
 
 /*******************************************************************/
 /*                                                                 */
 /* Get list of peers                                               */
 /*                                                                 */
 /*******************************************************************/
-void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr) {
-    
-    SBN_PeerListResponsePacket_t response;
-    int32 i;
-    uint16 ExpectedLength = sizeof(SBN_NoArgsCmd_t);
+void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
+{
+    SBN_PeerListResponsePacket_t    response;
+    int32                           i = 0;
+    uint16                          ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
-    /*
-    ** Verify message packet length
-    */
-    if (SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
-        CFE_SB_InitMsg(&response, SBN_GET_PEER_LIST_RSP_MID, sizeof(SBN_PeerListResponsePacket_t), TRUE);
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
+    {
+        CFE_SB_InitMsg(&response, SBN_GET_PEER_LIST_RSP_MID,
+            sizeof(SBN_PeerListResponsePacket_t), TRUE);
         response.NumPeers = SBN.NumPeers;
 
-        for(i = 0; i < response.NumPeers; i++) {
-            strncpy(response.PeerList[i].Name, SBN.Peer[i].Name, SBN_MAX_PEERNAME_LENGTH);
+        for(i = 0; i < response.NumPeers; i++)
+        {
+            strncpy(response.PeerList[i].Name, SBN.Peer[i].Name,
+                SBN_MAX_PEERNAME_LENGTH);
             response.PeerList[i].ProcessorId = SBN.Peer[i].ProcessorId;
             response.PeerList[i].ProtocolId = SBN.Peer[i].ProtocolId;
             response.PeerList[i].SpaceCraftId = SBN.Peer[i].SpaceCraftId;
             response.PeerList[i].State = SBN.Peer[i].State;
             response.PeerList[i].SubCnt = SBN.Peer[i].SubCnt;
-        }
+        } /* end for */
 
         SBN.HkPkt.CmdCount++;
         /* 
@@ -332,132 +322,135 @@ void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr) {
 
         CFE_EVS_SendEvent(SBN_PEER_LIST_DBG_EID, CFE_EVS_DEBUG,
                           "Peer list retrieved (%d peers)", response.NumPeers);
-    }
-    return;
-}
+    } /* end if */
+} /* end SBN_GetPeerList */
 
 /*******************************************************************/
 /*                                                                 */
 /* Get status of a specified peer                                  */
 /*                                                                 */
 /*******************************************************************/
-void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr) {
-    SBN_ModuleStatusPacket_t response;
-    int32 PeerIdx, Status;
-    SBN_PeerData_t Peer;
+void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
+{
+    SBN_ModuleStatusPacket_t    response;
+    int32                       PeerIdx = 0, Status = 0;
+    SBN_PeerData_t              Peer;
 
-    uint16 ExpectedLength = sizeof(SBN_GetPeerStatusCmd_t);
+    uint16                    ExpectedLength = sizeof(SBN_GetPeerStatusCmd_t);
     
-    /*
-    ** Verify message packet length
-    */
-    if (SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
+    {
         SBN_GetPeerStatusCmd_t *Command = (SBN_GetPeerStatusCmd_t*)MessagePtr;
         PeerIdx = Command->PeerIdx;
         Peer = SBN.Peer[PeerIdx];
         
         SBN.HkPkt.CmdCount++;
-        CFE_SB_InitMsg(&response, SBN_GET_PEER_STATUS_RSP_MID, sizeof(SBN_ModuleStatusPacket_t), TRUE);
+        CFE_SB_InitMsg(&response, SBN_GET_PEER_STATUS_RSP_MID,
+            sizeof(SBN_ModuleStatusPacket_t), TRUE);
         response.ProtocolId = Peer.ProtocolId;
-        Status = SBN.IfOps[Peer.ProtocolId]->ReportModuleStatus(&response, Peer.IfData, SBN.Host, SBN.NumHosts);
+        Status = SBN.IfOps[Peer.ProtocolId]->ReportModuleStatus(&response,
+            Peer.IfData, SBN.Host, SBN.NumHosts);
         
-        if(Status == SBN_NOT_IMPLEMENTED) {
-            CFE_EVS_SendEvent(SBN_CMD_NOT_IMPLEMENTED_INFO_EID, CFE_EVS_INFORMATION,
-                    "Peer status command not implemented for peer %d of type %d", PeerIdx, response.ProtocolId);
-        } else {
-            
-            /* 
-            ** Timestamp and send packet
-            */
+        if(Status == SBN_NOT_IMPLEMENTED)
+        {
+            CFE_EVS_SendEvent(SBN_CMD_NOT_IMPLEMENTED_INFO_EID,
+                CFE_EVS_INFORMATION,
+                "Peer status command not implemented for peer %d of type %d",
+                PeerIdx, response.ProtocolId);
+        }
+        else
+        {
             CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &response);
             CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
 
             CFE_EVS_SendEvent(SBN_PEER_STATUS_DBG_EID, CFE_EVS_DEBUG,
                               "Peer status retrieved for peer %d", PeerIdx);
-        }
-    }
-    
-    return;
-}
+        } /* end if */
+    } /* end if */
+} /* end SBN_GetPeerStatus */
 
 /*******************************************************************/
 /*                                                                 */
 /* Reset peer                                                      */
 /*                                                                 */
 /*******************************************************************/
-void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr) {
-    int32 PeerIdx, Status;
-    SBN_PeerData_t Peer;
-    SBN_ResetPeerCmd_t *Command;
+void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr)
+{
+    int                 PeerIdx = 0, Status = 0;
+    SBN_PeerData_t      Peer;
+    SBN_ResetPeerCmd_t *Command = NULL;
 
-    uint16 ExpectedLength = sizeof(SBN_ResetPeerCmd_t);
+    uint16              ExpectedLength = sizeof(SBN_ResetPeerCmd_t);
 
-    /*
-    ** Verify message packet length
-    */
-    if (SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
-
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
+    {
         SBN.HkPkt.CmdCount++;
         Command = (SBN_ResetPeerCmd_t*)MessagePtr;
         PeerIdx = Command->PeerIdx;
         Peer = SBN.Peer[PeerIdx];
         
-        Status = SBN.IfOps[Peer.ProtocolId]->ResetPeer(Peer.IfData, SBN.Host, SBN.NumHosts);
+        Status = SBN.IfOps[Peer.ProtocolId]->ResetPeer(
+            Peer.IfData, SBN.Host, SBN.NumHosts);
         
-        if(Status == SBN_NOT_IMPLEMENTED) {
-            CFE_EVS_SendEvent(SBN_CMD_NOT_IMPLEMENTED_INFO_EID, CFE_EVS_INFORMATION,
-                    "Reset peer not implemented for peer %d of type %d", PeerIdx, Peer.ProtocolId);
-        } else {
-            CFE_EVS_SendEvent(SBN_RESET_PEER_DBG_EID, CFE_EVS_DEBUG,
-                              "Reset peer %d", PeerIdx);
+        if(Status == SBN_NOT_IMPLEMENTED)
+        {
+            CFE_EVS_SendEvent(SBN_CMD_NOT_IMPLEMENTED_INFO_EID,
+                CFE_EVS_INFORMATION,
+                "Reset peer not implemented for peer %d of type %d",
+                PeerIdx, Peer.ProtocolId);
         }
-    }
-}
+        else
+        {
+            CFE_EVS_SendEvent(SBN_RESET_PEER_DBG_EID, CFE_EVS_DEBUG,
+                "Reset peer %d", PeerIdx);
+        } /* end if */
+    } /* end if */
+} /* end SBN_ResetPeer */
 
 /*******************************************************************/
 /*                                                                 */
 /* Verify message packet length                                    */
 /*                                                                 */
 /*******************************************************************/
-boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength) {
+boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
+{
+    boolean         result = TRUE;
+    uint16          CommandCode = 0;
+    uint16          ActualLength = 0;
+    CFE_SB_MsgId_t  MsgId;
 
-    boolean result = TRUE;
-    uint16  CommandCode;
-    uint16  ActualLength;
-    CFE_SB_MsgId_t MsgId;
-
-    /*
-    ** Verify the message packet length...
-    */
     ActualLength = CFE_SB_GetTotalMsgLength(msg);
-    if (ExpectedLength != ActualLength) {
+    if(ExpectedLength != ActualLength)
+    {
         MsgId   = CFE_SB_GetMsgId(msg);
         CommandCode = CFE_SB_GetCmdCode(msg);
 
-        if (MsgId == SBN_SEND_HK_MID) {
-
+        if(MsgId == SBN_SEND_HK_MID)
+        {
             /*
             ** For a bad HK request, just send the event.  We only increment
             ** the error counter for ground commands and not internal messages.
             */
             CFE_EVS_SendEvent(SBN_HKREQ_LEN_ERR_EID, CFE_EVS_ERROR,
-                    "Invalid HK request msg length: ID = 0x%04X, CC = %d, Len = %d, Expected = %d",
-                    MsgId, CommandCode, ActualLength, ExpectedLength);
+                "Invalid HK request msg length: ID = 0x%04X, "
+                "CC = %d, Len = %d, Expected = %d",
+                MsgId, CommandCode, ActualLength, ExpectedLength);
         }
-        else {
-
+        else
+        {
             /*
             ** All other cases, increment error counter
             */
             CFE_EVS_SendEvent(SBN_LEN_ERR_EID, CFE_EVS_ERROR,
-                    "Invalid msg length: ID = 0x%04X, CC = %d, Len = %d, Expected = %d",
-                    MsgId, CommandCode, ActualLength, ExpectedLength);
+                "Invalid msg length: ID = 0x%04X, "
+                "CC = %d, Len = %d, Expected = %d",
+                MsgId, CommandCode, ActualLength, ExpectedLength);
 
             SBN.HkPkt.CmdErrCount++;
-        }
+        } /* end if */
 
         return FALSE;
-    }
+    } /* end if */
 
     return result;
-}
+} /* end SBN_VerifyMsgLength */

@@ -89,7 +89,7 @@ typedef struct {
     uint32            State;
     OS_time_t         last_sent, last_received;
     uint32            SubCnt;
-    SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER];
+    SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
     SBN_InterfaceData *IfData;
     SBN_PeerMsgBuf_t  SentMsgBuf;  /* buffer of messages sent over the data interface */
     SBN_PeerMsgBuf_t  DeferredBuf; /* buffer of messages deferred */
