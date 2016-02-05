@@ -13,6 +13,7 @@ endif()
 
 include_directories(${SBN_LIB_SOURCE_DIR}/fsw/public_inc)
 
+include_directories(fsw/platform_inc)
 
 aux_source_directory(fsw/src LIB_SRC_FILES)
 

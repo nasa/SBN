@@ -10,14 +10,17 @@
 #include "serial_io.h"
 #include "serial_queue.h"
 #include "sbn_constants.h"
-#include "sbn_interfaces.h"
 #include "serial_sbn_if_struct.h"
+#include <arpa/inet.h>
+#include <string.h>
 
 #ifdef SBN_SERIAL_USE_TERMIOS
 #include <errno.h>
 #include <termios.h> 
+#include <unistd.h>
 #endif
 
+/* TODO: move to HostData */
 uint32 HostQueueId = 0; 
 
 /**
@@ -110,7 +113,9 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate) {
 	tty.c_cflag |= (CLOCAL | CREAD);        /* disable modem controls, enable reading */
 	tty.c_cflag &= ~(PARENB | PARODD);      /* disable parity */
 	tty.c_cflag &= ~CSTOPB;                 /* send 1 stop bit */
+#ifdef CRTSCTS /* LINUX doesn't support unless _BSD_SOURCE defined */
 	tty.c_cflag &= ~CRTSCTS;                /* no flow control */
+#endif
 
     tty.c_cc[VMIN]  = 0;  /* Don't block until a character has been received */
 	tty.c_cc[VTIME] = 10; /* read() will timeout after 10 tenths of a second */
@@ -152,170 +157,85 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate) {
  * @return SBN_ERROR if unsuccessful
  */
 int32 Serial_IoReadMsg(Serial_SBNHostData_t *host) {
-	int32 dataRead = 0;
-	int32 status;
-	uint32 messageSize, MsgType;
-    uint8 DataMsgBuf[sizeof(NetDataUnion)]; 
-	
-	/* Synchronize message with magic number a.k.a. sync code */
-	status = Serial_IoReadSyncBytes(host->Fd);
+    int32 dataRead = 0, totalRead = 0;
+    uint32 messageSize = 0;
+    NetDataUnion MsgBuf;
+    void *MsgBufPtr = (void *)(&MsgBuf);
+    memset(MsgBufPtr, 0, sizeof(MsgBuf));
 
-	if (status <= 0) {
-        if (status == 0 || errno == EAGAIN) {
-            return SBN_IF_EMPTY; 
+    /* read the SBN header, which includes a message size so we know how
+     * much to read to get the rest of the message */
+
+    totalRead = 0;
+    while (totalRead < sizeof(MsgBuf.Hdr)) {
+        dataRead = OS_read(host->Fd, MsgBufPtr + totalRead, sizeof(MsgBuf.Hdr) - totalRead);
+        if (dataRead < 0) { /* what to do if dataRead == 0? */
+            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+                "Serial: Unable to read the message header.");
+            return SBN_ERROR;
         }
-		CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-            "Serial: Error obtaining message sync code. Returned %d\n", status);
-		return SBN_ERROR;
-	}
-    
-	/* Update the number of bytes filling in the buffer */
-	messageSize = Serial_IoReadMessageSize(host->Fd);
-    dataRead = 2*sizeof(uint32); /* Sync word + message size */
-
-	if (messageSize < 0) {
-		CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-            "Serial: Error obtaining message size. Returned %d\n", messageSize);
-		return SBN_ERROR;
-	}
-
-    ((NetDataUnion*)DataMsgBuf)->Hdr.MsgSize = messageSize;
-
-	/* Size of data message now obtained, read the rest of the payload */
-	if (messageSize == 0) {
-		return SBN_IF_EMPTY;
-	}
-
-    while (dataRead < messageSize) {
-	    status = OS_read(host->Fd, &DataMsgBuf[dataRead], messageSize-dataRead);
-	    if (status < 0) {
-		    CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                "Serial: Error obtaining message payload. Returned %d\n", status);
-		    return SBN_ERROR;
-	    }
-        dataRead += status;
+        totalRead = totalRead + dataRead;
     }
 
-	if (dataRead != messageSize) {
-		CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-            "Serial: Data receive mismatch. Expected size %d, received size %d\n", 
-            messageSize, dataRead);
-	}
+    MsgBuf.Hdr.MsgSize = ntohl(MsgBuf.Hdr.MsgSize);
+    MsgBuf.Hdr.MsgSender.ProcessorId = ntohl(MsgBuf.Hdr.MsgSender.ProcessorId);
+    MsgBuf.Hdr.Type = ntohl(MsgBuf.Hdr.Type);
+    MsgBuf.Hdr.SequenceCount = ntohs(MsgBuf.Hdr.SequenceCount);
 
-    MsgType = ((NetDataUnion*)DataMsgBuf)->Hdr.Type;
-
-    if (SBN_LIB_MsgTypeIsProto(MsgType)) {
-        status = Serial_QueueAddNode(host->ProtoQ, host->ProtoSemId, DataMsgBuf); 
-    }
-    else {
-        status = Serial_QueueAddNode(host->DataQ, host->DataSemId, DataMsgBuf); 
+    if (MsgBuf.Hdr.MsgSize > sizeof(NetDataUnion)) {
+        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+            "Serial: Message size larger than max allowed "
+            "(size: %d, allowed: %d)",
+            MsgBuf.Hdr.MsgSize, sizeof(NetDataUnion));
+        return SBN_ERROR;
     }
 
-    if (status == SBN_OK) {
-        return dataRead;
-    }
-
-	return status;
-}
-
-
-/**
- * Parses a data stream for individual messages by identifying the synchronizing code,
- * reads one byte at a time to avoid endianness issues when reading multiple bytes at a time
- *
- * @param Fd    File descriptor for reading the serial device
- * 
- * @return 1 if successful, 
- * @return negative number if unsuccessful
- */
-int32 Serial_IoReadSyncBytes(int32 Fd) {
-	uint8 buffer; 
-	int32 msgSize;
-	uint8 syncBytesMatched = 0;
-	
-	while (syncBytesMatched < SBN_SYNC_LENGTH) {
-		buffer = 0;
-		msgSize = OS_read(Fd, &buffer, 1);
-
-		if (msgSize < 0) { /* error on read() */
-			return msgSize;
-		}
-		if (msgSize == 0) { /* No message available for parsing, possibly due to empty TTY buffer */
-            if (syncBytesMatched == 0) {
-			    return 0;
-            }
-            /* Don't return if we've already found a sync byte, instead keep 
-               waiting for more data */
-		}
-		else {
-		    /* capture the sync code, testing each byte for a match */
-		    /* on mismatch, start searching again */
-		    if (buffer == sbn_sync[syncBytesMatched]) {
-			    syncBytesMatched++;
-		    }
-            else if (buffer == sbn_sync[0]) { /* Account for 6A 6A 89 98 B9 */
-                syncBytesMatched = 1; 
-            }
-		    else {
-			    syncBytesMatched = 0;
-		    }
+    messageSize = MsgBuf.Hdr.MsgSize - sizeof(MsgBuf.Hdr); 
+    while (totalRead < messageSize) {
+        dataRead = OS_read(host->Fd, MsgBufPtr + totalRead, messageSize - totalRead);
+        if (dataRead < 0) { /* what to do if dataRead == 0? */
+            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+                "Serial: Unable to read the message header.");
+            return SBN_ERROR;
         }
-	}
-
-	return 1;
-}
-
-
-/**
- * Obtains a serial message size given previous sync code alignment. Assumes that
- * once the sync sequence has been found, there is/will be enough data on the 
- * wire to get the full message size without blocking for too long. 
- *
- * @param Fd File descriptor for reading the serial device
- *
- * @return The message payload size
- */
-uint32 Serial_IoReadMessageSize(int32 Fd) {
-    int32  status;
-    uint8  msgBuf[4], bytesRead = 0;
-	uint32 messageSize = 0;
-
-    while (bytesRead < 4) {
-        status = OS_read(Fd, &msgBuf[bytesRead], 4-bytesRead);
-        if (status < 0) { /* missing data, or errors on read() */
-		    return 0;
-	    }
-        bytesRead += status;
+        totalRead = totalRead + dataRead;
     }
 
-    CFE_PSP_MemCpy(&messageSize, msgBuf, 4);
-	return messageSize;
+    return Serial_QueueAddNode(host->Queue, host->SemId, &MsgBuf); 
 }
 
 
 /**
  * Prepares and sends message for sending  over the serial channel. Message prepended with sync code and payload byte size
  * @param Fd            File descriptor for writing to the serial device
- * @param DataMsgBuf    Buffer containing  payload
+ * @param MsgBuf    Buffer containing  payload
  * @param MsgSize       Size of the message in bytes (includes sync and message size bytes)
  *
- * @return number of bytes sent if successful
  * @return SBN_ERROR if unsuccessful 
  */
-int32 Serial_IoWriteMsg(int32 Fd, void *DataMsgBuf, uint32 MsgSize) {
-	int32 status;
-	int16 bytesSent = 0;
+int Serial_IoWriteMsg(int32 Fd, NetDataUnion *MsgBuf) {
+    int32 bytesSent = 0;
+    SBN_Hdr_t OrigHdr;
+    uint32 MsgSize = MsgBuf->Hdr.MsgSize;
 
-	status = OS_write (Fd, DataMsgBuf, MsgSize);
-    bytesSent += status; 
+    memcpy(&OrigHdr, MsgBuf, sizeof(OrigHdr));
 
-	if (status < 0) {
+    MsgBuf->Hdr.MsgSize = htonl(OrigHdr.MsgSize);
+    MsgBuf->Hdr.MsgSender.ProcessorId = htonl(OrigHdr.MsgSender.ProcessorId);
+    MsgBuf->Hdr.Type = htonl(OrigHdr.Type);
+    MsgBuf->Hdr.SequenceCount = htons(OrigHdr.SequenceCount);
+
+    bytesSent = OS_write(Fd, &MsgBuf, MsgSize);
+
+    memcpy(MsgBuf, &OrigHdr, sizeof(OrigHdr));
+
+    if (bytesSent < 0) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-            "Serial: Error writing Payload. Returned %d\n", status); 
-		return status;
-	}
+            "Serial: Error writing Payload. Returned %d\n", bytesSent); 
+        return SBN_ERROR;
+    }
 
-	return bytesSent;
+    return SBN_OK;
 }
 
 
@@ -370,7 +290,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host) {
     /* If the queue doesn't already exist, create it */
     if (HostQueueId == 0) {
         Status = OS_QueueCreate(&HostQueueId, "SerialHostQueue", SBN_SERIAL_QUEUE_DEPTH,
-                                sizeof(uint32), 0); 
+            sizeof(uint32), 0); 
 
         if (Status != OS_SUCCESS) {
             CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_INFORMATION,
@@ -405,4 +325,3 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host) {
 
     return SBN_VALID; 
 }
-

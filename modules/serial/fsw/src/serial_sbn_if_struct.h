@@ -18,11 +18,9 @@ typedef struct {
     char    DevName[SBN_SERIAL_MAX_CHAR_NAME]; /**< Name of the device on the operating system, e.g. '/dev/ttyS0' */
     uint32  PairNum;        /**< For identifying which peer this host is paired with */
     uint32  BaudRate;       /**< Baud rate of the serial device */
-	int32   Fd;             /**< File descriptor for TTYserial device */
-    uint32  ProtoQ;         /**< Protocol message queue ID */
-    uint32  ProtoSemId;     /**< Semaphore for protocol queue */
-    uint32  DataQ;          /**< Data message queue ID */
-    uint32  DataSemId;      /**< Semaphore for data queue */
+    int32   Fd;             /**< File descriptor for TTYserial device */
+    uint32  Queue;          /**< Data message queue ID */
+    uint32  SemId;          /**< Semaphore for data queue */
     uint32  TaskHandle;     /**< Handle for the serial read task */
 } Serial_SBNHostData_t;
 
@@ -31,8 +29,6 @@ typedef struct {
 typedef struct {
     uint32  PairNum;        /**< For identifying the host this peer is paired with */
     uint32  BaudRate;       /**< Baud rate of the serial device */
-    uint32  ProtoQ;         /**< Protocol message queue ID */
-    uint32  ProtoSemId;     /**< Semaphore for protocol queue */
 } Serial_SBNPeerData_t;
 
 

@@ -17,80 +17,31 @@
  * Read pattern: search data for sync code, get message size, get message payload
  *
  * @param Host       Structure of interface data for the host
- * @param DataMsgBuf Pointer to the SBN's protocol message buffer
+ * @param MsgBuf     Pointer to the SBN's protocol message buffer
  *
- * @return Bytes received on success,
- * @return SBN_IF_EMPTY if no data,
+ * @return SB_OK on success
  * @return SBN_ERROR on error
  */
-int32 Serial_SbnReceiveMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf) {
-    Serial_SBNHostData_t *host;
-    int32 status;
+int Serial_SbnReceiveMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf) {
+    uint32 MsgSize = 0;
+    Serial_SBNHostData_t *host = NULL;
 
     if (Host == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
                           "Serial: Error in SerialRcvMsg: Host is NULL.\n");
         return SBN_ERROR;
     }
-    if (DataMsgBuf == NULL) {
+    if (MsgBuf == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in SerialRcvMsg: DataMsgBuf is NULL.\n");
+                          "Serial: Error in SerialRcvMsg: MsgBuf is NULL.\n");
         return SBN_ERROR;
     }
 
-	host = (Serial_SBNHostData_t *)(Host->HostData);
-	status = Serial_QueueGetMsg(host->DataQ, host->DataSemId, (uint8 *)DataMsgBuf);
-
-    return status;
+    host = (Serial_SBNHostData_t *)(Host->HostData);
+    MsgSize = Serial_QueueGetMsg(host->Queue, host->SemId, MsgBuf);
+    if (MsgSize <= 0) return SBN_ERROR;
+    return SBN_OK;
 }
-
-
-/**
- * Checks for a single protocol message.
- *
- * @param Peer         Structure of interface data for a peer
- * @param ProtoMsgBuf  Pointer to the SBN's protocol message buffer
- *
- * @return SBN_TRUE for message available
- * @return SBN_NO_MSG for no messages or an error due to link being down or data copy error
- * @return SBN_ERROR on error
- */
-int32 Serial_SbnCheckForNetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *ProtoMsgBuf) {
-	Serial_SBNPeerData_t *peer;
-	int32 status;
-
-    if (ProtoMsgBuf == NULL) {
-        CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
-                          "Serial: Error in CheckForSerialNetProtoMsg: ProtoMsgBuf is NULL.\n");
-        return SBN_ERROR;
-    }
-    if (Peer == NULL) {
-        CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
-                          "Serial: Error in CheckForSerialNetProtoMsg: Peer is NULL.\n");
-        ProtoMsgBuf->Hdr.Type = SBN_NO_MSG;
-        return SBN_ERROR;
-    }
-
-	peer = (Serial_SBNPeerData_t *)(Peer->PeerData);
-	status = Serial_QueueGetMsg(peer->ProtoQ, peer->ProtoSemId, (uint8 *)ProtoMsgBuf);
-
-    if (status > 0) {
-        return SBN_TRUE; /* Message available and no errors */
-    }
-
-    if ( status == SBN_ERROR ) {
-        CFE_EVS_SendEvent(SBN_NET_RCV_PROTO_ERR_EID,CFE_EVS_ERROR,
-                "Serial: Error in CheckForSerialNetProtoMsg. QueueGetMsg status=%d",
-                status);
-        ProtoMsgBuf->Hdr.Type = SBN_NO_MSG;
-        return SBN_ERROR;
-    }
-
-    /* status = 0, so no messages and no errors */
-    ProtoMsgBuf->Hdr.Type = SBN_NO_MSG;
-    return SBN_NO_MSG;
-} /* end SBN_CheckForNetProtoMsg */
-
 
 /**
  * Parses the peer data file into SBN_FileEntry_t structures.
@@ -102,14 +53,12 @@ int32 Serial_SbnCheckForNetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *
  * @return SBN_OK if entry is parsed correctly
  * @return SBN_ERROR on error
  */
-int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
+int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
         void** EntryAddr) {
-
-    int     ScanfStatus;
-    uint32  BaudRate;
-    uint8   PairNum;
-    char    DevNameHost[SBN_SERIAL_MAX_CHAR_NAME];
-    Serial_SBNEntry_t *entry;
+    int ScanfStatus = 0;
+    unsigned int BaudRate = 0, PairNum = 0;
+    char DevNameHost[SBN_SERIAL_MAX_CHAR_NAME];
+    Serial_SBNEntry_t *entry = NULL;
 
     /*
     ** Using sscanf to parse the string.
@@ -136,7 +85,7 @@ int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
     *EntryAddr = entry;
     entry->PairNum  = PairNum;
     entry->BaudRate = BaudRate;
-    strcpy(entry->DevNameHost, DevNameHost);
+    strncpy(entry->DevNameHost, DevNameHost, sizeof(entry->DevNameHost));
 
     return SBN_OK;
 }
@@ -152,107 +101,77 @@ int32 Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
  * @return SBN_PEER if this entry is for a peer (a different CPU)
  * @return SBN_ERROR on error
  */
-int32 Serial_SbnInitPeerInterface(SBN_InterfaceData *Data) {
-    Serial_SBNEntry_t *entry;
-    int32 Status;
+int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data) {
+    Serial_SBNEntry_t *entry = NULL;
     char name[20];
 
     if (Data == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Cannot initialize interface! Interface data is null.\n");
+            "Serial: Cannot initialize interface! Interface data is null.\n");
         return SBN_ERROR;
     }
 
-	entry = (Serial_SBNEntry_t *)(Data->EntryData);
+    entry = (Serial_SBNEntry_t *)(Data->EntryData);
 
-	/* CPU names match - this is host data. */
-	if(strncmp(Data->Name, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH) == 0) {
-		/* create, fill, and store Serial-specific host data structure */
-		Serial_SBNHostData_t *host = malloc(sizeof(Serial_SBNHostData_t));
-		if (host == NULL) {
+    /* CPU names match - this is host data. */
+    if(strncmp(Data->Name, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH) == 0) {
+        /* create, fill, and store Serial-specific host data structure */
+        Serial_SBNHostData_t *host = malloc(sizeof(Serial_SBNHostData_t));
+        if (host == NULL) {
             CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                            "Serial: Cannot allocate host interface data.\n");
-			return SBN_ERROR;
-		}
-		Data->HostData = (int32)host;
+                "Serial: Cannot allocate host interface data.\n");
+            return SBN_ERROR;
+        }
+        Data->HostData = host;
 
-		/* open serial device and set options */
-		host->Fd = Serial_IoOpenPort(entry->DevNameHost, entry->BaudRate);
-		if (host->Fd < 0) {
-			return SBN_ERROR;
-		}
+        /* open serial device and set options */
+        host->Fd = Serial_IoOpenPort(entry->DevNameHost, entry->BaudRate);
+        if (host->Fd < 0) {
+            return SBN_ERROR;
+        }
 
-        strcpy(host->DevName, entry->DevNameHost);
+        strncpy(host->DevName, entry->DevNameHost, sizeof(host->DevName));
         host->PairNum  = entry->PairNum;
         host->BaudRate = entry->BaudRate;
 
-        /* Create protocol queue semaphor */
-        sprintf(name, "ProtoSem%d", host->PairNum);
-        Status = OS_BinSemCreate(&host->ProtoSemId,
-                             name,
-                             OS_SEM_FULL,
-                             0);
-
-        if (Status != OS_SUCCESS) {
-            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                            "Serial: Error creating protocol semaphor for host %d. Returned %d\n",
-                            host->PairNum, Status);
-        }
-
         /* Create data queue semaphor */
-        sprintf(name, "DataSem%d", host->PairNum);
-        Status = OS_BinSemCreate(&host->DataSemId,
-                             name,
-                             OS_SEM_FULL,
-                             0);
-
-        if (Status != OS_SUCCESS) {
+        snprintf(name, sizeof(name), "Sem%d", host->PairNum);
+        if (OS_BinSemCreate(&host->SemId,
+            name,
+            OS_SEM_FULL,
+            0) != OS_SUCCESS) {
             CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                            "Serial: Error creating data semaphor for host %d. Returned %d\n",
-                            host->PairNum, Status);
-        }
-
-        /* Create protocol queue */
-        sprintf(name, "SerialProtoQueue%d", host->PairNum);
-        Status = OS_QueueCreate(&host->ProtoQ, name, SBN_SERIAL_QUEUE_DEPTH,
-                                sizeof(uint32), 0);
-
-        if (Status != OS_SUCCESS) {
-            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                            "Serial: Error creating protocol queue for host %d. Returned %d\n",
-                            host->PairNum, Status);
+                "Serial: Error creating data semaphor for host %d.\n",
+                host->PairNum);
         }
 
         /* Create data queue */
-        sprintf(name, "SerialDataQueue%d", host->PairNum);
-        OS_QueueCreate(&host->DataQ, name, SBN_SERIAL_QUEUE_DEPTH,
-                       sizeof(uint32), 0);
-
-        if (Status != OS_SUCCESS) {
+        snprintf(name, sizeof(name), "SerialQueue%d", host->PairNum);
+        if (OS_QueueCreate(&host->Queue, name, SBN_SERIAL_QUEUE_DEPTH,
+            sizeof(uint32), 0) != OS_SUCCESS) {
             CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                            "Serial: Error creating data queue for host %d. Returned %d\n",
-                            host->PairNum, Status);
+                "Serial: Error creating data queue for host %d.\n",
+                host->PairNum);
         }
 
-		return SBN_HOST;
-	}
-	/* CPU names do not match - this is peer data. */
-	else {
-		/* create, fill, and store peer data structure */
-		Serial_SBNPeerData_t *peer = malloc(sizeof(Serial_SBNPeerData_t));
+        return SBN_HOST;
+    }
+    /* CPU names do not match - this is peer data. */
+    else {
+        /* create, fill, and store peer data structure */
+        Serial_SBNPeerData_t *peer = malloc(sizeof(Serial_SBNPeerData_t));
         if (peer == NULL) {
             CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Cannot allocate peer interface data.\n");
-			return SBN_ERROR;
-		}
-		Data->PeerData = (int32)peer;
+                "Serial: Cannot allocate peer interface data.\n");
+            return SBN_ERROR;
+        }
+        Data->PeerData = peer;
 
         peer->PairNum  = entry->PairNum;
         peer->BaudRate = entry->BaudRate;
-        peer->ProtoQ = 0;
 
-		return SBN_PEER;
-	}
+        return SBN_PEER;
+    }
 }
 
 
@@ -264,19 +183,17 @@ int32 Serial_SbnInitPeerInterface(SBN_InterfaceData *Data) {
  * @param HostList     The array of SBN_InterfaceData structs that describes the host
  * @param SenderPtr    Sender information
  * @param IfData       The SBN_InterfaceData struct describing this peer
- * @param ProtoMsgBuf  Protocol message
- * @param DataMsgBuf   Data message
+ * @param MsgBuf       Data message
  *
  * @return number of bytes written on success
  * @return SBN_ERROR on error
  */
-int32 Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf) {
-	int32 status = 0;
-	int32 found = 0;
-    Serial_SBNEntry_t *peer;
-    Serial_SBNEntry_t *host_tmp;
-	Serial_SBNHostData_t *host;
-	uint32 HostIdx;
+int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, NetDataUnion *MsgBuf) {
+    int32 found = 0;
+    Serial_SBNEntry_t *peer = NULL;
+    Serial_SBNEntry_t *host_tmp = NULL;
+    Serial_SBNHostData_t *host = NULL;
+    uint32 HostIdx;
 
     /* Check pointer arguments used for all cases for null */
     if (HostList == NULL) {
@@ -290,95 +207,72 @@ int32 Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *Ho
         return SBN_ERROR;
     }
 
-	/* Find the host that goes with this peer. */
-	peer = (Serial_SBNEntry_t *)(IfData->EntryData);
-	for(HostIdx = 0; HostIdx < NumHosts; HostIdx++) {
-		if(HostList[HostIdx]->ProtocolId == SBN_SERIAL) {
+    if (MsgBuf == NULL) {
+        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+            "Serial: Error in SendSerialNetMsg: MsgBuf is NULL.\n");
+        return SBN_ERROR;
+    }
+
+    /* Find the host that goes with this peer. */
+    peer = (Serial_SBNEntry_t *)(IfData->EntryData);
+    for(HostIdx = 0; HostIdx < NumHosts; HostIdx++) {
+        if(HostList[HostIdx]->ProtocolId == SBN_SERIAL) {
             host_tmp = (Serial_SBNEntry_t *)(HostList[HostIdx]->EntryData);
             if ( Serial_IsHostPeerMatch(host_tmp, peer) ) {
                 found = 1;
-			    host = (Serial_SBNHostData_t *)(HostList[HostIdx]->HostData);
+                host = (Serial_SBNHostData_t *)(HostList[HostIdx]->HostData);
                 break;
             }
-		}
-	}
-	if(found != 1) {
-		CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: No Serial Host Found!\n");
-		return SBN_ERROR;
-	}
+        }
+    }
+    if(found != 1) {
+        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+            "Serial: No Serial Host Found!\n");
+        return SBN_ERROR;
+    }
 
-	switch(MsgType) {
-
+    switch(MsgType) {
         /* Data messages */
-		case SBN_APP_MSG:
+        case SBN_APP_MSG:
             if (SenderPtr == NULL) {
                 CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                                  "Serial: Error in SendSerialNetMsg: SenderPtr is NULL.\n");
+                    "Serial: Error in SendSerialNetMsg: SenderPtr is NULL.\n");
                 return SBN_ERROR;
             }
 
             /* If my peer sent this message, don't send it back to them, avoids loops */
-			if (CFE_PSP_GetProcessorId() != SenderPtr->ProcessorId)
-				break;
+            if (CFE_PSP_GetProcessorId() != SenderPtr->ProcessorId) break;
 
-			/* Then no break, so fill in the sender application information */
-            if (DataMsgBuf == NULL) {
-                CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                                  "Serial: Error in SendSerialNetMsg: DataMsgBuf is NULL.\n");
-                return SBN_ERROR;
-            }
-
-			strncpy((char *)&(DataMsgBuf->Hdr.MsgSender.AppName), &(SenderPtr->AppName[0]), OS_MAX_API_NAME);
-			DataMsgBuf->Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
+            strncpy((char *)&(MsgBuf->Hdr.MsgSender.AppName), &(SenderPtr->AppName[0]), OS_MAX_API_NAME);
+                MsgBuf->Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
             /* Fall through to the next case */
 
-		case SBN_SUBSCRIBE_MSG:
-		case SBN_UN_SUBSCRIBE_MSG:
-            if (DataMsgBuf == NULL) {
-                CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                                  "Serial: Error in SendSerialNetMsg: DataMsgBuf is NULL.\n");
-                return SBN_ERROR;
-            }
+        case SBN_SUBSCRIBE_MSG:
+        case SBN_UN_SUBSCRIBE_MSG:
+            /* Initialize the SBN hdr of the outgoing network message */
+            MsgBuf->Hdr.MsgSize = MsgSize;
+            strncpy((char *)&MsgBuf->Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
 
-			/* Initialize the SBN hdr of the outgoing network message */
-            CFE_PSP_MemCpy(DataMsgBuf->Hdr.Sync, sbn_sync, 4);
-            DataMsgBuf->Hdr.MsgSize = MsgSize;
-			strncpy((char *)&DataMsgBuf->Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
-
-			DataMsgBuf->Hdr.Type = MsgType;
-			status = Serial_IoWriteMsg(host->Fd, (void *)DataMsgBuf, MsgSize);
-
-			break;
+            MsgBuf->Hdr.Type = MsgType;
+            return Serial_IoWriteMsg(host->Fd, MsgBuf);
 
         /* Protocol messages */
-		case SBN_ANNOUNCE_MSG:
-		case SBN_ANNOUNCE_ACK_MSG:
-		case SBN_HEARTBEAT_MSG:
-		case SBN_HEARTBEAT_ACK_MSG:
-            if (ProtoMsgBuf == NULL) {
-                CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                                  "Serial: Error in SendSerialNetMsg: ProtoMsgBuf is NULL.\n");
-                  return SBN_ERROR;
-            }
+        case SBN_ANNOUNCE_MSG:
+        case SBN_ANNOUNCE_ACK_MSG:
+        case SBN_HEARTBEAT_MSG:
+        case SBN_HEARTBEAT_ACK_MSG:
+            MsgBuf->Hdr.MsgSize = MsgSize;
+            MsgBuf->Hdr.Type = MsgType;
+            strncpy(MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
 
-            CFE_PSP_MemCpy(ProtoMsgBuf->Hdr.Sync, sbn_sync, 4);
-            ProtoMsgBuf->Hdr.MsgSize = MsgSize;
-			ProtoMsgBuf->Hdr.Type = MsgType;
-			strncpy(ProtoMsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+            return Serial_IoWriteMsg(host->Fd, MsgBuf);
 
-			status = Serial_IoWriteMsg(host->Fd, (void *)ProtoMsgBuf, MsgSize);
-			break;
-
-		default:
-			CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Unexpected message type!\n");
-			/* send event to indicate unexpected msgtype */
-			status = SBN_ERROR;
-			break;
-	} /* end switch */
-
-	return (status);
+        default:
+            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+                "Serial: Unexpected message type!\n");
+            /* send event to indicate unexpected msgtype */
+    } /* end switch */
+    return SBN_ERROR;
 } /* end SBN_SendNetMsg */
 
 
@@ -394,19 +288,19 @@ int32 Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *Ho
  * @return SBN_VALID     if the required match exists, else
  * @return SBN_NOT_VALID if not
  */
-int32 Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int32 NumHosts) {
-	int32 HostIdx;
-    Serial_SBNEntry_t *HostEntry;
-    Serial_SBNEntry_t *PeerEntry;
+int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts) {
+    int HostIdx = 0;
+    Serial_SBNEntry_t *HostEntry = NULL;
+    Serial_SBNEntry_t *PeerEntry = NULL;
 
     if (Peer == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in Serial_VerifyPeerInterface: Peer is NULL.\n");
+            "Serial: Error in Serial_VerifyPeerInterface: Peer is NULL.\n");
         return SBN_NOT_VALID;
     }
     if (HostList == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in Serial_VerifyPeerInterface: Hosts is NULL.\n");
+            "Serial: Error in Serial_VerifyPeerInterface: Hosts is NULL.\n");
         return SBN_NOT_VALID;
     }
 
@@ -440,21 +334,19 @@ int32 Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer, SBN_InterfaceData *
  * @return SBN_VALID     if the required match exists, else
  * @return SBN_NOT_VALID if not
  */
-int32 Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *PeerList, int32 NumPeers) {
-	int PeerIdx;
-    Serial_SBNEntry_t *PeerEntry;
-    Serial_SBNEntry_t *HostEntry;
-    Serial_SBNHostData_t *HostData;
-    Serial_SBNPeerData_t *PeerData;
+int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *PeerList, int NumPeers) {
+    int PeerIdx;
+    Serial_SBNEntry_t *PeerEntry = NULL;
+    Serial_SBNEntry_t *HostEntry = NULL;
 
     if (Host == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in Serial_VerifyHostInterface: Host is NULL.\n");
+            "Serial: Error in Serial_VerifyHostInterface: Host is NULL.\n");
         return SBN_NOT_VALID;
     }
     if (PeerList == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in Serial_VerifyHostInterface: PeerList is NULL.\n");
+            "Serial: Error in Serial_VerifyHostInterface: PeerList is NULL.\n");
         return SBN_NOT_VALID;
     }
 
@@ -466,15 +358,8 @@ int32 Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *Pee
             PeerEntry = (Serial_SBNEntry_t *)(PeerList[PeerIdx].IfData)->EntryData;
 
             if ( Serial_IsHostPeerMatch(HostEntry, PeerEntry) ) {
-                HostData = (Serial_SBNHostData_t *) Host->HostData;
-                PeerData = (Serial_SBNPeerData_t *) (PeerList[PeerIdx].IfData)->PeerData;
-
-                /* Connect the protocol queue to the peer's data so the peer can access it */
-                PeerData->ProtoQ = HostData->ProtoQ;
-                PeerData->ProtoSemId = HostData->ProtoSemId;
-
                 /* Start serial read task. */
-                return Serial_IoStartReadTask(HostData);
+                return Serial_IoStartReadTask((Serial_SBNHostData_t *)Host->HostData);
             }
         }
     }
@@ -500,28 +385,28 @@ int32 Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *Pee
  * @return SBN_OK on success
  * @return SBN_ERROR if the necessary data can't be found
  */
-int32 Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt, SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int32 NumHosts) {
-    Serial_SBNModuleStatus_t *ModuleStatus;
-    Serial_SBNPeerData_t *PeerData;
-    Serial_SBNHostData_t *HostData;
-    int32 Status;
+int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt, SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts) {
+    int status = 0;
+    Serial_SBNModuleStatus_t *ModuleStatus = NULL;
+    Serial_SBNPeerData_t *PeerData = NULL;
+    Serial_SBNHostData_t *HostData = NULL;
 
     /* Error check */
     if (StatusPkt == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not report module status: StatusPkt is null.\n");
+            "Serial: Could not report module status: StatusPkt is null.\n");
         return SBN_ERROR;
     }
 
     if (Peer == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not report module status: Peer is null.\n");
+            "Serial: Could not report module status: Peer is null.\n");
         return SBN_ERROR;
     }
 
     if (HostList == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not report module status: HostList is null.\n");
+            "Serial: Could not report module status: HostList is null.\n");
         return SBN_ERROR;
     }
 
@@ -529,11 +414,11 @@ int32 Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt, SBN_Inte
     ModuleStatus = (Serial_SBNModuleStatus_t*)&StatusPkt->ModuleStatus;
 
     /* Find the matching host for this peer */
-    Status = Serial_GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData, NumHosts);
-    if (Status != SBN_OK) {
+    status = Serial_GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData, NumHosts);
+    if (status != SBN_OK) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
                           "Serial: Could not report module status for peer.\n");
-        return Status;
+        return status;
     }
 
     /* Copy data into the module status packet */
@@ -562,39 +447,39 @@ int32 Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt, SBN_Inte
  * @return SBN_OK when the peer is reset correcly
  * @return SBN_ERROR if the peer cannot be reset
  */
-int32 Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int32 NumHosts) {
-    Serial_SBNPeerData_t *PeerData;
-    Serial_SBNHostData_t *HostData;
-    int32 Status;
+int Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts) {
+    Serial_SBNPeerData_t *PeerData = NULL;
+    Serial_SBNHostData_t *HostData = NULL;
+    int status = 0;
 
     /* Error check */
     if (Peer == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not reset peer: Peer is null.\n");
+            "Serial: Could not reset peer: Peer is null.\n");
         return SBN_ERROR; 
     }
 
     if (HostList == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not reset peer: HostList is null.\n");
+            "Serial: Could not reset peer: HostList is null.\n");
         return SBN_ERROR; 
     }
 
     /* Find the matching host for this peer */
-    Status = Serial_GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData, NumHosts);
-    if (Status != SBN_OK) {
+    status = Serial_GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData, NumHosts);
+    if (status != SBN_OK) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
                           "Serial: Could not reset peer because no matching host was found.\n");
-        return Status; 
+        return status; 
     }
 
     /* Stop the read task if it's running */
     if (HostData->TaskHandle > 0) {
-        Status = CFE_ES_DeleteChildTask(HostData->TaskHandle);
-        if (Status != CFE_SUCCESS) {
+        status = CFE_ES_DeleteChildTask(HostData->TaskHandle);
+        if (status != CFE_SUCCESS) {
             CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                              "Serial: Could not stop read task for host/peer %d.\n",
-                              HostData->PairNum);
+                "Serial: Could not stop read task for host/peer %d.\n",
+                HostData->PairNum);
             return SBN_ERROR;
         }
     }
@@ -603,25 +488,24 @@ int32 Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[]
     OS_close(HostData->Fd);
 
     /* Empty the queues. These are just while loops that loop until the method returns OS_QUEUE_EMPTY */
-    while (Serial_QueueRemoveNode(HostData->ProtoQ) == OS_SUCCESS) {}
-    while (Serial_QueueRemoveNode(HostData->DataQ) == OS_SUCCESS) {}
+    while (Serial_QueueRemoveNode(HostData->Queue) == OS_SUCCESS) {}
 
     /* Re-open serial port */
     HostData->Fd = Serial_IoOpenPort(HostData->DevName, HostData->BaudRate);
     if (HostData->Fd < 0) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not re-open host %d's serial port.\n",
-                          HostData->PairNum);
+            "Serial: Could not re-open host %d's serial port.\n",
+            HostData->PairNum);
         return SBN_ERROR;
     }
 
     /* Re-start read task */
-    Status = Serial_IoStartReadTask(HostData);
-    if (Status != SBN_VALID) {
+    status = Serial_IoStartReadTask(HostData);
+    if (status != SBN_VALID) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Could not restart the read task for host %d.\n",
-                          HostData->PairNum);
-        return SBN_ERROR;
+            "Serial: Could not restart the read task for host %d.\n",
+            HostData->PairNum);
+        return status;
     }
 
     return SBN_OK;
@@ -643,9 +527,9 @@ int32 Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[]
  * @return SBN_OK if a match was found
  * @return SBN_ERROR if no match found
  */
-int32 Serial_GetHostPeerMatchData(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], Serial_SBNHostData_t **HostData, Serial_SBNPeerData_t **PeerData, int32 NumHosts) {
+int Serial_GetHostPeerMatchData(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], Serial_SBNHostData_t **HostData, Serial_SBNPeerData_t **PeerData, int NumHosts) {
     Serial_SBNEntry_t *HostEntry = NULL;
-    int32 HostIdx;
+    int HostIdx = 0;
 
     if (Peer->PeerData == 0) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
@@ -671,8 +555,8 @@ int32 Serial_GetHostPeerMatchData(SBN_InterfaceData *Peer, SBN_InterfaceData *Ho
 
     /* If the code reaches here, no match was found */
     CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_INFORMATION,
-                      "Serial: Could not find matching host for peer %d.\n",
-                      (*PeerData)->PairNum);
+        "Serial: Could not find matching host for peer %d.\n",
+        (*PeerData)->PairNum);
 
     return SBN_ERROR;
 }
@@ -687,18 +571,17 @@ int32 Serial_GetHostPeerMatchData(SBN_InterfaceData *Peer, SBN_InterfaceData *Ho
  * @return 1 if the two match, else
  * @return 0 if not
  */
-int32 Serial_IsHostPeerMatch(Serial_SBNEntry_t *Host, Serial_SBNEntry_t *Peer) {
+int Serial_IsHostPeerMatch(Serial_SBNEntry_t *Host, Serial_SBNEntry_t *Peer) {
     if (Host == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in IsHostPeerMatch: Host is NULL.\n");
+            "Serial: Error in IsHostPeerMatch: Host is NULL.\n");
         return 0;
     }
     if (Peer == NULL) {
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error in IsHostPeerMatch: Peer is NULL.\n");
+            "Serial: Error in IsHostPeerMatch: Peer is NULL.\n");
         return 0;
     }
 
     return (Host->PairNum == Peer->PairNum) && (Host->BaudRate == Peer->BaudRate);
 }
-
