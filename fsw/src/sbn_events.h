@@ -238,4 +238,39 @@
 */
 #define SBN_GET_PEER_SUBS_DBG_EID 17
 
+/*
+** Event IDs
+*/
+#define SBN_MSGID_ERR_EID             2
+#define SBN_FILE_ERR_EID              3
+#define SBN_PROTO_INIT_ERR_EID        4
+#define SBN_VOL_FAILED_EID            5
+#define SBN_NONVOL_FAILED_EID         6
+#define SBN_FILE_OPENED_EID           8
+#define SBN_PEERPIPE_CR_ERR_EID       10
+
+/*#define SBN_SOCK_FAIL_EID             12*/
+/*#define SBN_BIND_FAIL_EID             13*/
+#define SBN_PEERPIPE_CR_EID           14
+
+#define SBN_MSG_TRUNCATED_EID         21
+#define SBN_LSC_ERR1_EID              22
+#define SBN_SUBTYPE_ERR_EID           23
+#define SBN_PEERIDX_ERR1_EID          32
+#define SBN_SUB_ERR_EID               33
+#define SBN_DUP_SUB_EID               34
+#define SBN_PEERIDX_ERR2_EID          35
+#define SBN_NO_SUBS_EID               36
+#define SBN_SUB_NOT_FOUND_EID         37
+#define SBN_SB_SEND_ERR_EID           39
+#define SBN_MSGTYPE_ERR_EID           40
+#define SBN_LSC_ERR2_EID              41
+#define SBN_ENTRY_ERR_EID             42
+#define SBN_PEERIDX_ERR3_EID          43
+#define SBN_UNSUB_CNT_EID             44
+#define SBN_PROTO_SEND_ERR_EID        46
+
+#define SBN_PIPE_ERR_EID              47
+#define SBN_PEER_LIMIT_EID            48
+
 #endif /* _sbn_events_h_ */

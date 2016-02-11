@@ -188,7 +188,7 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
                         "Invalid command code: ID = 0x%04X, CC = %d", 
                         MsgId, CommandCode);
                     break;
-            } /* end switch */
+            }/* end switch */
             break;
 
         default:
@@ -197,8 +197,8 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
                 "Invalid command pipe message ID: 0x%04X",
                 MsgId);
             break;
-    } /* end switch */
-} /* end SBN_AppPipe */
+    }/* end switch */
+}/* end SBN_AppPipe */
 
 /*******************************************************************/
 /*                                                                 */
@@ -218,8 +218,8 @@ void SBN_InitializeCounters(void)
         SBN.HkPkt.PeerAppMsgSendCount[i] = 0;
         SBN.HkPkt.PeerAppMsgRecvErrCount[i] = 0;
         SBN.HkPkt.PeerAppMsgSendErrCount[i] = 0;
-    } /* end for */
-} /* end SBN_InitializeCounters */
+    }/* end for */
+}/* end SBN_InitializeCounters */
 
 /*******************************************************************/
 /*                                                                 */
@@ -244,8 +244,8 @@ void SBN_HousekeepingReq(CFE_SB_MsgPtr_t MessagePtr)
         */
         CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.HkPkt);
         CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.HkPkt);
-    } /* end if */
-} /* end SBN_HousekeepingReq */
+    }/* end if */
+}/* end SBN_HousekeepingReq */
 
 /*******************************************************************/
 /*                                                                 */
@@ -262,8 +262,8 @@ void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
 
         CFE_EVS_SendEvent(SBN_NOOP_INF_EID, CFE_EVS_INFORMATION,
                           "No-op command");
-    } /* end if */
-} /* end SBN_NoopCmd */
+    }/* end if */
+}/* end SBN_NoopCmd */
 
 /*******************************************************************/
 /*                                                                 */
@@ -274,7 +274,8 @@ void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength)) {
+    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
+    {
         /*
         ** Don't increment counter because we're resetting anyway
         */
@@ -282,8 +283,8 @@ void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 
         CFE_EVS_SendEvent(SBN_RESET_DBG_EID, CFE_EVS_DEBUG,
                           "Reset counters command");
-    } /* end if */
-} /* end SBN_ResetCountersCmd */
+    }/* end if */
+}/* end SBN_ResetCountersCmd */
 
 /*******************************************************************/
 /*                                                                 */
@@ -311,7 +312,7 @@ void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
             response.PeerList[i].SpaceCraftId = SBN.Peer[i].SpaceCraftId;
             response.PeerList[i].State = SBN.Peer[i].State;
             response.PeerList[i].SubCnt = SBN.Peer[i].SubCnt;
-        } /* end for */
+        }/* end for */
 
         SBN.HkPkt.CmdCount++;
         /* 
@@ -322,8 +323,8 @@ void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
 
         CFE_EVS_SendEvent(SBN_PEER_LIST_DBG_EID, CFE_EVS_DEBUG,
                           "Peer list retrieved (%d peers)", response.NumPeers);
-    } /* end if */
-} /* end SBN_GetPeerList */
+    }/* end if */
+}/* end SBN_GetPeerList */
 
 /*******************************************************************/
 /*                                                                 */
@@ -365,9 +366,9 @@ void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
 
             CFE_EVS_SendEvent(SBN_PEER_STATUS_DBG_EID, CFE_EVS_DEBUG,
                               "Peer status retrieved for peer %d", PeerIdx);
-        } /* end if */
-    } /* end if */
-} /* end SBN_GetPeerStatus */
+        }/* end if */
+    }/* end if */
+}/* end SBN_GetPeerStatus */
 
 /*******************************************************************/
 /*                                                                 */
@@ -403,9 +404,9 @@ void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr)
         {
             CFE_EVS_SendEvent(SBN_RESET_PEER_DBG_EID, CFE_EVS_DEBUG,
                 "Reset peer %d", PeerIdx);
-        } /* end if */
-    } /* end if */
-} /* end SBN_ResetPeer */
+        }/* end if */
+    }/* end if */
+}/* end SBN_ResetPeer */
 
 /*******************************************************************/
 /*                                                                 */
@@ -447,10 +448,10 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
                 MsgId, CommandCode, ActualLength, ExpectedLength);
 
             SBN.HkPkt.CmdErrCount++;
-        } /* end if */
+        }/* end if */
 
         return FALSE;
-    } /* end if */
+    }/* end if */
 
     return result;
-} /* end SBN_VerifyMsgLength */
+}/* end SBN_VerifyMsgLength */

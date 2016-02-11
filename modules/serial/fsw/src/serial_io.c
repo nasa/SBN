@@ -29,31 +29,32 @@ uint32 HostQueueId = 0;
  * 
  * @param DevName   The name of the device to open (e.g. "/dev/ttyS0")
  * @param BaudRate  The desired baud rate of the serial port
+ * @param Fd        Pointer to the file descriptor int
  *
- * @return Fd        The opened file descriptor
- * @return SBN_ERROR on error
+ * @return SBN_OK on success, SBN_ERROR on error
  */
-int32 Serial_IoOpenPort(char *DevName, uint32 BaudRate) {
-    int32 Fd; 
-
+int32 Serial_IoOpenPort(char *DevName, uint32 BaudRate, int32 *Fd)
+{
     /* open serial device and set options */
-    Fd = OS_open(DevName, OS_READ_WRITE, 0); 
-	if (Fd < 0) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error opening device %s. Returned %d\n",
-                          DevName, Fd);
-		return Fd;
-	}
-	if (Serial_IoSetAttrs(Fd, BaudRate) == SBN_ERROR) {
-        OS_close(Fd); 
-		return SBN_ERROR;
-	}
+    *Fd = OS_open(DevName, OS_READ_WRITE, 0); 
+    if(*Fd < 0)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            "Serial: Error opening device %s. Returned %d\n", DevName, *Fd);
+        return SBN_ERROR;
+    }/* end if */
+    if(Serial_IoSetAttrs(*Fd, BaudRate) == SBN_ERROR)
+    {
+        OS_close(*Fd);
+        return SBN_ERROR;
+    }/* end if */
 
-    return Fd; 
-}
+    return SBN_OK;
+}/* end Serial_IoOpenPort */
 
 
 #ifdef SBN_SERIAL_USE_TERMIOS
+
 /**
  * Specifies the TTY settings for the serial interface. This function requires
  * that the OS supports termios. 
@@ -65,21 +66,23 @@ int32 Serial_IoOpenPort(char *DevName, uint32 BaudRate) {
  * @return SBN_OK if successful
  * @return SBN_ERROR if unsuccessful
  */
-int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate) {
-	struct termios tty;
+int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
+{
+    struct termios tty;
     int32 termiosBaud; 
     OS_FDTableEntry tblentry;
 
-    OS_FDGetInfo (Fd, &tblentry);
+    OS_FDGetInfo(Fd, &tblentry);
 
-	if (tcgetattr(tblentry.OSfd, &tty) != 0) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                          "Serial: Error accessing tty settings, errno: 0x%x\n", 
-                          errno);
-		return SBN_ERROR;
-	}
+    if(tcgetattr(tblentry.OSfd, &tty) != 0)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            "Serial: Error accessing tty settings, errno: 0x%x\n", errno);
+        return SBN_ERROR;
+    }/* end if */
 
-    switch(BaudRate) {
+    switch(BaudRate)
+    {
         case 38400:
             termiosBaud = B38400;
             break;
@@ -97,66 +100,80 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate) {
             break;
 
         default:
-            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                    "Serial: Unknown baud rate %d\n", BaudRate); 
+            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+                "Serial: Unknown baud rate %d\n", BaudRate); 
             return SBN_ERROR; 
-    }
+    }/* end switch */
 
-	cfsetospeed(&tty, termiosBaud); /* Set output baud rate */
-	cfsetispeed(&tty, termiosBaud); /* Set input baud rate */
+    cfsetospeed(&tty, termiosBaud); /* Set output baud rate */
+    cfsetispeed(&tty, termiosBaud); /* Set input baud rate */
 	
-	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8; /* 8 bit words */
-	tty.c_iflag &= ~IGNBRK; /* disable break processing */
-	tty.c_lflag = 0;        /* disable signaling characters, echo, canonical processing */
-	tty.c_oflag = 0;        /* disable remapping and delays */
-	tty.c_iflag &= ~(IXON | IXOFF | IXANY); /* disable xon/xoff control */
-	tty.c_cflag |= (CLOCAL | CREAD);        /* disable modem controls, enable reading */
-	tty.c_cflag &= ~(PARENB | PARODD);      /* disable parity */
-	tty.c_cflag &= ~CSTOPB;                 /* send 1 stop bit */
+    /* 8 bit words */
+    tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
+    /* disable break processing */
+    tty.c_iflag &= ~IGNBRK;
+    /* disable signaling characters, echo, canonical processing */
+    tty.c_lflag = 0;
+    /* disable remapping and delays */
+    tty.c_oflag = 0;
+    /* disable xon/xoff control */
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    /* disable modem controls, enable reading */
+    tty.c_cflag |= (CLOCAL | CREAD);
+    /* disable parity */
+    tty.c_cflag &= ~(PARENB | PARODD);
+    /* send 1 stop bit */
+    tty.c_cflag &= ~CSTOPB;
 #ifdef CRTSCTS /* LINUX doesn't support unless _BSD_SOURCE defined */
-	tty.c_cflag &= ~CRTSCTS;                /* no flow control */
+    /* no flow control */
+    tty.c_cflag &= ~CRTSCTS;
 #endif
 
-    tty.c_cc[VMIN]  = 0;  /* Don't block until a character has been received */
-	tty.c_cc[VTIME] = 10; /* read() will timeout after 10 tenths of a second */
+    /* Don't block until a character has been received */
+    tty.c_cc[VMIN]  = 0;
+    /* read() will timeout after 10 tenths of a second */
+    tty.c_cc[VTIME] = 10;
 
     tcflush(tblentry.OSfd, TCIFLUSH);
-	if (tcsetattr(tblentry.OSfd, TCSANOW, &tty) != 0) {
-		CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-                    "Serial: Error setting tty settings, errno: 0x%x\n", 
-                    errno);
-		return SBN_ERROR;
-	}
+    if(tcsetattr(tblentry.OSfd, TCSANOW, &tty) != 0)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            "Serial: Error setting tty settings, errno: 0x%x\n", errno);
+        return SBN_ERROR;
+    }/* end if */
 
-	return SBN_OK;
-}
+    return SBN_OK;
+}/* end Serial_IoSetAttrs */
 
-#else
+#else /* !SBN_SERIAL_USE_TERMIOS */
+
 /**
  * Non-Linux OS / non termios implementation of setting serial settings. 
  */
-int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate) {
-    CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
-            "Serial: Serial_IoSetAttrs not implemented for this OS\n"); 
+int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
+{
+    CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        "Serial: Serial_IoSetAttrs not implemented for this OS\n"); 
     return SBN_ERROR;
-}
-#endif
+}/* end Serial_IoSetAttrs */
 
+#endif /* SBN_SERIAL_USE_TERMIOS */
 
 /**
  * Tries to read a message off the serial wire. If a message is read, it
  * determines which queue to put it in and adds the message to that queue. Each
  * message starts with a 4-byte sync word followed by the message length
- * (which includes the sync word, message length bytes, and the message payload), 
+ * (which includes the sync word, message length bytes, and the message payload)
  * and the payload. 
  *
- * @param host       The host data struct containing queues and the file descriptor
+ * @param host   The host data struct containing queues and the file descriptor
  *
  * @return dataRead (number of bytes read off the wire)
  * @return SBN_IF_EMPTY if no message to read
  * @return SBN_ERROR if unsuccessful
  */
-int32 Serial_IoReadMsg(Serial_SBNHostData_t *host) {
+int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
+{
     int32 dataRead = 0, totalRead = 0;
     uint32 messageSize = 0;
     NetDataUnion MsgBuf;
@@ -167,53 +184,60 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host) {
      * much to read to get the rest of the message */
 
     totalRead = 0;
-    while (totalRead < sizeof(MsgBuf.Hdr)) {
-        dataRead = OS_read(host->Fd, MsgBufPtr + totalRead, sizeof(MsgBuf.Hdr) - totalRead);
-        if (dataRead < 0) { /* what to do if dataRead == 0? */
-            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+    while(totalRead < sizeof(MsgBuf.Hdr))
+    {
+        dataRead = OS_read(host->Fd, MsgBufPtr + totalRead,
+            sizeof(MsgBuf.Hdr) - totalRead);
+        if(dataRead < 0)
+        {
+            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
                 "Serial: Unable to read the message header.");
             return SBN_ERROR;
-        }
+        }/* end if */
+        /* what to do if dataRead == 0? can it be? */
         totalRead = totalRead + dataRead;
-    }
+    }/* end while */
 
     MsgBuf.Hdr.MsgSize = ntohl(MsgBuf.Hdr.MsgSize);
     MsgBuf.Hdr.MsgSender.ProcessorId = ntohl(MsgBuf.Hdr.MsgSender.ProcessorId);
     MsgBuf.Hdr.Type = ntohl(MsgBuf.Hdr.Type);
     MsgBuf.Hdr.SequenceCount = ntohs(MsgBuf.Hdr.SequenceCount);
 
-    if (MsgBuf.Hdr.MsgSize > sizeof(NetDataUnion)) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+    if(MsgBuf.Hdr.MsgSize > sizeof(NetDataUnion))
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
             "Serial: Message size larger than max allowed "
             "(size: %d, allowed: %d)",
             MsgBuf.Hdr.MsgSize, sizeof(NetDataUnion));
         return SBN_ERROR;
-    }
+    }/* end if */
 
     messageSize = MsgBuf.Hdr.MsgSize - sizeof(MsgBuf.Hdr); 
-    while (totalRead < messageSize) {
+    while(totalRead < messageSize)
+    {
         dataRead = OS_read(host->Fd, MsgBufPtr + totalRead, messageSize - totalRead);
-        if (dataRead < 0) { /* what to do if dataRead == 0? */
-            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+        if(dataRead < 0)
+        {
+            /* what to do if dataRead == 0? */
+            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
                 "Serial: Unable to read the message header.");
             return SBN_ERROR;
-        }
+        }/* end if */
         totalRead = totalRead + dataRead;
-    }
+    }/* end while */
 
     return Serial_QueueAddNode(host->Queue, host->SemId, &MsgBuf); 
-}
-
+}/* end Serial_IoReadMsg */
 
 /**
- * Prepares and sends message for sending  over the serial channel. Message prepended with sync code and payload byte size
- * @param Fd            File descriptor for writing to the serial device
- * @param MsgBuf    Buffer containing  payload
- * @param MsgSize       Size of the message in bytes (includes sync and message size bytes)
+ * Prepares and sends message for sending  over the serial channel.
+ * @param Fd        File descriptor for writing to the serial device
+ * @param MsgBuf    Buffer containing payload
  *
  * @return SBN_ERROR if unsuccessful 
  */
-int Serial_IoWriteMsg(int32 Fd, NetDataUnion *MsgBuf) {
+int Serial_IoWriteMsg(int32 Fd, NetDataUnion *MsgBuf)
+{
     int32 bytesSent = 0;
     SBN_Hdr_t OrigHdr;
     uint32 MsgSize = MsgBuf->Hdr.MsgSize;
@@ -229,46 +253,49 @@ int Serial_IoWriteMsg(int32 Fd, NetDataUnion *MsgBuf) {
 
     memcpy(MsgBuf, &OrigHdr, sizeof(OrigHdr));
 
-    if (bytesSent < 0) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+    if(bytesSent < 0)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID,CFE_EVS_ERROR,
             "Serial: Error writing Payload. Returned %d\n", bytesSent); 
         return SBN_ERROR;
-    }
+    }/* end if */
 
     return SBN_OK;
-}
+}/* end Serial_IoWriteMsg */
 
 
 /**
  * Thread that continuously reads the serial device and puts the read messages
- * in either the protocol or data queues. 
+ * in the queue.
  */
-void Serial_IoReadTaskMain() {
+void Serial_IoReadTaskMain()
+{
     int32 dataRead = 0;
     Serial_SBNHostData_t *host;
     uint32 size; 
 
     CFE_ES_RegisterChildTask();
 
-    /* Pull the host off the queue so its proto/data queues can be used */
-    OS_QueueGet (HostQueueId, &host, sizeof(uint32), &size, OS_PEND); 
+    OS_QueueGet(HostQueueId, &host, sizeof(uint32), &size, OS_PEND); 
 
-    if (size == 0 || host == NULL || host->Fd < 0) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
+    if(size == 0 || host == NULL || host->Fd < 0)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
             "Serial: Cannot start read task. Host is null.\n"); 
         CFE_ES_ExitChildTask();
         return;
-    }
+    }/* end if */
 
     /* Keep reading forever unless there's an error */
-    while(dataRead == SBN_IF_EMPTY || dataRead >= 0) { 
+    while(dataRead == SBN_IF_EMPTY || dataRead >= 0)
+    {
         dataRead = Serial_IoReadMsg(host); 
-    }
+    }/* end while */
 
-    CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_INFORMATION,
-            "Serial: Serial Read Task exiting for host number %d\n", host->PairNum);
+    CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
+        "Serial: Serial Read Task exiting for host number %d\n", host->PairNum);
     CFE_ES_ExitChildTask();
-}
+}/* end Serial_IoReadTaskMain */
 
 
 /**
@@ -283,45 +310,48 @@ void Serial_IoReadTaskMain() {
  * @return SBN_VALID on success
  * @return SBN_NOT_VALID on error
  */
-int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host) {
+int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
+{
     char name[20]; 
     int32 Status; 
 
     /* If the queue doesn't already exist, create it */
-    if (HostQueueId == 0) {
-        Status = OS_QueueCreate(&HostQueueId, "SerialHostQueue", SBN_SERIAL_QUEUE_DEPTH,
+    if(HostQueueId == 0)
+    {
+        Status = OS_QueueCreate(&HostQueueId, "SerialHostQueue",
+            SBN_SERIAL_QUEUE_DEPTH,
             sizeof(uint32), 0); 
 
-        if (Status != OS_SUCCESS) {
-            CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_INFORMATION,
+        if(Status != OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
                 "Serial: Error creating host queue. Returned %d\n", Status); 
             return SBN_NOT_VALID; 
-        }
-    }
+        }/* end if */
+    }/* end if */
 
     /* Add this host to the queue */
     Status = OS_QueuePut(HostQueueId, &host, sizeof(uint32), 0); 
-    if (Status != OS_SUCCESS) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_INFORMATION,
+    if(Status != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
             "Serial: Error adding host to queue. Returned %d\n", Status); 
         return SBN_NOT_VALID; 
-    }
+    }/* end if */
 
     /* Start the child task that will read this host's fd */
     sprintf(name, "SerialReadTask%d", host->PairNum); 
     Status = CFE_ES_CreateChildTask(&host->TaskHandle,
-                                    name,
-                                    Serial_IoReadTaskMain,
-                                    NULL,
-                                    SBN_SERIAL_CHILD_STACK_SIZE,
-                                    SBN_SERIAL_CHILD_TASK_PRIORITY,
-                                    0);
-    if (Status != CFE_SUCCESS) {
-        CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_INFORMATION,
+        name, Serial_IoReadTaskMain, NULL, SBN_SERIAL_CHILD_STACK_SIZE,
+        SBN_SERIAL_CHILD_TASK_PRIORITY, 0);
+
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID,CFE_EVS_INFORMATION,
             "Serial: Error creating read task for host %d. Returned %d\n", 
             host->PairNum, Status); 
         return SBN_NOT_VALID; 
-    }
+    }/* end if */
 
     return SBN_VALID; 
-}
+}/* end Serial_IoStartReadTask */

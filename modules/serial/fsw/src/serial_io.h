@@ -7,7 +7,7 @@
 
 /* Function declarations */
 
-int32 Serial_IoOpenPort(char *DevName, uint32 BaudRate);
+int32 Serial_IoOpenPort(char *DevName, uint32 BaudRate, int32 *Fd);
 int32 Serial_IoSetAttrs(int32 Fd, uint32 Baud);
 int32 Serial_IoReadMsg(Serial_SBNHostData_t *host); 
 int32 Serial_IoReadSyncBytes(int32 Fd);

@@ -16,10 +16,14 @@ int32 SBN_ReadModuleFile(void)
                     ModuleFile = 0;
     char            c = '\0';
     uint32          LineNum = 0;
+    int             StillParsing = 0;
 
     ModuleFile = OS_open(SBN_NONVOL_MODULE_FILENAME, OS_READ_ONLY, 0);
 
-    if(ModuleFile == OS_ERROR) return SBN_ERROR;
+    if(ModuleFile == OS_ERROR)
+    {
+        return SBN_ERROR;
+    }/* end if */
 
     memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
     BuffLen = 0;
@@ -31,52 +35,52 @@ int32 SBN_ReadModuleFile(void)
     {
         OS_read(ModuleFile, &c, 1);
 
-        if (c == '!') break;
+        if (c == '!')
+        {
+            break;
+        }/* end if */
 
-        if (c == '\n' || c == ' ' || c == '\t')
+        switch(c)
         {
-            /*
-             ** Skip all white space in the file
-             */
-            ;
-        }
-        else if (c == ',')
-        {
-            /*
-             ** replace the field delimiter with a space
-             ** This is used for the sscanf string parsing
-             */
-            SBN_ModuleData[BuffLen] = ' ';
-            if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
-                BuffLen++;
-        }
-        else if (c != ';')
-        {
-            /*
-             ** Regular data gets copied in
-             */
-            SBN_ModuleData[BuffLen] = c;
-            if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
-                BuffLen++;
-        }
-        else
-        {
-            /*
-             ** Send the line to the file parser
-             */
-            if (SBN_ParseModuleEntry(SBN_ModuleData, LineNum) == -1)
-                return SBN_ERROR;
-            LineNum++;
-            memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
-            BuffLen = 0;
-        } /* end if */
+            case '\n':
+            case ' ':
+            case '\t':
+                /* ignore whitespace */
+                break;
 
+            case ',':
+                /*
+                 ** replace the field delimiter with a space
+                 ** This is used for the sscanf string parsing
+                 */
+                SBN_ModuleData[BuffLen] = ' ';
+                if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
+                {
+                    BuffLen++;
+                }/* end if */
+                break;
+            case ';':
+                /* Regular data gets copied in */
+                SBN_ModuleData[BuffLen] = c;
+                if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
+                {
+                    BuffLen++;
+                }/* end if */
+                break;
+            default:
+                /* Send the line to the file parser */
+                if (SBN_ParseModuleEntry(SBN_ModuleData, LineNum) == -1)
+                    return SBN_ERROR;
+                LineNum++;
+                memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
+                BuffLen = 0;
+        }/* end switch */
     }/* end while */
 
     OS_close(ModuleFile);
 
     return SBN_OK;
-} /* end SBN_ReadModuleFile */
+}/* end SBN_ReadModuleFile */
 
 /**
  * Parses a module file entry to obtain the protocol id, name,
@@ -115,7 +119,10 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     ReturnCode = OS_ModuleLoad(&ModuleId, ModuleName, ModuleFile);
 
-    if(ReturnCode != OS_SUCCESS) return SBN_ERROR;
+    if(ReturnCode != OS_SUCCESS)
+    {
+        return SBN_ERROR;
+    }/* end if */
 
     ReturnCode = OS_SymbolLookup(&StructAddr, StructName);
 
@@ -125,7 +132,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     {
         OS_printf("Failed to find symbol %s\n", StructName);
         return SBN_ERROR;
-    } /* end if */
+    }/* end if */
 
     return SBN_OK;
-} /* end SBN_ParseModuleEntry */
+}/* end SBN_ParseModuleEntry */

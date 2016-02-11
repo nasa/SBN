@@ -25,21 +25,21 @@ void SBN_ShowIPv4PeerData(int idx)
             SBN.Peer[idx].PipeName,
             SBN_StateNum2Str(SBN.Peer[idx].State),
             SBN.Peer[idx].SubCnt);*/
-} /* end SBN_ShowIPv4PeerData */
+}/* end SBN_ShowIPv4PeerData */
 
 void SBN_SendSockFailedEvent(uint32 Line, int RtnVal)
 {
-    CFE_EVS_SendEvent(SBN_SOCK_FAIL_EID,CFE_EVS_ERROR,
+    CFE_EVS_SendEvent(SBN_IPV4_EID,CFE_EVS_ERROR,
         "%s:socket call failed,line %d,rtn val %d,errno=%d",
         CFE_CPU_NAME,Line,RtnVal,errno);
-} /* end SBN_SendSockFailedEvent */
+}/* end SBN_SendSockFailedEvent */
 
 void SBN_SendBindFailedEvent(uint32 Line, int RtnVal)
 {
-    CFE_EVS_SendEvent(SBN_BIND_FAIL_EID,CFE_EVS_ERROR,
+    CFE_EVS_SendEvent(SBN_IPV4_EID,CFE_EVS_ERROR,
         "%s:bind call failed,line %d,rtn val %d,errno=%d",
         CFE_CPU_NAME,Line,RtnVal,errno);
-} /* end SBN_SendBindFailedEvent */
+}/* end SBN_SendBindFailedEvent */
 
 /**
  * Creates and configures a socket with the given port.
@@ -56,7 +56,7 @@ int SBN_CreateSocket(char *Addr, int Port)
     {
         SBN_SendSockFailedEvent(__LINE__, SockId);
         return SockId;
-    } /* end if */
+    }/* end if */
 
     my_addr.sin_addr.s_addr = inet_addr(Addr);
     my_addr.sin_family = AF_INET;
@@ -66,7 +66,7 @@ int SBN_CreateSocket(char *Addr, int Port)
     {
         SBN_SendBindFailedEvent(__LINE__,SockId);
         return SockId;
-    } /* end if */
+    }/* end if */
 
     #ifdef _HAVE_FCNTL_
         /*
@@ -106,8 +106,8 @@ void SBN_ClearSocket(int SockID)
             MSG_DONTWAIT,(struct sockaddr *) &s_addr, &addr_len);
         if ((status < 0) && (errno == EWOULDBLOCK)) // TODO: add EAGAIN?
             break; /* no (more) messages */
-    } /* end for */
-} /* end SBN_ClearSocket */
+    }/* end for */
+}/* end SBN_ClearSocket */
 
 /**
  * Receives a message from a peer over the appropriate interface.
@@ -146,7 +146,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
     if (received < MsgBuf->Hdr.MsgSize) return SBN_ERROR;
 
     return SBN_OK;
-} /* end SBN_IPv4RcvMsg */
+}/* end SBN_IPv4RcvMsg */
 
 /**
  * Parses the peer data file into SBN_FileEntry_t structures.
@@ -177,11 +177,11 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr)
     */
     if (ScanfStatus != IPV4_ITEMS_PER_FILE_LINE)
     {
-        CFE_EVS_SendEvent(SBN_INV_LINE_EID,CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_IPV4_EID,CFE_EVS_ERROR,
                 "%s:Invalid SBN peer file line,exp %d items,found %d",
                 CFE_CPU_NAME, IPV4_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;
-    } /* end if */
+    }/* end if */
 
     IPv4_SBNEntry_t *entry = malloc(sizeof(IPv4_SBNEntry_t));
 
@@ -191,7 +191,7 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr)
     *EntryAddr = entry;
 
     return SBN_OK;
-} /* end SBN_ParseIPv4FileEntry */
+}/* end SBN_ParseIPv4FileEntry */
 
 
 /**
@@ -219,7 +219,7 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
         host->SockId = SBN_CreateSocket(host->Addr, host->Port);
         if(host->SockId == SBN_ERROR){
             return SBN_ERROR;
-        } /* end if */
+        }/* end if */
 
         Data->HostData = host;
         return SBN_HOST;
@@ -234,8 +234,8 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
         peer->Port = entry->Port;
         Data->PeerData = peer;
         return SBN_PEER;
-    } /* end if */
-} /* end SBN_InitIPv4IF */
+    }/* end if */
+}/* end SBN_InitIPv4IF */
 
 /**
  * Sends a message to a peer over an Ethernet IPv4 interface.
@@ -266,14 +266,14 @@ int SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
         if(HostList[HostIdx]->ProtocolId == SBN_IPv4)
         {
             host = HostList[HostIdx]->HostData;
-        } /* end if */
-    } /* end for */
+        }/* end if */
+    }/* end for */
 
     if(!host)
     {
         OS_printf("No IPv4 Host Found!\n");
         return SBN_ERROR;
-    } /* end if */
+    }/* end if */
 
     peer = IfData->PeerData;
     bzero((char *) &s_addr, sizeof(s_addr));
@@ -325,11 +325,13 @@ int IPv4_VerifyPeerInterface(SBN_InterfaceData *Peer,
     for(HostIdx = 0; HostIdx < NumHosts; HostIdx++)
     {
         if(HostList[HostIdx]->ProtocolId == SBN_IPv4)
+        {
             return SBN_VALID;
-    } /* end for */
+        }/* end if */
+    }/* end for */
 
     return SBN_NOT_VALID;
-} /* end IPv4_VerifyPeerInterface */
+}/* end IPv4_VerifyPeerInterface */
 
 /**
  * An IPv4 host doesn't necessarily need a peer, so this always returns true.
@@ -343,7 +345,7 @@ int IPv4_VerifyHostInterface(SBN_InterfaceData *Host,
         SBN_PeerData_t *PeerList, int NumPeers)
 {
     return SBN_VALID;
-} /* end IPv4_VerifyHostInterface */
+}/* end IPv4_VerifyHostInterface */
 
 /**
  * Reports the status of the ethernet peer.
@@ -359,7 +361,7 @@ int IPv4_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet,
         SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts)
 {
     return SBN_NOT_IMPLEMENTED;
-} /* end IPv4_ReportModuleStatus */
+}/* end IPv4_ReportModuleStatus */
 
 /**
  * Resets the specified ethernet peer.
@@ -374,4 +376,4 @@ int IPv4_ResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
         int NumHosts)
 {
     return SBN_NOT_IMPLEMENTED;
-} /* end IPv4_ResetPeer */
+}/* end IPv4_ResetPeer */

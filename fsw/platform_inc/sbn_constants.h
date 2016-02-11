@@ -121,61 +121,12 @@
 #define SBN_SYNC_3                    0x98
 #define SBN_SYNC_4                    0xB9
 
-/*
-** Event IDs
-*/
-#define SBN_INIT_EID                  1
-#define SBN_MSGID_ERR_EID             2
-#define SBN_FILE_ERR_EID              3
-#define SBN_PROTO_INIT_ERR_EID        4
-#define SBN_VOL_FAILED_EID            5
-#define SBN_NONVOL_FAILED_EID         6
-#define SBN_INV_LINE_EID              7
-#define SBN_FILE_OPENED_EID           8
-#define SBN_CPY_ERR_EID               9
-#define SBN_PEERPIPE_CR_ERR_EID       10
+/* common events between the main app and modules */
+#define SBN_INV_LINE_EID              100
 
-#define SBN_SOCK_FAIL_EID             12
-#define SBN_BIND_FAIL_EID             13
-#define SBN_PEERPIPE_CR_EID           14
-#define SBN_SND_APPMSG_ERR_EID        15
-#define SBN_APPMSG_SENT_EID           16
-#define SBN_PEER_ALIVE_EID            17
-#define SBN_HB_LOST_EID               18
-#define SBN_STATE_ERR_EID             19
-
-#define SBN_MSG_TRUNCATED_EID         21
-#define SBN_LSC_ERR1_EID              22
-#define SBN_SUBTYPE_ERR_EID           23
-#define SBN_NET_RCV_PROTO_ERR_EID     24
-#define SBN_SRCNAME_ERR_EID           25
-#define SBN_ANN_RCVD_EID              26
-#define SBN_ANN_ACK_RCVD_EID          27
-#define SBN_HB_RCVD_EID               28
-#define SBN_HB_ACK_RCVD_EID           29
-#define SBN_SUB_RCVD_EID              30
-#define SBN_UNSUB_RCVD_EID            31
-#define SBN_PEERIDX_ERR1_EID          32
-#define SBN_SUB_ERR_EID               33
-#define SBN_DUP_SUB_EID               34
-#define SBN_PEERIDX_ERR2_EID          35
-#define SBN_NO_SUBS_EID               36
-#define SBN_SUB_NOT_FOUND_EID         37
-#define SBN_SOCK_RCV_APP_ERR_EID      38
-#define SBN_SB_SEND_ERR_EID           39
-#define SBN_MSGTYPE_ERR_EID           40
-#define SBN_LSC_ERR2_EID              41
-#define SBN_ENTRY_ERR_EID             42
-#define SBN_PEERIDX_ERR3_EID          43
-#define SBN_UNSUB_CNT_EID             44
-#define SBN_PROTO_SENT_EID            45
-#define SBN_PROTO_SEND_ERR_EID        46
-
-#define SBN_PIPE_ERR_EID              47
-#define SBN_PEER_LIMIT_EID            48
-
-
-
+/* module-specific EID's */
+#define SBN_IPV4_EID                  200
+#define SBN_SERIAL_EID                201
 
 #endif /* _sbn_constants_h_ */
 /*****************************************************************************/
