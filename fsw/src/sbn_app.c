@@ -286,7 +286,6 @@ int SBN_WaitForSBStartup()
 **    CFE_EVS_SendEvent
 **    CFE_ES_PerfLogEntry
 **    CFE_ES_PerfLogExit
-**    SBN_SendWakeUpDebugMsg
 **    SBN_RunProtocol
 **    SBN_CheckForNetAppMsgs
 **    SBN_CheckSubscriptionPipe
@@ -341,7 +340,6 @@ int32 SBN_RcvMsg(int32 iTimeOut)
         {
             case SBN_WAKEUP_MID:
                 /* cyclic processing at sch wakeup rate */
-                SBN_SendWakeUpDebugMsg();
                 SBN_RunProtocol();
                 SBN_CheckForNetAppMsgs();
                 SBN_CheckSubscriptionPipe();
@@ -364,7 +362,6 @@ int32 SBN_RcvMsg(int32 iTimeOut)
         ** if the RcvMsg time out
         ** cyclic processing at timeout rate
         */
-        SBN_SendWakeUpDebugMsg();
         SBN_RunProtocol();
         SBN_CheckForNetAppMsgs();
         SBN_CheckSubscriptionPipe();

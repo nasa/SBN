@@ -16,7 +16,6 @@ int32 SBN_ReadModuleFile(void)
                     ModuleFile = 0;
     char            c = '\0';
     uint32          LineNum = 0;
-    int             StillParsing = 0;
 
     ModuleFile = OS_open(SBN_NONVOL_MODULE_FILENAME, OS_READ_ONLY, 0);
 
@@ -60,20 +59,20 @@ int32 SBN_ReadModuleFile(void)
                 }/* end if */
                 break;
             case ';':
-                /* Regular data gets copied in */
-                SBN_ModuleData[BuffLen] = c;
-                if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
-                {
-                    BuffLen++;
-                }/* end if */
-                break;
-            default:
                 /* Send the line to the file parser */
                 if (SBN_ParseModuleEntry(SBN_ModuleData, LineNum) == -1)
                     return SBN_ERROR;
                 LineNum++;
                 memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
                 BuffLen = 0;
+                break;
+            default:
+                /* Regular data gets copied in */
+                SBN_ModuleData[BuffLen] = c;
+                if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
+                {
+                    BuffLen++;
+                }/* end if */
         }/* end switch */
     }/* end while */
 
