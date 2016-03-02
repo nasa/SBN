@@ -100,7 +100,6 @@ int   SBN_InitProtocol(void);
 void  SBN_InitPeerVariables(void);
 
 int SBN_CreatePipe4Peer(int PeerIdx);
-void  SBN_RcvNetMsgs(void);
 void  SBN_RunProtocol(void);
 
 int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr);
@@ -130,6 +129,15 @@ void  SBN_DebugOn(void);
 void  SBN_DebugOff(void);
 
 void SBN_ResetPeerMsgCounts(uint32 PeerIdx);
+
+#define SBN_DEBUG_MSGS
+
+#ifdef SBN_DEBUG_MSGS
+#define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)
+#define DEBUG_START() CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, "%s starting", __FUNCTION__)
+#else /* !SBN_DEBUG_MSGS */
+#define DEBUG_START() ;
+#endif /* SBN_DEBUG_MSGS */
 
 
 #endif /* _sbn_app_ */

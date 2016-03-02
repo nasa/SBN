@@ -10,6 +10,7 @@
 #include "serial_io.h"
 #include "serial_queue.h"
 #include "sbn_constants.h"
+#include "serial_events.h"
 #include "serial_sbn_if_struct.h"
 #include <arpa/inet.h>
 #include <string.h>
@@ -39,7 +40,7 @@ int32 Serial_IoOpenPort(char *DevName, uint32 BaudRate, int32 *Fd)
     *Fd = OS_open(DevName, OS_READ_WRITE, 0); 
     if(*Fd < 0)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Error opening device %s. Returned %d\n", DevName, *Fd);
         return SBN_ERROR;
     }/* end if */
@@ -76,7 +77,7 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
 
     if(tcgetattr(tblentry.OSfd, &tty) != 0)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Error accessing tty settings, errno: 0x%x\n", errno);
         return SBN_ERROR;
     }/* end if */
@@ -100,7 +101,7 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
             break;
 
         default:
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
                 "Serial: Unknown baud rate %d\n", BaudRate); 
             return SBN_ERROR; 
     }/* end switch */
@@ -137,7 +138,7 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
     tcflush(tblentry.OSfd, TCIFLUSH);
     if(tcsetattr(tblentry.OSfd, TCSANOW, &tty) != 0)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Error setting tty settings, errno: 0x%x\n", errno);
         return SBN_ERROR;
     }/* end if */
@@ -152,7 +153,7 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
  */
 int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
 {
-    CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+    CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
         "Serial: Serial_IoSetAttrs not implemented for this OS\n"); 
     return SBN_ERROR;
 }/* end Serial_IoSetAttrs */
@@ -190,7 +191,7 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
             sizeof(MsgBuf.Hdr) - totalRead);
         if(dataRead < 0)
         {
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
                 "Serial: Unable to read the message header.");
             return SBN_ERROR;
         }/* end if */
@@ -205,7 +206,7 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
 
     if(MsgBuf.Hdr.MsgSize > sizeof(NetDataUnion))
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Message size larger than max allowed "
             "(size: %d, allowed: %d)",
             MsgBuf.Hdr.MsgSize, sizeof(NetDataUnion));
@@ -219,7 +220,7 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
         if(dataRead < 0)
         {
             /* what to do if dataRead == 0? */
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
                 "Serial: Unable to read the message header.");
             return SBN_ERROR;
         }/* end if */
@@ -255,7 +256,7 @@ int Serial_IoWriteMsg(int32 Fd, NetDataUnion *MsgBuf)
 
     if(bytesSent < 0)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID,CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Error writing Payload. Returned %d\n", bytesSent); 
         return SBN_ERROR;
     }/* end if */
@@ -280,7 +281,7 @@ void Serial_IoReadTaskMain()
 
     if(size == 0 || host == NULL || host->Fd < 0)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Cannot start read task. Host is null.\n"); 
         CFE_ES_ExitChildTask();
         return;
@@ -292,7 +293,7 @@ void Serial_IoReadTaskMain()
         dataRead = Serial_IoReadMsg(host); 
     }/* end while */
 
-    CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
+    CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
         "Serial: Serial Read Task exiting for host number %d\n", host->PairNum);
     CFE_ES_ExitChildTask();
 }/* end Serial_IoReadTaskMain */
@@ -324,7 +325,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
 
         if(Status != OS_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
+            CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
                 "Serial: Error creating host queue. Returned %d\n", Status); 
             return SBN_NOT_VALID; 
         }/* end if */
@@ -334,7 +335,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
     Status = OS_QueuePut(HostQueueId, &host, sizeof(uint32), 0); 
     if(Status != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
             "Serial: Error adding host to queue. Returned %d\n", Status); 
         return SBN_NOT_VALID; 
     }/* end if */
@@ -347,7 +348,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
 
     if(Status != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID,CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
             "Serial: Error creating read task for host %d. Returned %d\n", 
             host->PairNum, Status); 
         return SBN_NOT_VALID; 

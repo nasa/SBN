@@ -9,6 +9,7 @@
  */
 #include "cfe.h"
 #include "serial_queue.h"
+#include "serial_events.h"
 #include "sbn_constants.h"
 #include "sbn_interfaces.h"
 
@@ -39,7 +40,7 @@ int Serial_QueueGetMsg(uint32 queue, uint32 semId, NetDataUnion *MsgBuf)
     status = OS_BinSemTake(semId); 
     if(status != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: Error taking semaphore %d. Returned %d\n", semId, status); 
         return SBN_ERROR; 
     }/* end if */
@@ -58,7 +59,7 @@ int Serial_QueueGetMsg(uint32 queue, uint32 semId, NetDataUnion *MsgBuf)
     status = OS_BinSemGive(semId); 
     if(status != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: Error giving semaphore %d. Returned %d\n", semId, status);
         return SBN_ERROR; 
     }/* end if */
@@ -85,7 +86,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  NetDataUnion *MsgBuf)
 
     if(message == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: QueueAddNode: Error allocating message\n"); 
         return SBN_ERROR; 
     }/* end if */
@@ -96,7 +97,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  NetDataUnion *MsgBuf)
     status = OS_BinSemTake(semId); 
     if(status != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: Error taking semaphore %d. Returned %d\n", semId, status); 
         return SBN_ERROR; 
     }/* end if */
@@ -105,7 +106,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  NetDataUnion *MsgBuf)
     status = OS_QueuePut(queue, &message, sizeof(uint32), 0); 
     if(status == OS_QUEUE_FULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_INFORMATION,
             "Serial: Queue %d is full. Old messages will be lost.\n", queue); 
 
         /* Remove the oldest message to make room for the new message and try 
@@ -117,7 +118,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  NetDataUnion *MsgBuf)
     if(status != OS_SUCCESS)
     {
         /* TODO: should we free message? */
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: Error adding message to queue %d. Returned %d\n",
             queue, status); 
     }/* end if */
@@ -127,7 +128,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  NetDataUnion *MsgBuf)
     if(status != OS_SUCCESS)
     {
         /* TODO: should we free message? */
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: Error giving semaphore %d. Returned %d\n", semId, status); 
         return SBN_ERROR; 
     }/* end if */

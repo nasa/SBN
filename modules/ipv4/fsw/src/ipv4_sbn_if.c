@@ -1,45 +1,12 @@
 #include "ipv4_sbn_if_struct.h"
 #include "ipv4_sbn_if.h"
+#include "ipv4_events.h"
 #include "cfe.h"
 #include "sbn_lib_utils.h"
 #include <network_includes.h>
 #include <string.h>
 #include <strings.h> /* for bzero */
 #include <errno.h>
-
-/**
- * Displays peer data for the given IPv4 peer.
- *
- * @param idx   Index of IPv4 peer
- */
-void SBN_ShowIPv4PeerData(int idx)
-{
-   /* TODO - check that peer is IPv4 */
-   /* OS_printf(
-            "%s:%s,Element %d,Adr=%s,Pipe=%d,PipeNm=%s,State=%s,SubCnt=%d\n",
-            CFE_CPU_NAME,
-            SBN.Peer[idx].Name,
-            idx,
-            SBN.Peer[idx].IFPeerData.IPv4Data.Addr,
-            SBN.Peer[idx].Pipe,
-            SBN.Peer[idx].PipeName,
-            SBN_StateNum2Str(SBN.Peer[idx].State),
-            SBN.Peer[idx].SubCnt);*/
-}/* end SBN_ShowIPv4PeerData */
-
-void SBN_SendSockFailedEvent(uint32 Line, int RtnVal)
-{
-    CFE_EVS_SendEvent(SBN_IPV4_EID,CFE_EVS_ERROR,
-        "%s:socket call failed,line %d,rtn val %d,errno=%d",
-        CFE_CPU_NAME,Line,RtnVal,errno);
-}/* end SBN_SendSockFailedEvent */
-
-void SBN_SendBindFailedEvent(uint32 Line, int RtnVal)
-{
-    CFE_EVS_SendEvent(SBN_IPV4_EID,CFE_EVS_ERROR,
-        "%s:bind call failed,line %d,rtn val %d,errno=%d",
-        CFE_CPU_NAME,Line,RtnVal,errno);
-}/* end SBN_SendBindFailedEvent */
 
 /**
  * Creates and configures a socket with the given port.
@@ -49,12 +16,17 @@ void SBN_SendBindFailedEvent(uint32 Line, int RtnVal)
  */
 int SBN_CreateSocket(char *Addr, int Port)
 {
-    static struct sockaddr_in my_addr;
-    int                       SockId = 0;
+    static struct sockaddr_in   my_addr;
+    int                         SockId = 0;
+
+    CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_DEBUG,
+        "Creating socket for %s:%d", Addr, Port);
 
     if((SockId = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
     {
-        SBN_SendSockFailedEvent(__LINE__, SockId);
+        CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_ERROR,
+            "%s:socket call failed,line %d,rtn val %d,errno=%d",
+            CFE_CPU_NAME, __LINE__, SockId, errno);
         return SockId;
     }/* end if */
 
@@ -64,7 +36,9 @@ int SBN_CreateSocket(char *Addr, int Port)
 
     if(bind(SockId, (struct sockaddr *) &my_addr, sizeof(my_addr)) < 0 )
     {
-        SBN_SendBindFailedEvent(__LINE__,SockId);
+        CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_ERROR,
+            "%s:bind call failed,line %d,rtn val %d,errno=%d",
+            CFE_CPU_NAME, __LINE__, SockId, errno);
         return SockId;
     }/* end if */
 
@@ -88,7 +62,7 @@ int SBN_CreateSocket(char *Addr, int Port)
  *
  * @param SockID  ID of socket to clear
  */
-void SBN_ClearSocket(int SockID)
+void SBN_ClearSocket(int SockId)
 {
     struct sockaddr_in  s_addr;
     socklen_t           addr_len = 0;
@@ -99,10 +73,13 @@ void SBN_ClearSocket(int SockID)
     addr_len = sizeof(s_addr);
     bzero((char *) &s_addr, sizeof(s_addr));
 
+    CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_DEBUG,
+        "Clearing socket %d", SockId);
+
     /* change to while loop */
     for (i = 0; i <= 50; i++)
     {
-        status = recvfrom(SockID, (char *)&DiscardData, sizeof(SBN_NetPkt_t),
+        status = recvfrom(SockId, (char *)&DiscardData, sizeof(SBN_NetPkt_t),
             MSG_DONTWAIT,(struct sockaddr *) &s_addr, &addr_len);
         if ((status < 0) && (errno == EWOULDBLOCK)) // TODO: add EAGAIN?
             break; /* no (more) messages */
@@ -118,33 +95,37 @@ void SBN_ClearSocket(int SockID)
  */
 int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
 {
-    ssize_t             received = 0;
+    ssize_t             Received = 0, TotalReceived = 0;
     struct sockaddr_in  s_addr;
     socklen_t           addr_len = 0;
     IPv4_SBNHostData_t  *host = Host->HostData;
 
     bzero((char *) &s_addr, sizeof(s_addr));
 
-    addr_len = sizeof(s_addr);
-    received = recvfrom(host->SockId, (char *)MsgBuf, SBN_MAX_MSG_SIZE,
-        MSG_DONTWAIT, (struct sockaddr *) &s_addr, &addr_len);
+    while(1)
+    {
+        addr_len = sizeof(s_addr);
+        Received = recvfrom(host->SockId, (char *)MsgBuf + TotalReceived,
+            SBN_MAX_MSG_SIZE - TotalReceived,
+            MSG_DONTWAIT, (struct sockaddr *) &s_addr, &addr_len);
 
-    if (received == 0) return SBN_IF_EMPTY;
+        if (Received == 0) return SBN_IF_EMPTY;
 
-    if ((received < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)))
-        return SBN_ERROR;
+        if ((Received < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)))
+            return SBN_ERROR;
 
-    if (received < sizeof(SBN_Hdr_t)) return SBN_ERROR;
+        TotalReceived += Received;
+        if (TotalReceived < sizeof(SBN_Hdr_t)) continue;
 
-    /* SBN over the wire uses network (big-endian) byte order */
-    MsgBuf->Hdr.MsgSize = ntohl(MsgBuf->Hdr.MsgSize);
-    MsgBuf->Hdr.MsgSender.ProcessorId =
-        ntohl(MsgBuf->Hdr.MsgSender.ProcessorId);
-    MsgBuf->Hdr.Type = ntohl(MsgBuf->Hdr.Type);
-    MsgBuf->Hdr.SequenceCount = ntohs(MsgBuf->Hdr.SequenceCount);
+        /* SBN over the wire uses network (big-endian) byte order */
+        MsgBuf->Hdr.MsgSize = ntohl(MsgBuf->Hdr.MsgSize);
+        MsgBuf->Hdr.MsgSender.ProcessorId =
+            ntohl(MsgBuf->Hdr.MsgSender.ProcessorId);
+        MsgBuf->Hdr.Type = ntohl(MsgBuf->Hdr.Type);
+        MsgBuf->Hdr.SequenceCount = ntohs(MsgBuf->Hdr.SequenceCount);
 
-    if (received < MsgBuf->Hdr.MsgSize) return SBN_ERROR;
-
+        if (TotalReceived >= MsgBuf->Hdr.MsgSize) return SBN_OK;
+    }
     return SBN_OK;
 }/* end SBN_IPv4RcvMsg */
 
@@ -167,17 +148,17 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr)
     int     Port = 0;
 
     /*
-    ** Using sscanf to parse the string.
-    ** Currently no error handling
-    */
+     * Using sscanf to parse the string.
+     * Currently no error handling
+     */
     ScanfStatus = sscanf(FileEntry, "%s %d", Addr, &Port);
 
     /*
-    ** Check to see if the correct number of items were parsed
-    */
+     * Check to see if the correct number of items were parsed
+     */
     if (ScanfStatus != IPV4_ITEMS_PER_FILE_LINE)
     {
-        CFE_EVS_SendEvent(SBN_IPV4_EID,CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_IPV4_CONFIG_EID,CFE_EVS_ERROR,
                 "%s:Invalid SBN peer file line,exp %d items,found %d",
                 CFE_CPU_NAME, IPV4_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;

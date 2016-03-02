@@ -1,6 +1,7 @@
 #include <string.h>
-#include "sbn_loader.h"
 #include "sbn_app.h"
+#include "sbn_main_events.h"
+#include "sbn_loader.h"
 
 /**
  * Reads a file describing the interface modules that
@@ -16,6 +17,8 @@ int32 SBN_ReadModuleFile(void)
                     ModuleFile = 0;
     char            c = '\0';
     uint32          LineNum = 0;
+
+    DEBUG_START();
 
     ModuleFile = OS_open(SBN_NONVOL_MODULE_FILENAME, OS_READ_ONLY, 0);
 
@@ -101,6 +104,8 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     int32   ReturnCode = 0;
     uint32  ModuleId = 0;
     uint32  StructAddr = 0;
+
+    DEBUG_START();
 
     /* switch on protocol ID */
     ScanfStatus = sscanf(FileEntry, "%lu %s %s %s",

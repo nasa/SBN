@@ -10,6 +10,8 @@
 **    various buffers included in peers and hosts.
 **********************************************************/
 #include "cfe.h"
+#include "sbn_app.h"
+#include "sbn_main_events.h"
 #include "sbn_buf.h"
 #include "sbn_netif.h"
 #include <string.h>
@@ -25,6 +27,8 @@
  */
 int32 SBN_InitMsgBuf(SBN_PeerMsgBuf_t* buffer)
 {
+    DEBUG_START();
+
     return SBN_ClearMsgBuf(buffer);
 }/* end SBN_InitMsgBuf */
 
@@ -43,6 +47,8 @@ int32 SBN_AddMsgToMsgBufOverwrite(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer)
 {
     int32   addIdx = buffer->AddIndex;
  
+    DEBUG_START();
+
     if(CFE_PSP_MemCpy(&buffer->Msgs[addIdx], Msg, sizeof(NetDataUnion))
 	    != CFE_PSP_SUCCESS)
     {
@@ -82,6 +88,8 @@ int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer,
 {
     int32   addIdx = buffer->AddIndex;
     uint32  NetMsgSize = 0;
+
+    DEBUG_START();
 
     /* if oldest message wil be overwritten, send it and update OldestIndex */
     if(addIdx == buffer->OldestIndex)
@@ -131,6 +139,8 @@ int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer,
  */
 int32 SBN_ClearMsgBuf(SBN_PeerMsgBuf_t* buffer)
 {
+    DEBUG_START();
+
     if(CFE_PSP_MemSet(buffer, 0, sizeof(SBN_PeerMsgBuf_t)) != CFE_PSP_SUCCESS)
     {
 	return SBN_ERROR;
@@ -156,6 +166,8 @@ int32 SBN_ClearMsgBufBeforeSeq(int seq, SBN_PeerMsgBuf_t* buffer)
             oldest = buffer->OldestIndex,
             checked = 0,
             count = buffer->MsgCount;
+
+    DEBUG_START();
 
     while(checked < count)
     {
@@ -203,6 +215,8 @@ int32 SBN_SendConsecutiveFromBuf(SBN_PeerMsgBuf_t* buffer, int32 seq,
             count = buffer->MsgCount,
             sent = 0;
     uint32  NetMsgSize;
+
+    DEBUG_START();
 
     while(checked < count)
     {
@@ -268,6 +282,8 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx)
                     count = buffer->MsgCount;
     uint32          NetMsgSize = 0;
     SBN_SenderId_t  sender;
+
+    DEBUG_START();
 
     while(checked < count)
     {

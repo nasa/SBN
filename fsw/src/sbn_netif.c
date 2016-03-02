@@ -31,7 +31,7 @@
 #include "sbn_app.h"
 #include "sbn_netif.h"
 #include "sbn_buf.h"
-#include "sbn_events.h"
+#include "sbn_main_events.h"
 
 #include <network_includes.h>
 #include <string.h>
@@ -43,6 +43,8 @@ char* SBN_FindFileEntryAppData(char *entry, int num_fields)
 {
     char    *char_ptr = entry;
     int     num_found_fields = 0;
+
+    DEBUG_START();
 
     while(*char_ptr != '\0' && num_found_fields < num_fields)
     {
@@ -80,8 +82,9 @@ int SBN_ParseFileEntry(char *FileEntry, int LineNum)
     uint32  QoS = 0;
     int     ScanfStatus = 0;
     int     status = 0;
-
     int     NumFields = 5;
+
+    DEBUG_START();
 
     app_data = SBN_FindFileEntryAppData(FileEntry, NumFields);
 
@@ -149,6 +152,8 @@ int SBN_InitPeerInterface(void)
     int32   IFRole = 0; /* host or peer */
     int     PeerIdx = 0;
 
+    DEBUG_START();
+
     SBN.NumHosts = 0;
     SBN.NumPeers = 0;
 
@@ -180,7 +185,7 @@ int SBN_InitPeerInterface(void)
             Stat = SBN_CreatePipe4Peer(SBN.NumPeers);
             if(Stat == SBN_ERROR)
             {
-                CFE_EVS_SendEvent(SBN_PEERPIPE_CR_ERR_EID,CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_PEERPIPE_CR_EID,CFE_EVS_ERROR,
                     "%s:Error creating pipe for %s,status=0x%x",
                     CFE_CPU_NAME,SBN.Peer[SBN.NumPeers].Name,Stat);
                 return SBN_ERROR;
@@ -228,9 +233,13 @@ int SBN_SendNetMsgNoBuf(uint32 MsgType, uint32 MsgSize, int PeerIdx,
     int     status = 0;
 
     SBN.MsgBuf.Hdr.Type = MsgType;
+
+    DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType, MsgSize);
     
     strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
     SBN.MsgBuf.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
+
+    SBN.MsgBuf.Hdr.MsgSize = MsgSize;
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(MsgType,
 	MsgSize, SBN.Host, SBN.NumHosts, SenderPtr, SBN.Peer[PeerIdx].IfData,
@@ -263,6 +272,8 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
 {
     int status = 0;
 
+    DEBUG_START();
+
     /* if I'm not the sender, don't send (prevent loops) */
     if(SenderPtr->ProcessorId != CFE_CPU_ID)
     {
@@ -273,24 +284,15 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
 	&SenderPtr->AppName[0], OS_MAX_API_NAME);
     SBN.MsgBuf.Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
 
-    #ifdef TEST_MISSED_MSG
-    if(SBN.Peer[PeerIdx].SentCount == 80)
-    {
-        OS_printf("Skipping Message %d\n", SBN.Peer[PeerIdx].SentCount);
-        SBN.MsgBuf.Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
-        strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
-            SBN_MAX_PEERNAME_LENGTH);
-            SBN_AddMsgToMsgBufOverwrite(&SBN.MsgBuf, &SBN.Peer[PeerIdx].SentMsgBuf);
-            SBN.Peer[PeerIdx].SentCount++;
-    }/* end if */
-    #endif /* TEST_MISSED_MSG */
-
     SBN.MsgBuf.Hdr.Type = MsgType;
 
     strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
         SBN_MAX_PEERNAME_LENGTH);
 
     SBN.MsgBuf.Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
+
+    CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, "Sending message %d",
+        SBN.MsgBuf.Hdr.SequenceCount);
     
     status = SBN_SendNetMsgNoBuf(MsgType, MsgSize, PeerIdx, SenderPtr);
 
@@ -325,9 +327,9 @@ uint8 SBN_CheckForMissedPkts(int PeerIdx)
 
     if(numMissed > 0)
     {
-        // TODO event message
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
-        OS_printf("Missed packet! Adding Msg %d to Deferred Buffer\n",
+        CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
+            "Missed packet! Adding msg %d to deferred buffer",
             sequenceCount);
         SBN_AddMsgToMsgBufSend(&SBN.MsgBuf, &SBN.Peer[PeerIdx].DeferredBuf,
             PeerIdx);
@@ -366,6 +368,8 @@ uint8 SBN_CheckForMissedPkts(int PeerIdx)
  */
 int SBN_IFRcv(int HostIdx)
 {
+    /* DEBUG_START(); too chatty */
+
     return SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->ReceiveMsg(
         SBN.Host[HostIdx], &SBN.MsgBuf);
 }/* end SBN_IFRcv */
@@ -373,6 +377,8 @@ int SBN_IFRcv(int HostIdx)
 void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 {
     int i = 0, status = 0, PeerIdx = 0, missed = 0;
+
+    /* DEBUG_START(); chatty */
 
     /* Process all the received messages */
     for(i = 0; i <= 100; i++)
@@ -388,7 +394,8 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
             PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.MsgSender.ProcessorId);
             if(PeerIdx == SBN_ERROR)
             {
-                OS_printf("PeerIdx Bad.  PeerIdx = %d\n", PeerIdx);
+                CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
+                    "PeerIdx Bad.  PeerIdx = %d", PeerIdx);
                 continue;
             }/* end if */
 
@@ -397,18 +404,22 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
             switch(SBN.MsgBuf.Hdr.Type)
             {
                 case SBN_COMMAND_ACK_MSG:
+                    DEBUG_MSG("ACK, PeerIdx = %d", PeerIdx);
                     SBN_ClearMsgBufBeforeSeq(SBN.MsgBuf.Hdr.SequenceCount,
                         &SBN.Peer[PeerIdx].SentMsgBuf);
                     break;
                 case SBN_COMMAND_NACK_MSG:
+                    DEBUG_MSG("NACK, PeerIdx = %d", PeerIdx);
                     SBN_RetransmitSeq(&SBN.Peer[PeerIdx].SentMsgBuf, 
                         SBN.MsgBuf.Hdr.SequenceCount,
                         PeerIdx);
                     break;
 		case SBN_ANNOUNCE_MSG:
-		case SBN_ANNOUNCE_ACK_MSG:
+                    DEBUG_MSG("HEARTBEAT, PeerIdx = %d", PeerIdx);
+		    SBN_ProcessNetAppMsg(status);
+		    break;
 		case SBN_HEARTBEAT_MSG:
-		case SBN_HEARTBEAT_ACK_MSG:
+                    DEBUG_MSG("HEARTBEAT, PeerIdx = %d", PeerIdx);
 		    SBN_ProcessNetAppMsg(status);
 		    break;
                 default:
@@ -445,6 +456,8 @@ void SBN_CheckForNetAppMsgs(void)
 {
     int     HostIdx = 0, priority = 0;
 
+    /* DEBUG_START(); chatty */
+
     while(priority < SBN_MAX_PEER_PRIORITY)
     {
         for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
@@ -469,6 +482,8 @@ void SBN_VerifyPeerInterfaces()
 {
     int     PeerIdx = 0, status = 0;
 
+    DEBUG_START();
+
     for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
         status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->VerifyPeerInterface(
@@ -491,6 +506,8 @@ void SBN_VerifyHostInterfaces()
 {
     int     HostIdx = 0, status = 0;
 
+    DEBUG_START();
+
     for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
     {
         status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->VerifyHostInterface(
@@ -512,32 +529,38 @@ void SBN_VerifyHostInterfaces()
 
 uint8 inline SBN_GetReliabilityFromQoS(uint8 QoS)
 {
+    DEBUG_START();
+
     return((QoS & 0xF0) >> 4);
 }/* end SBN_GetReliabilityFromQoS */
 
 uint8 inline SBN_GetPriorityFromQoS(uint8 QoS)
 {
+    /* DEBUG_START(); too chatty */
+
     return(QoS & 0x0F);
 }/* end SBN_GetPriorityFromQoS */
 
 uint8 inline SBN_GetPeerQoSReliability(const SBN_PeerData_t * peer)
 {
-    uint8   peer_qos = peer->QoS;
+    /* DEBUG_START(); too chatty */
 
-    return SBN_GetReliabilityFromQoS(peer_qos);
+    return SBN_GetReliabilityFromQoS(peer->QoS);
 }/* end SBN_GetPeerQoSReliability */
 
 uint8 inline SBN_GetPeerQoSPriority(const SBN_PeerData_t * peer)
 {
-    uint8   peer_qos = peer->QoS;
+    /* DEBUG_START(); too chatty */
 
-    return SBN_GetPriorityFromQoS(peer_qos);
+    return SBN_GetPriorityFromQoS(peer->QoS);
 }/* end SBN_GetPeerQoSPriority */
 
 int SBN_ComparePeerQoS(const void * peer1, const void * peer2)
 {
     uint8   peer1_priority = SBN_GetPeerQoSPriority((SBN_PeerData_t*)peer1),
             peer2_priority = SBN_GetPeerQoSPriority((SBN_PeerData_t*)peer2);
+
+    DEBUG_START();
 
     if(peer1_priority < peer2_priority)
     {

@@ -10,6 +10,7 @@
 #include "serial_sbn_if.h"
 #include "serial_platform_cfg.h"
 #include "serial_queue.h"
+#include "serial_events.h"
 #include <string.h>
 
 /**
@@ -29,13 +30,13 @@ int Serial_SbnReceiveMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
 
     if(Host == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_RECEIVE_EID, CFE_EVS_ERROR,
             "Serial: Error in SerialRcvMsg: Host is NULL.\n");
         return SBN_ERROR;
     }/* end if */
     if(MsgBuf == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_RECEIVE_EID, CFE_EVS_ERROR,
             "Serial: Error in SerialRcvMsg: MsgBuf is NULL.\n");
         return SBN_ERROR;
     }/* end if */
@@ -75,7 +76,7 @@ int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
     /* Check to see if the correct number of items were parsed */
     if(ScanfStatus != SBN_SERIAL_ITEMS_PER_FILE_LINE)
     {
-        CFE_EVS_SendEvent(SBN_INV_LINE_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Invalid SBN peer file line, exp %d items,found %d",
             SBN_SERIAL_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;
@@ -84,7 +85,7 @@ int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
     entry = malloc(sizeof(Serial_SBNEntry_t));
     if(entry == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial cannot allocate memory for host/peer file entry.\n");
         return SBN_ERROR;
     }/* end if */
@@ -116,7 +117,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
 
     if(Data == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Cannot initialize interface! Interface data is null.\n");
         return SBN_ERROR;
     }/* end if */
@@ -130,7 +131,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
         Serial_SBNHostData_t *host = malloc(sizeof(Serial_SBNHostData_t));
         if(host == NULL)
         {
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
                 "Serial: Cannot allocate host interface data.\n");
             return SBN_ERROR;
         }/* end if */
@@ -152,7 +153,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
         snprintf(name, sizeof(name), "Sem%d", host->PairNum);
         if(OS_BinSemCreate(&host->SemId, name, OS_SEM_FULL, 0) != OS_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
                 "Serial: Error creating data semaphore for host %d.\n",
                 host->PairNum);
         }/* end if */
@@ -162,7 +163,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
         if(OS_QueueCreate(&host->Queue, name, SBN_SERIAL_QUEUE_DEPTH,
             sizeof(uint32), 0) != OS_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
                 "Serial: Error creating data queue for host %d.\n",
                 host->PairNum);
         }/* end if */
@@ -175,7 +176,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
         Serial_SBNPeerData_t *peer = malloc(sizeof(Serial_SBNPeerData_t));
         if(peer == NULL)
         {
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
                 "Serial: Cannot allocate peer interface data.\n");
             return SBN_ERROR;
         }/* end if */
@@ -215,21 +216,21 @@ int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
     /* Check pointer arguments used for all cases for null */
     if(HostList == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
             "Serial: Error in SendSerialNetMsg: HostList is NULL.\n");
         return SBN_ERROR;
     }/* end if */
 
     if(IfData == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
             "Serial: Error in SendSerialNetMsg: IfData is NULL.\n");
         return SBN_ERROR;
     }/* end if */
 
     if(MsgBuf == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
             "Serial: Error in SendSerialNetMsg: MsgBuf is NULL.\n");
         return SBN_ERROR;
     }/* end if */
@@ -251,7 +252,7 @@ int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
 
     if(!host)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
             "Serial: No Serial Host Found!\n");
         return SBN_ERROR;
     }/* end if */
@@ -262,7 +263,7 @@ int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
         case SBN_APP_MSG:
             if(SenderPtr == NULL)
             {
-                CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
                     "Serial: Error in SendSerialNetMsg: SenderPtr is NULL.\n");
                 return SBN_ERROR;
             }/* end if */
@@ -301,7 +302,7 @@ int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
             return Serial_IoWriteMsg(host->Fd, MsgBuf);
 
         default:
-            CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
                 "Serial: Unexpected message type!\n");
     }/* end switch */
     return SBN_ERROR;
@@ -329,14 +330,14 @@ int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
 
     if(Peer == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyPeerInterface: Peer is NULL.\n");
         return SBN_NOT_VALID;
     }/* end if */
 
     if(HostList == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyPeerInterface: Hosts is NULL.\n");
         return SBN_NOT_VALID;
     }/* end if */
@@ -383,14 +384,14 @@ int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host,
 
     if(Host == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyHostInterface: Host is NULL.\n");
         return SBN_NOT_VALID;
     }/* end if */
 
     if(PeerList == NULL)
     {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyHostInterface: PeerList is NULL.\n");
         return SBN_NOT_VALID;
     }/* end if */

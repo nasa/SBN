@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "sbn_msgids.h"
-#include "sbn_events.h"
+#include "sbn_main_events.h"
 #include "sbn_cmds.h"
 #include "sbn_app.h"
 #include "cfe.h"
@@ -140,7 +140,7 @@ void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr);
 **  \retstmt Returns FALSE if the length is not as expected \endcode
 **  \endreturns
 **
-**  \sa #SBN_LEN_ERR_EID
+**  \sa #SBN_LEN_EID
 **
 *************************************************************************/
 boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength);
@@ -154,6 +154,8 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
 {
     CFE_SB_MsgId_t  MsgId = 0;
     uint16          CommandCode = 0;
+
+    DEBUG_START();
 
     MsgId = CFE_SB_GetMsgId(MessagePtr);
     switch(MsgId)
@@ -184,7 +186,7 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
                     break;
                 default:
                     SBN.HkPkt.CmdErrCount++;
-                    CFE_EVS_SendEvent(SBN_CC_ERR_EID, CFE_EVS_ERROR,
+                    CFE_EVS_SendEvent(SBN_CC_EID, CFE_EVS_ERROR,
                         "Invalid command code: ID = 0x%04X, CC = %d", 
                         MsgId, CommandCode);
                     break;
@@ -193,7 +195,7 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
 
         default:
             SBN.HkPkt.CmdErrCount++;
-            CFE_EVS_SendEvent(SBN_MID_ERR_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_MID_EID, CFE_EVS_ERROR,
                 "Invalid command pipe message ID: 0x%04X",
                 MsgId);
             break;
@@ -208,6 +210,8 @@ void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
 void SBN_InitializeCounters(void)
 {
     int32   i = 0;
+
+    DEBUG_START();
 
     SBN.HkPkt.CmdCount = 0;
     SBN.HkPkt.CmdErrCount = 0;
@@ -230,6 +234,8 @@ void SBN_HousekeepingReq(CFE_SB_MsgPtr_t MessagePtr)
 {
     int32   i = 0;
     uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
+
+    DEBUG_START();
 
     if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
     {
@@ -256,6 +262,8 @@ void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
+    DEBUG_START();
+
     if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
     {
         SBN.HkPkt.CmdCount++;
@@ -274,6 +282,8 @@ void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
 
+    DEBUG_START();
+
     if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
     {
         /*
@@ -281,7 +291,7 @@ void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
         */
         SBN_InitializeCounters();
 
-        CFE_EVS_SendEvent(SBN_RESET_DBG_EID, CFE_EVS_DEBUG,
+        CFE_EVS_SendEvent(SBN_RESET_EID, CFE_EVS_DEBUG,
                           "Reset counters command");
     }/* end if */
 }/* end SBN_ResetCountersCmd */
@@ -296,6 +306,8 @@ void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
     SBN_PeerListResponsePacket_t    response;
     int32                           i = 0;
     uint16                          ExpectedLength = sizeof(SBN_NoArgsCmd_t);
+
+    DEBUG_START();
 
     if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
     {
@@ -321,7 +333,7 @@ void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
         CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &response);
         CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
 
-        CFE_EVS_SendEvent(SBN_PEER_LIST_DBG_EID, CFE_EVS_DEBUG,
+        CFE_EVS_SendEvent(SBN_PEER_LIST_EID, CFE_EVS_DEBUG,
                           "Peer list retrieved (%d peers)", response.NumPeers);
     }/* end if */
 }/* end SBN_GetPeerList */
@@ -339,6 +351,8 @@ void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
 
     uint16                    ExpectedLength = sizeof(SBN_GetPeerStatusCmd_t);
     
+    DEBUG_START();
+
     if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
     {
         SBN_GetPeerStatusCmd_t *Command = (SBN_GetPeerStatusCmd_t*)MessagePtr;
@@ -364,7 +378,7 @@ void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
             CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &response);
             CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
 
-            CFE_EVS_SendEvent(SBN_PEER_STATUS_DBG_EID, CFE_EVS_DEBUG,
+            CFE_EVS_SendEvent(SBN_PEER_STATUS_EID, CFE_EVS_DEBUG,
                               "Peer status retrieved for peer %d", PeerIdx);
         }/* end if */
     }/* end if */
@@ -382,6 +396,8 @@ void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr)
     SBN_ResetPeerCmd_t *Command = NULL;
 
     uint16              ExpectedLength = sizeof(SBN_ResetPeerCmd_t);
+
+    DEBUG_START();
 
     if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
     {
@@ -402,7 +418,7 @@ void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr)
         }
         else
         {
-            CFE_EVS_SendEvent(SBN_RESET_PEER_DBG_EID, CFE_EVS_DEBUG,
+            CFE_EVS_SendEvent(SBN_RESET_PEER_EID, CFE_EVS_DEBUG,
                 "Reset peer %d", PeerIdx);
         }/* end if */
     }/* end if */
@@ -420,6 +436,8 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
     uint16          ActualLength = 0;
     CFE_SB_MsgId_t  MsgId;
 
+    DEBUG_START();
+
     ActualLength = CFE_SB_GetTotalMsgLength(msg);
     if(ExpectedLength != ActualLength)
     {
@@ -432,7 +450,7 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
             ** For a bad HK request, just send the event.  We only increment
             ** the error counter for ground commands and not internal messages.
             */
-            CFE_EVS_SendEvent(SBN_HKREQ_LEN_ERR_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_HKREQ_LEN_EID, CFE_EVS_ERROR,
                 "Invalid HK request msg length: ID = 0x%04X, "
                 "CC = %d, Len = %d, Expected = %d",
                 MsgId, CommandCode, ActualLength, ExpectedLength);
@@ -442,7 +460,7 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
             /*
             ** All other cases, increment error counter
             */
-            CFE_EVS_SendEvent(SBN_LEN_ERR_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_LEN_EID, CFE_EVS_ERROR,
                 "Invalid msg length: ID = 0x%04X, "
                 "CC = %d, Len = %d, Expected = %d",
                 MsgId, CommandCode, ActualLength, ExpectedLength);

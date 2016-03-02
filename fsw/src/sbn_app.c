@@ -67,7 +67,7 @@
 #include "sbn_cmds.h"
 #include "sbn_buf.h"
 #include "sbn_subs.h"
-#include "sbn_events.h"
+#include "sbn_main_events.h"
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 
@@ -101,23 +101,27 @@ int SBN_Init(void)
     Status = CFE_EVS_Register(NULL, 0, CFE_EVS_BINARY_FILTER);
     if(Status != CFE_SUCCESS) return Status;
 
+    DEBUG_START();
+
+    memset(&SBN, 0, sizeof(SBN));
+
     if(SBN_ReadModuleFile() == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_FILE_ERR_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
             "SBN APP Will Terminate, Module File Not Found or Data Invalid!");
         return SBN_ERROR;
     }/* end if */
 
     if(SBN_GetPeerFileData() == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_FILE_ERR_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
             "SBN APP Will Terminate, Peer File Not Found or Data Invalid!");
         return SBN_ERROR;
     }/* end if */
 
     if(SBN_InitProtocol() == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_PROTO_INIT_ERR_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_PROTO_INIT_EID, CFE_EVS_ERROR,
             "SBN APP Will Terminate, Error Creating Interfaces!");
         return SBN_ERROR;
     }/* end if */
@@ -159,13 +163,12 @@ int SBN_Init(void)
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "SBN APP Initialized V1.1, AppId=%d", SBN.AppId);
 
-
     /* Initialize HK Message */
     CFE_SB_InitMsg(&SBN.HkPkt, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
     SBN_InitializeCounters();
 
     /* Create event message pipe */
-    CFE_SB_CreatePipe(&SBN.EventPipe, 20, "SBNEventPipe");
+    CFE_SB_CreatePipe(&SBN.EventPipe, 100, "SBNEventPipe");
 
     /* Wait for event from SB saying it is initialized OR a response from SB
        to the above messages. SBN_TRUE means it needs to re-send subscription
@@ -188,25 +191,22 @@ int SBN_WaitForSBStartup()
 {
     CFE_EVS_Packet_t    *EvsPacket = NULL;
     CFE_SB_MsgPtr_t     SBMsgPtr;
-    uint8               MsgFound = SBN_FALSE;
     uint8               counter = 0;
+
+    DEBUG_START();
 
     /* Subscribe to event messages temporarily to be notified when SB is done
      * initializing
      */
     CFE_SB_Subscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
 
-    while(!MsgFound)
+    while(1)
     {
         /* Check for subscription message from SB */
         if(SBN_CheckSubscriptionPipe())
         {
-            /* Unsubscribe from event messages */
-            CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
-            MsgFound = SBN_TRUE;
-
             /* SBN does not need to re-send request messages to SB */
-            return SBN_FALSE;
+            return SBN_TRUE;
         }
         else if(counter % 100 == 0)
         {
@@ -234,7 +234,6 @@ int SBN_WaitForSBStartup()
                         /* Unsubscribe from event messages */
                         CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID,
                             SBN.EventPipe);
-                        MsgFound = SBN_TRUE;
 
                         /* SBN needs to re-send request messages */
                         return SBN_TRUE;
@@ -248,7 +247,6 @@ int SBN_WaitForSBStartup()
                         /* Unsubscribe from event messages */
                         CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID,
                             SBN.EventPipe);
-                        MsgFound = SBN_TRUE;
 
                         /* SBN needs to re-send request messages */
                         return SBN_TRUE;
@@ -326,6 +324,8 @@ int32 SBN_RcvMsg(int32 iTimeOut)
     /* TODO: To include performance logging for this application,
         uncomment CFE_ES_PerfLogEntry() and CFE_ES_PerfLogExit() lines */
 
+    /* DEBUG_START(); chatty */
+
     /* Wait for WakeUp messages from scheduler */
     Status = CFE_SB_RcvMsg(&MsgPtr, SBN.SchPipeId, iTimeOut);
 
@@ -350,14 +350,12 @@ int32 SBN_RcvMsg(int32 iTimeOut)
             /* TODO:  Add code here to handle other commands, if needed */
 
             default:
-                CFE_EVS_SendEvent(SBN_MSGID_ERR_EID, CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_MSGID_EID, CFE_EVS_ERROR,
                     "SBN - Recvd invalid SCH msgId (0x%04X)", MsgId);
         }/* end switch */
     }
     else if(Status == CFE_SB_TIME_OUT)
     {
-        /* CFE_ES_WriteToSysLog("SBN TIMEOUT: MID: 0x%X\n", SBN_WAKEUP_MID); */
-
         /* For sbn, we still want to perform cyclic processing
         ** if the RcvMsg time out
         ** cyclic processing at timeout rate
@@ -373,6 +371,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
         /* If there's no incoming message, you can do something here,
          * or do nothing
          */
+        ;
     }
     else
     {
@@ -380,7 +379,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
          * Note that a SB read error is not always going to result in an app
          * quitting.
          */
-        CFE_EVS_SendEvent(SBN_PIPE_ERR_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_PIPE_EID, CFE_EVS_ERROR,
             "SBN: SB pipe read error (0x%08X), app will exit", Status);
         /* sbn does not have a run Status var:
          * SBN.uiRunStatus= CFE_ES_APP_ERROR;
@@ -395,6 +394,8 @@ int32 SBN_RcvMsg(int32 iTimeOut)
 
 int SBN_InitProtocol(void)
 {
+    DEBUG_START();
+
     SBN_InitPeerVariables();
     SBN_InitPeerInterface();
     SBN_VerifyPeerInterfaces();
@@ -404,6 +405,8 @@ int SBN_InitProtocol(void)
 
 void SBN_InitPeerVariables(void)
 {
+    DEBUG_START();
+
     int     PeerIdx = 0, j = 0;
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
@@ -427,6 +430,8 @@ int32 SBN_GetPeerFileData(void)
     char            c = '\0';
     int             FileOpened = FALSE;
     int             LineNum = 0;
+
+    DEBUG_START();
 
     /* First check for the file in RAM */
     PeerFile = OS_open(SBN_VOL_PEER_FILENAME, O_RDONLY, 0);
@@ -545,6 +550,8 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     int32   Status = 0;
     char    PipeName[OS_MAX_API_NAME];
 
+    DEBUG_START();
+
     /* create a pipe name string similar to SBN_CPU2_Pipe */
     sprintf(PipeName, "SBN_%s_Pipe", SBN.Peer[PeerIdx].Name);
     Status = CFE_SB_CreatePipe(&SBN.Peer[PeerIdx].Pipe, SBN_PEER_PIPE_DEPTH,
@@ -564,6 +571,8 @@ void SBN_RunProtocol(void)
 {
     int         PeerIdx = 0;
     OS_time_t   current_time;
+
+    /* DEBUG_START(); chatty */
 
     /* The protocol is run for each peer in use. In Linux, the UDP/IP message
      * jitter/latency is enough to have 2 HB and 2 HB ack messages pending
@@ -596,7 +605,8 @@ void SBN_RunProtocol(void)
                 > SBN_HEARTBEAT_TIMEOUT)
         {
             /* lost connection, reset */
-	    OS_printf("peer %d lost connection, resetting\n", PeerIdx);
+            CFE_EVS_SendEvent(SBN_PEER_STATUS_EID, CFE_EVS_INFORMATION,
+                "peer %d lost connection, resetting\n", PeerIdx);
             SBN_RemoveAllSubsFromPeer(PeerIdx);
             SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
 
@@ -612,6 +622,8 @@ void SBN_RunProtocol(void)
 
 int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr)
 {
+    /* DEBUG_START(); chatty */
+
     return CFE_SB_RcvMsg((CFE_SB_Msg_t**)SBMsgPtr, SBN.Peer[PeerIdx].Pipe,
         CFE_SB_POLL);
 }/* end SBN_PollPeerPipe */
@@ -620,6 +632,8 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx)
 {
     CFE_SB_SenderId_t   *lastSenderPtr = NULL;
     uint16              AppMsgSize = 0, MaxAppMsgSize = 0;
+
+    DEBUG_START();
 
     /* Find size of app msg without SBN hdr */
     AppMsgSize = CFE_SB_GetTotalMsgLength(*SBMsgPtr);
@@ -649,6 +663,8 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
     uint32 NetMsgSize = 0;
     CFE_SB_SenderId_t * lastSenderPtr = NULL;
     int Status = 0;
+
+    /* DEBUG_START(); chatty */
 
     Status = SBN_PollPeerPipe(PeerIdx, &SBMsgPtr);
     if(Status == CFE_SUCCESS)
@@ -684,6 +700,8 @@ void SBN_CheckPeerPipes(void)
     int32   priority = 0;
     int32   priority_remaining = 0;
 
+    /* DEBUG_START(); chatty */
+
     while(priority < SBN_MAX_PEER_PRIORITY)
     {
         priority_remaining = 0;
@@ -703,16 +721,13 @@ void SBN_CheckPeerPipes(void)
     }/* end while */
 }/* end SBN_CheckPeerPipes */
 
-void SBN_RcvNetMsgs(void)
-{
-    /* empty */
-}/* end SBN_RcvNetMsgs */
-
 void SBN_ProcessNetAppMsg(int MsgLength)
 {
     int                 PeerIdx = 0,
                         Status = 0;
     CFE_SB_SenderId_t   sender;
+
+    DEBUG_START();
 
     PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.MsgSender.ProcessorId);
 
@@ -721,7 +736,8 @@ void SBN_ProcessNetAppMsg(int MsgLength)
     if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING
         || SBN.MsgBuf.Hdr.Type == SBN_ANNOUNCE_MSG)
     {
-	OS_printf("peer #%d alive, resetting\n", PeerIdx);
+        CFE_EVS_SendEvent(SBN_PEER_STATUS_EID, CFE_EVS_INFORMATION,
+            "Peer #%d alive, resetting", PeerIdx);
         SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
         SBN_ResetPeerMsgCounts(PeerIdx);
         SBN_SendLocalSubsToPeer(PeerIdx);
@@ -740,13 +756,16 @@ void SBN_ProcessNetAppMsg(int MsgLength)
 	    strncpy(sender.AppName, SBN.MsgBuf.Hdr.MsgSender.AppName,
                 sizeof(sender.AppName));
 
+            CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG,
+                "Injecting %d", SBN.MsgBuf.Hdr.SequenceCount);
+
             Status = CFE_SB_SendMsgFull(
                 (CFE_SB_Msg_t *) &SBN.MsgBuf.Pkt.Data[0],
                 CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
 
             if(Status != CFE_SUCCESS)
             {
-                CFE_EVS_SendEvent(SBN_SB_SEND_ERR_EID, CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_SB_SEND_EID, CFE_EVS_ERROR,
                     "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
                     CFE_CPU_NAME, Status, SBN.MsgBuf.Hdr.SrcCpuName,
                     SBN.MsgBuf.Hdr.Type);
@@ -764,7 +783,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
         default:
             SBN.MsgBuf.Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0';
             /* make sure of termination */
-            CFE_EVS_SendEvent(SBN_MSGTYPE_ERR_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_MSGTYPE_EID, CFE_EVS_ERROR,
                 "%s:Unknown Msg Type 0x%x from %s", CFE_CPU_NAME,
                 SBN.MsgBuf.Hdr.Type, SBN.MsgBuf.Hdr.SrcCpuName);
             break;
@@ -774,6 +793,8 @@ void SBN_ProcessNetAppMsg(int MsgLength)
 int32 SBN_CheckCmdPipe(void)
 {
     int Status = 0;
+
+    /* DEBUG_START(); */
 
     /* Command and HK requests pipe */
     while(Status == CFE_SUCCESS)
@@ -792,6 +813,8 @@ int SBN_GetPeerIndex(uint32 ProcessorId)
 {
     int     PeerIdx = 0;
 
+    /* DEBUG_START(); chatty */
+
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
         if(SBN.Peer[PeerIdx].InUse == SBN_NOT_IN_USE) continue;
@@ -804,6 +827,8 @@ int SBN_GetPeerIndex(uint32 ProcessorId)
 
 void SBN_ResetPeerMsgCounts(uint32 PeerIdx)
 {
+    DEBUG_START();
+
     SBN.Peer[PeerIdx].SentCount = 0;
     SBN.Peer[PeerIdx].RcvdCount = 0;
     SBN.Peer[PeerIdx].MissCount = 0;

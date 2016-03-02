@@ -1,8 +1,6 @@
 #ifndef _sbn_platform_cfg_h_
 #define _sbn_platform_cfg_h_
 
-#define TEST_MISSED_MSG /* Need a way to force missed messages for testing ONLY */
-
 #define SBN_SUB_PIPE_DEPTH            256
 #define SBN_MAX_ONESUB_PKTS_ON_PIPE   256
 #define SBN_MAX_ALLSUBS_PKTS_ON_PIPE  64

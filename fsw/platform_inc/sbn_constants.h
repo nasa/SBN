@@ -121,12 +121,5 @@
 #define SBN_SYNC_3                    0x98
 #define SBN_SYNC_4                    0xB9
 
-/* common events between the main app and modules */
-#define SBN_INV_LINE_EID              100
-
-/* module-specific EID's */
-#define SBN_IPV4_EID                  200
-#define SBN_SERIAL_EID                201
-
 #endif /* _sbn_constants_h_ */
 /*****************************************************************************/
