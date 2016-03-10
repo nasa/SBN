@@ -53,7 +53,7 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
 
     if(SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER)
     {
-        CFE_EVS_SendEvent(SBN_LSC_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
             "%s:Error sending subs to %s,LclSubCnt=%d,max=%d", CFE_CPU_NAME,
             SBN.Peer[PeerIdx].Name, SBN.LocalSubCnt, SBN_MAX_SUBS_PER_PEER);
         return;
@@ -98,7 +98,7 @@ int32 SBN_CheckSubscriptionPipe(void)
                         SBN_ProcessLocalUnsub(&SubEntry);
                         break;
                     default:
-                        CFE_EVS_SendEvent(SBN_SUBTYPE_EID, CFE_EVS_ERROR,
+                        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
                             "%s:Unexpected SubType %d in "
                             "SBN_CheckSubscriptionPipe",
                             CFE_CPU_NAME, SubRprtMsgPtr->Payload.SubType);
@@ -119,7 +119,7 @@ int32 SBN_CheckSubscriptionPipe(void)
                         SBN_ProcessLocalUnsub(&SubEntry);
                         break;
                     default:
-                        CFE_EVS_SendEvent(SBN_SUBTYPE_EID, CFE_EVS_ERROR,
+                        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
                             "%s:Unexpected SubType %d in "
                             "SBN_CheckSubscriptionPipe",
                             CFE_CPU_NAME, SubRprtMsgPtr->SubType);
@@ -134,7 +134,7 @@ int32 SBN_CheckSubscriptionPipe(void)
                 return SBN_TRUE;
 
             default:
-                CFE_EVS_SendEvent(SBN_MSGID_EID, CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
                         "%s:Unexpected MsgId 0x%04X on SBN.SubPipe",
                         CFE_CPU_NAME, ntohs(CFE_SB_GetMsgId(SBMsgPtr)));
 
@@ -152,7 +152,7 @@ void SBN_ProcessSubFromPeer(int PeerIdx)
 
     if(PeerIdx == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_PEERIDX_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "%s:Cannot process Subscription,PeerIdx(%d)OutOfRange",
              CFE_CPU_NAME, PeerIdx);
         return;
@@ -170,7 +170,7 @@ void SBN_ProcessSubFromPeer(int PeerIdx)
     if(SBN_CheckPeerSubs4MsgId(&idx, SBN.MsgBuf.Sub.MsgId,
         PeerIdx) == SBN_MSGID_FOUND)
     {
-        CFE_EVS_SendEvent(SBN_DUP_SUB_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:subscription from %s ignored,msg 0x%04X already logged",
             CFE_CPU_NAME, SBN.Peer[PeerIdx].Name,
             ntohs(SBN.MsgBuf.Sub.MsgId));
@@ -197,7 +197,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
 
     if(PeerIdx == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_PEERIDX_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "%s:Cannot process unsubscription,PeerIdx(%d)OutOfRange",
             CFE_CPU_NAME, PeerIdx);
         return;
@@ -205,7 +205,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
 
     if(SBN.Peer[PeerIdx].SubCnt == 0)
     {
-        CFE_EVS_SendEvent(SBN_NO_SUBS_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:Cannot process unsubscription from %s,none logged",
             CFE_CPU_NAME, SBN.Peer[PeerIdx].Name);
         return;
@@ -214,7 +214,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
     if(SBN_CheckPeerSubs4MsgId(&idx, SBN.MsgBuf.Sub.MsgId,
         PeerIdx)==SBN_MSGID_NOT_FOUND)
     {
-        CFE_EVS_SendEvent(SBN_SUB_NOT_FOUND_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
             CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, ntohs(SBN.MsgBuf.Sub.MsgId));
         return;
@@ -254,7 +254,7 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
 
     if(SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER)
     {
-        CFE_EVS_SendEvent(SBN_LSC_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
                 "%s:Local Subscription Ignored for MsgId 0x%04X,max(%d)met",
                 CFE_CPU_NAME, ntohs(Ptr->MsgId), SBN_MAX_SUBS_PER_PEER);
         return;
@@ -363,7 +363,7 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
 #ifdef SBN_PAYLOAD
     if(Ptr->Payload.Entries > CFE_SB_SUB_ENTRIES_PER_PKT)
     {
-        CFE_EVS_SendEvent(SBN_ENTRY_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "%s:Entries value %d in SB PrevSubMsg exceeds max %d, aborting",
             CFE_CPU_NAME, Ptr->Payload.Entries, CFE_SB_SUB_ENTRIES_PER_PKT);
         return;
@@ -380,7 +380,7 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
 #else /* !SBN_PAYLOAD */
     if(Ptr->Entries > CFE_SB_SUB_ENTRIES_PER_PKT)
     {
-        CFE_EVS_SendEvent(SBN_ENTRY_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "%s:Entries value %d in SB PrevSubMsg exceeds max %d, aborting",
             CFE_CPU_NAME, Ptr->Entries, CFE_SB_SUB_ENTRIES_PER_PKT);
         return;
@@ -443,7 +443,7 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
 
     if(PeerIdx == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_PEERIDX_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "%s:Cannot remove all subs from peer,PeerIdx(%d)OutOfRange",
             CFE_CPU_NAME, PeerIdx);
         return;
@@ -455,7 +455,7 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
             SBN.Peer[PeerIdx].Pipe);
     }/* end for */
 
-    CFE_EVS_SendEvent(SBN_UNSUB_CNT_EID, CFE_EVS_INFORMATION,
+    CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
         "%s:UnSubscribed %d MsgIds from %s", CFE_CPU_NAME,
         SBN.Peer[PeerIdx].SubCnt, SBN.Peer[PeerIdx].Name);
 

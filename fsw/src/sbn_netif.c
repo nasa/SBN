@@ -102,7 +102,7 @@ int SBN_ParseFileEntry(char *FileEntry, int LineNum)
     */
     if(ScanfStatus != NumFields)
     {
-        CFE_EVS_SendEvent(SBN_INV_LINE_EID,CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
             "%s:Invalid SBN peer file line,"
             "expected %d, found %d",
             CFE_CPU_NAME, NumFields, ScanfStatus);
@@ -111,7 +111,7 @@ int SBN_ParseFileEntry(char *FileEntry, int LineNum)
 
     if(LineNum >= SBN_MAX_NETWORK_PEERS)
     {
-        CFE_EVS_SendEvent(SBN_PEER_LIMIT_EID, CFE_EVS_CRITICAL,
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "SBN %s: Max Peers Exceeded. Max=%d, This=%u. "
             "Did not add %s, %u, %u %u\n",
             CFE_CPU_NAME, SBN_MAX_NETWORK_PEERS, LineNum,
@@ -185,9 +185,9 @@ int SBN_InitPeerInterface(void)
             Stat = SBN_CreatePipe4Peer(SBN.NumPeers);
             if(Stat == SBN_ERROR)
             {
-                CFE_EVS_SendEvent(SBN_PEERPIPE_CR_EID,CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                     "%s:Error creating pipe for %s,status=0x%x",
-                    CFE_CPU_NAME,SBN.Peer[SBN.NumPeers].Name,Stat);
+                    CFE_CPU_NAME, SBN.Peer[SBN.NumPeers].Name, Stat);
                 return SBN_ERROR;
             }/* end if */
 
@@ -291,8 +291,7 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
 
     SBN.MsgBuf.Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
 
-    CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, "Sending message %d",
-        SBN.MsgBuf.Hdr.SequenceCount);
+    DEBUG_MSG("Sending message %d", SBN.MsgBuf.Hdr.SequenceCount);
     
     status = SBN_SendNetMsgNoBuf(MsgType, MsgSize, PeerIdx, SenderPtr);
 

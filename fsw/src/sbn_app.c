@@ -68,8 +68,10 @@
 #include "sbn_buf.h"
 #include "sbn_subs.h"
 #include "sbn_main_events.h"
+#include "sbn_perfids.h"
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
+#include "cfe_es.h" /* PerfLog */
 
 /*
  **   Task Globals
@@ -121,7 +123,7 @@ int SBN_Init(void)
 
     if(SBN_InitProtocol() == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_PROTO_INIT_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
             "SBN APP Will Terminate, Error Creating Interfaces!");
         return SBN_ERROR;
     }/* end if */
@@ -130,7 +132,6 @@ int SBN_Init(void)
 
     /* Init schedule pipe */
     SBN.usSchPipeDepth = SBN_SCH_PIPE_DEPTH;
-    memset((void*)SBN.cSchPipeName, '\0', sizeof(SBN.cSchPipeName));
     strncpy(SBN.cSchPipeName, "SBN_SCH_PIPE", OS_MAX_API_NAME-1);
 
     /* Subscribe to Wakeup messages */
@@ -330,7 +331,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
     Status = CFE_SB_RcvMsg(&MsgPtr, SBN.SchPipeId, iTimeOut);
 
     /* Performance Log Entry stamp */
-    /* CFE_ES_PerfLogEntry(SBN_MAIN_TASK_PERF_ID); */
+    CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
 
     /* success or timeout is ok to proceed through main loop */
     if(Status == CFE_SUCCESS)
@@ -350,7 +351,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
             /* TODO:  Add code here to handle other commands, if needed */
 
             default:
-                CFE_EVS_SendEvent(SBN_MSGID_EID, CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
                     "SBN - Recvd invalid SCH msgId (0x%04X)", MsgId);
         }/* end switch */
     }
@@ -387,7 +388,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
     }/* end if */
 
     /* Performance Log Exit stamp */
-    /* CFS_ES_PerfLogExit(SBN_MAIN_TASK_PERF_ID); */
+    CFE_ES_PerfLogExit(SBN_PERF_RECV_ID);
 
     return Status;
 }/* end SBN_RcvMsg */
@@ -435,17 +436,17 @@ int32 SBN_GetPeerFileData(void)
 
     /* First check for the file in RAM */
     PeerFile = OS_open(SBN_VOL_PEER_FILENAME, O_RDONLY, 0);
-    OS_printf("SBN_VOL_PEER_FILENAME = %s\n", SBN_VOL_PEER_FILENAME);
     if(PeerFile != OS_ERROR)
     {
-        OS_printf("thinks it opened the vol...\n");
-        SBN_SendFileOpenedEvent(SBN_VOL_PEER_FILENAME);
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+            "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME,
+            SBN_VOL_PEER_FILENAME);
         FileOpened = TRUE;
     }
     else
     {
-        CFE_EVS_SendEvent(SBN_VOL_FAILED_EID, CFE_EVS_INFORMATION,
-            "%s:Peer file %s failed to open", CFE_CPU_NAME,
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+            "%s:Failed ot open peer file %s", CFE_CPU_NAME,
             SBN_VOL_PEER_FILENAME);
         FileOpened = FALSE;
     }/* end if */
@@ -457,13 +458,14 @@ int32 SBN_GetPeerFileData(void)
 
         if(PeerFile != OS_ERROR)
         {
-            OS_printf("thinks it opened the nonvol...\n");
-            SBN_SendFileOpenedEvent(SBN_NONVOL_PEER_FILENAME);
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+                "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME,
+                SBN_NONVOL_PEER_FILENAME);
             FileOpened = TRUE;
         }
         else
         {
-            CFE_EVS_SendEvent(SBN_NONVOL_FAILED_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
                 "%s:Peer file %s failed to open", CFE_CPU_NAME,
                 SBN_NONVOL_PEER_FILENAME);
             FileOpened = FALSE;
@@ -490,7 +492,9 @@ int32 SBN_GetPeerFileData(void)
         OS_read(PeerFile, &c, 1);
 
         if(c == '!')
+        {
             break;
+        }
 
         if(c == '\n' || c == ' ' || c == '\t')
         {
@@ -539,12 +543,6 @@ int32 SBN_GetPeerFileData(void)
     return SBN_OK;
 }/* end SBN_GetPeerFileData */
 
-void SBN_SendFileOpenedEvent(char *Filename)
-{
-    CFE_EVS_SendEvent(SBN_FILE_OPENED_EID, CFE_EVS_INFORMATION,
-        "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME, Filename);
-}/* end SBN_SendFileOpenedEvent */
-
 int SBN_CreatePipe4Peer(int PeerIdx)
 {
     int32   Status = 0;
@@ -557,12 +555,18 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     Status = CFE_SB_CreatePipe(&SBN.Peer[PeerIdx].Pipe, SBN_PEER_PIPE_DEPTH,
             PipeName);
 
-    if(Status != CFE_SUCCESS) return Status;
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "%s:failed to create pipe %s", CFE_CPU_NAME, PipeName);
+
+        return Status;
+    }/* end if */
 
     strncpy(SBN.Peer[PeerIdx].PipeName, PipeName, OS_MAX_API_NAME);
 
-    CFE_EVS_SendEvent(SBN_PEERPIPE_CR_EID, CFE_EVS_INFORMATION,
-        "%s:%s created", CFE_CPU_NAME, PipeName);
+    CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+        "%s: pipe created %s", CFE_CPU_NAME, PipeName);
 
     return SBN_OK;
 }/* end SBN_CreatePipe4Peer */
@@ -573,6 +577,8 @@ void SBN_RunProtocol(void)
     OS_time_t   current_time;
 
     /* DEBUG_START(); chatty */
+
+    CFE_ES_PerfLogEntry(SBN_PERF_SEND_ID);
 
     /* The protocol is run for each peer in use. In Linux, the UDP/IP message
      * jitter/latency is enough to have 2 HB and 2 HB ack messages pending
@@ -605,7 +611,7 @@ void SBN_RunProtocol(void)
                 > SBN_HEARTBEAT_TIMEOUT)
         {
             /* lost connection, reset */
-            CFE_EVS_SendEvent(SBN_PEER_STATUS_EID, CFE_EVS_INFORMATION,
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
                 "peer %d lost connection, resetting\n", PeerIdx);
             SBN_RemoveAllSubsFromPeer(PeerIdx);
             SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
@@ -618,6 +624,8 @@ void SBN_RunProtocol(void)
                 sizeof(SBN_Hdr_t), PeerIdx, NULL);
 	}/* end if */
     }/* end for */
+
+    CFE_ES_PerfLogExit(SBN_PERF_SEND_ID);
 }/* end SBN_RunProtocol */
 
 int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr)
@@ -643,7 +651,7 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx)
 
     if(AppMsgSize >= MaxAppMsgSize)
     {
-        CFE_EVS_SendEvent(SBN_MSG_TRUNCATED_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_INFORMATION,
             "%s:AppMsg 0x%04X,from %s, sz=%d destined for"
             " %s truncated to %d(max sz)",
             CFE_CPU_NAME, CFE_SB_GetMsgId(*SBMsgPtr),
@@ -736,7 +744,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
     if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING
         || SBN.MsgBuf.Hdr.Type == SBN_ANNOUNCE_MSG)
     {
-        CFE_EVS_SendEvent(SBN_PEER_STATUS_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
             "Peer #%d alive, resetting", PeerIdx);
         SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
         SBN_ResetPeerMsgCounts(PeerIdx);
@@ -756,8 +764,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
 	    strncpy(sender.AppName, SBN.MsgBuf.Hdr.MsgSender.AppName,
                 sizeof(sender.AppName));
 
-            CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG,
-                "Injecting %d", SBN.MsgBuf.Hdr.SequenceCount);
+            DEBUG_MSG("Injecting %d", SBN.MsgBuf.Hdr.SequenceCount);
 
             Status = CFE_SB_SendMsgFull(
                 (CFE_SB_Msg_t *) &SBN.MsgBuf.Pkt.Data[0],
@@ -765,7 +772,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
 
             if(Status != CFE_SUCCESS)
             {
-                CFE_EVS_SendEvent(SBN_SB_SEND_EID, CFE_EVS_ERROR,
+                CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
                     "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
                     CFE_CPU_NAME, Status, SBN.MsgBuf.Hdr.SrcCpuName,
                     SBN.MsgBuf.Hdr.Type);
@@ -783,7 +790,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
         default:
             SBN.MsgBuf.Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0';
             /* make sure of termination */
-            CFE_EVS_SendEvent(SBN_MSGTYPE_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
                 "%s:Unknown Msg Type 0x%x from %s", CFE_CPU_NAME,
                 SBN.MsgBuf.Hdr.Type, SBN.MsgBuf.Hdr.SrcCpuName);
             break;
