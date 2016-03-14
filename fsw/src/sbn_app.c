@@ -446,7 +446,7 @@ int32 SBN_GetPeerFileData(void)
     else
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "%s:Failed ot open peer file %s", CFE_CPU_NAME,
+            "%s:Failed to open peer file %s", CFE_CPU_NAME,
             SBN_VOL_PEER_FILENAME);
         FileOpened = FALSE;
     }/* end if */

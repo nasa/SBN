@@ -83,19 +83,20 @@ int SBN_ParseFileEntry(char *FileEntry, int LineNum)
     int     ScanfStatus = 0;
     int     status = 0;
     int     NumFields = 5;
+    int ProcessorIdInt = 0, ProtocolIdInt = 0, SpaceCraftIdInt = 0, QoSInt = 0;
 
     DEBUG_START();
 
     app_data = SBN_FindFileEntryAppData(FileEntry, NumFields);
 
     /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%s %lu %d %lu %lu" ,
+    ScanfStatus = sscanf(FileEntry, "%s %d %d %d %d" ,
         Name,
-        (long unsigned int *) &ProcessorId,
-        (int *) &ProtocolId,
-        (long unsigned int *) &SpaceCraftId,
-        (long unsigned int *) &QoS
-        );
+        &ProcessorIdInt, &ProtocolIdInt, &SpaceCraftIdInt, &QoSInt);
+    ProcessorId = ProcessorIdInt;
+    ProtocolId = ProtocolIdInt;
+    SpaceCraftId = SpaceCraftIdInt;
+    QoS = QoSInt;
 
     /*
     ** Check to see if the correct number of items were parsed

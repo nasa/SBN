@@ -100,16 +100,18 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     char    ModuleFile[50];
     char    StructName[50];
     int     ScanfStatus = 0;
+    int ProtocolIdInt = 0;
 
     int32   ReturnCode = 0;
     uint32  ModuleId = 0;
-    uint32  StructAddr = 0;
+    cpuaddr StructAddr = 0;
 
     DEBUG_START();
 
     /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%lu %s %s %s",
-        (unsigned long int *)&ProtocolId, ModuleName, ModuleFile, StructName);
+    ScanfStatus = sscanf(FileEntry, "%d %s %s %s",
+        &ProtocolIdInt, ModuleName, ModuleFile, StructName);
+    ProtocolId = ProtocolIdInt;
 
     /*
     ** Check to see if the correct number of items were parsed
@@ -130,13 +132,13 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     ReturnCode = OS_SymbolLookup(&StructAddr, StructName);
 
-    SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
-
     if(ReturnCode != OS_SUCCESS)
     {
         OS_printf("Failed to find symbol %s\n", StructName);
         return SBN_ERROR;
     }/* end if */
+
+    SBN.IfOps[ProtocolId] = StructAddr;
 
     return SBN_OK;
 }/* end SBN_ParseModuleEntry */

@@ -85,7 +85,7 @@ int32 SBN_CheckSubscriptionPipe(void)
             case CFE_SB_ONESUB_TLM_MID:
 #ifdef SBN_PAYLOAD
                 SubRprtMsgPtr = (CFE_SB_SubRprtMsg_t *) SBMsgPtr;
-                SubEntry.MsgId = SubRprtMsgPtr->Payload.MsgId;
+                SubEntry.MsgId = htons(SubRprtMsgPtr->Payload.MsgId);
                 SubEntry.Qos = SubRprtMsgPtr->Payload.Qos;
                 SubEntry.Pipe = SubRprtMsgPtr->Payload.Pipe;
 
@@ -107,7 +107,7 @@ int32 SBN_CheckSubscriptionPipe(void)
                 return SBN_TRUE;
 #else /* !SBN_PAYLOAD */
                 SubRprtMsgPtr = (CFE_SB_SubRprtMsg_t *) SBMsgPtr;
-                SubEntry.MsgId = SubRprtMsgPtr->MsgId;
+                SubEntry.MsgId = htons(SubRprtMsgPtr->MsgId);
                 SubEntry.Qos = SubRprtMsgPtr->Qos;
                 SubEntry.Pipe = SubRprtMsgPtr->Pipe;
                 switch(SubRprtMsgPtr->SubType)
