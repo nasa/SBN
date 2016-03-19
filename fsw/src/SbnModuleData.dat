@@ -1,4 +1,5 @@
-5, ShMem, /cf/apps/shmem.so, ShMemOps;
+1, IPv4, /cf/sbn_module_ipv4.so, IPv4Ops;
+6, Serial, /cf/sbn_module_serial.so, SerialOps; 
 !
 !1, IPv4, /cf/apps/ipv4.so, IPv4Ops;
 !5, ShMem, /cf/apps/shmem.so, ShMemOps;

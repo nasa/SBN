@@ -208,7 +208,7 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Message size larger than max allowed "
-            "(size: %d, allowed: %d)",
+            "(size: %d, allowed: %ld)",
             MsgBuf.Hdr.MsgSize, sizeof(NetDataUnion));
         return SBN_ERROR;
     }/* end if */

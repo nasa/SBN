@@ -129,6 +129,25 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
     return SBN_OK;
 }/* end SBN_IPv4RcvMsg */
 
+#ifdef _osapi_confloader_
+
+int SBN_LoadIPv4Entry(const char **row, int fieldcount, void *entryptr)
+{
+    IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)entryptr;
+    if (fieldcount != IPV4_ITEMS_PER_FILE_LINE)
+    {
+        return SBN_ERROR;
+    }/* end if */
+
+    /* TODO: use a static blob of bytes for EntryData */
+    strncpy(entry->Addr, row[0], 16);
+    entry->Port = atoi(row[1]);
+
+    return SBN_OK;
+}/* end SBN_LoadIPv4Entry */
+
+#else /* ! _osapi_confloader_ */
+
 /**
  * Parses the peer data file into SBN_FileEntry_t structures.
  * Parses information that is common to all interface types and
@@ -141,8 +160,10 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
  * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
  *
  */
-int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr)
+int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
 {
+    IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)entryptr;
+
     int     ScanfStatus = 0;
     char    Addr[16];
     int     Port = 0;
@@ -164,16 +185,13 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr)
         return SBN_ERROR;
     }/* end if */
 
-    IPv4_SBNEntry_t *entry = malloc(sizeof(IPv4_SBNEntry_t));
-
     strncpy(entry->Addr, Addr, 16);
     entry->Port = Port;
-
-    *EntryAddr = entry;
 
     return SBN_OK;
 }/* end SBN_ParseIPv4FileEntry */
 
+#endif /* _osapi_confloader_ */
 
 /**
  * Initializes an IPv4 host or peer data struct depending on the
@@ -184,7 +202,7 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void **EntryAddr)
  */
 int SBN_InitIPv4IF(SBN_InterfaceData *Data)
 {
-    IPv4_SBNEntry_t     *entry = Data->EntryData;
+    IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)Data->EntryData;
 
     if(strncmp(Data->Name, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH) == 0)
     {

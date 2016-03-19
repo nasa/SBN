@@ -47,23 +47,47 @@ int Serial_SbnReceiveMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
     return SBN_OK;
 }/* end Serial_SbnReceiveMsg */
 
+#ifdef _osapi_confloader_
+
+int SBN_LoadSerialEntry(const char **row, int fieldcount, void *entryptr)
+{   
+    Serial_SBNEntry_t *entry = (Serial_SBNEntry_t *)entryptr;
+
+    if(fieldcount != SBN_SERIAL_ITEMS_PER_FILE_LINE)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
+            "Invalid SBN peer file line, exp %d items,found %d",
+            SBN_SERIAL_ITEMS_PER_FILE_LINE, fieldcount);
+        return SBN_ERROR;
+    }/* end if */
+
+    /* TODO: use a static blob of bytes for EntryData */
+    entry->PairNum = atoi(row[0]);
+    strncpy(entry->DevNameHost, row[1], sizeof(entry->DevNameHost));
+    entry->BaudRate = atoi(row[2]);
+
+    return SBN_OK;
+}/* end SBN_LoadSerialEntry */
+
+#else /* ! _osapi_confloader_ */
+
 /**
  * Parses the peer data file into SBN_FileEntry_t structures.
  *
  * @param FileEntry  Interface description line as read from file
  * @param LineNum    The line number in the peer file
- * @param EntryAddr  Address in which to return the filled entry struct
+ * @param data       Entry data structure, this loads the EntryData
  *
  * @return SBN_OK if entry is parsed correctly
  * @return SBN_ERROR on error
  */
 int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
-    void** EntryAddr)
+    void *entryptr)
 {
+    Serial_SBNEntry_t *entry = (Serial_SBNEntry_t *)entryptr;
     int ScanfStatus = 0;
     unsigned int BaudRate = 0, PairNum = 0;
     char DevNameHost[SBN_SERIAL_MAX_CHAR_NAME];
-    Serial_SBNEntry_t *entry = NULL;
 
     /*
     ** Using sscanf to parse the string.
@@ -82,22 +106,15 @@ int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
         return SBN_ERROR;
     }/* end if */
 
-    entry = malloc(sizeof(Serial_SBNEntry_t));
-    if(entry == NULL)
-    {
-        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
-            "Serial cannot allocate memory for host/peer file entry.\n");
-        return SBN_ERROR;
-    }/* end if */
-
-    *EntryAddr = entry;
     entry->PairNum  = PairNum;
     entry->BaudRate = BaudRate;
-    strncpy(entry->DevNameHost, DevNameHost, sizeof(entry->DevNameHost));
+    strncpy(entry->DevNameHost, DevNameHost,
+        sizeof(entry->DevNameHost));
 
     return SBN_OK;
 }/* end Serial_SbnParseInterfaceFileEntry */
 
+#endif /* _osapi_confloader_ */
 
 /**
  * Initializes a Serial host or peer data struct depending on the

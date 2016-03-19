@@ -17,8 +17,15 @@ void    SBN_ClearSocket(int SockID);
 
 int     SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf);
 
-int     SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum,
-            void** EntryAddr);
+#ifdef _osapi_confloader_
+
+int     SBN_LoadIPv4Entry(const char **, int, void *);
+
+#else /* ! _osapi_confloader_ */
+
+int     SBN_ParseIPv4FileEntry(char *, uint32, void *);
+
+#endif /* _osapi_confloader_ */
 
 int     SBN_InitIPv4IF(SBN_InterfaceData* data);
 
@@ -42,7 +49,11 @@ int     IPv4_ResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
 
 SBN_InterfaceOperations IPv4Ops =
 {
+#ifdef _osapi_confloader_
+    SBN_LoadIPv4Entry,
+#else /* ! _osapi_confloader_ */
     SBN_ParseIPv4FileEntry,
+#endif /* _osapi_confloader_ */
     SBN_InitIPv4IF,
     SBN_SendIPv4NetMsg,
     SBN_IPv4RcvMsg,

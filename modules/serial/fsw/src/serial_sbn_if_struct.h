@@ -7,7 +7,7 @@
 
 /** \brief SBN Peer File entry data */
 typedef struct {
-	char    DevNameHost[SBN_SERIAL_MAX_CHAR_NAME]; /**< Name of the device on the operating system, e.g. '/dev/ttyS0' */
+    char    DevNameHost[SBN_SERIAL_MAX_CHAR_NAME]; /**< Name of the device on the operating system, e.g. '/dev/ttyS0' */
     uint8   PairNum;    /**< For identifying which peer/host this entry is paired with */
     uint32  BaudRate;   /**< Baud rate of the serial device */
 } Serial_SBNEntry_t;

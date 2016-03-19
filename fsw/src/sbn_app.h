@@ -114,8 +114,6 @@ int32 SBN_CheckCmdPipe(void);
 int SBN_GetPeerIndex (uint32 ProcessorId);
 void  SBN_ShowStates(void);
 char  *SBN_StateNum2Str(uint32 StateNum);
-void  SBN_ShowPeerData(void);
-int32 SBN_GetPeerFileData(void);
 
 void  SBN_SendFileOpenedEvent(char *Filename);
 

@@ -39,7 +39,103 @@
 
 uint8 SBN_CheckForMissedPkts(int PeerIdx);
 
-char* SBN_FindFileEntryAppData(char *entry, int num_fields)
+#ifdef _osapi_confloader_
+static int SBN_PeerFileRowCallback(const char *filename, int linenum,
+    const char *header, const char *row[], int fieldcount, void *opaque)
+{
+    int ProtocolId = 0, status = 0;
+
+    if(fieldcount < 4)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "SBN %s: Too few fields (%d)",
+            CFE_CPU_NAME, fieldcount);
+        return OS_SUCCESS;
+    }/* end if */
+
+    if(SBN.NumEntries >= SBN_MAX_NETWORK_PEERS)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "SBN %s: Max entry count reached, skipping.",
+            CFE_CPU_NAME);
+        return OS_ERROR;
+    }/* end if */
+
+    ProtocolId = atoi(row[2]);
+    if(ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
+        || !SBN.IfOps[ProtocolId])
+    {   
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "SBN %s: Invalid ProtocolId %d",
+            CFE_CPU_NAME, ProtocolId);
+        return OS_SUCCESS;
+    }/* end if */
+
+    /* TODO: check fields to ensure they are integer and within valid value
+        ranges */
+
+    /* Copy over the general info into the interface data structure */
+    strncpy(SBN.IfData[SBN.NumEntries].Name, row[0], SBN_MAX_PEERNAME_LENGTH);
+    SBN.IfData[SBN.NumEntries].QoS = atoi(row[4]);
+    SBN.IfData[SBN.NumEntries].ProtocolId = ProtocolId;
+    SBN.IfData[SBN.NumEntries].ProcessorId = atoi(row[1]);
+    SBN.IfData[SBN.NumEntries].SpaceCraftId = atoi(row[3]);
+
+    /* Call the correct parse entry function based on the interface type */
+    status = SBN.IfOps[ProtocolId]->LoadInterfaceEntry(row + 5, fieldcount - 5,
+        &SBN.IfData[SBN.NumEntries].EntryData);
+
+    if(status == SBN_OK)
+    {   
+        SBN.NumEntries++;
+    }/* end if */
+
+    return OS_SUCCESS;
+}
+
+static int SBN_PeerFileErrCallback(const char *filename, int linenum,
+    const char *err, void *opaque)
+{
+    return OS_SUCCESS;
+}
+
+int32 SBN_GetPeerFileData(void)
+{
+    int32 status = 0, id = 0;
+
+    status = OS_ConfLoaderAPIInit();
+    if (status != OS_SUCCESS)
+    {   
+        return status;
+    }
+
+    status = OS_ConfLoaderInit(&id, "sbn_peer");
+    if (status != OS_SUCCESS)
+    {   
+        return status;
+    }
+
+    status = OS_ConfLoaderSetRowCallback(id, SBN_PeerFileRowCallback, NULL);
+    if (status != OS_SUCCESS)
+    {
+        return status;
+    }
+
+    status = OS_ConfLoaderSetErrorCallback(id, SBN_PeerFileErrCallback, NULL);
+    if (status != OS_SUCCESS)
+    {
+        return status;
+    }
+
+    OS_ConfLoaderLoad(id, SBN_VOL_PEER_FILENAME);
+    OS_ConfLoaderLoad(id, SBN_NONVOL_PEER_FILENAME);
+
+    return SBN_OK;
+}
+
+#else /* ! _osapi_confloader_ */
+
+static char* SBN_FindFileEntryAppData(char *entry, int num_fields)
 {
     char    *char_ptr = entry;
     int     num_found_fields = 0;
@@ -72,7 +168,7 @@ char* SBN_FindFileEntryAppData(char *entry, int num_fields)
  * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
  *
  */
-int SBN_ParseFileEntry(char *FileEntry, int LineNum)
+static int SBN_ParseFileEntry(char *FileEntry)
 {
     char    Name[SBN_MAX_PEERNAME_LENGTH];
     char    *app_data = NULL;
@@ -104,32 +200,38 @@ int SBN_ParseFileEntry(char *FileEntry, int LineNum)
     if(ScanfStatus != NumFields)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "%s:Invalid SBN peer file line,"
+            "%s:Invalid SBN peer file line, "
             "expected %d, found %d",
             CFE_CPU_NAME, NumFields, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
-    if(LineNum >= SBN_MAX_NETWORK_PEERS)
+    if(SBN.NumEntries >= SBN_MAX_NETWORK_PEERS)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "SBN %s: Max Peers Exceeded. Max=%d, This=%u. "
-            "Did not add %s, %u, %u %u\n",
-            CFE_CPU_NAME, SBN_MAX_NETWORK_PEERS, LineNum,
-            Name, ProcessorId, ProtocolId, SpaceCraftId);
+            "SBN %s: Max Peers Exceeded. Max=%d, This=%d.",
+            CFE_CPU_NAME, SBN_MAX_NETWORK_PEERS, SBN.NumEntries);
         return SBN_ERROR;
     }/* end if */
 
+    if (ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
+        || !SBN.IfOps[ProtocolId])
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "SBN %s: Invalid ProtocolId %d",
+            CFE_CPU_NAME, ProtocolId);
+        return SBN_ERROR;
+    }
+
     /* Copy over the general info into the interface data structure */
-    strncpy(SBN.IfData[LineNum].Name, Name, SBN_MAX_PEERNAME_LENGTH);
-    SBN.IfData[LineNum].QoS = QoS;
-    SBN.IfData[LineNum].ProtocolId = ProtocolId;
-    SBN.IfData[LineNum].ProcessorId = ProcessorId;
-    SBN.IfData[LineNum].SpaceCraftId = SpaceCraftId;
+    strncpy(SBN.IfData[SBN.NumEntries].Name, Name, SBN_MAX_PEERNAME_LENGTH);
+    SBN.IfData[SBN.NumEntries].QoS = QoS;
+    SBN.IfData[SBN.NumEntries].ProtocolId = ProtocolId;
+    SBN.IfData[SBN.NumEntries].ProcessorId = ProcessorId;
+    SBN.IfData[SBN.NumEntries].SpaceCraftId = SpaceCraftId;
 
     /* Call the correct parse entry function based on the interface type */
-    status = SBN.IfOps[ProtocolId]->ParseInterfaceFileEntry(app_data, LineNum,
-        (void **)(&SBN.IfData[LineNum].EntryData));
+    status = SBN.IfOps[ProtocolId]->ParseInterfaceFileEntry(app_data, SBN.NumEntries, &SBN.IfData[SBN.NumEntries].EntryData);
 
     if(status == SBN_OK)
     {
@@ -138,6 +240,128 @@ int SBN_ParseFileEntry(char *FileEntry, int LineNum)
 
     return status;
 }/* end SBN_ParseFileEntry */
+
+int32 SBN_GetPeerFileData(void)
+{
+    static char     SBN_PeerData[SBN_PEER_FILE_LINE_SIZE];
+    int             BuffLen = 0; /* Length of the current buffer */
+    int             PeerFile = 0;
+    char            c = '\0';
+    int             FileOpened = FALSE;
+    int             LineNum = 0;
+
+    DEBUG_START();
+
+    /* First check for the file in RAM */
+    PeerFile = OS_open(SBN_VOL_PEER_FILENAME, O_RDONLY, 0);
+    if(PeerFile != OS_ERROR)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+            "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME,
+            SBN_VOL_PEER_FILENAME);
+        FileOpened = TRUE;
+    }
+    else
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+            "%s:Failed to open peer file %s", CFE_CPU_NAME,
+            SBN_VOL_PEER_FILENAME);
+        FileOpened = FALSE;
+    }/* end if */
+
+    /* If ram file failed to open, try to open non vol file */
+    if(FileOpened == FALSE)
+    {
+        PeerFile = OS_open(SBN_NONVOL_PEER_FILENAME, O_RDONLY, 0);
+
+        if(PeerFile != OS_ERROR)
+        {
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+                "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME,
+                SBN_NONVOL_PEER_FILENAME);
+            FileOpened = TRUE;
+        }
+        else
+        {
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+                "%s:Peer file %s failed to open", CFE_CPU_NAME,
+                SBN_NONVOL_PEER_FILENAME);
+            FileOpened = FALSE;
+        }/* end if */
+    }/* end if */
+
+    /*
+     ** If no file was opened, SBN must terminate
+     */
+    if(FileOpened == FALSE)
+    {
+        return SBN_ERROR;
+    }/* end if */
+
+    memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+    BuffLen = 0;
+
+    /*
+     ** Parse the lines from the file
+     */
+
+    while(1)
+    {
+        OS_read(PeerFile, &c, 1);
+
+        if(c == '!')
+        {
+            break;
+        }
+
+        if(c == '\n' || c == ' ' || c == '\t')
+        {
+            /*
+             ** Skip all white space in the file
+             */
+            ;
+        }
+        else if(c == ',')
+        {
+            /*
+             ** replace the field delimiter with a space
+             ** This is used for the sscanf string parsing
+             */
+            SBN_PeerData[BuffLen] = ' ';
+            if(BuffLen < (SBN_PEER_FILE_LINE_SIZE - 1))
+                BuffLen++;
+        }
+        else if(c != ';')
+        {
+            /*
+             ** Regular data gets copied in
+             */
+            SBN_PeerData[BuffLen] = c;
+            if(BuffLen < (SBN_PEER_FILE_LINE_SIZE - 1))
+                BuffLen++;
+        }
+        else
+        {
+            /*
+             ** Send the line to the file parser
+             */
+            if(SBN_ParseFileEntry(SBN_PeerData) == SBN_ERROR)
+            {
+                OS_close(PeerFile);
+                return SBN_ERROR;
+            }/* end if */
+            LineNum++;
+            memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+            BuffLen = 0;
+        }/* end if */
+    }/* end while */
+
+    OS_close(PeerFile);
+
+    return SBN_OK;
+}/* end SBN_GetPeerFileData */
+
+#endif /* _osapi_confloader_ */
 
 /**
  * Loops through all entries, categorizes them as "Host" or "Peer", and

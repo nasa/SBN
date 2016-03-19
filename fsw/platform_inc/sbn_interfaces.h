@@ -67,7 +67,7 @@ typedef struct {
     uint32 SpaceCraftId;    /* from SbnPeerData.dat file */
     uint8  QoS;             /* from SbnPeerData.dat file */
     uint8  IsValid;         /* used by interfaces that require a match - 1 if match exists, 0 if not */
-    void*  EntryData;       /* address of an interface's entry data structure */
+    uint8  EntryData[128];  /* generic blob of bytes, interface-specific */
     void*  HostData;        /* address of an interface's host data structure */
     void*  PeerData;        /* address of an interface's peer data structure */
 } SBN_InterfaceData;
@@ -101,7 +101,6 @@ typedef struct {
  * structure that points to the approprate functions for that interface.
  */
 typedef struct {
-
     /**
      * Parses a peer data file line into an interface-specific entry structure.
      * Information that is common to all interface types is captured in the SBN
@@ -110,10 +109,14 @@ typedef struct {
      *
      * @param char*   Interface description line as read from file
      * @param uint32  The line number in the peer file
-     * @param void**    The address of the filled entry struct
+     * @param void*   The address of the entry struct to be loaded
      * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
      */
-    int (*ParseInterfaceFileEntry)(char *, uint32, void**);
+#ifdef _osapi_confloader_
+    int (*LoadInterfaceEntry)(const char **, int, void *);
+#else /* ! _osapi_confloader_ */
+    int (*ParseInterfaceFileEntry)(char *, uint32, void *);
+#endif /* _osapi_confloader_ */
 
     /**
      * Initializes the interface, classifies each interface based as a host

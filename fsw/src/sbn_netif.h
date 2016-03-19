@@ -27,8 +27,9 @@
 
 #include "cfe.h"
 
-char *SBN_FindFileEntryAppData(char *entry, int num_fields);
-int SBN_ParseFileEntry(char *FileEntry, int LineNum);
+void  SBN_ShowPeerData(void);
+int32 SBN_GetPeerFileData(void);
+
 int SBN_InitPeerInterface(void);
 int SBN_CheckForNetProtoMsg(int PeerIdx);
 void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx);

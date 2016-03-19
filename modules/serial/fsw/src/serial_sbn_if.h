@@ -11,7 +11,11 @@
 void  SBN_ShowSerialPeerData(int i);
 
 /* SBN_InterfaceOperations functions */
-int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum, void** EntryAddr);
+#ifdef _osapi_confloader_
+int SBN_LoadSerialEntry(const char **row, int fieldcount, void *entryptr);
+#else /* ! _osapi_confloader_*/
+int Serial_SbnParseInterfaceFileEntry(char *, uint32, void*);
+#endif /* _osapi_confloader_ */
 int Serial_SbnInitPeerInterface(SBN_InterfaceData* data);
 int Serial_SbnReceiveMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf);
 
@@ -28,7 +32,11 @@ int Serial_IsHostPeerMatch(Serial_SBNEntry_t *Host, Serial_SBNEntry_t *Peer);
 
 /* Interface operations called by SBN */
 SBN_InterfaceOperations SerialOps = {
+#ifdef _osapi_confloader_
+    SBN_LoadSerialEntry,
+#else /* ! _osapi_confloader_ */
     Serial_SbnParseInterfaceFileEntry,
+#endif /* _osapi_confloader_ */
     Serial_SbnInitPeerInterface,
     Serial_SbnSendNetMsg,
     Serial_SbnReceiveMsg,
