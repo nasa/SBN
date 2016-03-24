@@ -134,7 +134,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, NetDataUnion *MsgBuf)
 int SBN_LoadIPv4Entry(const char **row, int fieldcount, void *entryptr)
 {
     IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)entryptr;
-    if (fieldcount != IPV4_ITEMS_PER_FILE_LINE)
+    if (fieldcount < IPV4_ITEMS_PER_FILE_LINE)
     {
         return SBN_ERROR;
     }/* end if */
