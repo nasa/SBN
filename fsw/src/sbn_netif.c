@@ -83,7 +83,7 @@ static int SBN_PeerFileRowCallback(const char *filename, int linenum,
 
     /* Call the correct parse entry function based on the interface type */
     status = SBN.IfOps[ProtocolId]->LoadInterfaceEntry(row + 5, fieldcount - 5,
-        &SBN.IfData[SBN.NumEntries].EntryData);
+        &SBN.IfData[SBN.NumEntries].InterfacePvt);
 
     if(status == SBN_OK)
     {   
@@ -231,7 +231,7 @@ static int SBN_ParseFileEntry(char *FileEntry)
     SBN.IfData[SBN.NumEntries].SpaceCraftId = SpaceCraftId;
 
     /* Call the correct parse entry function based on the interface type */
-    status = SBN.IfOps[ProtocolId]->ParseInterfaceFileEntry(app_data, SBN.NumEntries, &SBN.IfData[SBN.NumEntries].EntryData);
+    status = SBN.IfOps[ProtocolId]->ParseInterfaceFileEntry(app_data, SBN.NumEntries, &SBN.IfData[SBN.NumEntries].InterfacePvt);
 
     if(status == SBN_OK)
     {

@@ -89,16 +89,16 @@ void SBN_ClearSocket(int SockId)
 /**
  * Receives a message from a peer over the appropriate interface.
  *
- * @param Host        Structure of interface data for a peer
+ * @param Data        Structure of interface data for a peer
  * @param MsgBuf  Pointer to the SBN's protocol message buffer
  * @return Bytes received on success, SBN_IF_EMPTY if empty, -1 on error
  */
-int SBN_IPv4RcvMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf)
+int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, NetDataUnion *MsgBuf)
 {
     ssize_t             Received = 0, TotalReceived = 0;
     struct sockaddr_in  s_addr;
     socklen_t           addr_len = 0;
-    IPv4_SBNHostData_t  *host = Host->HostData;
+    IPv4_SBNHostData_t  *host = (IPv4_SBNHostData_t *)Data->InterfacePvt;
 
     bzero((char *) &s_addr, sizeof(s_addr));
 
@@ -139,7 +139,6 @@ int SBN_LoadIPv4Entry(const char **row, int fieldcount, void *entryptr)
         return SBN_ERROR;
     }/* end if */
 
-    /* TODO: use a static blob of bytes for EntryData */
     strncpy(entry->Addr, row[0], 16);
     entry->Port = atoi(row[1]);
 
@@ -202,7 +201,7 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
  */
 int SBN_InitIPv4IF(SBN_InterfaceData *Data)
 {
-    IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)Data->EntryData;
+    IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)Data->InterfacePvt;
 
     if(strncmp(Data->Name, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH) == 0)
     {
@@ -211,27 +210,34 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
          * because the self entry has port info needed to bind this interface.
          */
         /* create, fill, and store an IPv4-specific host data structure */
-        IPv4_SBNHostData_t *host = malloc(sizeof(IPv4_SBNHostData_t));
+        IPv4_SBNHostData_t host;
 
-        strncpy(host->Addr, entry->Addr, sizeof(entry->Addr));
-        host->Port = entry->Port;
-        host->SockId = SBN_CreateSocket(host->Addr, host->Port);
-        if(host->SockId == SBN_ERROR){
+        memset(&host, 0, sizeof(host));
+
+        strncpy(host.Addr, entry->Addr, sizeof(entry->Addr));
+        host.Port = entry->Port;
+        host.SockId = SBN_CreateSocket(host.Addr, host.Port);
+        if(host.SockId == SBN_ERROR){
             return SBN_ERROR;
         }/* end if */
 
-        Data->HostData = host;
+        memcpy(Data->InterfacePvt, &host, sizeof(host));
+
         return SBN_HOST;
     }
     else
     {
         /* CPU names do not match - this is peer data. */
         /* create, fill, and store an IPv4-specific host data structure */
-        IPv4_SBNPeerData_t *peer = malloc(sizeof(IPv4_SBNPeerData_t));
+        IPv4_SBNPeerData_t peer;
 
-        strncpy(peer->Addr, entry->Addr, sizeof(entry->Addr));
-        peer->Port = entry->Port;
-        Data->PeerData = peer;
+        memset(&peer, 0, sizeof(peer));
+
+        strncpy(peer.Addr, entry->Addr, sizeof(entry->Addr));
+        peer.Port = entry->Port;
+
+        memcpy(Data->InterfacePvt, &peer, sizeof(peer));
+
         return SBN_PEER;
     }/* end if */
 }/* end SBN_InitIPv4IF */
@@ -264,7 +270,7 @@ int SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
     {
         if(HostList[HostIdx]->ProtocolId == SBN_IPv4)
         {
-            host = HostList[HostIdx]->HostData;
+            host = (IPv4_SBNHostData_t *)HostList[HostIdx]->InterfacePvt;
         }/* end if */
     }/* end for */
 
@@ -274,7 +280,7 @@ int SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
         return SBN_ERROR;
     }/* end if */
 
-    peer = IfData->PeerData;
+    peer = (IPv4_SBNPeerData_t *)IfData->InterfacePvt;
     bzero((char *) &s_addr, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = inet_addr(peer->Addr);

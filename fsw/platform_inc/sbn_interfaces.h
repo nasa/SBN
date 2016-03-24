@@ -67,9 +67,7 @@ typedef struct {
     uint32 SpaceCraftId;    /* from SbnPeerData.dat file */
     uint8  QoS;             /* from SbnPeerData.dat file */
     uint8  IsValid;         /* used by interfaces that require a match - 1 if match exists, 0 if not */
-    uint8  EntryData[128];  /* generic blob of bytes, interface-specific */
-    void*  HostData;        /* address of an interface's host data structure */
-    void*  PeerData;        /* address of an interface's peer data structure */
+    uint8  InterfacePvt[128]; /* generic blob of bytes, interface-specific */
 } SBN_InterfaceData;
 
 
@@ -216,6 +214,3 @@ typedef struct {
 
 
 #endif /* _sbn_interfaces_h_ */
-
-
-
