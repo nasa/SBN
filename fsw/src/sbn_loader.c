@@ -228,7 +228,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
         return SBN_ERROR;
     }/* end if */
 
-    SBN.IfOps[ProtocolId] = StructAddr;
+    SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
 
     return SBN_OK;
 }/* end SBN_ParseModuleEntry */

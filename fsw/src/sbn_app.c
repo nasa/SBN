@@ -562,6 +562,7 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
     Status = SBN_PollPeerPipe(PeerIdx, &SBMsgPtr);
     if(Status == CFE_SUCCESS)
     {
+        SBN_NetPkt_t msg;
         /* Pipe should be cleared if not in HEARTBEAT state */
         if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING) return;
 
@@ -571,19 +572,18 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
         CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
 
         /* copy message from SB buffer to network data msg buffer */
-        CFE_PSP_MemCpy(&SBN.MsgBuf.Pkt.Data[0], SBMsgPtr, AppMsgSize);
-        strncpy((char *) &SBN.MsgBuf.Hdr.MsgSender.AppName,
+        CFE_PSP_MemCpy(&msg, SBMsgPtr, AppMsgSize);
+        strncpy((char *) &msg.Hdr.MsgSender.AppName,
             lastSenderPtr->AppName,
-            sizeof(SBN.MsgBuf.Hdr.MsgSender.AppName));
-        SBN.MsgBuf.Hdr.MsgSender.ProcessorId = lastSenderPtr->ProcessorId;
-        strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
+            sizeof(msg.Hdr.MsgSender.AppName));
+        msg.Hdr.MsgSender.ProcessorId = lastSenderPtr->ProcessorId;
+        strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
 
         NetMsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
-        SBN.MsgBuf.Hdr.MsgSize = NetMsgSize;
-        SBN.MsgBuf.Hdr.Type = SBN_APP_MSG;
-        SBN_SendNetMsg((SBN_NetPkt_t *)&SBN.MsgBuf, PeerIdx,
-            &SBN.MsgBuf.Hdr.MsgSender);
+        msg.Hdr.MsgSize = NetMsgSize;
+        msg.Hdr.Type = SBN_APP_MSG;
+        SBN_SendNetMsg(&msg, PeerIdx, &msg.Hdr.MsgSender);
         (*priority_remaining)++;
     }/* end if */
 }/* end SBN_CheckPipe */
@@ -615,7 +615,7 @@ void SBN_CheckPeerPipes(void)
     }/* end while */
 }/* end SBN_CheckPeerPipes */
 
-void SBN_ProcessNetAppMsg(int MsgLength)
+void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
 {
     int                 PeerIdx = 0,
                         Status = 0;
@@ -623,12 +623,12 @@ void SBN_ProcessNetAppMsg(int MsgLength)
 
     DEBUG_START();
 
-    PeerIdx = SBN_GetPeerIndex(SBN.MsgBuf.Hdr.MsgSender.ProcessorId);
+    PeerIdx = SBN_GetPeerIndex(msg->Hdr.MsgSender.ProcessorId);
 
     if(PeerIdx == SBN_ERROR) return;
 
     if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING
-        || SBN.MsgBuf.Hdr.Type == SBN_ANNOUNCE_MSG)
+        || msg->Hdr.Type == SBN_ANNOUNCE_MSG)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
             "Peer #%d alive, resetting", PeerIdx);
@@ -637,7 +637,7 @@ void SBN_ProcessNetAppMsg(int MsgLength)
         SBN_SendLocalSubsToPeer(PeerIdx);
     }/* end if */
 
-    switch(SBN.MsgBuf.Hdr.Type)
+    switch(msg->Hdr.Type)
     {
         case SBN_ANNOUNCE_MSG:
         case SBN_ANNOUNCE_ACK_MSG:
@@ -646,39 +646,45 @@ void SBN_ProcessNetAppMsg(int MsgLength)
             break;
 
         case SBN_APP_MSG:
-	    sender.ProcessorId = SBN.MsgBuf.Hdr.MsgSender.ProcessorId;
-	    strncpy(sender.AppName, SBN.MsgBuf.Hdr.MsgSender.AppName,
+	    sender.ProcessorId = msg->Hdr.MsgSender.ProcessorId;
+	    strncpy(sender.AppName, msg->Hdr.MsgSender.AppName,
                 sizeof(sender.AppName));
 
-            DEBUG_MSG("Injecting %d", SBN.MsgBuf.Hdr.SequenceCount);
+            DEBUG_MSG("Injecting %d", msg->Hdr.SequenceCount);
 
             Status = CFE_SB_SendMsgFull(
-                (CFE_SB_Msg_t *) &SBN.MsgBuf.Pkt.Data[0],
+                (CFE_SB_Msg_t *) &msg->Data[0],
                 CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
 
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
                     "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
-                    CFE_CPU_NAME, Status, SBN.MsgBuf.Hdr.SrcCpuName,
-                    SBN.MsgBuf.Hdr.Type);
+                    CFE_CPU_NAME, Status, msg->Hdr.SrcCpuName,
+                    msg->Hdr.Type);
             }/* end if */
             break;
 
         case SBN_SUBSCRIBE_MSG:
-            SBN_ProcessSubFromPeer(PeerIdx);
+        {
+            SBN_NetSub_t *sub = (SBN_NetSub_t *)msg;
+            SBN_ProcessSubFromPeer(PeerIdx, sub->MsgId, sub->Qos);
             break;
+        }
 
         case SBN_UN_SUBSCRIBE_MSG:
-            SBN_ProcessUnsubFromPeer(PeerIdx);
+        {
+            SBN_NetSub_t *sub = (SBN_NetSub_t *)msg;
+            SBN_ProcessUnsubFromPeer(PeerIdx, sub->MsgId);
             break;
+        }
 
         default:
-            SBN.MsgBuf.Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0';
+            msg->Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0';
             /* make sure of termination */
             CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
                 "%s:Unknown Msg Type 0x%x from %s", CFE_CPU_NAME,
-                SBN.MsgBuf.Hdr.Type, SBN.MsgBuf.Hdr.SrcCpuName);
+                msg->Hdr.Type, msg->Hdr.SrcCpuName);
             break;
     }/* end switch */
 }/* end SBN_ProcessNetAppMsg */

@@ -141,7 +141,8 @@ int32 SBN_CheckSubscriptionPipe(void)
     return SBN_FALSE;
 }/* end SBN_CheckSubscriptionPipe */
 
-void SBN_ProcessSubFromPeer(int PeerIdx)
+void SBN_ProcessSubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId,
+    CFE_SB_Qos_t Qos)
 {
     int FirstOpenSlot = 0, idx = 0;
 
@@ -164,36 +165,34 @@ void SBN_ProcessSubFromPeer(int PeerIdx)
     }/* end if */
 
     /* if msg id already in the list, ignore */
-    if(SBN_CheckPeerSubs4MsgId(&idx, SBN.MsgBuf.Sub.MsgId,
-        PeerIdx) == SBN_MSGID_FOUND)
+    if(SBN_CheckPeerSubs4MsgId(&idx, MsgId, PeerIdx) == SBN_MSGID_FOUND)
     {
         return;
     }/* end if */
 
     /* SubscribeLocal suppresses the subscription report */
-    CFE_SB_SubscribeLocal(ntohs(SBN.MsgBuf.Sub.MsgId), SBN.Peer[PeerIdx].Pipe,
+    CFE_SB_SubscribeLocal(ntohs(MsgId), SBN.Peer[PeerIdx].Pipe,
             SBN_DEFAULT_MSG_LIM);
     FirstOpenSlot = SBN.Peer[PeerIdx].SubCnt;
 
     /* log the subscription in the peer table */
-    SBN.Peer[PeerIdx].Sub[FirstOpenSlot].MsgId = SBN.MsgBuf.Sub.MsgId;
-    SBN.Peer[PeerIdx].Sub[FirstOpenSlot].Qos = SBN.MsgBuf.Sub.Qos;
+    SBN.Peer[PeerIdx].Sub[FirstOpenSlot].MsgId = MsgId;
+    SBN.Peer[PeerIdx].Sub[FirstOpenSlot].Qos = Qos;
 
     SBN.Peer[PeerIdx].SubCnt++;
 }/* SBN_ProcessSubFromPeer */
 
-void SBN_ProcessUnsubFromPeer(int PeerIdx)
+void SBN_ProcessUnsubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId)
 {
     int             i = 0, idx = 0;
 
     DEBUG_START();
 
-    if(SBN_CheckPeerSubs4MsgId(&idx, SBN.MsgBuf.Sub.MsgId,
-        PeerIdx)==SBN_MSGID_NOT_FOUND)
+    if(SBN_CheckPeerSubs4MsgId(&idx, MsgId, PeerIdx)==SBN_MSGID_NOT_FOUND)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
-            CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, ntohs(SBN.MsgBuf.Sub.MsgId));
+            CFE_CPU_NAME, SBN.Peer[PeerIdx].Name, ntohs(MsgId));
         return;
     }/* end if */
 
@@ -212,8 +211,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
     SBN.Peer[PeerIdx].SubCnt--;
 
     /* unsubscribe to the msg id on the peer pipe */
-    CFE_SB_UnsubscribeLocal(ntohs(SBN.MsgBuf.Sub.MsgId),
-        SBN.Peer[PeerIdx].Pipe);
+    CFE_SB_UnsubscribeLocal(ntohs(MsgId), SBN.Peer[PeerIdx].Pipe);
 }/* SBN_ProcessUnsubFromPeer */
 
 void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)

@@ -28,8 +28,9 @@
 
 void  SBN_SendLocalSubsToPeer(int PeerIdx); 
 int32 SBN_CheckSubscriptionPipe(void); 
-void  SBN_ProcessSubFromPeer(int PeerIdx); 
-void  SBN_ProcessUnsubFromPeer(int PeerIdx); 
+void  SBN_ProcessSubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId,
+    CFE_SB_Qos_t Qos); 
+void  SBN_ProcessUnsubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId); 
 void  SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr); 
 void  SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr); 
 void  SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr); 

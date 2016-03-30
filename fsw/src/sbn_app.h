@@ -72,7 +72,6 @@ typedef struct {
   CFE_SB_PipeId_t   EventPipe;
   CFE_SB_MsgPtr_t   CmdMsgPtr;
 
-  NetDataUnion      MsgBuf;
   int               LocalSubCnt;
   SBN_Subs_t        LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
 
@@ -107,9 +106,9 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx);
 void  SBN_CheckPipe(int PeerIdx, int32 * priority_remaining);
 void  SBN_CheckPeerPipes(void);
 
-void  SBN_ProcessNetProtoMsg(void);
+void  SBN_ProcessNetProtoMsg(SBN_NetPkt_t *msg);
 
-void  SBN_ProcessNetAppMsg(int MsgLength);
+void  SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg);
 int32 SBN_CheckCmdPipe(void);
 int SBN_GetPeerIndex (uint32 ProcessorId);
 void  SBN_ShowStates(void);
