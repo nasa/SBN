@@ -37,8 +37,6 @@
 #include <string.h>
 #include <errno.h>
 
-uint8 SBN_CheckForMissedPkts(int PeerIdx);
-
 #ifdef _osapi_confloader_
 static int SBN_PeerFileRowCallback(const char *filename, int linenum,
     const char *header, const char *row[], int fieldcount, void *opaque)
@@ -452,23 +450,24 @@ int SBN_InitPeerInterface(void)
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsgNoBuf(uint32 MsgType, uint32 MsgSize, int PeerIdx,
+int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *MsgBuf,
+    uint32 MsgType, uint32 MsgSize, int PeerIdx,
     SBN_SenderId_t *SenderPtr)
 {
     int     status = 0;
 
-    SBN.MsgBuf.Hdr.Type = MsgType;
+    MsgBuf->Hdr.Type = MsgType;
 
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType, MsgSize);
     
-    strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
-    SBN.MsgBuf.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
+    strncpy(MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+    MsgBuf->Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
 
-    SBN.MsgBuf.Hdr.MsgSize = MsgSize;
+    MsgBuf->Hdr.MsgSize = MsgSize;
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(MsgType,
 	MsgSize, SBN.Host, SBN.NumHosts, SenderPtr, SBN.Peer[PeerIdx].IfData,
-        &SBN.MsgBuf);
+        (NetDataUnion *)MsgBuf);
 
     if(status != -1)
     {
@@ -518,7 +517,8 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
 
     DEBUG_MSG("Sending message %d", SBN.MsgBuf.Hdr.SequenceCount);
     
-    status = SBN_SendNetMsgNoBuf(MsgType, MsgSize, PeerIdx, SenderPtr);
+    status = SBN_SendNetMsgNoBuf(&SBN.MsgBuf, MsgType, MsgSize, PeerIdx,
+        SenderPtr);
 
     if(status != -1)
     {
@@ -543,7 +543,7 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
  * @param PeerIdx  Index of sending peer
  * @return  The number of missed messages
  */
-uint8 SBN_CheckForMissedPkts(int PeerIdx)
+static uint8 CheckForMissedPkts(int PeerIdx)
 {
     uint8   sequenceCount = SBN.MsgBuf.Hdr.SequenceCount,
             msgsRcvdByUs = SBN.Peer[PeerIdx].RcvdCount,
@@ -551,14 +551,17 @@ uint8 SBN_CheckForMissedPkts(int PeerIdx)
 
     if(numMissed > 0)
     {
+        SBN_NetPkt_t nackpkt;
+        memset(&nackpkt, 0, sizeof(nackpkt));
+        
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
         CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
             "Missed packet! Adding msg %d to deferred buffer",
             sequenceCount);
         SBN_AddMsgToMsgBufSend(&SBN.MsgBuf, &SBN.Peer[PeerIdx].DeferredBuf,
             PeerIdx);
-        SBN.MsgBuf.Hdr.SequenceCount = msgsRcvdByUs;
-        SBN_SendNetMsgNoBuf(SBN_COMMAND_NACK_MSG,
+        nackpkt.Hdr.SequenceCount = msgsRcvdByUs;
+        SBN_SendNetMsgNoBuf(&nackpkt, SBN_COMMAND_NACK_MSG,
                         sizeof(SBN_Hdr_t), PeerIdx, NULL);
         return numMissed;
     }
@@ -570,15 +573,16 @@ uint8 SBN_CheckForMissedPkts(int PeerIdx)
     /* if we have received 16 in order, let's ack them */
     if(SBN.Peer[PeerIdx].RcvdInOrderCount == 16)
     {
-        SBN.MsgBuf.Hdr.SequenceCount = sequenceCount;
-        SBN_SendNetMsgNoBuf(SBN_COMMAND_ACK_MSG,
+        SBN_NetPkt_t ackpkt;
+        memset(&ackpkt, 0, sizeof(ackpkt));
+        ackpkt.Hdr.SequenceCount = sequenceCount;
+        SBN_SendNetMsgNoBuf(&ackpkt, SBN_COMMAND_ACK_MSG,
                         sizeof(SBN_Hdr_t), PeerIdx, NULL);
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
     }/* end if */
 
     return numMissed;
-}/* end SBN_CheckForMissedPkts */
-
+}/* end CheckForMissedPkts */
 /**
  * Receives a message from a peer over the appropriate interface.
  *
@@ -643,7 +647,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 		    SBN_ProcessNetAppMsg(status);
 		    break;
                 default:
-                    missed = SBN_CheckForMissedPkts(PeerIdx); 
+                    missed = CheckForMissedPkts(PeerIdx); 
                     if(missed == 0)
                     {
                         SBN_ProcessNetAppMsg(status);
@@ -660,6 +664,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
                     }/* end if */
                     break;
             }/* end switch */
+            ACKPkts();
         }
         else if(status == SBN_ERROR)
         {

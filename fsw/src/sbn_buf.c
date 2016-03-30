@@ -305,7 +305,7 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx)
                 sender.ProcessorId = SBN.MsgBuf.Hdr.MsgSender.ProcessorId;
 
 
-                SBN_SendNetMsgNoBuf(SBN_APP_MSG, NetMsgSize, PeerIdx, &sender);
+                SBN_SendNetMsgNoBuf(&SBN.MsgBuf, SBN_APP_MSG, NetMsgSize, PeerIdx, &sender);
                 buffer->Retransmits[idx]++;
             }/* end if */
             break;

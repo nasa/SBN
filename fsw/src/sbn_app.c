@@ -455,6 +455,9 @@ void SBN_RunProtocol(void)
 {
     int         PeerIdx = 0;
     OS_time_t   current_time;
+    SBN_NetPkt_t MsgBuf;
+
+    memset(&MsgBuf, 0, sizeof(MsgBuf));
 
     /* DEBUG_START(); chatty */
 
@@ -472,7 +475,7 @@ void SBN_RunProtocol(void)
         /* if peer data is not in use, go to next peer */
         if(SBN.Peer[PeerIdx].InUse != SBN_IN_USE) continue;
 
-        strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
+        strncpy(MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
 
         OS_GetLocalTime(&current_time);
@@ -482,7 +485,7 @@ void SBN_RunProtocol(void)
             if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                SBN_SendNetMsgNoBuf(SBN_ANNOUNCE_MSG,
+                SBN_SendNetMsgNoBuf(&MsgBuf, SBN_ANNOUNCE_MSG,
                     sizeof(SBN_Hdr_t), PeerIdx, NULL);
             }/* end if */
             return;
@@ -500,7 +503,7 @@ void SBN_RunProtocol(void)
         if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                 > SBN_HEARTBEAT_SENDTIME)
         {
-            SBN_SendNetMsgNoBuf(SBN_HEARTBEAT_MSG,
+            SBN_SendNetMsgNoBuf(&MsgBuf, SBN_HEARTBEAT_MSG,
                 sizeof(SBN_Hdr_t), PeerIdx, NULL);
 	}/* end if */
     }/* end for */
