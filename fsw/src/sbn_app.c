@@ -455,9 +455,9 @@ void SBN_RunProtocol(void)
 {
     int         PeerIdx = 0;
     OS_time_t   current_time;
-    SBN_NetPkt_t MsgBuf;
+    SBN_Hdr_t   msg;
 
-    memset(&MsgBuf, 0, sizeof(MsgBuf));
+    memset(&msg, 0, sizeof(msg));
 
     /* DEBUG_START(); chatty */
 
@@ -475,7 +475,7 @@ void SBN_RunProtocol(void)
         /* if peer data is not in use, go to next peer */
         if(SBN.Peer[PeerIdx].InUse != SBN_IN_USE) continue;
 
-        strncpy(MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
+        strncpy(msg.SrcCpuName, CFE_CPU_NAME,
             SBN_MAX_PEERNAME_LENGTH);
 
         OS_GetLocalTime(&current_time);
@@ -485,8 +485,9 @@ void SBN_RunProtocol(void)
             if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                SBN_SendNetMsgNoBuf(&MsgBuf, SBN_ANNOUNCE_MSG,
-                    sizeof(SBN_Hdr_t), PeerIdx, NULL);
+                msg.Type = SBN_ANNOUNCE_MSG;
+                msg.MsgSize = sizeof(msg);
+                SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx, NULL);
             }/* end if */
             return;
         }/* end if */
@@ -503,8 +504,9 @@ void SBN_RunProtocol(void)
         if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                 > SBN_HEARTBEAT_SENDTIME)
         {
-            SBN_SendNetMsgNoBuf(&MsgBuf, SBN_HEARTBEAT_MSG,
-                sizeof(SBN_Hdr_t), PeerIdx, NULL);
+            msg.Type = SBN_HEARTBEAT_MSG;
+            msg.MsgSize = sizeof(msg);
+            SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx, NULL);
 	}/* end if */
     }/* end for */
 
@@ -579,7 +581,8 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
 
         NetMsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
         SBN.MsgBuf.Hdr.MsgSize = NetMsgSize;
-        SBN_SendNetMsg(SBN_APP_MSG, NetMsgSize, PeerIdx,
+        SBN.MsgBuf.Hdr.Type = SBN_APP_MSG;
+        SBN_SendNetMsg((SBN_NetPkt_t *)&SBN.MsgBuf, PeerIdx,
             &SBN.MsgBuf.Hdr.MsgSender);
         (*priority_remaining)++;
     }/* end if */

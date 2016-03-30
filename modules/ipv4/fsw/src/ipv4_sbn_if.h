@@ -29,8 +29,7 @@ int     SBN_ParseIPv4FileEntry(char *, uint32, void *);
 
 int     SBN_InitIPv4IF(SBN_InterfaceData* data);
 
-int     SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
-            SBN_InterfaceData *HostList[], int NumHosts,
+int     SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
             SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData,
             NetDataUnion *MsgBuf);
 

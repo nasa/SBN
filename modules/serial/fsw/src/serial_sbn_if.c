@@ -203,8 +203,6 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
 /**
  * Sends a message to a peer over a Serial interface.
  *
- * @param MsgType      Type of Message
- * @param MsgSize      Size of Message
  * @param HostList     The array of SBN_InterfaceData structs that describes
  *                     the host.
  * @param SenderPtr    Sender information
@@ -214,9 +212,8 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
  * @return number of bytes written on success
  * @return SBN_ERROR on error
  */
-int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
-    SBN_InterfaceData *HostList[], int32 NumHosts, SBN_SenderId_t *SenderPtr,
-    SBN_InterfaceData *IfData, NetDataUnion *MsgBuf)
+int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int32 NumHosts,
+    SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, NetDataUnion *MsgBuf)
 {
     Serial_SBNEntry_t *peer = NULL;
     Serial_SBNEntry_t *host_tmp = NULL;
@@ -267,10 +264,11 @@ int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
         return SBN_ERROR;
     }/* end if */
 
-    switch(MsgType)
+    switch(MsgBuf->Hdr.Type)
     {
         /* Data messages */
         case SBN_APP_MSG:
+            /* TODO: Unsure if we need this logic, may never happen */
             if(SenderPtr == NULL)
             {
                 CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
@@ -290,25 +288,10 @@ int Serial_SbnSendNetMsg(uint32 MsgType, uint32 MsgSize,
 
         case SBN_SUBSCRIBE_MSG:
         case SBN_UN_SUBSCRIBE_MSG:
-            /* Initialize the SBN hdr of the outgoing network message */
-            MsgBuf->Hdr.MsgSize = MsgSize;
-            strncpy((char *)&MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME,
-                SBN_MAX_PEERNAME_LENGTH);
-
-            MsgBuf->Hdr.Type = MsgType;
-
-            return Serial_IoWriteMsg(host->Fd, MsgBuf);
-
-        /* Protocol messages */
         case SBN_ANNOUNCE_MSG:
         case SBN_ANNOUNCE_ACK_MSG:
         case SBN_HEARTBEAT_MSG:
         case SBN_HEARTBEAT_ACK_MSG:
-            MsgBuf->Hdr.MsgSize = MsgSize;
-            MsgBuf->Hdr.Type = MsgType;
-            strncpy(MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME,
-                SBN_MAX_PEERNAME_LENGTH);
-
             return Serial_IoWriteMsg(host->Fd, MsgBuf);
 
         default:

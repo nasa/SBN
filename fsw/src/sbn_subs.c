@@ -45,6 +45,7 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
 {
     int             i = 0;
     SBN_SenderId_t  sender;
+    SBN_NetSub_t    msg;
 
     DEBUG_START();
 
@@ -52,14 +53,17 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
     strncpy(sender.AppName, "SBN", sizeof(sender.AppName));
     sender.ProcessorId = CFE_CPU_ID;
 
+    memset(&msg, 0, sizeof(msg));
+    msg.Hdr.Type = SBN_SUBSCRIBE_MSG;
+    msg.Hdr.MsgSize = sizeof(msg);
+
     for(i = 0; i < SBN.LocalSubCnt; i++)
     {
         /* Load the Protocol Buffer with the subscription details */
-        SBN.MsgBuf.Sub.MsgId = SBN.LocalSubs[i].MsgId;
-        SBN.MsgBuf.Sub.Qos = SBN.LocalSubs[i].Qos;
+        msg.MsgId = SBN.LocalSubs[i].MsgId;
+        msg.Qos = SBN.LocalSubs[i].Qos;
 
-        SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, sizeof(SBN_NetSub_t), PeerIdx,
-            &sender);
+        SBN_SendNetMsg((SBN_NetPkt_t *)&msg, PeerIdx, &sender);
     }/* end for */
 }/* end SBN_SendLocalSubsToPeer */
 
@@ -180,7 +184,7 @@ void SBN_ProcessSubFromPeer(int PeerIdx)
 
 void SBN_ProcessUnsubFromPeer(int PeerIdx)
 {
-    int     i = 0, idx = 0;
+    int             i = 0, idx = 0;
 
     DEBUG_START();
 
@@ -215,6 +219,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
 void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
 {
     int     i = 0, idx = 0;
+    SBN_NetSub_t    msg;
 
     DEBUG_START();
 
@@ -243,12 +248,14 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
     SBN.LocalSubs[SBN.LocalSubCnt].Qos = Ptr->Qos;
     SBN.LocalSubCnt++;
 
-    /* initialize the network msg */
-    SBN.MsgBuf.Hdr.Type = SBN_SUBSCRIBE_MSG;
-    strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
-            SBN_MAX_PEERNAME_LENGTH);
-    SBN.MsgBuf.Sub.MsgId = Ptr->MsgId;
-    SBN.MsgBuf.Sub.Qos = Ptr->Qos;
+    /* init message */
+    memset(&msg, 0, sizeof(msg));
+    strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+    msg.Hdr.Type = SBN_SUBSCRIBE_MSG;
+    msg.Hdr.MsgSize = sizeof(msg);
+
+    msg.MsgId = Ptr->MsgId;
+    msg.Qos = Ptr->Qos;
 
     /* send subscription to all peers if peer state is heartbeating */
     for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
@@ -256,12 +263,11 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
         if(SBN.Peer[i].State == SBN_HEARTBEATING)
         {
             SBN_SenderId_t sender;
-
             memset(&sender, 0, sizeof(sender));
             strncpy(sender.AppName, "SBN", sizeof(sender.AppName));
             sender.ProcessorId = CFE_CPU_ID;
 
-            SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, sizeof(SBN_NetSub_t), i, &sender);
+            SBN_SendNetMsg((SBN_NetPkt_t *)&msg, i, &sender);
         }/* end if */
     }/* end for */
 }/* end SBN_ProcessLocalSub */
@@ -270,6 +276,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
 {
     int             i = 0, idx = 0;
     SBN_SenderId_t  sender;
+    SBN_NetSub_t    msg;
 
     DEBUG_START();
 
@@ -307,11 +314,11 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
     SBN.LocalSubCnt--;
 
     /* initialize the network msg */
-    SBN.MsgBuf.Hdr.Type = SBN_UN_SUBSCRIBE_MSG;
-    strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
-            SBN_MAX_PEERNAME_LENGTH);
-    SBN.MsgBuf.Sub.MsgId = Ptr->MsgId;
-    SBN.MsgBuf.Sub.Qos = Ptr->Qos;
+    memset(&msg, 0, sizeof(msg));
+    msg.Hdr.Type = SBN_UN_SUBSCRIBE_MSG;
+    strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+    msg.MsgId = Ptr->MsgId;
+    msg.Qos = Ptr->Qos;
 
     /* send unsubscription to all peers if peer state is heartbeating and */
     /* only if no more local subs (InUseCtr = 0)  */
@@ -319,8 +326,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
     {
         if(SBN.Peer[i].State == SBN_HEARTBEATING)
         {
-            SBN_SendNetMsg(SBN_UN_SUBSCRIBE_MSG, sizeof(SBN_NetSub_t), i,
-                &sender);
+            SBN_SendNetMsg((SBN_NetPkt_t *)&msg, i, &sender);
         }/* end if */
     }/* end for */
 }/* end SBN_ProcessLocalUnsub */

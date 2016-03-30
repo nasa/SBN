@@ -142,7 +142,7 @@ typedef struct {
      * @param NetDataUnion *         Buffer containing a data message to send
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int (*SendNetMsg)(uint32, uint32, SBN_InterfaceData *[], int, SBN_SenderId_t *, SBN_InterfaceData *, NetDataUnion *);
+    int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_SenderId_t *, SBN_InterfaceData *, NetDataUnion *);
 
     /**
      * Receives a data message from the specified interface.

@@ -282,6 +282,7 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx)
                     count = buffer->MsgCount;
     uint32          NetMsgSize = 0;
     SBN_SenderId_t  sender;
+    SBN_NetPkt_t    msg;
 
     DEBUG_START();
 
@@ -291,21 +292,13 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx)
         {
             if(buffer->Retransmits[idx] < SBN_MAX_MSG_RETRANSMISSIONS)
             {
-                NetMsgSize = buffer->Msgs[idx].Hdr.MsgSize;
-                if(CFE_PSP_MemCpy(&SBN.MsgBuf,
-			&buffer->Msgs[idx], NetMsgSize) != CFE_PSP_SUCCESS)
+                if(CFE_PSP_MemCpy(&msg, &buffer->Msgs[idx], NetMsgSize)
+                    != CFE_PSP_SUCCESS)
                 {
 		    return SBN_ERROR;
                 }/* end if */
                 
-                /* set up sender information */
-                strncpy(&sender.AppName[0], 
-                        (char *) &(SBN.MsgBuf.Hdr.MsgSender.AppName),
-                        OS_MAX_API_NAME);
-                sender.ProcessorId = SBN.MsgBuf.Hdr.MsgSender.ProcessorId;
-
-
-                SBN_SendNetMsgNoBuf(&SBN.MsgBuf, SBN_APP_MSG, NetMsgSize, PeerIdx, &sender);
+                SBN_SendNetMsgNoBuf(&msg, PeerIdx, &sender);
                 buffer->Retransmits[idx]++;
             }/* end if */
             break;

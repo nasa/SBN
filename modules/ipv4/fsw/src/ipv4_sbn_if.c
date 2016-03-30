@@ -245,16 +245,13 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
 /**
  * Sends a message to a peer over an Ethernet IPv4 interface.
  *
- * @param MsgType      Type of Message
- * @param MsgSize      Size of Message
  * @param HostList     The array of SBN_InterfaceData structs that describes the host
  * @param SenderPtr    Sender information
  * @param IfData       The SBN_InterfaceData struct describing this peer
  * @param MsgBuf   Data message
  */
 
-int SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
-        SBN_InterfaceData *HostList[], int NumHosts,
+int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
         SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData,
         NetDataUnion *MsgBuf)
 {
@@ -293,8 +290,6 @@ int SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
     strncpy((char *)&MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME,
         SBN_MAX_PEERNAME_LENGTH);
 
-    MsgBuf->Hdr.Type = MsgType;
-
     memcpy(&orig_hdr, &(MsgBuf->Hdr), sizeof(orig_hdr));
     MsgBuf->Hdr.MsgSize = htonl(orig_hdr.MsgSize);
     MsgBuf->Hdr.Type = htonl(orig_hdr.Type);
@@ -304,7 +299,7 @@ int SBN_SendIPv4NetMsg(uint32 MsgType, uint32 MsgSize,
     MsgBuf->Hdr.GapAfter = ntohs(orig_hdr.GapAfter);
     MsgBuf->Hdr.GapTo = ntohs(orig_hdr.GapTo);
 
-    sendto(host->SockId, (char *)MsgBuf, MsgSize, 0,
+    sendto(host->SockId, (char *)MsgBuf, orig_hdr.MsgSize, 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
 
     memcpy(&(MsgBuf->Hdr), &orig_hdr, sizeof(orig_hdr));

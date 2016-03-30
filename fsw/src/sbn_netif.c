@@ -450,24 +450,19 @@ int SBN_InitPeerInterface(void)
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *MsgBuf,
-    uint32 MsgType, uint32 MsgSize, int PeerIdx,
-    SBN_SenderId_t *SenderPtr)
+int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *Msg,
+    int PeerIdx, SBN_SenderId_t *SenderPtr)
 {
     int     status = 0;
 
-    MsgBuf->Hdr.Type = MsgType;
-
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType, MsgSize);
     
-    strncpy(MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
-    MsgBuf->Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
+    strncpy(Msg->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+    Msg->Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
 
-    MsgBuf->Hdr.MsgSize = MsgSize;
-
-    status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(MsgType,
-	MsgSize, SBN.Host, SBN.NumHosts, SenderPtr, SBN.Peer[PeerIdx].IfData,
-        (NetDataUnion *)MsgBuf);
+    status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
+        SBN.Host, SBN.NumHosts, SenderPtr, SBN.Peer[PeerIdx].IfData,
+        (NetDataUnion *)Msg);
 
     if(status != -1)
     {
@@ -492,7 +487,7 @@ int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *MsgBuf,
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *SenderPtr)
+int SBN_SendNetMsg(SBN_NetPkt_t *Msg, int PeerIdx, SBN_SenderId_t *SenderPtr)
 {
     int status = 0;
 
@@ -504,28 +499,24 @@ int SBN_SendNetMsg(uint32 MsgType, uint32 MsgSize, int PeerIdx, SBN_SenderId_t *
         return SBN_OK;
     }/* end if */
 
-    strncpy((char *)&(SBN.MsgBuf.Hdr.MsgSender.AppName),
+    strncpy((char *)&(Msg->Hdr.MsgSender.AppName),
 	&SenderPtr->AppName[0], OS_MAX_API_NAME);
-    SBN.MsgBuf.Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
+    Msg->Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
 
-    SBN.MsgBuf.Hdr.Type = MsgType;
-
-    strncpy(SBN.MsgBuf.Hdr.SrcCpuName, CFE_CPU_NAME,
+    strncpy(Msg->Hdr.SrcCpuName, CFE_CPU_NAME,
         SBN_MAX_PEERNAME_LENGTH);
 
-    SBN.MsgBuf.Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
+    Msg->Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
 
-    DEBUG_MSG("Sending message %d", SBN.MsgBuf.Hdr.SequenceCount);
+    DEBUG_MSG("Sending message %d", Msg->SequenceCount);
     
-    status = SBN_SendNetMsgNoBuf(&SBN.MsgBuf, MsgType, MsgSize, PeerIdx,
-        SenderPtr);
+    status = SBN_SendNetMsgNoBuf(Msg, PeerIdx, SenderPtr);
 
     if(status != -1)
     {
         SBN.Peer[PeerIdx].SentCount++;
 
-        SBN_AddMsgToMsgBufOverwrite(&SBN.MsgBuf,
-            &SBN.Peer[PeerIdx].SentMsgBuf);
+        SBN_AddMsgToMsgBufOverwrite(Msg, &SBN.Peer[PeerIdx].SentMsgBuf);
     }
     else
     {
@@ -551,7 +542,7 @@ static uint8 CheckForMissedPkts(int PeerIdx)
 
     if(numMissed > 0)
     {
-        SBN_NetPkt_t nackpkt;
+        SBN_Hdr_t nackpkt;
         memset(&nackpkt, 0, sizeof(nackpkt));
         
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
@@ -560,9 +551,12 @@ static uint8 CheckForMissedPkts(int PeerIdx)
             sequenceCount);
         SBN_AddMsgToMsgBufSend(&SBN.MsgBuf, &SBN.Peer[PeerIdx].DeferredBuf,
             PeerIdx);
-        nackpkt.Hdr.SequenceCount = msgsRcvdByUs;
-        SBN_SendNetMsgNoBuf(&nackpkt, SBN_COMMAND_NACK_MSG,
-                        sizeof(SBN_Hdr_t), PeerIdx, NULL);
+
+        nackpkt.SequenceCount = msgsRcvdByUs;
+        nackpkt.Type = SBN_COMMAND_NACK_MSG;
+        nackpkt.MsgSize = sizeof(nackpkt);
+        SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&nackpkt, PeerIdx, NULL);
+
         return numMissed;
     }
     else if(numMissed == 0)
@@ -573,11 +567,12 @@ static uint8 CheckForMissedPkts(int PeerIdx)
     /* if we have received 16 in order, let's ack them */
     if(SBN.Peer[PeerIdx].RcvdInOrderCount == 16)
     {
-        SBN_NetPkt_t ackpkt;
+        SBN_Hdr_t ackpkt;
         memset(&ackpkt, 0, sizeof(ackpkt));
-        ackpkt.Hdr.SequenceCount = sequenceCount;
-        SBN_SendNetMsgNoBuf(&ackpkt, SBN_COMMAND_ACK_MSG,
-                        sizeof(SBN_Hdr_t), PeerIdx, NULL);
+        ackpkt.SequenceCount = sequenceCount;
+        ackpkt.Type = SBN_COMMAND_ACK_MSG;
+        ackpkt.MsgSize = sizeof(ackpkt);
+        SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&ackpkt, PeerIdx, NULL);
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
     }/* end if */
 
@@ -664,7 +659,6 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
                     }/* end if */
                     break;
             }/* end switch */
-            ACKPkts();
         }
         else if(status == SBN_ERROR)
         {
