@@ -567,11 +567,7 @@ uint8 SBN_CheckForMissedPkts(int PeerIdx)
         SBN.Peer[PeerIdx].RcvdInOrderCount++;
     }/* end if */
 
-    /*
-     * if numMissed < 0, then we assume a duplicate message was received and
-     * it is silently discarded
-     */
-
+    /* if we have received 16 in order, let's ack them */
     if(SBN.Peer[PeerIdx].RcvdInOrderCount == 16)
     {
         SBN.MsgBuf.Hdr.SequenceCount = sequenceCount;

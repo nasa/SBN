@@ -15,12 +15,6 @@ if(NOT(${subrprtpayload}))
     add_definitions(-DSBN_PAYLOAD)
 endif()
 
-if(NOT(IS_DIRECTORY ${SBN_LIB_SOURCE_DIR}))
-    message(FATAL_ERROR "SBN_LIB_SOURCE_DIR not defined, is sbn_lib in the target list before sbn?")
-endif()
-
-include_directories(${SBN_LIB_SOURCE_DIR}/fsw/public_inc)
-
 aux_source_directory(fsw/src APP_SRC_FILES)
 
 aux_source_directory(fsw/src APP_SRC_FILES)

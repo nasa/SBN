@@ -7,13 +7,6 @@ endif()
 
 include_directories(${SBN_APP_SOURCE_DIR}/fsw/platform_inc)
 
-if(NOT(IS_DIRECTORY ${SBN_LIB_SOURCE_DIR}))
-    message(FATAL_ERROR "SBN_LIB_SOURCE_DIR not defined, is sbn_lib in the target list before this module?")
-endif()
-
-include_directories(${SBN_LIB_SOURCE_DIR}/fsw/public_inc)
-
-
 aux_source_directory(fsw/src LIB_SRC_FILES)
 
 # Create the app module

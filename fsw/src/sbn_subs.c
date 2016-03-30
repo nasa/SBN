@@ -48,16 +48,9 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
 
     DEBUG_START();
 
+    memset(&sender, 0, sizeof(sender));
     strncpy(sender.AppName, "SBN", sizeof(sender.AppName));
     sender.ProcessorId = CFE_CPU_ID;
-
-    if(SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER)
-    {
-        CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
-            "%s:Error sending subs to %s,LclSubCnt=%d,max=%d", CFE_CPU_NAME,
-            SBN.Peer[PeerIdx].Name, SBN.LocalSubCnt, SBN_MAX_SUBS_PER_PEER);
-        return;
-    }/* end if */
 
     for(i = 0; i < SBN.LocalSubCnt; i++)
     {
@@ -170,10 +163,6 @@ void SBN_ProcessSubFromPeer(int PeerIdx)
     if(SBN_CheckPeerSubs4MsgId(&idx, SBN.MsgBuf.Sub.MsgId,
         PeerIdx) == SBN_MSGID_FOUND)
     {
-        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-            "%s:subscription from %s ignored,msg 0x%04X already logged",
-            CFE_CPU_NAME, SBN.Peer[PeerIdx].Name,
-            ntohs(SBN.MsgBuf.Sub.MsgId));
         return;
     }/* end if */
 
@@ -194,22 +183,6 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
     int     i = 0, idx = 0;
 
     DEBUG_START();
-
-    if(PeerIdx == SBN_ERROR)
-    {
-        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "%s:Cannot process unsubscription,PeerIdx(%d)OutOfRange",
-            CFE_CPU_NAME, PeerIdx);
-        return;
-    }/* end if */
-
-    if(SBN.Peer[PeerIdx].SubCnt == 0)
-    {
-        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-            "%s:Cannot process unsubscription from %s,none logged",
-            CFE_CPU_NAME, SBN.Peer[PeerIdx].Name);
-        return;
-    }/* end if */
 
     if(SBN_CheckPeerSubs4MsgId(&idx, SBN.MsgBuf.Sub.MsgId,
         PeerIdx)==SBN_MSGID_NOT_FOUND)
@@ -242,15 +215,11 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx)
 void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
 {
     int     i = 0, idx = 0;
-    SBN_SenderId_t sender;
 
     DEBUG_START();
 
     /* don't subscribe to event messages */
     if(ntohs(Ptr->MsgId) == CFE_EVS_EVENT_MSG_MID) return;
-
-    strncpy(sender.AppName, "SBN", sizeof(sender.AppName));
-    sender.ProcessorId = CFE_CPU_ID;
 
     if(SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER)
     {
@@ -263,12 +232,8 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
     /* if there is already an entry for this msg id,just incr InUseCtr */
     if(SBN_CheckLocSubs4MsgId(&idx, Ptr->MsgId) == SBN_MSGID_FOUND)
     {
-        /* check idx before writing */
-        if(idx < SBN.LocalSubCnt)
-        {
-            SBN.LocalSubs[idx].InUseCtr++;
-        }/* end if */
-
+        SBN.LocalSubs[idx].InUseCtr++;
+        /* does not send to peers, as they already know */
         return;
     }/* end if */
 
@@ -290,6 +255,12 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
     {
         if(SBN.Peer[i].State == SBN_HEARTBEATING)
         {
+            SBN_SenderId_t sender;
+
+            memset(&sender, 0, sizeof(sender));
+            strncpy(sender.AppName, "SBN", sizeof(sender.AppName));
+            sender.ProcessorId = CFE_CPU_ID;
+
             SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, sizeof(SBN_NetSub_t), i, &sender);
         }/* end if */
     }/* end for */
@@ -302,6 +273,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
 
     DEBUG_START();
 
+    memset(&sender, 0, sizeof(sender));
     strncpy(sender.AppName, "SBN", sizeof(sender.AppName));
     sender.ProcessorId = CFE_CPU_ID;
 
@@ -316,7 +288,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
     /* do not modify the array and tell peers
     ** until the # of local subscriptions = 0
     */
-    if(SBN.LocalSubs[idx].InUseCtr != 0)
+    if(SBN.LocalSubs[idx].InUseCtr > 0)
     {
         return;
     }/* end if */
