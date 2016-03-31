@@ -101,8 +101,6 @@ void  SBN_InitPeerVariables(void);
 int SBN_CreatePipe4Peer(int PeerIdx);
 void  SBN_RunProtocol(void);
 
-int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr);
-uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx);
 void  SBN_CheckPipe(int PeerIdx, int32 * priority_remaining);
 void  SBN_CheckPeerPipes(void);
 
@@ -128,7 +126,7 @@ void  SBN_DebugOff(void);
 void SBN_ResetPeerMsgCounts(uint32 PeerIdx);
 
 /* define to turn on debug event messages, warning, chatty! */
-#undef SBN_DEBUG_MSGS
+#define SBN_DEBUG_MSGS
 
 #ifdef SBN_DEBUG_MSGS
 #define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)

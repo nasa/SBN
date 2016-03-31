@@ -23,7 +23,7 @@
  * @return SB_OK on success
  * @return SBN_ERROR on error
  */
-int Serial_SbnReceiveMsg(SBN_InterfaceData *Data, NetDataUnion *MsgBuf)
+int Serial_SbnReceiveMsg(SBN_InterfaceData *Data, SBN_NetPkt_t *MsgBuf)
 {
     uint32 MsgSize = 0;
     Serial_SBNHostData_t *host = NULL;
@@ -205,7 +205,6 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
  *
  * @param HostList     The array of SBN_InterfaceData structs that describes
  *                     the host.
- * @param SenderPtr    Sender information
  * @param IfData       The SBN_InterfaceData struct describing this peer
  * @param MsgBuf       Data message
  *
@@ -213,7 +212,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
  * @return SBN_ERROR on error
  */
 int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int32 NumHosts,
-    SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, NetDataUnion *MsgBuf)
+    SBN_InterfaceData *IfData, SBN_NetPkt_t *MsgBuf)
 {
     Serial_SBNEntry_t *peer = NULL;
     Serial_SBNEntry_t *host_tmp = NULL;
@@ -268,24 +267,6 @@ int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int32 NumHosts,
     {
         /* Data messages */
         case SBN_APP_MSG:
-            /* TODO: Unsure if we need this logic, may never happen */
-            if(SenderPtr == NULL)
-            {
-                CFE_EVS_SendEvent(SBN_SERIAL_SEND_EID, CFE_EVS_ERROR,
-                    "Serial: Error in SendSerialNetMsg: SenderPtr is NULL.\n");
-                return SBN_ERROR;
-            }/* end if */
-
-            /* If my peer sent this message, don't send it back to them,
-             * avoids loops
-             */
-            if(CFE_PSP_GetProcessorId() != SenderPtr->ProcessorId) break;
-
-            strncpy((char *)&(MsgBuf->Hdr.MsgSender.AppName),
-                &(SenderPtr->AppName[0]), OS_MAX_API_NAME);
-            MsgBuf->Hdr.MsgSender.ProcessorId = SenderPtr->ProcessorId;
-            /* Fall through to the next case */
-
         case SBN_SUBSCRIBE_MSG:
         case SBN_UN_SUBSCRIBE_MSG:
         case SBN_ANNOUNCE_MSG:

@@ -191,7 +191,7 @@ int SBN_Init(void)
 int SBN_WaitForSBStartup()
 {
     CFE_EVS_Packet_t    *EvsPacket = NULL;
-    CFE_SB_MsgPtr_t     SBMsgPtr;
+    CFE_SB_MsgPtr_t     SBMsgPtr = 0;
     uint8               counter = 0;
 
     DEBUG_START();
@@ -318,8 +318,8 @@ int SBN_WaitForSBStartup()
 **=========================================================================*/
 int32 SBN_RcvMsg(int32 iTimeOut)
 {
-    int32           Status=CFE_SUCCESS;
-    CFE_SB_Msg_t   *MsgPtr=NULL;
+    int32           Status = CFE_SUCCESS;
+    CFE_SB_MsgPtr_t SBMsgPtr = 0;
     CFE_SB_MsgId_t  MsgId;
 
     /* TODO: To include performance logging for this application,
@@ -328,7 +328,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
     /* DEBUG_START(); chatty */
 
     /* Wait for WakeUp messages from scheduler */
-    Status = CFE_SB_RcvMsg(&MsgPtr, SBN.SchPipeId, iTimeOut);
+    Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.SchPipeId, iTimeOut);
 
     /* Performance Log Entry stamp */
     CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
@@ -336,7 +336,7 @@ int32 SBN_RcvMsg(int32 iTimeOut)
     /* success or timeout is ok to proceed through main loop */
     if(Status == CFE_SUCCESS)
     {
-        MsgId = CFE_SB_GetMsgId(MsgPtr); /* note MsgId is platform-endian */
+        MsgId = CFE_SB_GetMsgId(SBMsgPtr); /* note MsgId is platform-endian */
         switch(MsgId)
         {
             case SBN_WAKEUP_MID:
@@ -487,7 +487,7 @@ void SBN_RunProtocol(void)
             {
                 msg.Type = SBN_ANNOUNCE_MSG;
                 msg.MsgSize = sizeof(msg);
-                SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx, NULL);
+                SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx);
             }/* end if */
             return;
         }/* end if */
@@ -506,22 +506,14 @@ void SBN_RunProtocol(void)
         {
             msg.Type = SBN_HEARTBEAT_MSG;
             msg.MsgSize = sizeof(msg);
-            SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx, NULL);
+            SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx);
 	}/* end if */
     }/* end for */
 
     CFE_ES_PerfLogExit(SBN_PERF_SEND_ID);
 }/* end SBN_RunProtocol */
 
-int32 SBN_PollPeerPipe(int PeerIdx, CFE_SB_MsgPtr_t *SBMsgPtr)
-{
-    /* DEBUG_START(); chatty */
-
-    return CFE_SB_RcvMsg((CFE_SB_Msg_t**)SBMsgPtr, SBN.Peer[PeerIdx].Pipe,
-        CFE_SB_POLL);
-}/* end SBN_PollPeerPipe */
-
-uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx)
+static uint16 CheckMsgSize(CFE_SB_MsgPtr_t SBMsgPtr, int PeerIdx)
 {
     CFE_SB_SenderId_t   *lastSenderPtr = NULL;
     uint16              AppMsgSize = 0, MaxAppMsgSize = 0;
@@ -529,7 +521,7 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx)
     DEBUG_START();
 
     /* Find size of app msg without SBN hdr */
-    AppMsgSize = CFE_SB_GetTotalMsgLength(*SBMsgPtr);
+    AppMsgSize = CFE_SB_GetTotalMsgLength(SBMsgPtr);
     MaxAppMsgSize = (SBN_MAX_MSG_SIZE - sizeof(SBN_Hdr_t));
 
     CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
@@ -539,7 +531,7 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx)
         CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_INFORMATION,
             "%s:AppMsg 0x%04X,from %s, sz=%d destined for"
             " %s truncated to %d(max sz)",
-            CFE_CPU_NAME, CFE_SB_GetMsgId(*SBMsgPtr),
+            CFE_CPU_NAME, CFE_SB_GetMsgId(SBMsgPtr),
             lastSenderPtr->AppName, AppMsgSize,
             SBN.Peer[PeerIdx].Name, MaxAppMsgSize);
 
@@ -547,45 +539,42 @@ uint16 SBN_CheckMsgSize(CFE_SB_MsgPtr_t *SBMsgPtr, int PeerIdx)
     }/* end if */
 
     return AppMsgSize;
-}/* end SBN_CheckMsgSize */
+}/* end CheckMsgSize */
 
 void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
 {
-    CFE_SB_MsgPtr_t SBMsgPtr = 0;
-    uint16 AppMsgSize = 0;
-    uint32 NetMsgSize = 0;
+    CFE_SB_MsgPtr_t     SBMsgPtr = 0;
+    uint16              AppMsgSize = 0;
     CFE_SB_SenderId_t * lastSenderPtr = NULL;
-    int Status = 0;
+    SBN_NetPkt_t        msg;
+
+    memset(&msg, 0, sizeof(msg));
 
     /* DEBUG_START(); chatty */
 
-    Status = SBN_PollPeerPipe(PeerIdx, &SBMsgPtr);
-    if(Status == CFE_SUCCESS)
+    if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING ||
+        CFE_SB_RcvMsg(&SBMsgPtr, SBN.Peer[PeerIdx].Pipe, CFE_SB_POLL)
+            != CFE_SUCCESS)
     {
-        SBN_NetPkt_t msg;
-        /* Pipe should be cleared if not in HEARTBEAT state */
-        if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING) return;
-
-        AppMsgSize = SBN_CheckMsgSize(&SBMsgPtr, PeerIdx);
-
-        /* who sent this message */
-        CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
-
-        /* copy message from SB buffer to network data msg buffer */
-        CFE_PSP_MemCpy(&msg, SBMsgPtr, AppMsgSize);
-        strncpy((char *) &msg.Hdr.MsgSender.AppName,
-            lastSenderPtr->AppName,
-            sizeof(msg.Hdr.MsgSender.AppName));
-        msg.Hdr.MsgSender.ProcessorId = lastSenderPtr->ProcessorId;
-        strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME,
-            SBN_MAX_PEERNAME_LENGTH);
-
-        NetMsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
-        msg.Hdr.MsgSize = NetMsgSize;
-        msg.Hdr.Type = SBN_APP_MSG;
-        SBN_SendNetMsg(&msg, PeerIdx, &msg.Hdr.MsgSender);
-        (*priority_remaining)++;
+        return;
     }/* end if */
+
+    /* copy message from SB buffer to network data msg buffer */
+    AppMsgSize = CheckMsgSize(SBMsgPtr, PeerIdx);
+    printf("MSGSIZE: %d\n", AppMsgSize);
+    CFE_PSP_MemCpy(msg.Data, SBMsgPtr, AppMsgSize);
+
+    /* who sent this message */
+    CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
+    CFE_PSP_MemCpy(&msg.Hdr.MsgSender, lastSenderPtr,
+        sizeof(msg.Hdr.MsgSender));
+
+    strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
+
+    msg.Hdr.MsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
+    msg.Hdr.Type = SBN_APP_MSG;
+    SBN_SendNetMsg(&msg, PeerIdx);
+    (*priority_remaining)++;
 }/* end SBN_CheckPipe */
 
 void SBN_CheckPeerPipes(void)
@@ -652,8 +641,7 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
 
             DEBUG_MSG("Injecting %d", msg->Hdr.SequenceCount);
 
-            Status = CFE_SB_SendMsgFull(
-                (CFE_SB_Msg_t *) &msg->Data[0],
+            Status = CFE_SB_SendMsgFull((CFE_SB_MsgPtr_t)msg->Data,
                 CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
 
             if(Status != CFE_SUCCESS)
@@ -691,16 +679,17 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
 
 int32 SBN_CheckCmdPipe(void)
 {
-    int Status = 0;
+    CFE_SB_MsgPtr_t     SBMsgPtr = 0;
+    int                 Status = 0;
 
     /* DEBUG_START(); */
 
     /* Command and HK requests pipe */
     while(Status == CFE_SUCCESS)
     {
-        Status = CFE_SB_RcvMsg(&SBN.CmdMsgPtr, SBN.CmdPipe, CFE_SB_POLL);
+        Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.CmdPipe, CFE_SB_POLL);
 
-        if(Status == CFE_SUCCESS) SBN_AppPipe(SBN.CmdMsgPtr);
+        if(Status == CFE_SUCCESS) SBN_AppPipe(SBMsgPtr);
     }/* end while */
 
     if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;

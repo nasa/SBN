@@ -12,7 +12,7 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 Baud);
 int32 Serial_IoReadMsg(Serial_SBNHostData_t *host); 
 int32 Serial_IoReadSyncBytes(int32 Fd);
 uint32 Serial_IoReadMessageSize(int32 Fd);
-int32 Serial_IoWriteMsg(int32 Fd, NetDataUnion *MsgBuf);
+int32 Serial_IoWriteMsg(int32 Fd, SBN_NetPkt_t *MsgBuf);
 
 void Serial_IoReadTaskMain(void); 
 int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host);

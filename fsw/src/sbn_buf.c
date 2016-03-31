@@ -43,13 +43,13 @@ int32 SBN_InitMsgBuf(SBN_PeerMsgBuf_t* buffer)
  * @param buffer   Buffer to which to add the message
  * @return SBN_OK
  */
-int32 SBN_AddMsgToMsgBufOverwrite(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer)
+int32 SBN_AddMsgToMsgBufOverwrite(SBN_NetPkt_t* Msg, SBN_PeerMsgBuf_t* buffer)
 {
     int32   addIdx = buffer->AddIndex;
  
     DEBUG_START();
 
-    if(CFE_PSP_MemCpy(&buffer->Msgs[addIdx], Msg, sizeof(NetDataUnion))
+    if(CFE_PSP_MemCpy(&buffer->Msgs[addIdx], Msg, Msg->Hdr.MsgSize)
 	    != CFE_PSP_SUCCESS)
     {
         return SBN_ERROR;
@@ -83,7 +83,7 @@ int32 SBN_AddMsgToMsgBufOverwrite(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer)
  * @param PeerIdx  Index of peer
  * @return SBN_OK
  */
-int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer, 
+int32 SBN_AddMsgToMsgBufSend(SBN_NetPkt_t* Msg, SBN_PeerMsgBuf_t* buffer, 
         int32 PeerIdx)
 {
     int32   addIdx = buffer->AddIndex;
@@ -93,16 +93,7 @@ int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer,
     /* if oldest message wil be overwritten, send it and update OldestIndex */
     if(addIdx == buffer->OldestIndex)
     {
-        SBN_NetPkt_t msg;
-        if(CFE_PSP_MemCpy(&msg, 
-                &buffer->Msgs[buffer->OldestIndex],
-                buffer->Msgs[buffer->OldestIndex].Hdr.MsgSize)
-            != CFE_PSP_SUCCESS)
-        {
-	    return SBN_ERROR;
-        }/* end if */
-        
-        SBN_ProcessNetAppMsg(&msg);
+        SBN_ProcessNetAppMsg(&buffer->Msgs[buffer->OldestIndex]);
         SBN.Peer[PeerIdx].RcvdCount++;
 
         buffer->OldestIndex = (buffer->OldestIndex + 1) % SBN_MSG_BUFFER_SIZE;
@@ -172,7 +163,7 @@ int32 SBN_ClearMsgBufBeforeSeq(int seq, SBN_PeerMsgBuf_t* buffer)
     {
         if(buffer->Msgs[idx].Hdr.SequenceCount <= seq)
         {
-            if(CFE_PSP_MemSet(&buffer->Msgs[idx], 0, sizeof(NetDataUnion))
+            if(CFE_PSP_MemSet(&buffer->Msgs[idx], 0, sizeof(SBN_NetPkt_t))
 		    != CFE_PSP_SUCCESS)
             {
 		return SBN_ERROR;
@@ -220,15 +211,7 @@ int32 SBN_SendConsecutiveFromBuf(SBN_PeerMsgBuf_t* buffer, int32 seq,
     {
         if(buffer->Msgs[idx].Hdr.SequenceCount == currentSeq)
         {
-            SBN_NetPkt_t msg;
-            if(CFE_PSP_MemCpy(&msg,
-                    &buffer->Msgs[idx], buffer->Msgs[idx].Hdr.MsgSize)
-                != CFE_PSP_SUCCESS)
-            {
-		return -1;
-            }/* end if */
-        
-            SBN_ProcessNetAppMsg(&msg);
+            SBN_ProcessNetAppMsg(&buffer->Msgs[idx]);
             SBN.Peer[PeerIdx].RcvdCount++;
             sent++;
 
@@ -279,8 +262,6 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx)
     int32           idx = buffer->OldestIndex,
                     checked = 0,
                     count = buffer->MsgCount;
-    SBN_SenderId_t  sender;
-    SBN_NetPkt_t    msg;
 
     DEBUG_START();
 
@@ -290,14 +271,7 @@ int32 SBN_RetransmitSeq(SBN_PeerMsgBuf_t* buffer, int32 seq, int32 PeerIdx)
         {
             if(buffer->Retransmits[idx] < SBN_MAX_MSG_RETRANSMISSIONS)
             {
-                if(CFE_PSP_MemCpy(&msg, &buffer->Msgs[idx],
-                        buffer->Msgs[idx].Hdr.MsgSize)
-                    != CFE_PSP_SUCCESS)
-                {
-		    return SBN_ERROR;
-                }/* end if */
-                
-                SBN_SendNetMsgNoBuf(&msg, PeerIdx, &sender);
+                SBN_SendNetMsgNoBuf(&buffer->Msgs[idx], PeerIdx);
                 buffer->Retransmits[idx]++;
             }/* end if */
             break;

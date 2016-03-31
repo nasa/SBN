@@ -45,15 +45,8 @@ typedef struct {
   CFE_SB_Qos_t      Qos;
 } SBN_NetSub_t;
 
-/* union used because buffer at data socket used for subs and app pkts*/
-typedef union {
-    SBN_Hdr_t         Hdr; /* this line to simplify references only */
-    SBN_NetPkt_t      Pkt;
-    SBN_NetSub_t      Sub;
-}NetDataUnion;
-
 typedef struct {
-    NetDataUnion        Msgs[SBN_MSG_BUFFER_SIZE];
+    SBN_NetPkt_t        Msgs[SBN_MSG_BUFFER_SIZE];
     int8                Retransmits[SBN_MSG_BUFFER_SIZE];
     int32               AddIndex;
     int32               MsgCount;
@@ -133,26 +126,23 @@ typedef struct {
      * un/subscriptions and app messages.  The protocol message buffer is used
      * for announce and heartbeat messages/acks.
      *
-     * @param uint32                 Type of message
-     * @param uint32                 Size of message
      * @param SBN_InterfaceData *[]  Array of all host interfaces in the SBN
      * @param int                    Number of host interfaces in the SBN
-     * @param CFE_SB_SenderId_t *    Sender information
      * @param SBN_InterfaceData *    Interface data describing the intended peer recipient
-     * @param NetDataUnion *         Buffer containing a data message to send
+     * @param SBN_NetPkt_t *         Buffer containing a data message to send
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_SenderId_t *, SBN_InterfaceData *, NetDataUnion *);
+    int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_InterfaceData *, SBN_NetPkt_t *);
 
     /**
      * Receives a data message from the specified interface.
      *
      * @param SBN_InterfaceData * Host interface from which to receive a message
-     * @param NetDataUnion *      SBN's data message buffer
+     * @param SBN_NetPkt_t *      SBN's data message buffer
      *                            (received data message goes here)
      * @return SBN_OK on success, SBN_ERROR on failure
      */
-    int (*ReceiveMsg)(SBN_InterfaceData *, NetDataUnion *);
+    int (*ReceiveMsg)(SBN_InterfaceData *, SBN_NetPkt_t *);
 
     /**
      * Iterates through the list of all host interfaces to see if there is a

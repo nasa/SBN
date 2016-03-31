@@ -25,9 +25,9 @@
  * @return MsgSize (number of bytes read from the queue)
  * @return SBN_ERROR on error
  */
-int Serial_QueueGetMsg(uint32 queue, uint32 semId, NetDataUnion *MsgBuf)
+int Serial_QueueGetMsg(uint32 queue, uint32 semId, SBN_NetPkt_t *MsgBuf)
 {
-    NetDataUnion *data = NULL;
+    SBN_NetPkt_t *data = NULL;
     int32 status = 0;
     uint32 size = 0;
  
@@ -78,7 +78,7 @@ int Serial_QueueGetMsg(uint32 queue, uint32 semId, NetDataUnion *MsgBuf)
  * @return SBN_OK on success
  * @return SBN_ERROR on error
  */
-int Serial_QueueAddNode(uint32 queue, uint32 semId,  NetDataUnion *MsgBuf)
+int Serial_QueueAddNode(uint32 queue, uint32 semId,  SBN_NetPkt_t *MsgBuf)
 {
     int32 status = 0;
     uint32 MsgSize = MsgBuf->Hdr.MsgSize;

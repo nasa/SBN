@@ -68,7 +68,7 @@ void SBN_ClearSocket(int SockId)
     socklen_t           addr_len = 0;
     int                 i = 0;
     int                 status = 0;
-    NetDataUnion        DiscardData;
+    SBN_NetPkt_t        DiscardData;
 
     addr_len = sizeof(s_addr);
     bzero((char *) &s_addr, sizeof(s_addr));
@@ -93,7 +93,7 @@ void SBN_ClearSocket(int SockId)
  * @param MsgBuf  Pointer to the SBN's protocol message buffer
  * @return Bytes received on success, SBN_IF_EMPTY if empty, -1 on error
  */
-int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, NetDataUnion *MsgBuf)
+int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, SBN_NetPkt_t *MsgBuf)
 {
     ssize_t             Received = 0, TotalReceived = 0;
     struct sockaddr_in  s_addr;
@@ -246,14 +246,12 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
  * Sends a message to a peer over an Ethernet IPv4 interface.
  *
  * @param HostList     The array of SBN_InterfaceData structs that describes the host
- * @param SenderPtr    Sender information
  * @param IfData       The SBN_InterfaceData struct describing this peer
  * @param MsgBuf   Data message
  */
 
 int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
-        SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData,
-        NetDataUnion *MsgBuf)
+        SBN_InterfaceData *IfData, SBN_NetPkt_t *MsgBuf)
 {
     static struct sockaddr_in   s_addr;
     IPv4_SBNPeerData_t          *peer = NULL;

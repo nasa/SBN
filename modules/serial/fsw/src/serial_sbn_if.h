@@ -17,9 +17,9 @@ int SBN_LoadSerialEntry(const char **row, int fieldcount, void *entryptr);
 int Serial_SbnParseInterfaceFileEntry(char *, uint32, void*);
 #endif /* _osapi_confloader_ */
 int Serial_SbnInitPeerInterface(SBN_InterfaceData* data);
-int Serial_SbnReceiveMsg(SBN_InterfaceData *Host, NetDataUnion *MsgBuf);
+int Serial_SbnReceiveMsg(SBN_InterfaceData *Host, SBN_NetPkt_t *MsgBuf);
 
-int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int NumHosts, SBN_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, NetDataUnion *MsgBuf);
+int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int NumHosts, SBN_InterfaceData *IfData, SBN_NetPkt_t *MsgBuf);
 int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts);
 int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *PeerList, int NumPeers);
 int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt, SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts);

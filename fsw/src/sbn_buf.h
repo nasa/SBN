@@ -17,8 +17,8 @@
 #include "sbn_app.h"
 
 int32 SBN_InitMsgBuf(SBN_PeerMsgBuf_t* buffer);
-int32 SBN_AddMsgToMsgBufOverwrite(NetDataUnion* SentMsg, SBN_PeerMsgBuf_t* buffer);
-int32 SBN_AddMsgToMsgBufSend(NetDataUnion* Msg, SBN_PeerMsgBuf_t* buffer, 
+int32 SBN_AddMsgToMsgBufOverwrite(SBN_NetPkt_t* SentMsg, SBN_PeerMsgBuf_t* buffer);
+int32 SBN_AddMsgToMsgBufSend(SBN_NetPkt_t* Msg, SBN_PeerMsgBuf_t* buffer, 
         int32 PeerIdx);
 int32 SBN_ClearMsgBuf(SBN_PeerMsgBuf_t* buffer);
 int32 SBN_ClearMsgBufBeforeSeq(int seq, SBN_PeerMsgBuf_t* buffer);
