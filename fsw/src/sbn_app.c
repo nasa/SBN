@@ -105,7 +105,7 @@ int SBN_Init(void)
 
     DEBUG_START();
 
-    memset(&SBN, 0, sizeof(SBN));
+    CFE_PSP_MemSet(&SBN, 0, sizeof(SBN));
 
     if(SBN_ReadModuleFile() == SBN_ERROR)
     {
@@ -457,7 +457,7 @@ void SBN_RunProtocol(void)
     OS_time_t   current_time;
     SBN_Hdr_t   msg;
 
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
 
     /* DEBUG_START(); chatty */
 
@@ -548,7 +548,7 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
     CFE_SB_SenderId_t * lastSenderPtr = NULL;
     SBN_NetPkt_t        msg;
 
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
 
     /* DEBUG_START(); chatty */
 
@@ -561,7 +561,6 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
 
     /* copy message from SB buffer to network data msg buffer */
     AppMsgSize = CheckMsgSize(SBMsgPtr, PeerIdx);
-    printf("MSGSIZE: %d\n", AppMsgSize);
     CFE_PSP_MemCpy(msg.Data, SBMsgPtr, AppMsgSize);
 
     /* who sent this message */

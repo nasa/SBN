@@ -179,7 +179,7 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
     uint32 messageSize = 0;
     SBN_NetPkt_t MsgBuf;
     void *MsgBufPtr = (void *)(&MsgBuf);
-    memset(MsgBufPtr, 0, sizeof(MsgBuf));
+    CFE_PSP_MemSet(MsgBufPtr, 0, sizeof(MsgBuf));
 
     /* read the SBN header, which includes a message size so we know how
      * much to read to get the rest of the message */

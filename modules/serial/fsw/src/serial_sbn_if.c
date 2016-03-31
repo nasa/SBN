@@ -146,7 +146,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
         /* create, fill, and store Serial-specific host data structure */
         Serial_SBNHostData_t host;
 
-        memset(&host, 0, sizeof(host));
+        CFE_PSP_MemSet(&host, 0, sizeof(host));
 
         /* open serial device and set options */
         Status = Serial_IoOpenPort(entry->DevNameHost, entry->BaudRate,
@@ -188,7 +188,7 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
         /* create, fill, and store peer data structure */
         Serial_SBNPeerData_t peer;
 
-        memset(&peer, 0, sizeof(peer));
+        CFE_PSP_MemSet(&peer, 0, sizeof(peer));
 
         peer.PairNum  = entry->PairNum;
         peer.BaudRate = entry->BaudRate;

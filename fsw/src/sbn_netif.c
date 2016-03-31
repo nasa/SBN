@@ -296,7 +296,7 @@ int32 SBN_GetPeerFileData(void)
         return SBN_ERROR;
     }/* end if */
 
-    memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+    CFE_PSP_MemSet(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
     BuffLen = 0;
 
     /*
@@ -349,7 +349,7 @@ int32 SBN_GetPeerFileData(void)
                 return SBN_ERROR;
             }/* end if */
             LineNum++;
-            memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+            CFE_PSP_MemSet(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
             BuffLen = 0;
         }/* end if */
     }/* end while */
@@ -392,7 +392,7 @@ int SBN_InitPeerInterface(void)
         }
         else if(IFRole == SBN_PEER)
         {
-            memset(&SBN.Peer[SBN.NumPeers], 0, sizeof(SBN.Peer[SBN.NumPeers]));
+            CFE_PSP_MemSet(&SBN.Peer[SBN.NumPeers], 0, sizeof(SBN.Peer[SBN.NumPeers]));
             SBN.Peer[SBN.NumPeers].IfData = &SBN.IfData[PeerIdx];
             SBN.Peer[SBN.NumPeers].InUse = SBN_IN_USE;
 
@@ -452,9 +452,6 @@ int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *Msg, int PeerIdx)
 
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, Msg->Hdr.Type,
         Msg->Hdr.MsgSize);
-
-    strncpy(Msg->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
-    Msg->Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
@@ -530,7 +527,7 @@ static uint8 CheckForMissedPkts(SBN_NetPkt_t *msg, int PeerIdx)
     if(numMissed > 0)
     {
         SBN_Hdr_t nackpkt;
-        memset(&nackpkt, 0, sizeof(nackpkt));
+        CFE_PSP_MemSet(&nackpkt, 0, sizeof(nackpkt));
         
         SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
         CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
@@ -554,7 +551,7 @@ static uint8 CheckForMissedPkts(SBN_NetPkt_t *msg, int PeerIdx)
     if(SBN.Peer[PeerIdx].RcvdInOrderCount == 16)
     {
         SBN_Hdr_t ackpkt;
-        memset(&ackpkt, 0, sizeof(ackpkt));
+        CFE_PSP_MemSet(&ackpkt, 0, sizeof(ackpkt));
         ackpkt.SequenceCount = sequenceCount;
         ackpkt.Type = SBN_COMMAND_ACK_MSG;
         ackpkt.MsgSize = sizeof(ackpkt);
@@ -575,7 +572,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
     for(i = 0; i <= 100; i++)
     {
         SBN_NetPkt_t msg;
-        memset(&msg, 0, sizeof(msg));
+        CFE_PSP_MemSet(&msg, 0, sizeof(msg));
 
         status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->ReceiveMsg(
             SBN.Host[HostIdx], &msg);

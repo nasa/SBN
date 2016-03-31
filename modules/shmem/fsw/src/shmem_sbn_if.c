@@ -807,7 +807,7 @@ int32 ShMem_InitReadWritePointers(ShMem_SBNMemSeg_t *MemSegPtr) {
     *WritePtr = 0;
 
     /* Erase everything in this memory block */
-    memset(MemSegPtr->QueueAddr, 0, MemSegPtr->QueueSize);
+    CFE_PSP_MemSet(MemSegPtr->QueueAddr, 0, MemSegPtr->QueueSize);
 
     /* Release mutex */
     status = pthread_mutex_unlock(MemSegPtr->Mutex);
@@ -872,7 +872,7 @@ int32 ShMem_ReadSharedMem(ShMem_SBNMemSeg_t MemSeg, char *MsgBuf) {
 
     /* Clear memory at this location and move read pointer */
     if (length > 0) {
-        memset(shmem, 0, length+sizeof(length));
+        CFE_PSP_MemSet(shmem, 0, length+sizeof(length));
         *ReadPtr = *ReadPtr + length + sizeof(length);
     }
 
@@ -991,7 +991,7 @@ int32 ShMem_CheckReadPtr(ShMem_SBNMemSeg_t MemSeg) {
     if ( length > (MemSeg.QueueSize - sizeof(length)) ) {
         *ReadPtr  = 0;
         *WritePtr = 0;
-        memset(MemSeg.QueueAddr, 0, MemSeg.QueueSize);
+        CFE_PSP_MemSet(MemSeg.QueueAddr, 0, MemSeg.QueueSize);
 
         CFE_EVS_SendEvent(SBN_INIT_EID,CFE_EVS_ERROR,
                           "%s: ShMem: Error during read: Invalid length %d read, ReadPtr may be at an invalid location. Restarting message queue.\n",
@@ -1002,7 +1002,7 @@ int32 ShMem_CheckReadPtr(ShMem_SBNMemSeg_t MemSeg) {
     /* If length is longer than the amount of space left in memory, wrap ReadPtr
        to the beginning. */
     if ( (*ReadPtr + length + sizeof(length)) > MemSeg.QueueSize ) {
-        memset(shmem, 0, sizeof(length));
+        CFE_PSP_MemSet(shmem, 0, sizeof(length));
         *ReadPtr = 0;
     }
 
@@ -1082,7 +1082,8 @@ void ShMem_CheckWritePtr(ShMem_SBNMemSeg_t MemSeg, uint16 MsgSize) {
         /* Otherwise erase the message to be skipped and move ReadPtr to the
                next message */
         printf("ShMem_CheckWritePtr: Erasing message and moving ReadPtr\n");
-        memset((MemSeg.QueueAddr + *ReadPtr), 0, length + sizeof(length));
+        CFE_PSP_MemSet((MemSeg.QueueAddr + *ReadPtr), 0,
+            length + sizeof(length));
         *ReadPtr = *ReadPtr + length + sizeof(length);
         ShMem_CheckWritePtr(MemSeg, MsgSize); /* Re-check to make sure ReadPtr is out of the way */
     }

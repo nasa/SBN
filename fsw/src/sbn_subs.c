@@ -48,7 +48,7 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
 
     DEBUG_START();
 
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
     msg.Hdr.Type = SBN_SUBSCRIBE_MSG;
     msg.Hdr.MsgSize = sizeof(msg);
     msg.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
@@ -219,7 +219,7 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
 
     DEBUG_START();
 
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
     /* don't subscribe to event messages */
     if(ntohs(Ptr->MsgId) == CFE_EVS_EVENT_MSG_MID) return;
 
@@ -246,7 +246,7 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
     SBN.LocalSubCnt++;
 
     /* init message */
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
     strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
     msg.Hdr.Type = SBN_SUBSCRIBE_MSG;
     msg.Hdr.MsgSize = sizeof(msg);
@@ -275,7 +275,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
 
     DEBUG_START();
 
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
 
     /* find idx of matching subscription */
     if(SBN_CheckLocSubs4MsgId(&idx, Ptr->MsgId) == SBN_MSGID_NOT_FOUND)
@@ -307,7 +307,7 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
     SBN.LocalSubCnt--;
 
     /* initialize the network msg */
-    memset(&msg, 0, sizeof(msg));
+    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
     msg.Hdr.Type = SBN_UN_SUBSCRIBE_MSG;
     strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
     msg.MsgId = Ptr->MsgId;

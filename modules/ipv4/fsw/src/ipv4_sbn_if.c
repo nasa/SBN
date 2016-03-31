@@ -212,7 +212,7 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
         /* create, fill, and store an IPv4-specific host data structure */
         IPv4_SBNHostData_t host;
 
-        memset(&host, 0, sizeof(host));
+        CFE_PSP_MemSet(&host, 0, sizeof(host));
 
         strncpy(host.Addr, entry->Addr, sizeof(entry->Addr));
         host.Port = entry->Port;
@@ -231,7 +231,7 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
         /* create, fill, and store an IPv4-specific host data structure */
         IPv4_SBNPeerData_t peer;
 
-        memset(&peer, 0, sizeof(peer));
+        CFE_PSP_MemSet(&peer, 0, sizeof(peer));
 
         strncpy(peer.Addr, entry->Addr, sizeof(entry->Addr));
         peer.Port = entry->Port;
