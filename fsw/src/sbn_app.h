@@ -126,7 +126,7 @@ void  SBN_DebugOff(void);
 void SBN_ResetPeerMsgCounts(uint32 PeerIdx);
 
 /* define to turn on debug event messages, warning, chatty! */
-#define SBN_DEBUG_MSGS
+#undef SBN_DEBUG_MSGS
 
 #ifdef SBN_DEBUG_MSGS
 #define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)
