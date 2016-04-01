@@ -449,13 +449,27 @@ int SBN_InitPeerInterface(void)
 int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *Msg, int PeerIdx)
 {
     int     status = 0;
+    SBN_Hdr_t hdr_buf;
 
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, Msg->Hdr.Type,
         Msg->Hdr.MsgSize);
 
+    Msg->Hdr.CPU_ID = CFE_CPU_ID;
+
+    /* SBN over the wire uses network (big-endian) byte order */
+    CFE_PSP_MemCpy(&hdr_buf, &Msg->Hdr, sizeof(hdr_buf));
+    Msg->Hdr.CPU_ID = htonl(Msg->Hdr.CPU_ID);
+    Msg->Hdr.MsgSize = htonl(Msg->Hdr.MsgSize);
+    Msg->Hdr.Type = htonl(Msg->Hdr.Type);
+    Msg->Hdr.SequenceCount = htons(Msg->Hdr.SequenceCount);
+    Msg->Hdr.GapAfter = htons(Msg->Hdr.GapAfter);
+    Msg->Hdr.GapTo = htons(Msg->Hdr.GapTo);
+
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
         Msg);
+
+    CFE_PSP_MemCpy(&Msg->Hdr, &hdr_buf, sizeof(hdr_buf));
 
     if(status != -1)
     {
@@ -482,12 +496,6 @@ int SBN_SendNetMsg(SBN_NetPkt_t *Msg, int PeerIdx)
     int status = 0;
 
     DEBUG_START();
-
-    /* if I'm not the sender, don't send (prevent loops) */
-    if(Msg->Hdr.MsgSender.ProcessorId != CFE_CPU_ID)
-    {
-        return SBN_OK;
-    }/* end if */
 
     Msg->Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
 
@@ -576,6 +584,15 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->ReceiveMsg(
             SBN.Host[HostIdx], &msg);
+
+        /* SBN over the wire uses network (big-endian) byte order */
+        msg.Hdr.CPU_ID = ntohl(msg.Hdr.CPU_ID);
+        msg.Hdr.MsgSize = ntohl(msg.Hdr.MsgSize);
+        msg.Hdr.Type = ntohl(msg.Hdr.Type);
+        msg.Hdr.SequenceCount = ntohs(msg.Hdr.SequenceCount);
+        msg.Hdr.GapAfter = ntohs(msg.Hdr.GapAfter);
+        msg.Hdr.GapTo = ntohs(msg.Hdr.GapTo);
+
         if(status == SBN_IF_EMPTY)
         {
             break; /* no (more) messages */
@@ -583,7 +600,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         if(status == SBN_OK)
         {
-            PeerIdx = SBN_GetPeerIndex(msg.Hdr.MsgSender.ProcessorId);
+            PeerIdx = SBN_GetPeerIndex(msg.Hdr.CPU_ID);
             if(PeerIdx == SBN_ERROR)
             {
                 CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,

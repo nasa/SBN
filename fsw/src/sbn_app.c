@@ -475,9 +475,6 @@ void SBN_RunProtocol(void)
         /* if peer data is not in use, go to next peer */
         if(SBN.Peer[PeerIdx].InUse != SBN_IN_USE) continue;
 
-        strncpy(msg.SrcCpuName, CFE_CPU_NAME,
-            SBN_MAX_PEERNAME_LENGTH);
-
         OS_GetLocalTime(&current_time);
 
         if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING)
@@ -515,7 +512,6 @@ void SBN_RunProtocol(void)
 
 static uint16 CheckMsgSize(CFE_SB_MsgPtr_t SBMsgPtr, int PeerIdx)
 {
-    CFE_SB_SenderId_t   *lastSenderPtr = NULL;
     uint16              AppMsgSize = 0, MaxAppMsgSize = 0;
 
     DEBUG_START();
@@ -524,16 +520,13 @@ static uint16 CheckMsgSize(CFE_SB_MsgPtr_t SBMsgPtr, int PeerIdx)
     AppMsgSize = CFE_SB_GetTotalMsgLength(SBMsgPtr);
     MaxAppMsgSize = (SBN_MAX_MSG_SIZE - sizeof(SBN_Hdr_t));
 
-    CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
-
     if(AppMsgSize >= MaxAppMsgSize)
     {
         CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_INFORMATION,
-            "%s:AppMsg 0x%04X,from %s, sz=%d destined for"
+            "%s:AppMsg 0x%04X, sz=%d destined for"
             " %s truncated to %d(max sz)",
             CFE_CPU_NAME, CFE_SB_GetMsgId(SBMsgPtr),
-            lastSenderPtr->AppName, AppMsgSize,
-            SBN.Peer[PeerIdx].Name, MaxAppMsgSize);
+            AppMsgSize, SBN.Peer[PeerIdx].Name, MaxAppMsgSize);
 
         AppMsgSize = MaxAppMsgSize;
     }/* end if */
@@ -559,16 +552,16 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
         return;
     }/* end if */
 
+    /* don't re-send what SBN sent */
+    CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
+    if(!strncmp(lastSenderPtr->AppName, "SBN", OS_MAX_API_NAME))
+    {
+        return;
+    }/* end if */
+
     /* copy message from SB buffer to network data msg buffer */
     AppMsgSize = CheckMsgSize(SBMsgPtr, PeerIdx);
     CFE_PSP_MemCpy(msg.Data, SBMsgPtr, AppMsgSize);
-
-    /* who sent this message */
-    CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
-    CFE_PSP_MemCpy(&msg.Hdr.MsgSender, lastSenderPtr,
-        sizeof(msg.Hdr.MsgSender));
-
-    strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
 
     msg.Hdr.MsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
     msg.Hdr.Type = SBN_APP_MSG;
@@ -607,11 +600,10 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
 {
     int                 PeerIdx = 0,
                         Status = 0;
-    CFE_SB_SenderId_t   sender;
 
     DEBUG_START();
 
-    PeerIdx = SBN_GetPeerIndex(msg->Hdr.MsgSender.ProcessorId);
+    PeerIdx = SBN_GetPeerIndex(msg->Hdr.CPU_ID);
 
     if(PeerIdx == SBN_ERROR) return;
 
@@ -634,10 +626,6 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
             break;
 
         case SBN_APP_MSG:
-	    sender.ProcessorId = msg->Hdr.MsgSender.ProcessorId;
-	    strncpy(sender.AppName, msg->Hdr.MsgSender.AppName,
-                sizeof(sender.AppName));
-
             DEBUG_MSG("Injecting %d", msg->Hdr.SequenceCount);
 
             Status = CFE_SB_SendMsgFull((CFE_SB_MsgPtr_t)msg->Data,
@@ -646,8 +634,8 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
-                    "%s:CFE_SB_SendMsg err %d. From %s type 0x%x",
-                    CFE_CPU_NAME, Status, msg->Hdr.SrcCpuName,
+                    "%s:CFE_SB_SendMsg err %d. type 0x%x",
+                    CFE_CPU_NAME, Status,
                     msg->Hdr.Type);
             }/* end if */
             break;
@@ -667,11 +655,10 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
         }
 
         default:
-            msg->Hdr.SrcCpuName[SBN_MAX_PEERNAME_LENGTH - 1] = '\0';
             /* make sure of termination */
             CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
-                "%s:Unknown Msg Type 0x%x from %s", CFE_CPU_NAME,
-                msg->Hdr.Type, msg->Hdr.SrcCpuName);
+                "%s:Unknown Msg Type 0x%x", CFE_CPU_NAME,
+                msg->Hdr.Type);
             break;
     }/* end switch */
 }/* end SBN_ProcessNetAppMsg */

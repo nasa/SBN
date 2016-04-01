@@ -117,14 +117,7 @@ int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, SBN_NetPkt_t *MsgBuf)
         TotalReceived += Received;
         if (TotalReceived < sizeof(SBN_Hdr_t)) continue;
 
-        /* SBN over the wire uses network (big-endian) byte order */
-        MsgBuf->Hdr.MsgSize = ntohl(MsgBuf->Hdr.MsgSize);
-        MsgBuf->Hdr.MsgSender.ProcessorId =
-            ntohl(MsgBuf->Hdr.MsgSender.ProcessorId);
-        MsgBuf->Hdr.Type = ntohl(MsgBuf->Hdr.Type);
-        MsgBuf->Hdr.SequenceCount = ntohs(MsgBuf->Hdr.SequenceCount);
-
-        if (TotalReceived >= MsgBuf->Hdr.MsgSize) return SBN_OK;
+        if (TotalReceived >= ntohl(MsgBuf->Hdr.MsgSize)) return SBN_OK;
     }
     return SBN_OK;
 }/* end SBN_IPv4RcvMsg */
@@ -279,28 +272,10 @@ int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
     bzero((char *) &s_addr, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = inet_addr(peer->Addr);
-
-    SBN_Hdr_t orig_hdr;
-
     s_addr.sin_port = htons(peer->Port);
 
-    /* Initialize the SBN hdr of the outgoing network message */
-    strncpy((char *)&MsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME,
-        SBN_MAX_PEERNAME_LENGTH);
-
-    memcpy(&orig_hdr, &(MsgBuf->Hdr), sizeof(orig_hdr));
-    MsgBuf->Hdr.MsgSize = htonl(orig_hdr.MsgSize);
-    MsgBuf->Hdr.Type = htonl(orig_hdr.Type);
-    MsgBuf->Hdr.SequenceCount = htons(orig_hdr.SequenceCount);
-    MsgBuf->Hdr.MsgSender.ProcessorId = ntohl(orig_hdr.MsgSender.ProcessorId);
-    MsgBuf->Hdr.SequenceCount = ntohs(orig_hdr.SequenceCount);
-    MsgBuf->Hdr.GapAfter = ntohs(orig_hdr.GapAfter);
-    MsgBuf->Hdr.GapTo = ntohs(orig_hdr.GapTo);
-
-    sendto(host->SockId, (char *)MsgBuf, orig_hdr.MsgSize, 0,
+    sendto(host->SockId, (char *)MsgBuf, ntohl(MsgBuf->Hdr.MsgSize), 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
-
-    memcpy(&(MsgBuf->Hdr), &orig_hdr, sizeof(orig_hdr));
 
     return SBN_OK;
 }/* end SBN_SendNetMsg */

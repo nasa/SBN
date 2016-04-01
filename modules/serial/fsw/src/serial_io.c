@@ -199,21 +199,18 @@ int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
         totalRead = totalRead + dataRead;
     }/* end while */
 
-    MsgBuf.Hdr.MsgSize = ntohl(MsgBuf.Hdr.MsgSize);
-    MsgBuf.Hdr.MsgSender.ProcessorId = ntohl(MsgBuf.Hdr.MsgSender.ProcessorId);
-    MsgBuf.Hdr.Type = ntohl(MsgBuf.Hdr.Type);
-    MsgBuf.Hdr.SequenceCount = ntohs(MsgBuf.Hdr.SequenceCount);
+    messageSize = ntohl(MsgBuf.Hdr.MsgSize);
 
-    if(MsgBuf.Hdr.MsgSize > sizeof(SBN_NetPkt_t))
+    if(messageSize > sizeof(SBN_NetPkt_t))
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Message size larger than max allowed "
-            "(size: %d, allowed: %ld)",
-            MsgBuf.Hdr.MsgSize, sizeof(SBN_NetPkt_t));
+            "(size: %d, allowed: %d)",
+            (int)messageSize, (int)sizeof(SBN_NetPkt_t));
         return SBN_ERROR;
     }/* end if */
 
-    messageSize = MsgBuf.Hdr.MsgSize - sizeof(MsgBuf.Hdr); 
+    messageSize = messageSize - sizeof(MsgBuf.Hdr); 
     while(totalRead < messageSize)
     {
         dataRead = OS_read(host->Fd, MsgBufPtr + totalRead, messageSize - totalRead);
@@ -241,14 +238,7 @@ int Serial_IoWriteMsg(int32 Fd, SBN_NetPkt_t *MsgBuf)
 {
     int32 bytesSent = 0;
     SBN_Hdr_t OrigHdr;
-    uint32 MsgSize = MsgBuf->Hdr.MsgSize;
-
-    memcpy(&OrigHdr, MsgBuf, sizeof(OrigHdr));
-
-    MsgBuf->Hdr.MsgSize = htonl(OrigHdr.MsgSize);
-    MsgBuf->Hdr.MsgSender.ProcessorId = htonl(OrigHdr.MsgSender.ProcessorId);
-    MsgBuf->Hdr.Type = htonl(OrigHdr.Type);
-    MsgBuf->Hdr.SequenceCount = htons(OrigHdr.SequenceCount);
+    uint32 MsgSize = ntohl(MsgBuf->Hdr.MsgSize);
 
     bytesSent = OS_write(Fd, &MsgBuf, MsgSize);
 

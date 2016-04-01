@@ -51,9 +51,7 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
     CFE_PSP_MemSet(&msg, 0, sizeof(msg));
     msg.Hdr.Type = SBN_SUBSCRIBE_MSG;
     msg.Hdr.MsgSize = sizeof(msg);
-    msg.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
-    strncpy(msg.Hdr.MsgSender.AppName, "SBN",
-        sizeof(msg.Hdr.MsgSender.AppName));
+    msg.Hdr.CPU_ID = CFE_CPU_ID;
 
     for(i = 0; i < SBN.LocalSubCnt; i++)
     {
@@ -102,7 +100,7 @@ int32 SBN_CheckSubscriptionPipe(void)
                 return SBN_TRUE;
 #else /* !SBN_PAYLOAD */
                 SubRprtMsgPtr = (CFE_SB_SubRprtMsg_t *) SBMsgPtr;
-                SubEntry.MsgId = htons(SubRprtMsgPtr->MsgId);
+                SubEntry.MsgId = SubRprtMsgPtr->MsgId;
                 SubEntry.Qos = SubRprtMsgPtr->Qos;
                 SubEntry.Pipe = SubRprtMsgPtr->Pipe;
                 switch(SubRprtMsgPtr->SubType)
@@ -247,15 +245,12 @@ void SBN_ProcessLocalSub(CFE_SB_SubEntries_t *Ptr)
 
     /* init message */
     CFE_PSP_MemSet(&msg, 0, sizeof(msg));
-    strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
     msg.Hdr.Type = SBN_SUBSCRIBE_MSG;
     msg.Hdr.MsgSize = sizeof(msg);
 
-    msg.MsgId = Ptr->MsgId;
+    msg.MsgId = htons(Ptr->MsgId);
     msg.Qos = Ptr->Qos;
-    strncpy(msg.Hdr.MsgSender.AppName, "SBN",
-        sizeof(msg.Hdr.MsgSender.AppName));
-    msg.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
+    msg.Hdr.CPU_ID = CFE_CPU_ID;
 
     for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
     {
@@ -309,12 +304,9 @@ void SBN_ProcessLocalUnsub(CFE_SB_SubEntries_t *Ptr)
     /* initialize the network msg */
     CFE_PSP_MemSet(&msg, 0, sizeof(msg));
     msg.Hdr.Type = SBN_UN_SUBSCRIBE_MSG;
-    strncpy(msg.Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
-    msg.MsgId = Ptr->MsgId;
+    msg.MsgId = htons(Ptr->MsgId);
     msg.Qos = Ptr->Qos;
-    msg.Hdr.MsgSender.ProcessorId = CFE_CPU_ID;
-    strncpy(msg.Hdr.MsgSender.AppName, "SBN",
-        sizeof(msg.Hdr.MsgSender.AppName));
+    msg.Hdr.CPU_ID = CFE_CPU_ID;
 
     /* send unsubscription to all peers if peer state is heartbeating and */
     /* only if no more local subs (InUseCtr = 0)  */
