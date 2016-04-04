@@ -20,13 +20,10 @@ typedef struct {
 typedef struct {
   /* total size of message including header */
   uint32            MsgSize;
+  /* SBN message type */
   uint32            Type;
   /* Protocol message originator */
   uint32            CPU_ID;
-  uint16            SequenceCount;
-  uint16            GapAfter;
-  uint16            GapTo;
-  uint16            Padding;
 } SBN_Hdr_t;
 
 typedef struct {
@@ -39,14 +36,6 @@ typedef struct {
   CFE_SB_MsgId_t    MsgId;
   CFE_SB_Qos_t      Qos;
 } SBN_NetSub_t;
-
-typedef struct {
-    SBN_NetPkt_t        Msgs[SBN_MSG_BUFFER_SIZE];
-    int8                Retransmits[SBN_MSG_BUFFER_SIZE];
-    int32               AddIndex;
-    int32               MsgCount;
-    int32               OldestIndex;
-} SBN_PeerMsgBuf_t;
 
 typedef struct {
     char   Name[SBN_MAX_PEERNAME_LENGTH];
@@ -65,10 +54,6 @@ typedef struct {
     char              PipeName[OS_MAX_API_NAME];
     char              Name[SBN_MAX_PEERNAME_LENGTH];
     uint8             QoS;       /* Quality of Service */
-    uint16            SentCount; /* number of msgs sent to this peer */
-    uint16            RcvdCount; /* number of msgs received from this peer */
-    uint16            MissCount; /* number of msgs missed by this peer */
-    uint16            RcvdInOrderCount; /* number of msgs received without misses */
     uint32            ProcessorId;
     int               ProtocolId;
     uint32            SpaceCraftId;
@@ -77,8 +62,6 @@ typedef struct {
     uint32            SubCnt;
     SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
     SBN_InterfaceData *IfData;
-    SBN_PeerMsgBuf_t  SentMsgBuf;  /* buffer of messages sent over the data interface */
-    SBN_PeerMsgBuf_t  DeferredBuf; /* buffer of messages deferred */
 } SBN_PeerData_t;
 
 /**

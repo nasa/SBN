@@ -123,8 +123,6 @@ void  SBN_SendWakeUpDebugMsg(void);
 void  SBN_DebugOn(void);
 void  SBN_DebugOff(void);
 
-void SBN_ResetPeerMsgCounts(uint32 PeerIdx);
-
 /* define to turn on debug event messages, warning, chatty! */
 #undef SBN_DEBUG_MSGS
 

@@ -30,7 +30,6 @@
 #include "cfe_sb.h"
 #include "sbn_app.h"
 #include "sbn_netif.h"
-#include "sbn_buf.h"
 #include "sbn_main_events.h"
 
 #include <network_includes.h>
@@ -422,9 +421,6 @@ int SBN_InitPeerInterface(void)
             /* Reset counters, flags and timers */
             SBN.Peer[SBN.NumPeers].State = SBN_ANNOUNCING;
 
-            SBN_InitMsgBuf(&SBN.Peer[SBN.NumPeers].SentMsgBuf);
-            SBN_InitMsgBuf(&SBN.Peer[SBN.NumPeers].DeferredBuf);
-
             SBN.NumPeers++;
         }
         else
@@ -446,7 +442,7 @@ int SBN_InitPeerInterface(void)
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *Msg, int PeerIdx)
+int SBN_SendNetMsg(SBN_NetPkt_t *Msg, int PeerIdx)
 {
     int     status = 0;
     SBN_Hdr_t hdr_buf;
@@ -461,9 +457,6 @@ int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *Msg, int PeerIdx)
     Msg->Hdr.CPU_ID = htonl(Msg->Hdr.CPU_ID);
     Msg->Hdr.MsgSize = htonl(Msg->Hdr.MsgSize);
     Msg->Hdr.Type = htonl(Msg->Hdr.Type);
-    Msg->Hdr.SequenceCount = htons(Msg->Hdr.SequenceCount);
-    Msg->Hdr.GapAfter = htons(Msg->Hdr.GapAfter);
-    Msg->Hdr.GapTo = htons(Msg->Hdr.GapTo);
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
@@ -481,98 +474,11 @@ int SBN_SendNetMsgNoBuf(SBN_NetPkt_t *Msg, int PeerIdx)
     }/* end if */
 
     return status;
-}/* end SBN_SendNetMsgNoBuf */
-
-/**
- * Sends a message to a peer over the appropriate interface.
- *
- * @param Msg           Message to send
- * @param PeerIdx       Index of peer data in peer array
- * @return Number of characters sent on success, -1 on error.
- *
- */
-int SBN_SendNetMsg(SBN_NetPkt_t *Msg, int PeerIdx)
-{
-    int status = 0;
-
-    DEBUG_START();
-
-    Msg->Hdr.SequenceCount = SBN.Peer[PeerIdx].SentCount;
-
-    DEBUG_MSG("Sending message %d", Msg->Hdr.SequenceCount);
-    
-    status = SBN_SendNetMsgNoBuf(Msg, PeerIdx);
-
-    if(status != -1)
-    {
-        SBN.Peer[PeerIdx].SentCount++;
-
-        SBN_AddMsgToMsgBufOverwrite(Msg,
-            &SBN.Peer[PeerIdx].SentMsgBuf);
-    }
-    else
-    {
-        SBN.HkPkt.PeerAppMsgSendErrCount[PeerIdx]++;
-    }/* end if */
-
-    return status;
 }/* end SBN_SendNetMsg */
-
-/**
- * Detects and handles missed messages.  If a message(s) is missed, messages
- * received out of order are deferred until missing messages are received.
- *
- * @param HostIdx  Index of receiving host
- * @param PeerIdx  Index of sending peer
- * @return  The number of missed messages
- */
-static uint8 CheckForMissedPkts(SBN_NetPkt_t *msg, int PeerIdx)
-{
-    uint8   sequenceCount = msg->Hdr.SequenceCount,
-            msgsRcvdByUs = SBN.Peer[PeerIdx].RcvdCount,
-            numMissed = sequenceCount - msgsRcvdByUs;
-
-    if(numMissed > 0)
-    {
-        SBN_Hdr_t nackpkt;
-        CFE_PSP_MemSet(&nackpkt, 0, sizeof(nackpkt));
-        
-        SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
-        CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
-            "Missed packet! Adding msg %d to deferred buffer",
-            sequenceCount);
-        SBN_AddMsgToMsgBufSend(msg, &SBN.Peer[PeerIdx].DeferredBuf, PeerIdx);
-
-        nackpkt.SequenceCount = msgsRcvdByUs;
-        nackpkt.Type = SBN_COMMAND_NACK_MSG;
-        nackpkt.MsgSize = sizeof(nackpkt);
-        SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&nackpkt, PeerIdx);
-
-        return numMissed;
-    }
-    else if(numMissed == 0)
-    {
-        SBN.Peer[PeerIdx].RcvdInOrderCount++;
-    }/* end if */
-
-    /* if we have received 16 in order, let's ack them */
-    if(SBN.Peer[PeerIdx].RcvdInOrderCount == 16)
-    {
-        SBN_Hdr_t ackpkt;
-        CFE_PSP_MemSet(&ackpkt, 0, sizeof(ackpkt));
-        ackpkt.SequenceCount = sequenceCount;
-        ackpkt.Type = SBN_COMMAND_ACK_MSG;
-        ackpkt.MsgSize = sizeof(ackpkt);
-        SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&ackpkt, PeerIdx);
-        SBN.Peer[PeerIdx].RcvdInOrderCount = 0;
-    }/* end if */
-
-    return numMissed;
-}/* end CheckForMissedPkts */
 
 void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 {
-    int i = 0, status = 0, PeerIdx = 0, missed = 0;
+    int i = 0, status = 0, PeerIdx = 0;
 
     /* DEBUG_START(); chatty */
 
@@ -589,9 +495,6 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
         msg.Hdr.CPU_ID = ntohl(msg.Hdr.CPU_ID);
         msg.Hdr.MsgSize = ntohl(msg.Hdr.MsgSize);
         msg.Hdr.Type = ntohl(msg.Hdr.Type);
-        msg.Hdr.SequenceCount = ntohs(msg.Hdr.SequenceCount);
-        msg.Hdr.GapAfter = ntohs(msg.Hdr.GapAfter);
-        msg.Hdr.GapTo = ntohs(msg.Hdr.GapTo);
 
         if(status == SBN_IF_EMPTY)
         {
@@ -612,17 +515,6 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
             switch(msg.Hdr.Type)
             {
-                case SBN_COMMAND_ACK_MSG:
-                    DEBUG_MSG("ACK, PeerIdx = %d", PeerIdx);
-                    SBN_ClearMsgBufBeforeSeq(msg.Hdr.SequenceCount,
-                        &SBN.Peer[PeerIdx].SentMsgBuf);
-                    break;
-                case SBN_COMMAND_NACK_MSG:
-                    DEBUG_MSG("NACK, PeerIdx = %d", PeerIdx);
-                    SBN_RetransmitSeq(&SBN.Peer[PeerIdx].SentMsgBuf, 
-                        msg.Hdr.SequenceCount,
-                        PeerIdx);
-                    break;
 		case SBN_ANNOUNCE_MSG:
                     DEBUG_MSG("HEARTBEAT, PeerIdx = %d", PeerIdx);
 		    SBN_ProcessNetAppMsg(&msg);
@@ -632,21 +524,8 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 		    SBN_ProcessNetAppMsg(&msg);
 		    break;
                 default:
-                    missed = CheckForMissedPkts(&msg, PeerIdx); 
-                    if(missed == 0)
-                    {
-                        SBN_ProcessNetAppMsg(&msg);
-                        SBN.Peer[PeerIdx].RcvdCount++;
+                    SBN_ProcessNetAppMsg(&msg);
        
-                        /* see if this message closed a gap and send any
-                        * deferred messages that immediately follow it */
-                        if(SBN.Peer[PeerIdx].DeferredBuf.MsgCount != 0)
-                        {
-                            SBN_SendConsecutiveFromBuf(
-                                &SBN.Peer[PeerIdx].DeferredBuf,
-                                msg.Hdr.SequenceCount, PeerIdx);
-                        }/* end if */
-                    }/* end if */
                     break;
             }/* end switch */
         }

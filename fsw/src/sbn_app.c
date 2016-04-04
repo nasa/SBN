@@ -65,7 +65,6 @@
 #include "sbn_msgids.h"
 #include "sbn_loader.h"
 #include "sbn_cmds.h"
-#include "sbn_buf.h"
 #include "sbn_subs.h"
 #include "sbn_main_events.h"
 #include "sbn_perfids.h"
@@ -484,7 +483,7 @@ void SBN_RunProtocol(void)
             {
                 msg.Type = SBN_ANNOUNCE_MSG;
                 msg.MsgSize = sizeof(msg);
-                SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx);
+                SBN_SendNetMsg((SBN_NetPkt_t *)&msg, PeerIdx);
             }/* end if */
             return;
         }/* end if */
@@ -503,7 +502,7 @@ void SBN_RunProtocol(void)
         {
             msg.Type = SBN_HEARTBEAT_MSG;
             msg.MsgSize = sizeof(msg);
-            SBN_SendNetMsgNoBuf((SBN_NetPkt_t *)&msg, PeerIdx);
+            SBN_SendNetMsg((SBN_NetPkt_t *)&msg, PeerIdx);
 	}/* end if */
     }/* end for */
 
@@ -613,7 +612,6 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
             "Peer #%d alive, resetting", PeerIdx);
         SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
-        SBN_ResetPeerMsgCounts(PeerIdx);
         SBN_SendLocalSubsToPeer(PeerIdx);
     }/* end if */
 
@@ -626,8 +624,6 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
             break;
 
         case SBN_APP_MSG:
-            DEBUG_MSG("Injecting %d", msg->Hdr.SequenceCount);
-
             Status = CFE_SB_SendMsgFull((CFE_SB_MsgPtr_t)msg->Data,
                 CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
 
@@ -698,12 +694,3 @@ int SBN_GetPeerIndex(uint32 ProcessorId)
 
     return SBN_ERROR;
 }/* end SBN_GetPeerIndex */
-
-void SBN_ResetPeerMsgCounts(uint32 PeerIdx)
-{
-    DEBUG_START();
-
-    SBN.Peer[PeerIdx].SentCount = 0;
-    SBN.Peer[PeerIdx].RcvdCount = 0;
-    SBN.Peer[PeerIdx].MissCount = 0;
-}/* end SBN_ResetPeerMsgCounts */
