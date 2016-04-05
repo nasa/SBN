@@ -3,8 +3,7 @@
  *
  * This file contains all functions that SBN calls, plus some helper functions.
  *
- * @author Jaclyn Beck, Jonathan Urriste
- * @date 2015/06/24 15:30:00
+ * @author Jaclyn Beck, Jonathan Urriste, Chris KNight
  */
 #include "serial_sbn_if_struct.h"
 #include "serial_sbn_if.h"
@@ -14,16 +13,6 @@
 #include <string.h>
 #include <arpa/inet.h> /* htonl/ntohl/etc. */
 
-/**
- * Receives a message from a peer over the appropriate interface.
- * Read pattern: search data for sync code, get message size, get message payload
- *
- * @param Host       Structure of interface data for the host
- * @param MsgBuf     Pointer to the SBN's protocol message buffer
- *
- * @return SB_OK on success
- * @return SBN_ERROR on error
- */
 int Serial_SbnReceiveMsg(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *Msg)
 {
@@ -71,16 +60,6 @@ int SBN_LoadSerialEntry(const char **row, int fieldcount, void *entryptr)
 
 #else /* ! _osapi_confloader_ */
 
-/**
- * Parses the peer data file into SBN_FileEntry_t structures.
- *
- * @param FileEntry  Interface description line as read from file
- * @param LineNum    The line number in the peer file
- * @param data       Entry data structure, this loads the InterfacePvt
- *
- * @return SBN_OK if entry is parsed correctly
- * @return SBN_ERROR on error
- */
 int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
     void *entryptr)
 {
@@ -116,16 +95,6 @@ int Serial_SbnParseInterfaceFileEntry(char *FileEntry, uint32 LineNum,
 
 #endif /* _osapi_confloader_ */
 
-/**
- * Initializes a Serial host or peer data struct depending on the
- * CPU name.
- *
- * @param  Interface data structure containing the file entry
- *
- * @return SBN_HOST if this entry is for a host (this CPU)
- * @return SBN_PEER if this entry is for a peer (a different CPU)
- * @return SBN_ERROR on error
- */
 int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
 {
     Serial_SBNEntry_t *entry = NULL;
@@ -200,21 +169,29 @@ int Serial_SbnInitPeerInterface(SBN_InterfaceData *Data)
     }/* end if */
 }/* end Serial_SbnInitPeerInterface */
 
+static int IsHostPeerMatch(Serial_SBNEntry_t *Host, Serial_SBNEntry_t *Peer)
+{
+    if(Host == NULL)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            "Serial: Error in IsHostPeerMatch: Host is NULL.\n");
+        return 0;
+    }/* end if */
 
-/**
- * Sends a message to a peer over a Serial interface.
- *
- * @param HostList     The array of SBN_InterfaceData structs that describes
- *                     the host.
- * @param IfData       The SBN_InterfaceData struct describing this peer
- * @param MsgBuf       Data message
- *
- * @return number of bytes written on success
- * @return SBN_ERROR on error
- */
-int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int NumHosts,
-    SBN_InterfaceData *IfData, SBN_MsgType_t MsgType, void *Msg,
-    SBN_MsgSize_t MsgSize)
+    if(Peer == NULL)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            "Serial: Error in IsHostPeerMatch: Peer is NULL.\n");
+        return 0;
+    }/* end if */
+
+    return (Host->PairNum == Peer->PairNum)
+        && (Host->BaudRate == Peer->BaudRate);
+}/* end IsHostPeerMatch */
+
+int Serial_SbnSendMsg(SBN_InterfaceData *HostList[], int NumHosts,
+    SBN_InterfaceData *IfData, SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
+    void *Msg)
 {
     Serial_SBNEntry_t *Peer = NULL;
     Serial_SBNHostData_t *Host = NULL;
@@ -250,7 +227,7 @@ int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int NumHosts,
         if(HostList[HostIdx]->ProtocolId == SBN_SERIAL)
         {
             Host = (Serial_SBNHostData_t *)(HostList[HostIdx]->InterfacePvt);
-            if(Serial_IsHostPeerMatch((Serial_SBNEntry_t *)Host, Peer))
+            if(IsHostPeerMatch((Serial_SBNEntry_t *)Host, Peer))
             {
                 break;
             }
@@ -279,23 +256,11 @@ int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int NumHosts,
     OS_write(Host->Fd, &Msg, MsgSize);
 
     return SBN_OK;
-}/* end SBN_SendNetMsg */
+}/* end SBN_SendMsg */
 
 
-/**
- * Iterates through the list of all host interfaces to see if there is a
- * match for the specified peer interface. For the serial interface, there
- * should be exactly one host per peer.
- *
- * @param SBN_InterfaceData *Peer    Peer to verify
- * @param SBN_InterfaceData *Hosts[] List of hosts to check against the peer
- * @param int32 NumHosts             Number of hosts in the SBN
- *
- * @return SBN_VALID     if the required match exists, else
- * @return SBN_NOT_VALID if not
- */
 int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
-        SBN_InterfaceData *HostList[], int NumHosts)
+    SBN_InterfaceData *HostList[], int NumHosts)
 {
     int HostIdx = 0;
     Serial_SBNEntry_t *HostEntry = NULL;
@@ -324,7 +289,7 @@ int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
         {
             HostEntry = (Serial_SBNEntry_t *)HostList[HostIdx]->InterfacePvt;
 
-            if(Serial_IsHostPeerMatch(HostEntry, PeerEntry))
+            if(IsHostPeerMatch(HostEntry, PeerEntry))
             {
                 return SBN_VALID;
             }/* end if */
@@ -334,20 +299,6 @@ int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
     return SBN_NOT_VALID;
 }/* end Serial_SbnVerifyPeerInterface */
 
-
-/**
- * Iterates through the list of all peer interfaces to see if there is a
- * match for the specified host interface. For the serial interface, there
- * should be exactly one peer per host. Once a valid host/peer match is found,
- * the task to read from the serial port is started for that host.
- *
- * @param SBN_InterfaceData *Host    Host to verify
- * @param SBN_PeerData_t *Peers      List of peers to check against the host
- * @param int32 NumPeers             Number of peers in the SBN
- *
- * @return SBN_VALID     if the required match exists, else
- * @return SBN_NOT_VALID if not
- */
 int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Data,
     SBN_PeerData_t *PeerList, int NumPeers)
 {
@@ -379,7 +330,7 @@ int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Data,
             PeerEntry = (Serial_SBNEntry_t *)(PeerList[PeerIdx].IfData)
                 ->InterfacePvt;
 
-            if(Serial_IsHostPeerMatch(HostEntry, PeerEntry))
+            if(IsHostPeerMatch(HostEntry, PeerEntry))
             {
                 /* Start serial read task. */
                 return Serial_IoStartReadTask(
@@ -391,24 +342,50 @@ int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Data,
     return SBN_NOT_VALID;
 }/* end Serial_SbnVerifyHostInterface */
 
+static int GetHostPeerMatchData(SBN_InterfaceData *Data,
+    SBN_InterfaceData *HostList[], Serial_SBNHostData_t **HostData,
+    Serial_SBNPeerData_t **PeerData, int NumHosts)
+{
+    Serial_SBNEntry_t *HostEntry = NULL;
+    int HostIdx = 0;
 
-/**
- * Reports the status of the module. The status packet is passed in
- * initialized (with message ID and size), the module fills it, and upon
- * return the SBN application sends the message over the software bus.
- * For the serial module, the status packet contains the peer data (a
- * Serial_SBNPeerData_t struct) and its matching host's data (a
- * Serial_SBNHostData_t struct). This provides basic information about the
- * serial port (file descriptor, queue numbers, semaphore numbers).
- *
- * @param StatusPkt Status packet to fill
- * @param Peer      Peer to report status
- * @param HostList  List of hosts that may match with peer
- * @param NumHosts  Number of hosts in the SBN
- *
- * @return SBN_OK on success
- * @return SBN_ERROR if the necessary data can't be found
- */
+    if(Data->InterfacePvt == 0)
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
+            "Serial: InterfaceData entry has no interface private.\n");
+        return SBN_ERROR;
+    }/* end if */
+
+    *PeerData = (Serial_SBNPeerData_t *)Data->InterfacePvt;
+
+    /* Find the host that goes with this peer. */
+    for(HostIdx = 0; HostIdx < NumHosts; HostIdx++)
+    {
+        if(HostList[HostIdx]->ProtocolId == SBN_SERIAL)
+        {
+            HostEntry = (Serial_SBNEntry_t *)HostList[HostIdx]->InterfacePvt;
+
+            if(IsHostPeerMatch(HostEntry,
+                (Serial_SBNEntry_t *)Data->InterfacePvt))
+            {
+                if(HostList[HostIdx]->InterfacePvt != 0)
+                {
+                    *HostData = (Serial_SBNHostData_t *)HostList[HostIdx]
+                        ->InterfacePvt;
+                    return SBN_OK;
+                }/* end if */
+            }/* end if */
+        }/* end if */
+    }/* end for */
+
+    /* If the code reaches here, no match was found */
+    CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
+        "Serial: Could not find matching host for peer %d.\n",
+        (*PeerData)->PairNum);
+
+    return SBN_ERROR;
+}/* end GetHostPeerMatchData */
+
 int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt,
     SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts)
 {
@@ -445,7 +422,7 @@ int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt,
     ModuleStatus = (Serial_SBNModuleStatus_t*)&StatusPkt->ModuleStatus;
 
     /* Find the matching host for this peer */
-    Status = Serial_GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData, NumHosts);
+    Status = GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData, NumHosts);
     if(Status != SBN_OK)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
@@ -462,25 +439,6 @@ int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt,
     return SBN_OK;
 }/* end Serial_SbnReportModuleStatus */
 
-
-/**
- * Resets a specific peer.
- * Because the peer doesn't do anything but read from a queue, we actually need
- * to find the matching host and do resets using the host's data.
- * A reset includes:
- *  - Stopping the serial port read task
- *  - Close the serial port
- *  - Emptying both data and protocol queues
- *  - Re-opening the serial port
- *  - Restarting the serial port read task
- *
- * @param Peer      Peer to reset
- * @param HostList  List of hosts that may match with peer
- * @param NumHosts  Number of hosts in the SBN
- *
- * @return SBN_OK when the peer is reset correcly
- * @return SBN_ERROR if the peer cannot be reset
- */
 int Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
     int NumHosts)
 {
@@ -504,7 +462,7 @@ int Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
     }/* end if */
 
     /* Find the matching host for this peer */
-    Status = Serial_GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData,
+    Status = GetHostPeerMatchData(Peer, HostList, &HostData, &PeerData,
         NumHosts);
     if(Status != SBN_OK)
     {
@@ -561,94 +519,3 @@ int Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
 
     return SBN_OK;
 }/* end Serial_SbnResetPeer */
-
-
-/**
- * Searches through a list of hosts to find a matching host to the peer. If a
- * match is found, it will assign the HostData and PeerData pointers.
- * HostData and PeerData are double pointers (pointer to a struct pointer)
- * so that the struct address is assigned correctly in the calling functions.
- *
- * @param Peer      Peer to search for matches for
- * @param HostList  List of possible hosts to search
- * @param NumHosts  Number of hosts in the list
- * @param HostData  Pointer to the struct where matching host data will go
- * @param PeerData  Pointer to the struct where matching peer data will go
- *
- * @return SBN_OK if a match was found
- * @return SBN_ERROR if no match found
- */
-int Serial_GetHostPeerMatchData(SBN_InterfaceData *Data,
-    SBN_InterfaceData *HostList[], Serial_SBNHostData_t **HostData,
-    Serial_SBNPeerData_t **PeerData, int NumHosts)
-{
-    Serial_SBNEntry_t *HostEntry = NULL;
-    int HostIdx = 0;
-
-    if(Data->InterfacePvt == 0)
-    {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
-            "Serial: InterfaceData entry has no interface private.\n");
-        return SBN_ERROR;
-    }/* end if */
-
-    *PeerData = (Serial_SBNPeerData_t *)Data->InterfacePvt;
-
-    /* Find the host that goes with this peer. */
-    for(HostIdx = 0; HostIdx < NumHosts; HostIdx++)
-    {
-        if(HostList[HostIdx]->ProtocolId == SBN_SERIAL)
-        {
-            HostEntry = (Serial_SBNEntry_t *)HostList[HostIdx]->InterfacePvt;
-
-            if(Serial_IsHostPeerMatch(HostEntry,
-                (Serial_SBNEntry_t *)Data->InterfacePvt))
-            {
-                if(HostList[HostIdx]->InterfacePvt != 0)
-                {
-                    *HostData = (Serial_SBNHostData_t *)HostList[HostIdx]
-                        ->InterfacePvt;
-                    return SBN_OK;
-                }/* end if */
-            }/* end if */
-        }/* end if */
-    }/* end for */
-
-    /* If the code reaches here, no match was found */
-    CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_INFORMATION,
-        "Serial: Could not find matching host for peer %d.\n",
-        (*PeerData)->PairNum);
-
-    return SBN_ERROR;
-}/* end Serial_GetHostPeerMatchData */
-
-
-/**
- * Compares pair number and baud rates of the host/peer to verify that they
- * match.
- *
- * @param Serial_SBNEntry_t *Host    Host to verify
- * @param Serial_SBNEntry_t *Peer    Peer to verify
- *
- * @return 1 if the two match, else
- * @return 0 if not
- */
-int Serial_IsHostPeerMatch(Serial_SBNEntry_t *Host, Serial_SBNEntry_t *Peer)
-{
-    if(Host == NULL)
-    {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
-            "Serial: Error in IsHostPeerMatch: Host is NULL.\n");
-        return 0;
-    }/* end if */
-
-    if(Peer == NULL)
-    {
-        CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
-            "Serial: Error in IsHostPeerMatch: Peer is NULL.\n");
-        return 0;
-    }/* end if */
-
-    return (Host->PairNum == Peer->PairNum)
-        && (Host->BaudRate == Peer->BaudRate);
-}/* end Serial_IsHostPeerMatch */

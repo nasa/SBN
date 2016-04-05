@@ -91,40 +91,11 @@ sbn_t SBN;
 /*
 ** Prototypes
 */
-void  SBN_AppMain(void);
-int   SBN_Init(void);
-int   SBN_WaitForSBStartup(void);
-int32 SBN_RcvMsg(int32 iTimeOut);
-int   SBN_InitProtocol(void);
-void  SBN_InitPeerVariables(void);
-
+void SBN_AppMain(void);
 int SBN_CreatePipe4Peer(int PeerIdx);
-void  SBN_RunProtocol(void);
-
-void  SBN_CheckPipe(int PeerIdx);
-void  SBN_CheckPeerPipes(void);
-
-void  SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
+void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     SBN_MsgSize_t MsgSize, void *Msg);
-
-int32 SBN_CheckCmdPipe(void);
-
-int SBN_GetPeerIndex (uint32 ProcessorId);
-
-void  SBN_ShowStates(void);
-
-char  *SBN_StateNum2Str(uint32 StateNum);
-
-void  SBN_SendFileOpenedEvent(char *Filename);
-
-void  SBN_NetMsgSendDbgEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
-void  SBN_NetMsgSendErrEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
-void  SBN_NetMsgRcvDbgEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
-void  SBN_NetMsgRcvErrEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
-char  *SBN_GetMsgName(SBN_MsgType_t MsgType);
-void  SBN_SendWakeUpDebugMsg(void);
-void  SBN_DebugOn(void);
-void  SBN_DebugOff(void);
+int SBN_GetPeerIndex(uint32 ProcessorId);
 
 /* define to turn on debug event messages, warning, chatty! */
 #undef SBN_DEBUG_MSGS

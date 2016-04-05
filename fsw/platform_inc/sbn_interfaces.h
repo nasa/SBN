@@ -21,8 +21,10 @@ typedef uint16 SBN_MsgSize_t;
 typedef uint8 SBN_MsgType_t;
 typedef uint32 SBN_CpuId_t;
 
-/* note that the packed size is likely smaller than the in-memory's struct
+/* note that the packed size is likely smaller than an in-memory's struct
  * size, as the CPU will align objects.
+ * SBN headers are MsgSize + MsgType + CpuId
+ * SBN subscription messages are MsgId + Qos
  */
 #define SBN_PACKED_HDR_SIZE (sizeof(SBN_MsgSize_t) + sizeof(SBN_MsgType_t) + sizeof(SBN_CpuId_t))
 
@@ -95,20 +97,29 @@ typedef struct {
      * un/subscriptions and app messages.  The protocol message buffer is used
      * for announce and heartbeat messages/acks.
      *
-     * @param SBN_InterfaceData *[]  Array of all host interfaces in the SBN
-     * @param int                    Number of host interfaces in the SBN
-     * @param SBN_InterfaceData *    Interface data describing the intended peer recipient
-     * @param SBN_NetPkt_t *         Buffer containing a data message to send
+     * @param SBN_InterfaceData *[] Array of all host interfaces in the SBN
+     * @param int                   Number of host interfaces in the SBN
+     * @param SBN_InterfaceData *   Interface data describing the
+     *                              intended peer recipient
+     * @param SBN_MsgType_t         The SBN message type
+     * @param SBN_MsgSize_t         The size of the SBN message payload
+     * @param void *                The SBN message payload
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
     int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_InterfaceData *,
-        SBN_MsgType_t, void *, SBN_MsgSize_t);
+        SBN_MsgType_t, SBN_MsgSize_t, void *);
 
 
     /**
      * Receives a data message from the specified interface.
      *
-     * @param SBN_InterfaceData * Host interface from which to receive a message
+     * @param SBN_InterfaceData *   Host interface from which to receive a
+     *                              message
+     * @param SBN_MsgType_t *       SBN message type received.
+     * @param SBN_MsgSize_t *       Payload size received.
+     * @param SBN_CpuId_t *         CpuId of the sender.
+     * @param void *                Message buf
+     *                              (pass in a buffer of SBN_MAX_MSG_SIZE)
      * @return SBN_OK on success, SBN_ERROR on failure
      */
     int (*ReceiveMsg)(SBN_InterfaceData *, SBN_MsgType_t *,
@@ -124,7 +135,8 @@ typedef struct {
      * @param int                    Number of hosts in the SBN
      * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
      */
-    int (*VerifyPeerInterface)(SBN_InterfaceData *, SBN_InterfaceData *[], int);
+    int (*VerifyPeerInterface)(SBN_InterfaceData *, SBN_InterfaceData *[],
+        int);
 
     /**
      * Iterates through the list of all peer interfaces to see if there is a
@@ -153,7 +165,8 @@ typedef struct {
      *         function
      *         SBN_OK otherwise
      */
-    int (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *, SBN_InterfaceData *, SBN_InterfaceData *[], int);
+    int (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *,
+        SBN_InterfaceData *, SBN_InterfaceData *[], int);
 
     /**
      * Resets a specific peer.
@@ -171,6 +184,5 @@ typedef struct {
     int (*ResetPeer)(SBN_InterfaceData *, SBN_InterfaceData *[], int);
 
 } SBN_InterfaceOperations;
-
 
 #endif /* _sbn_interfaces_h_ */

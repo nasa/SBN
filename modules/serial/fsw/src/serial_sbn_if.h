@@ -7,32 +7,33 @@
 #include "serial_sbn_if_struct.h"
 #include "serial_io.h"
 
-/* Interface-specific functions */
-void  SBN_ShowSerialPeerData(int i);
-
 /* SBN_InterfaceOperations functions */
+
 #ifdef _osapi_confloader_
 int SBN_LoadSerialEntry(const char **row, int fieldcount, void *entryptr);
 #else /* ! _osapi_confloader_*/
 int Serial_SbnParseInterfaceFileEntry(char *, uint32, void*);
 #endif /* _osapi_confloader_ */
 int Serial_SbnInitPeerInterface(SBN_InterfaceData* data);
+
+int Serial_SbnSendMsg(SBN_InterfaceData *HostList[], int NumHosts,
+    SBN_InterfaceData *IfData, SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
+    void *Msg);
+
 int Serial_SbnReceiveMsg(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *MsgBuf);
 
-int Serial_SbnSendNetMsg(SBN_InterfaceData *HostList[], int NumHosts,
-    SBN_InterfaceData *IfData, SBN_MsgType_t MsgType, void *Msg,
-    SBN_MsgSize_t MsgSize);
+int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
+    SBN_InterfaceData *HostList[], int NumHosts);
 
-int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts);
-int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *PeerList, int NumPeers);
-int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt, SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts);
-int Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts);
+int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Host,
+    SBN_PeerData_t *PeerList, int NumPeers);
 
-/* Utility functions */
-int Serial_GetHostPeerMatchData(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], Serial_SBNHostData_t **HostData, Serial_SBNPeerData_t **PeerData, int NumHosts); 
-int Serial_IsHostPeerMatch(Serial_SBNEntry_t *Host, Serial_SBNEntry_t *Peer);
+int Serial_SbnReportModuleStatus(SBN_ModuleStatusPacket_t *StatusPkt,
+    SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts);
 
+int Serial_SbnResetPeer(SBN_InterfaceData *Peer,
+    SBN_InterfaceData *HostList[], int NumHosts);
 
 /* Interface operations called by SBN */
 SBN_InterfaceOperations SerialOps = {
@@ -42,7 +43,7 @@ SBN_InterfaceOperations SerialOps = {
     Serial_SbnParseInterfaceFileEntry,
 #endif /* _osapi_confloader_ */
     Serial_SbnInitPeerInterface,
-    Serial_SbnSendNetMsg,
+    Serial_SbnSendMsg,
     Serial_SbnReceiveMsg,
     Serial_SbnVerifyPeerInterface,
     Serial_SbnVerifyHostInterface,

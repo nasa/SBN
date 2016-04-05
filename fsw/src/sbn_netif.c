@@ -37,7 +37,7 @@
 #include <errno.h>
 
 #ifdef _osapi_confloader_
-static int SBN_PeerFileRowCallback(const char *filename, int linenum,
+static int PeerFileRowCallback(const char *filename, int linenum,
     const char *header, const char *row[], int fieldcount, void *opaque)
 {
     int ProtocolId = 0, status = 0;
@@ -88,54 +88,54 @@ static int SBN_PeerFileRowCallback(const char *filename, int linenum,
     }/* end if */
 
     return OS_SUCCESS;
-}
+}/* end PeerFileRowCallback */
 
-static int SBN_PeerFileErrCallback(const char *filename, int linenum,
+static int PeerFileErrCallback(const char *filename, int linenum,
     const char *err, void *opaque)
 {
     return OS_SUCCESS;
-}
+}/* end PeerFileErrCallback */
 
 int32 SBN_GetPeerFileData(void)
 {
     int32 status = 0, id = 0;
 
     status = OS_ConfLoaderAPIInit();
-    if (status != OS_SUCCESS)
+    if(status != OS_SUCCESS)
     {   
         return status;
-    }
+    }/* end if */
 
     status = OS_ConfLoaderInit(&id, "sbn_peer");
-    if (status != OS_SUCCESS)
+    if(status != OS_SUCCESS)
     {   
         return status;
-    }
+    }/* end if */
 
-    status = OS_ConfLoaderSetRowCallback(id, SBN_PeerFileRowCallback, NULL);
-    if (status != OS_SUCCESS)
+    status = OS_ConfLoaderSetRowCallback(id, PeerFileRowCallback, NULL);
+    if(status != OS_SUCCESS)
     {
         return status;
-    }
+    }/* end if */
 
-    status = OS_ConfLoaderSetErrorCallback(id, SBN_PeerFileErrCallback, NULL);
-    if (status != OS_SUCCESS)
+    status = OS_ConfLoaderSetErrorCallback(id, PeerFileErrCallback, NULL);
+    if(status != OS_SUCCESS)
     {
         return status;
-    }
+    }/* end if */
 
     OS_ConfLoaderLoad(id, SBN_VOL_PEER_FILENAME);
     OS_ConfLoaderLoad(id, SBN_NONVOL_PEER_FILENAME);
 
     return SBN_OK;
-}
+}/* end SBN_GetPeerFileData */
 
 #else /* ! _osapi_confloader_ */
 
-static char* SBN_FindFileEntryAppData(char *entry, int num_fields)
+static char *SBN_FindFileEntryAppData(char *entry, int num_fields)
 {
-    char    *char_ptr = entry;
-    int     num_found_fields = 0;
+    char *char_ptr = entry;
+    int num_found_fields = 0;
 
     DEBUG_START();
 
@@ -151,32 +151,15 @@ static char* SBN_FindFileEntryAppData(char *entry, int num_fields)
     return char_ptr;
 }/* end SBN_FindFileEntryAppData */
 
-/**
- * Parses the peer data file into SBN_FileEntry_t structures.
- * Parses information that is common to all interface types and
- * allows individual interface modules to parse out interface-
- * specfic information.
- *
- * For now, all data from the file is stored together, it will later
- * be divided into peer and host data.
- *
- * @param FileEntry  Interface description line as read from file
- * @param LineNum    The line number in the peer file
- * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
- *
- */
-static int SBN_ParseFileEntry(char *FileEntry)
+static int ParseFileEntry(char *FileEntry)
 {
-    char    Name[SBN_MAX_PEERNAME_LENGTH];
-    char    *app_data = NULL;
-    uint32  ProcessorId = 0;
-    int     ProtocolId = 0;
-    uint32  SpaceCraftId = 0;
-    uint32  QoS = 0;
-    int     ScanfStatus = 0;
-    int     status = 0;
-    int     NumFields = 5;
-    int ProcessorIdInt = 0, ProtocolIdInt = 0, SpaceCraftIdInt = 0, QoSInt = 0;
+    char Name[SBN_MAX_PEERNAME_LENGTH];
+    char  *app_data = NULL;
+    uint32 ProcessorId = 0;
+    int ProtocolId = 0;
+    uint32 SpaceCraftId = 0, QoS = 0;
+    int ScanfStatus = 0, status = 0, NumFields = 5, ProcessorIdInt = 0,
+        ProtocolIdInt = 0, SpaceCraftIdInt = 0, QoSInt = 0;
 
     DEBUG_START();
 
@@ -211,7 +194,7 @@ static int SBN_ParseFileEntry(char *FileEntry)
         return SBN_ERROR;
     }/* end if */
 
-    if (ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
+    if(ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
         || !SBN.IfOps[ProtocolId])
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
@@ -236,7 +219,7 @@ static int SBN_ParseFileEntry(char *FileEntry)
     }/* end if */
 
     return status;
-}/* end SBN_ParseFileEntry */
+}/* end ParseFileEntry */
 
 int32 SBN_GetPeerFileData(void)
 {
@@ -309,7 +292,7 @@ int32 SBN_GetPeerFileData(void)
         if(c == '!')
         {
             break;
-        }
+        }/* end if */
 
         if(c == '\n' || c == ' ' || c == '\t')
         {
@@ -342,7 +325,7 @@ int32 SBN_GetPeerFileData(void)
             /*
              ** Send the line to the file parser
              */
-            if(SBN_ParseFileEntry(SBN_PeerData) == SBN_ERROR)
+            if(ParseFileEntry(SBN_PeerData) == SBN_ERROR)
             {
                 OS_close(PeerFile);
                 return SBN_ERROR;
@@ -369,10 +352,8 @@ int32 SBN_GetPeerFileData(void)
  */
 int SBN_InitPeerInterface(void)
 {
-    int32   Stat = 0;
-    int     i = 0;
-    int32   IFRole = 0; /* host or peer */
-    int     PeerIdx = 0;
+    int32 Stat = 0, IFRole = 0; /* host or peer */
+    int i = 0, PeerIdx = 0;
 
     DEBUG_START();
 
@@ -391,15 +372,19 @@ int SBN_InitPeerInterface(void)
         }
         else if(IFRole == SBN_PEER)
         {
-            CFE_PSP_MemSet(&SBN.Peer[SBN.NumPeers], 0, sizeof(SBN.Peer[SBN.NumPeers]));
+            CFE_PSP_MemSet(&SBN.Peer[SBN.NumPeers], 0,
+                sizeof(SBN.Peer[SBN.NumPeers]));
             SBN.Peer[SBN.NumPeers].IfData = &SBN.IfData[PeerIdx];
             SBN.Peer[SBN.NumPeers].InUse = SBN_IN_USE;
 
             /* for ease of use, copy some data from the entry into the peer */
             SBN.Peer[SBN.NumPeers].QoS = SBN.IfData[PeerIdx].QoS;
-            SBN.Peer[SBN.NumPeers].ProcessorId = SBN.IfData[PeerIdx].ProcessorId;
-            SBN.Peer[SBN.NumPeers].ProtocolId = SBN.IfData[PeerIdx].ProtocolId;
-            SBN.Peer[SBN.NumPeers].SpaceCraftId = SBN.IfData[PeerIdx].SpaceCraftId;
+            SBN.Peer[SBN.NumPeers].ProcessorId =
+                SBN.IfData[PeerIdx].ProcessorId;
+            SBN.Peer[SBN.NumPeers].ProtocolId =
+                SBN.IfData[PeerIdx].ProtocolId;
+            SBN.Peer[SBN.NumPeers].SpaceCraftId =
+                SBN.IfData[PeerIdx].SpaceCraftId;
             strncpy(SBN.Peer[SBN.NumPeers].Name, SBN.IfData[PeerIdx].Name,
                 SBN_MAX_PEERNAME_LENGTH);
 
@@ -429,30 +414,32 @@ int SBN_InitPeerInterface(void)
         }/* end if */
     }/* end for */
 
-    OS_printf("SBN: Num Hosts = %d, Num Peers = %d\n", SBN.NumHosts, SBN.NumPeers);
+    CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+        "SBN: Num Hosts = %d, Num Peers = %d", SBN.NumHosts, SBN.NumPeers);
     return SBN_OK;
 }/* end SBN_InitPeerInterface */
 
 /**
- * Sends a message to a peer over the appropriate interface after packing
- * and making big-endian.
+ * Sends a message to a peer using the module's SendNetMsg.
  *
+ * @param MsgType       SBN type of the message
+ * @param MsgSize       Size of the message
  * @param Msg           Message to send
  * @param PeerIdx       Index of peer data in peer array
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, void *Msg,
-     SBN_MsgSize_t MsgSize, int PeerIdx)
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
+     int PeerIdx)
 {
-    int     status = 0;
+    int status = 0;
 
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
         MsgSize);
     
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
-        MsgType, Msg, MsgSize);
+        MsgType, MsgSize, Msg);
 
     if(status != -1)
     {
@@ -466,7 +453,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, void *Msg,
     return status;
 }/* end SBN_SendNetMsg */
 
-void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
+void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 {
     int i = 0, status = 0, PeerIdx = 0;
 
@@ -515,33 +502,24 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
  */
 void SBN_CheckForNetAppMsgs(void)
 {
-    int     HostIdx = 0, priority = 0;
+    int HostIdx = 0;
 
     /* DEBUG_START(); chatty */
 
-    while(priority < SBN_MAX_PEER_PRIORITY)
+    for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
     {
-        for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
+        if(SBN.Host[HostIdx]->IsValid != SBN_VALID)
         {
-            if(SBN.Host[HostIdx]->IsValid != SBN_VALID)
-            {
-                continue;
-            }/* end if */
+            continue;
+        }/* end if */
 
-            if((int)SBN_GetPriorityFromQoS(SBN.Host[HostIdx]->QoS != priority))
-            {
-                continue;
-            }/* end if */
-
-            SBN_ProcessNetAppMsgsFromHost(HostIdx);
-        }/* end for */
-        priority++;
-    }/* end while */
+        SBN_ProcessNetAppMsgsFromHost(HostIdx);
+    }/* end for */
 }/* end SBN_CheckForNetAppMsgs */
 
 void SBN_VerifyPeerInterfaces()
 {
-    int     PeerIdx = 0, status = 0;
+    int PeerIdx = 0, status = 0;
 
     DEBUG_START();
 
@@ -557,15 +535,16 @@ void SBN_VerifyPeerInterfaces()
         {
             SBN.Peer[PeerIdx].IfData->IsValid = SBN_NOT_VALID;
             SBN.Peer[PeerIdx].InUse = SBN_NOT_IN_USE;
-            /* TODO - send EVS Message */
-            OS_printf("Peer %s Not Valid\n", SBN.Peer[PeerIdx].IfData->Name);
+
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+                "Peer %s Not Valid", SBN.Peer[PeerIdx].IfData->Name);
         }/* end if */
     }/* end for */
 }/* end SBN_VerifyPeerInterfaces */
 
 void SBN_VerifyHostInterfaces()
 {
-    int     HostIdx = 0, status = 0;
+    int HostIdx = 0, status = 0;
 
     DEBUG_START();
 
@@ -582,55 +561,8 @@ void SBN_VerifyHostInterfaces()
         {
             SBN.Host[HostIdx]->IsValid = SBN_NOT_VALID;
 
-            /* TODO - send EVS Message */
-            OS_printf("Host %s Not Valid\n", SBN.Host[HostIdx]->Name);
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+                "Host %s Not Valid", SBN.Host[HostIdx]->Name);
         }/* end if */
     }/* end for */
 }/* end SBN_VerifyHostInterfaces */
-
-uint8 inline SBN_GetReliabilityFromQoS(uint8 QoS)
-{
-    DEBUG_START();
-
-    return((QoS & 0xF0) >> 4);
-}/* end SBN_GetReliabilityFromQoS */
-
-uint8 inline SBN_GetPriorityFromQoS(uint8 QoS)
-{
-    /* DEBUG_START(); too chatty */
-
-    return(QoS & 0x0F);
-}/* end SBN_GetPriorityFromQoS */
-
-uint8 inline SBN_GetPeerQoSReliability(const SBN_PeerData_t * peer)
-{
-    /* DEBUG_START(); too chatty */
-
-    return SBN_GetReliabilityFromQoS(peer->QoS);
-}/* end SBN_GetPeerQoSReliability */
-
-uint8 inline SBN_GetPeerQoSPriority(const SBN_PeerData_t * peer)
-{
-    /* DEBUG_START(); too chatty */
-
-    return SBN_GetPriorityFromQoS(peer->QoS);
-}/* end SBN_GetPeerQoSPriority */
-
-int SBN_ComparePeerQoS(const void * peer1, const void * peer2)
-{
-    uint8   peer1_priority = SBN_GetPeerQoSPriority((SBN_PeerData_t*)peer1),
-            peer2_priority = SBN_GetPeerQoSPriority((SBN_PeerData_t*)peer2);
-
-    DEBUG_START();
-
-    if(peer1_priority < peer2_priority)
-    {
-        return 1;
-    }/* end if */
-
-    if(peer1_priority > peer2_priority)
-    {
-        return -1;
-    }/* end if */
-    return 0;
-}/* end SBN_ComparePeerQoS */
