@@ -37,7 +37,8 @@ void  SBN_CheckForNetAppMsgs(void);
 void  SBN_VerifyPeerInterfaces(void);
 void  SBN_VerifyHostInterfaces(void);
 
-int SBN_SendNetMsg(SBN_NetPkt_t *Msg, int PeerIdx);
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, void *Msg,
+    SBN_MsgSize_t MsgSize, int PeerIdx);
 
 uint8 inline SBN_GetReliabilityFromQoS(uint8 QoS);
 uint8 inline SBN_GetPriorityFromQoS(uint8 QoS);

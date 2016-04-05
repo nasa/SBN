@@ -22,4 +22,6 @@ int32 SBN_LIB_MsgTypeIsData(uint32 MsgType);
 char *SBN_LIB_GetMsgName(uint32 MsgType);
 char *SBN_LIB_StateNum2Str(uint32 StateNum);
 
+int32 SBN_EndianMemCpy(void *dest, void *src, uint32 n);
+
 #endif /* _sbn_utils_h_ */

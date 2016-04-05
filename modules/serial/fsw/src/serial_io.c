@@ -173,87 +173,67 @@ int32 Serial_IoSetAttrs(int32 Fd, uint32 BaudRate)
  * @return SBN_IF_EMPTY if no message to read
  * @return SBN_ERROR if unsuccessful
  */
-int32 Serial_IoReadMsg(Serial_SBNHostData_t *host)
+int32 Serial_IoReadMsg(Serial_SBNHostData_t *Host)
 {
-    int32 dataRead = 0, totalRead = 0;
-    uint32 messageSize = 0;
-    SBN_NetPkt_t MsgBuf;
-    void *MsgBufPtr = (void *)(&MsgBuf);
-    CFE_PSP_MemSet(MsgBufPtr, 0, sizeof(MsgBuf));
+    int32 Received = 0, TotalReceived = 0;
+    uint8 MsgBuf[SBN_MAX_MSG_SIZE];
+    SBN_MsgSize_t MsgSize;
+    SBN_MsgType_t MsgType;
+    SBN_CpuId_t CpuId;
 
     /* read the SBN header, which includes a message size so we know how
      * much to read to get the rest of the message */
 
-    totalRead = 0;
-    while(totalRead < sizeof(MsgBuf.Hdr))
-    {
-        dataRead = OS_read(host->Fd, MsgBufPtr + totalRead,
-            sizeof(MsgBuf.Hdr) - totalRead);
-        if(dataRead < 0)
-        {
-            CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
-                "Serial: Unable to read the message header.");
-            return SBN_ERROR;
-        }/* end if */
-        /* what to do if dataRead == 0? can it be? */
-        totalRead = totalRead + dataRead;
-    }/* end while */
+    TotalReceived = 0;
 
-    messageSize = ntohl(MsgBuf.Hdr.MsgSize);
-
-    if(messageSize > sizeof(SBN_NetPkt_t))
+    Received = OS_read(Host->Fd, &MsgSize, sizeof(MsgSize));
+    if(Received < sizeof(MsgSize))
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
-            "Serial: Message size larger than max allowed "
-            "(size: %d, allowed: %d)",
-            (int)messageSize, (int)sizeof(SBN_NetPkt_t));
+            "Serial: Unable to read the message header.");
         return SBN_ERROR;
-    }/* end if */
+    }
+    TotalReceived += Received;
 
-    messageSize = messageSize - sizeof(MsgBuf.Hdr); 
-    while(totalRead < messageSize)
+    MsgSize = ntohs(MsgSize);
+
+    Received = OS_read(Host->Fd, &MsgType, sizeof(MsgType));
+    if(Received < sizeof(MsgType))
     {
-        dataRead = OS_read(host->Fd, MsgBufPtr + totalRead, messageSize - totalRead);
-        if(dataRead < 0)
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
+            "Serial: Unable to read the message header.");
+        return SBN_ERROR;
+    }
+    TotalReceived += Received;
+
+    Received = OS_read(Host->Fd, &CpuId, sizeof(CpuId));
+    if(Received < sizeof(CpuId))
+    {
+        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
+            "Serial: Unable to read the message header.");
+        return SBN_ERROR;
+    }
+    TotalReceived += Received;
+
+    CpuId = ntohl(CpuId);
+
+    TotalReceived = 0;
+    while(TotalReceived < MsgSize)
+    {
+        Received = OS_read(Host->Fd, MsgBuf + TotalReceived,
+            sizeof(MsgBuf) - TotalReceived);
+        if(Received < 0)
         {
-            /* what to do if dataRead == 0? */
             CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
-                "Serial: Unable to read the message header.");
+                "Serial: Unable to read the message.");
             return SBN_ERROR;
         }/* end if */
-        totalRead = totalRead + dataRead;
+        TotalReceived += Received;
     }/* end while */
 
-    return Serial_QueueAddNode(host->Queue, host->SemId, &MsgBuf); 
+    return Serial_QueueAddNode(Host->Queue, Host->SemId, MsgType, MsgSize,
+        CpuId, MsgBuf);
 }/* end Serial_IoReadMsg */
-
-/**
- * Prepares and sends message for sending  over the serial channel.
- * @param Fd        File descriptor for writing to the serial device
- * @param MsgBuf    Buffer containing payload
- *
- * @return SBN_ERROR if unsuccessful 
- */
-int Serial_IoWriteMsg(int32 Fd, SBN_NetPkt_t *MsgBuf)
-{
-    int32 bytesSent = 0;
-    SBN_Hdr_t OrigHdr;
-    uint32 MsgSize = ntohl(MsgBuf->Hdr.MsgSize);
-
-    bytesSent = OS_write(Fd, &MsgBuf, MsgSize);
-
-    memcpy(MsgBuf, &OrigHdr, sizeof(OrigHdr));
-
-    if(bytesSent < 0)
-    {
-        CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
-            "Serial: Error writing Payload. Returned %d\n", bytesSent); 
-        return SBN_ERROR;
-    }/* end if */
-
-    return SBN_OK;
-}/* end Serial_IoWriteMsg */
-
 
 /**
  * Thread that continuously reads the serial device and puts the read messages
@@ -262,14 +242,14 @@ int Serial_IoWriteMsg(int32 Fd, SBN_NetPkt_t *MsgBuf)
 void Serial_IoReadTaskMain()
 {
     int32 dataRead = 0;
-    Serial_SBNHostData_t *host;
+    Serial_SBNHostData_t *Host;
     uint32 size; 
 
     CFE_ES_RegisterChildTask();
 
-    OS_QueueGet(HostQueueId, &host, sizeof(uint32), &size, OS_PEND); 
+    OS_QueueGet(HostQueueId, &Host, sizeof(uint32), &size, OS_PEND); 
 
-    if(size == 0 || host == NULL || host->Fd < 0)
+    if(size == 0 || Host == NULL || Host->Fd < 0)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_ERROR,
             "Serial: Cannot start read task. Host is null.\n"); 
@@ -280,11 +260,11 @@ void Serial_IoReadTaskMain()
     /* Keep reading forever unless there's an error */
     while(dataRead == SBN_IF_EMPTY || dataRead >= 0)
     {
-        dataRead = Serial_IoReadMsg(host); 
+        dataRead = Serial_IoReadMsg(Host); 
     }/* end while */
 
     CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
-        "Serial: Serial Read Task exiting for host number %d\n", host->PairNum);
+        "Serial: Serial Read Task exiting for host number %d\n", Host->PairNum);
     CFE_ES_ExitChildTask();
 }/* end Serial_IoReadTaskMain */
 
@@ -301,7 +281,7 @@ void Serial_IoReadTaskMain()
  * @return SBN_VALID on success
  * @return SBN_NOT_VALID on error
  */
-int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
+int32 Serial_IoStartReadTask(Serial_SBNHostData_t *Host)
 {
     char name[20]; 
     int32 Status; 
@@ -322,7 +302,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
     }/* end if */
 
     /* Add this host to the queue */
-    Status = OS_QueuePut(HostQueueId, &host, sizeof(uint32), 0); 
+    Status = OS_QueuePut(HostQueueId, &Host, sizeof(uint32), 0); 
     if(Status != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
@@ -331,8 +311,8 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
     }/* end if */
 
     /* Start the child task that will read this host's fd */
-    sprintf(name, "SerialReadTask%d", host->PairNum); 
-    Status = CFE_ES_CreateChildTask(&host->TaskHandle,
+    sprintf(name, "SerialReadTask%d", Host->PairNum); 
+    Status = CFE_ES_CreateChildTask(&Host->TaskHandle,
         name, Serial_IoReadTaskMain, NULL, SBN_SERIAL_CHILD_STACK_SIZE,
         SBN_SERIAL_CHILD_TASK_PRIORITY, 0);
 
@@ -340,7 +320,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *host)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
             "Serial: Error creating read task for host %d. Returned %d\n", 
-            host->PairNum, Status); 
+            Host->PairNum, Status); 
         return SBN_NOT_VALID; 
     }/* end if */
 

@@ -68,7 +68,7 @@ void SBN_ClearSocket(int SockId)
     socklen_t           addr_len = 0;
     int                 i = 0;
     int                 status = 0;
-    SBN_NetPkt_t        DiscardData;
+    char                DiscardData[SBN_MAX_MSG_SIZE];
 
     addr_len = sizeof(s_addr);
     bzero((char *) &s_addr, sizeof(s_addr));
@@ -79,7 +79,7 @@ void SBN_ClearSocket(int SockId)
     /* change to while loop */
     for (i = 0; i <= 50; i++)
     {
-        status = recvfrom(SockId, (char *)&DiscardData, sizeof(SBN_NetPkt_t),
+        status = recvfrom(SockId, DiscardData, sizeof(DiscardData),
             MSG_DONTWAIT,(struct sockaddr *) &s_addr, &addr_len);
         if ((status < 0) && (errno == EWOULDBLOCK)) // TODO: add EAGAIN?
             break; /* no (more) messages */
@@ -93,32 +93,59 @@ void SBN_ClearSocket(int SockId)
  * @param MsgBuf  Pointer to the SBN's protocol message buffer
  * @return Bytes received on success, SBN_IF_EMPTY if empty, -1 on error
  */
-int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, SBN_NetPkt_t *MsgBuf)
+int SBN_IPv4RcvMsg(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *MsgBuf)
 {
     ssize_t             Received = 0, TotalReceived = 0;
     struct sockaddr_in  s_addr;
-    socklen_t           addr_len = 0;
-    IPv4_SBNHostData_t  *host = (IPv4_SBNHostData_t *)Data->InterfacePvt;
+    socklen_t           addr_len = sizeof(s_addr);
+    IPv4_SBNHostData_t  *Host = (IPv4_SBNHostData_t *)Data->InterfacePvt;
+    void *MsgBufPtr = MsgBuf;
 
     bzero((char *) &s_addr, sizeof(s_addr));
+    *MsgSizePtr = 0;
 
     while(1)
     {
         addr_len = sizeof(s_addr);
-        Received = recvfrom(host->SockId, (char *)MsgBuf + TotalReceived,
+        Received = recvfrom(Host->SockId, (char *)MsgBuf + TotalReceived,
             SBN_MAX_MSG_SIZE - TotalReceived,
             MSG_DONTWAIT, (struct sockaddr *) &s_addr, &addr_len);
 
-        if (Received == 0) return SBN_IF_EMPTY;
+        if(Received == 0) return SBN_IF_EMPTY;
 
-        if ((Received < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)))
+        if((Received < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)))
             return SBN_ERROR;
 
         TotalReceived += Received;
-        if (TotalReceived < sizeof(SBN_Hdr_t)) continue;
+        if(TotalReceived < sizeof(SBN_MsgSize_t))
+        {
+            continue;
+        }/* end if */
 
-        if (TotalReceived >= ntohl(MsgBuf->Hdr.MsgSize)) return SBN_OK;
-    }
+        if(MsgBufPtr == MsgBuf) /* we haven't read the size yet */
+        {
+            SBN_EndianMemCpy(MsgSizePtr, MsgBufPtr, sizeof(*MsgSizePtr));
+            MsgBufPtr += sizeof(*MsgSizePtr);
+        }/* end if */
+
+        if (TotalReceived >= SBN_PACKED_HDR_SIZE + *MsgSizePtr)
+        {
+            break;
+        }/* end if */
+    }/* end while */
+
+    CFE_PSP_MemCpy(MsgTypePtr, MsgBufPtr, sizeof(*MsgTypePtr));
+    MsgBufPtr += sizeof(*MsgTypePtr);
+
+    SBN_EndianMemCpy(CpuIdPtr, MsgBufPtr, sizeof(*CpuIdPtr));
+    MsgBufPtr += sizeof(*CpuIdPtr);
+
+    if (TotalReceived > SBN_PACKED_HDR_SIZE)
+    {
+        memmove(MsgBuf, MsgBufPtr, TotalReceived - SBN_PACKED_HDR_SIZE);
+    }/* end if */
+
     return SBN_OK;
 }/* end SBN_IPv4RcvMsg */
 
@@ -203,18 +230,18 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
          * because the self entry has port info needed to bind this interface.
          */
         /* create, fill, and store an IPv4-specific host data structure */
-        IPv4_SBNHostData_t host;
+        IPv4_SBNHostData_t Host;
 
-        CFE_PSP_MemSet(&host, 0, sizeof(host));
+        CFE_PSP_MemSet(&Host, 0, sizeof(Host));
 
-        strncpy(host.Addr, entry->Addr, sizeof(entry->Addr));
-        host.Port = entry->Port;
-        host.SockId = SBN_CreateSocket(host.Addr, host.Port);
-        if(host.SockId == SBN_ERROR){
+        strncpy(Host.Addr, entry->Addr, sizeof(entry->Addr));
+        Host.Port = entry->Port;
+        Host.SockId = SBN_CreateSocket(Host.Addr, Host.Port);
+        if(Host.SockId == SBN_ERROR){
             return SBN_ERROR;
         }/* end if */
 
-        memcpy(Data->InterfacePvt, &host, sizeof(host));
+        memcpy(Data->InterfacePvt, &Host, sizeof(Host));
 
         return SBN_HOST;
     }
@@ -222,14 +249,14 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
     {
         /* CPU names do not match - this is peer data. */
         /* create, fill, and store an IPv4-specific host data structure */
-        IPv4_SBNPeerData_t peer;
+        IPv4_SBNPeerData_t Peer;
 
-        CFE_PSP_MemSet(&peer, 0, sizeof(peer));
+        CFE_PSP_MemSet(&Peer, 0, sizeof(Peer));
 
-        strncpy(peer.Addr, entry->Addr, sizeof(entry->Addr));
-        peer.Port = entry->Port;
+        strncpy(Peer.Addr, entry->Addr, sizeof(entry->Addr));
+        Peer.Port = entry->Port;
 
-        memcpy(Data->InterfacePvt, &peer, sizeof(peer));
+        memcpy(Data->InterfacePvt, &Peer, sizeof(Peer));
 
         return SBN_PEER;
     }/* end if */
@@ -244,13 +271,16 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
  */
 
 int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
-        SBN_InterfaceData *IfData, SBN_NetPkt_t *MsgBuf)
+        SBN_InterfaceData *IfData, SBN_MsgType_t MsgType,
+        void *Msg, SBN_MsgSize_t MsgSize)
 {
     static struct sockaddr_in   s_addr;
-    IPv4_SBNPeerData_t          *peer = NULL;
-    IPv4_SBNHostData_t          *host = NULL;
+    IPv4_SBNPeerData_t          *Peer = NULL;
+    IPv4_SBNHostData_t          *Host = NULL;
     uint32                      HostIdx = 0;
-
+    uint8 Buf[SBN_MAX_MSG_SIZE];
+    void *BufOffset = Buf;
+    SBN_CpuId_t CpuId = CFE_CPU_ID;
 
     /* Find the host that goes with this peer.  There should only be one
        ethernet host */
@@ -258,27 +288,39 @@ int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
     {
         if(HostList[HostIdx]->ProtocolId == SBN_IPv4)
         {
-            host = (IPv4_SBNHostData_t *)HostList[HostIdx]->InterfacePvt;
+            Host = (IPv4_SBNHostData_t *)HostList[HostIdx]->InterfacePvt;
         }/* end if */
     }/* end for */
 
-    if(!host)
+    if(!Host)
     {
         OS_printf("No IPv4 Host Found!\n");
         return SBN_ERROR;
     }/* end if */
 
-    peer = (IPv4_SBNPeerData_t *)IfData->InterfacePvt;
+    Peer = (IPv4_SBNPeerData_t *)IfData->InterfacePvt;
     bzero((char *) &s_addr, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = inet_addr(peer->Addr);
-    s_addr.sin_port = htons(peer->Port);
+    s_addr.sin_addr.s_addr = inet_addr(Peer->Addr);
+    s_addr.sin_port = htons(Peer->Port);
 
-    sendto(host->SockId, (char *)MsgBuf, ntohl(MsgBuf->Hdr.MsgSize), 0,
+    SBN_EndianMemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
+    BufOffset += sizeof(MsgSize);
+    CFE_PSP_MemCpy(BufOffset, &MsgType, sizeof(MsgType));
+    BufOffset += sizeof(MsgType);
+    SBN_EndianMemCpy(BufOffset, &CpuId, sizeof(CpuId));
+    BufOffset += sizeof(CpuId);
+
+    if (Msg && MsgSize)
+    {
+        CFE_PSP_MemCpy(BufOffset, Msg, MsgSize);
+    }/* end if */
+
+    sendto(Host->SockId, Buf, MsgSize + SBN_PACKED_HDR_SIZE, 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
 
     return SBN_OK;
-}/* end SBN_SendNetMsg */
+}/* end SBN_SendIPv4NetMsg */
 
 /**
  * Verifies that there is, in fact, and ethernet host.

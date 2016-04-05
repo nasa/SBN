@@ -12,6 +12,7 @@
 #include "serial_events.h"
 #include "sbn_constants.h"
 #include "sbn_interfaces.h"
+#include <arpa/inet.h>
 
 /**
  * Checks the given queue to see if there is data available. If so, it copies 
@@ -25,11 +26,12 @@
  * @return MsgSize (number of bytes read from the queue)
  * @return SBN_ERROR on error
  */
-int Serial_QueueGetMsg(uint32 queue, uint32 semId, SBN_NetPkt_t *MsgBuf)
+int Serial_QueueGetMsg(uint32 queue, uint32 semId, SBN_MsgType_t *MsgTypePtr,
+     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *Msg)
 {
-    SBN_NetPkt_t *data = NULL;
-    int32 status = 0;
+    void *data = NULL, *dataoffset = NULL;
     uint32 size = 0;
+    int32 status = 0;
  
     if(queue == 0)
     {
@@ -50,8 +52,19 @@ int Serial_QueueGetMsg(uint32 queue, uint32 semId, SBN_NetPkt_t *MsgBuf)
     
     if(status == OS_SUCCESS && data != NULL)
     {
-        size = data->Hdr.MsgSize;
-        CFE_PSP_MemCpy(MsgBuf, data, size);
+        dataoffset = data;
+        CFE_PSP_MemCpy(MsgSizePtr, dataoffset, sizeof(*MsgSizePtr));
+        *MsgSizePtr = ntohs(*MsgSizePtr);
+        dataoffset += sizeof(*MsgSizePtr);
+
+        CFE_PSP_MemCpy(MsgTypePtr, dataoffset, sizeof(*MsgTypePtr));
+        dataoffset += sizeof(*MsgTypePtr);
+
+        CFE_PSP_MemCpy(CpuIdPtr, dataoffset, sizeof(*CpuIdPtr));
+        *CpuIdPtr = ntohl(*CpuIdPtr);
+        dataoffset += sizeof(*CpuIdPtr);
+
+        CFE_PSP_MemCpy(Msg, dataoffset, *MsgSizePtr);
         free(data);
     }/* end if */
 
@@ -78,20 +91,35 @@ int Serial_QueueGetMsg(uint32 queue, uint32 semId, SBN_NetPkt_t *MsgBuf)
  * @return SBN_OK on success
  * @return SBN_ERROR on error
  */
-int Serial_QueueAddNode(uint32 queue, uint32 semId,  SBN_NetPkt_t *MsgBuf)
+int Serial_QueueAddNode(uint32 queue, uint32 semId, SBN_MsgType_t MsgType,
+    SBN_MsgSize_t MsgSize, SBN_CpuId_t CpuId, void *Msg)
 {
     int32 status = 0;
-    uint32 MsgSize = MsgBuf->Hdr.MsgSize;
-    uint8 *message = malloc(MsgSize); 
+    void *data = malloc(MsgSize + SBN_PACKED_HDR_SIZE), *dataoffset = NULL;
 
-    if(message == NULL)
+    if(data == NULL)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_ERROR,
             "Serial: QueueAddNode: Error allocating message\n"); 
         return SBN_ERROR; 
     }/* end if */
 
-    CFE_PSP_MemCpy(message, MsgBuf, MsgSize); 
+    dataoffset = data;
+
+    MsgSize = htons(MsgSize);
+    CFE_PSP_MemCpy(dataoffset, &MsgSize, sizeof(MsgSize));
+    MsgSize = ntohs(MsgSize);
+    dataoffset += sizeof(MsgSize);
+
+    CFE_PSP_MemCpy(dataoffset, &MsgType, sizeof(MsgType));
+    dataoffset += sizeof(MsgType);
+
+    CpuId = htons(CpuId);
+    CFE_PSP_MemCpy(dataoffset, &CpuId, sizeof(CpuId));
+    CpuId = ntohs(CpuId);
+    dataoffset += sizeof(CpuId);
+
+    CFE_PSP_MemCpy(dataoffset, Msg, MsgSize);
 
     /* Take the semaphore */
     status = OS_BinSemTake(semId); 
@@ -103,7 +131,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  SBN_NetPkt_t *MsgBuf)
     }/* end if */
 
     /* Try adding the message to the queue */
-    status = OS_QueuePut(queue, &message, sizeof(uint32), 0); 
+    status = OS_QueuePut(queue, &data, sizeof(uint32), 0); 
     if(status == OS_QUEUE_FULL)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_QUEUE_EID, CFE_EVS_INFORMATION,
@@ -112,7 +140,7 @@ int Serial_QueueAddNode(uint32 queue, uint32 semId,  SBN_NetPkt_t *MsgBuf)
         /* Remove the oldest message to make room for the new message and try 
            adding the new message again */
         Serial_QueueRemoveNode(queue); 
-        status = OS_QueuePut(queue, &message, sizeof(uint32), 0); 
+        status = OS_QueuePut(queue, &data, sizeof(uint32), 0); 
     }/* end if */
 
     if(status != OS_SUCCESS)

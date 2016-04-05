@@ -54,7 +54,6 @@
  ** Include Files
  */
 #include <fcntl.h>
-#include <arpa/inet.h>
 #include <string.h>
 
 #include "cfe.h"
@@ -454,9 +453,6 @@ void SBN_RunProtocol(void)
 {
     int         PeerIdx = 0;
     OS_time_t   current_time;
-    SBN_Hdr_t   msg;
-
-    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
 
     /* DEBUG_START(); chatty */
 
@@ -481,9 +477,7 @@ void SBN_RunProtocol(void)
             if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                msg.Type = SBN_ANNOUNCE_MSG;
-                msg.MsgSize = sizeof(msg);
-                SBN_SendNetMsg((SBN_NetPkt_t *)&msg, PeerIdx);
+                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, NULL, 0, PeerIdx);
             }/* end if */
             return;
         }/* end if */
@@ -500,47 +494,17 @@ void SBN_RunProtocol(void)
         if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                 > SBN_HEARTBEAT_SENDTIME)
         {
-            msg.Type = SBN_HEARTBEAT_MSG;
-            msg.MsgSize = sizeof(msg);
-            SBN_SendNetMsg((SBN_NetPkt_t *)&msg, PeerIdx);
+            SBN_SendNetMsg(SBN_HEARTBEAT_MSG, NULL, 0, PeerIdx);
 	}/* end if */
     }/* end for */
 
     CFE_ES_PerfLogExit(SBN_PERF_SEND_ID);
 }/* end SBN_RunProtocol */
 
-static uint16 CheckMsgSize(CFE_SB_MsgPtr_t SBMsgPtr, int PeerIdx)
-{
-    uint16              AppMsgSize = 0, MaxAppMsgSize = 0;
-
-    DEBUG_START();
-
-    /* Find size of app msg without SBN hdr */
-    AppMsgSize = CFE_SB_GetTotalMsgLength(SBMsgPtr);
-    MaxAppMsgSize = (SBN_MAX_MSG_SIZE - sizeof(SBN_Hdr_t));
-
-    if(AppMsgSize >= MaxAppMsgSize)
-    {
-        CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_INFORMATION,
-            "%s:AppMsg 0x%04X, sz=%d destined for"
-            " %s truncated to %d(max sz)",
-            CFE_CPU_NAME, CFE_SB_GetMsgId(SBMsgPtr),
-            AppMsgSize, SBN.Peer[PeerIdx].Name, MaxAppMsgSize);
-
-        AppMsgSize = MaxAppMsgSize;
-    }/* end if */
-
-    return AppMsgSize;
-}/* end CheckMsgSize */
-
-void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
+void SBN_CheckPipe(int PeerIdx)
 {
     CFE_SB_MsgPtr_t     SBMsgPtr = 0;
-    uint16              AppMsgSize = 0;
     CFE_SB_SenderId_t * lastSenderPtr = NULL;
-    SBN_NetPkt_t        msg;
-
-    CFE_PSP_MemSet(&msg, 0, sizeof(msg));
 
     /* DEBUG_START(); chatty */
 
@@ -558,56 +522,41 @@ void SBN_CheckPipe(int PeerIdx, int32 * priority_remaining)
         return;
     }/* end if */
 
-    /* copy message from SB buffer to network data msg buffer */
-    AppMsgSize = CheckMsgSize(SBMsgPtr, PeerIdx);
-    CFE_PSP_MemCpy(msg.Data, SBMsgPtr, AppMsgSize);
-
-    msg.Hdr.MsgSize = AppMsgSize + sizeof(SBN_Hdr_t);
-    msg.Hdr.Type = SBN_APP_MSG;
-    SBN_SendNetMsg(&msg, PeerIdx);
-    (*priority_remaining)++;
+    SBN_SendNetMsg(SBN_APP_MSG, SBMsgPtr, CFE_SB_GetTotalMsgLength(SBMsgPtr),
+        PeerIdx);
 }/* end SBN_CheckPipe */
 
 void SBN_CheckPeerPipes(void)
 {
     int     PeerIdx = 0;
-    int32   priority = 0;
-    int32   priority_remaining = 0;
 
     /* DEBUG_START(); chatty */
 
-    while(priority < SBN_MAX_PEER_PRIORITY)
+    for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        priority_remaining = 0;
-
-        for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
+        /* if peer data is not in use, go to next peer */
+        if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
         {
-            /* if peer data is not in use, go to next peer */
-            if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
-                continue;
+            continue;
+        }
 
-            if((int32)SBN_GetPeerQoSPriority(&SBN.Peer[PeerIdx]) != priority)
-                continue;
-
-            SBN_CheckPipe(PeerIdx, &priority_remaining);
-        }/* end for */
-        if(!priority_remaining) priority++;
+        SBN_CheckPipe(PeerIdx);
     }/* end while */
 }/* end SBN_CheckPeerPipes */
 
-void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
+void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
+    SBN_MsgSize_t MsgSize, void *Msg)
 {
-    int                 PeerIdx = 0,
-                        Status = 0;
+    int PeerIdx = 0, Status = 0;
 
     DEBUG_START();
 
-    PeerIdx = SBN_GetPeerIndex(msg->Hdr.CPU_ID);
+    PeerIdx = SBN_GetPeerIndex(CpuId);
 
     if(PeerIdx == SBN_ERROR) return;
 
     if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING
-        || msg->Hdr.Type == SBN_ANNOUNCE_MSG)
+        || MsgType == SBN_ANNOUNCE_MSG)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
             "Peer #%d alive, resetting", PeerIdx);
@@ -615,7 +564,7 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
         SBN_SendLocalSubsToPeer(PeerIdx);
     }/* end if */
 
-    switch(msg->Hdr.Type)
+    switch(MsgType)
     {
         case SBN_ANNOUNCE_MSG:
         case SBN_ANNOUNCE_ACK_MSG:
@@ -624,7 +573,7 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
             break;
 
         case SBN_APP_MSG:
-            Status = CFE_SB_SendMsgFull((CFE_SB_MsgPtr_t)msg->Data,
+            Status = CFE_SB_SendMsgFull(Msg,
                 CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
 
             if(Status != CFE_SUCCESS)
@@ -632,21 +581,19 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
                 CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
                     "%s:CFE_SB_SendMsg err %d. type 0x%x",
                     CFE_CPU_NAME, Status,
-                    msg->Hdr.Type);
+                    MsgType);
             }/* end if */
             break;
 
         case SBN_SUBSCRIBE_MSG:
         {
-            SBN_NetSub_t *sub = (SBN_NetSub_t *)msg;
-            SBN_ProcessSubFromPeer(PeerIdx, sub->MsgId, sub->Qos);
+            SBN_ProcessSubFromPeer(PeerIdx, Msg);
             break;
         }
 
         case SBN_UN_SUBSCRIBE_MSG:
         {
-            SBN_NetSub_t *sub = (SBN_NetSub_t *)msg;
-            SBN_ProcessUnsubFromPeer(PeerIdx, sub->MsgId);
+            SBN_ProcessUnsubFromPeer(PeerIdx, Msg);
             break;
         }
 
@@ -654,10 +601,10 @@ void SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg)
             /* make sure of termination */
             CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
                 "%s:Unknown Msg Type 0x%x", CFE_CPU_NAME,
-                msg->Hdr.Type);
+                MsgType);
             break;
     }/* end switch */
-}/* end SBN_ProcessNetAppMsg */
+}/* end SBN_ProcessNetMsg */
 
 int32 SBN_CheckCmdPipe(void)
 {

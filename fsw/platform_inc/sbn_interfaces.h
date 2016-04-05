@@ -17,25 +17,16 @@ typedef struct {
   CFE_SB_Qos_t      Qos;
 } SBN_Subs_t;
 
-typedef struct {
-  /* total size of message including header */
-  uint32            MsgSize;
-  /* SBN message type */
-  uint32            Type;
-  /* Protocol message originator */
-  uint32            CPU_ID;
-} SBN_Hdr_t;
+typedef uint16 SBN_MsgSize_t;
+typedef uint8 SBN_MsgType_t;
+typedef uint32 SBN_CpuId_t;
 
-typedef struct {
-  SBN_Hdr_t         Hdr;
-  uint8             Data[SBN_MAX_MSG_SIZE];
-} SBN_NetPkt_t;
+/* note that the packed size is likely smaller than the in-memory's struct
+ * size, as the CPU will align objects.
+ */
+#define SBN_PACKED_HDR_SIZE (sizeof(SBN_MsgSize_t) + sizeof(SBN_MsgType_t) + sizeof(SBN_CpuId_t))
 
-typedef struct {
-  SBN_Hdr_t         Hdr;
-  CFE_SB_MsgId_t    MsgId;
-  CFE_SB_Qos_t      Qos;
-} SBN_NetSub_t;
+#define SBN_PACKED_SUB_SIZE (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t))
 
 typedef struct {
     char   Name[SBN_MAX_PEERNAME_LENGTH];
@@ -110,17 +101,18 @@ typedef struct {
      * @param SBN_NetPkt_t *         Buffer containing a data message to send
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_InterfaceData *, SBN_NetPkt_t *);
+    int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_InterfaceData *,
+        SBN_MsgType_t, void *, SBN_MsgSize_t);
+
 
     /**
      * Receives a data message from the specified interface.
      *
      * @param SBN_InterfaceData * Host interface from which to receive a message
-     * @param SBN_NetPkt_t *      SBN's data message buffer
-     *                            (received data message goes here)
      * @return SBN_OK on success, SBN_ERROR on failure
      */
-    int (*ReceiveMsg)(SBN_InterfaceData *, SBN_NetPkt_t *);
+    int (*ReceiveMsg)(SBN_InterfaceData *, SBN_MsgType_t *,
+        SBN_MsgSize_t *, SBN_CpuId_t *, void *);
 
     /**
      * Iterates through the list of all host interfaces to see if there is a

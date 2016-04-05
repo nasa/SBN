@@ -101,24 +101,27 @@ void  SBN_InitPeerVariables(void);
 int SBN_CreatePipe4Peer(int PeerIdx);
 void  SBN_RunProtocol(void);
 
-void  SBN_CheckPipe(int PeerIdx, int32 * priority_remaining);
+void  SBN_CheckPipe(int PeerIdx);
 void  SBN_CheckPeerPipes(void);
 
-void  SBN_ProcessNetProtoMsg(SBN_NetPkt_t *msg);
+void  SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
+    SBN_MsgSize_t MsgSize, void *Msg);
 
-void  SBN_ProcessNetAppMsg(SBN_NetPkt_t *msg);
 int32 SBN_CheckCmdPipe(void);
+
 int SBN_GetPeerIndex (uint32 ProcessorId);
+
 void  SBN_ShowStates(void);
+
 char  *SBN_StateNum2Str(uint32 StateNum);
 
 void  SBN_SendFileOpenedEvent(char *Filename);
 
-void  SBN_NetMsgSendDbgEvt(uint32 MsgType,uint32 PeerIdx,int Status);
-void  SBN_NetMsgSendErrEvt(uint32 MsgType,uint32 PeerIdx,int Status);
-void  SBN_NetMsgRcvDbgEvt(uint32 MsgType,uint32 PeerIdx,int Status);
-void  SBN_NetMsgRcvErrEvt(uint32 MsgType,uint32 PeerIdx,int Status);
-char  *SBN_GetMsgName(uint32 MsgType);
+void  SBN_NetMsgSendDbgEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
+void  SBN_NetMsgSendErrEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
+void  SBN_NetMsgRcvDbgEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
+void  SBN_NetMsgRcvErrEvt(SBN_MsgType_t MsgType,uint32 PeerIdx,int Status);
+char  *SBN_GetMsgName(SBN_MsgType_t MsgType);
 void  SBN_SendWakeUpDebugMsg(void);
 void  SBN_DebugOn(void);
 void  SBN_DebugOff(void);

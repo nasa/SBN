@@ -434,35 +434,25 @@ int SBN_InitPeerInterface(void)
 }/* end SBN_InitPeerInterface */
 
 /**
- * Sends a message to a peer over the appropriate interface, without buffer
- * or sequence management.
+ * Sends a message to a peer over the appropriate interface after packing
+ * and making big-endian.
  *
  * @param Msg           Message to send
  * @param PeerIdx       Index of peer data in peer array
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsg(SBN_NetPkt_t *Msg, int PeerIdx)
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, void *Msg,
+     SBN_MsgSize_t MsgSize, int PeerIdx)
 {
     int     status = 0;
-    SBN_Hdr_t hdr_buf;
 
-    DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, Msg->Hdr.Type,
-        Msg->Hdr.MsgSize);
-
-    Msg->Hdr.CPU_ID = CFE_CPU_ID;
-
-    /* SBN over the wire uses network (big-endian) byte order */
-    CFE_PSP_MemCpy(&hdr_buf, &Msg->Hdr, sizeof(hdr_buf));
-    Msg->Hdr.CPU_ID = htonl(Msg->Hdr.CPU_ID);
-    Msg->Hdr.MsgSize = htonl(Msg->Hdr.MsgSize);
-    Msg->Hdr.Type = htonl(Msg->Hdr.Type);
-
+    DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
+        MsgSize);
+    
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
-        Msg);
-
-    CFE_PSP_MemCpy(&Msg->Hdr, &hdr_buf, sizeof(hdr_buf));
+        MsgType, Msg, MsgSize);
 
     if(status != -1)
     {
@@ -485,16 +475,13 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
     /* Process all the received messages */
     for(i = 0; i <= 100; i++)
     {
-        SBN_NetPkt_t msg;
-        CFE_PSP_MemSet(&msg, 0, sizeof(msg));
+        SBN_CpuId_t CpuId = 0;
+        SBN_MsgType_t MsgType = 0;
+        SBN_MsgSize_t MsgSize = 0;
+        uint8 Msg[SBN_MAX_MSG_SIZE];
 
         status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->ReceiveMsg(
-            SBN.Host[HostIdx], &msg);
-
-        /* SBN over the wire uses network (big-endian) byte order */
-        msg.Hdr.CPU_ID = ntohl(msg.Hdr.CPU_ID);
-        msg.Hdr.MsgSize = ntohl(msg.Hdr.MsgSize);
-        msg.Hdr.Type = ntohl(msg.Hdr.Type);
+            SBN.Host[HostIdx], &MsgType, &MsgSize, &CpuId, Msg);
 
         if(status == SBN_IF_EMPTY)
         {
@@ -503,7 +490,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         if(status == SBN_OK)
         {
-            PeerIdx = SBN_GetPeerIndex(msg.Hdr.CPU_ID);
+            PeerIdx = SBN_GetPeerIndex(CpuId);
             if(PeerIdx == SBN_ERROR)
             {
                 CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
@@ -513,21 +500,7 @@ void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
             OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
 
-            switch(msg.Hdr.Type)
-            {
-		case SBN_ANNOUNCE_MSG:
-                    DEBUG_MSG("HEARTBEAT, PeerIdx = %d", PeerIdx);
-		    SBN_ProcessNetAppMsg(&msg);
-		    break;
-		case SBN_HEARTBEAT_MSG:
-                    DEBUG_MSG("HEARTBEAT, PeerIdx = %d", PeerIdx);
-		    SBN_ProcessNetAppMsg(&msg);
-		    break;
-                default:
-                    SBN_ProcessNetAppMsg(&msg);
-       
-                    break;
-            }/* end switch */
+            SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
         }
         else if(status == SBN_ERROR)
         {
