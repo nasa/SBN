@@ -12,8 +12,8 @@ typedef struct
 typedef struct
 {
     char            Addr[16];
-    int                SockId;
     int                Port;
+    int                SockId;
 } IPv4_SBNHostData_t;
 
 typedef struct
