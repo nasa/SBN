@@ -64,7 +64,9 @@ static void CheckPeerPipes(void)
 
             /* don't re-send what SBN sent */
             CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
-            if(strncmp(lastSenderPtr->AppName, "SBN", OS_MAX_API_NAME))
+
+            if(strncmp(SBN.App_FullName, lastSenderPtr->AppName,
+                OS_MAX_API_NAME))
             {
                 SBN_SendNetMsg(SBN_APP_MSG,
                     CFE_SB_GetTotalMsgLength(SBMsgPtr), SBMsgPtr, PeerIdx);
@@ -258,6 +260,7 @@ static int Init(void)
 {
     int Status = CFE_SUCCESS;
     int     PeerIdx = 0, j = 0;
+    uint32  TskId = 0;
 
     Status = CFE_ES_RegisterApp();
     if(Status != CFE_SUCCESS) return Status;
@@ -268,6 +271,10 @@ static int Init(void)
     DEBUG_START();
 
     CFE_PSP_MemSet(&SBN, 0, sizeof(SBN));
+
+    /* load the App_FullName so I can ignore messages I send out to SB */
+    TskId = OS_TaskGetId();
+    CFE_SB_GetAppTskName(TskId,SBN.App_FullName);
 
     if(SBN_ReadModuleFile() == SBN_ERROR)
     {

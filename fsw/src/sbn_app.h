@@ -64,6 +64,7 @@ typedef struct {
   SBN_InterfaceData *Host[SBN_MAX_NETWORK_PEERS];   /* Data only on devices that are the host */
   SBN_PeerData_t    Peer[SBN_MAX_NETWORK_PEERS];    /* Data only no devices that are not the host */
   uint32            AppId;
+  char              App_FullName[(OS_MAX_API_NAME * 2)];
   int               NumPeers;
   int               NumHosts;
   int               NumEntries;
