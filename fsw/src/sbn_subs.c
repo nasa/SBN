@@ -407,7 +407,7 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
 
     for(i = 0; i < SBN.Peer[PeerIdx].SubCnt; i++)
     {
-        CFE_SB_UnsubscribeLocal(ntohs(SBN.Peer[PeerIdx].Sub[i].MsgId),
+        CFE_SB_UnsubscribeLocal(SBN.Peer[PeerIdx].Sub[i].MsgId,
             SBN.Peer[PeerIdx].Pipe);
     }/* end for */
 
