@@ -198,7 +198,7 @@ static int32 WaitForWakeup(int32 iTimeOut)
  *      requests need to be sent again, or
  * @return SBN_FALSE if message received was a response
  */
-static int WaitForSBStartup()
+static int WaitForSBStartup(void)
 {
     CFE_EVS_Packet_t    *EvsPacket = NULL;
     CFE_SB_MsgPtr_t     SBMsgPtr = 0;
