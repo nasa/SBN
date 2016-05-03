@@ -135,7 +135,7 @@ int SBN_InitIPv4IF(SBN_InterfaceData *Data)
 {
     IPv4_SBNEntry_t *entry = (IPv4_SBNEntry_t *)Data->InterfacePvt;
 
-    if(strncmp(Data->Name, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH) == 0)
+    if(Data->ProcessorId == CFE_CPU_ID)
     {
         /* CPU names match - this is host data.
          * Create msg interface when we find entry matching its own name
