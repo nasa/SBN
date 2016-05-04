@@ -200,16 +200,33 @@ static int32 WaitForWakeup(int32 iTimeOut)
  */
 static int WaitForSBStartup(void)
 {
-    CFE_EVS_Packet_t    *EvsPacket = NULL;
-    CFE_SB_MsgPtr_t     SBMsgPtr = 0;
-    uint8               counter = 0;
+    CFE_EVS_Packet_t *EvsPacket = NULL;
+    CFE_SB_MsgPtr_t SBMsgPtr = 0;
+    uint8 counter = 0;
+    CFE_SB_PipeId_t EventPipe = 0;
+    uint32 Status = CFE_SUCCESS;
 
     DEBUG_START();
+
+    /* Create event message pipe */
+    Status = CFE_SB_CreatePipe(&EventPipe, 100, "SBNEventPipe");
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to create EventPipe (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
 
     /* Subscribe to event messages temporarily to be notified when SB is done
      * initializing
      */
-    CFE_SB_Subscribe(CFE_EVS_EVENT_MSG_MID, SBN.EventPipe);
+    Status = CFE_SB_Subscribe(CFE_EVS_EVENT_MSG_MID, EventPipe);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to sub to EventPipe (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
 
     while(1)
     {
@@ -217,7 +234,7 @@ static int WaitForSBStartup(void)
         if(SBN_CheckSubscriptionPipe())
         {
             /* SBN does not need to re-send request messages to SB */
-            return SBN_TRUE;
+            break;
         }
         else if(counter % 100 == 0)
         {
@@ -228,7 +245,7 @@ static int WaitForSBStartup(void)
         }/* end if */
 
         /* Check for event message from SB */
-        if(CFE_SB_RcvMsg(&SBMsgPtr, SBN.EventPipe, 100) == CFE_SUCCESS)
+        if(CFE_SB_RcvMsg(&SBMsgPtr, EventPipe, 100) == CFE_SUCCESS)
         {
             if(CFE_SB_GetMsgId(SBMsgPtr) == CFE_EVS_EVENT_MSG_MID)
             {
@@ -238,30 +255,16 @@ static int WaitForSBStartup(void)
                  * message
                  */
 #ifdef SBN_PAYLOAD
-                if(strcmp(EvsPacket->Payload.PacketID.AppName, "CFE_SB") == 0)
+                if(strcmp(EvsPacket->Payload.PacketID.AppName, "CFE_SB") == 0
+                    && EvsPacket->Payload.PacketID.EventID == CFE_SB_INIT_EID)
                 {
-                    if(EvsPacket->Payload.PacketID.EventID == CFE_SB_INIT_EID)
-                    {
-                        /* Unsubscribe from event messages */
-                        CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID,
-                            SBN.EventPipe);
-
-                        /* SBN needs to re-send request messages */
-                        return SBN_TRUE;
-                    }/* end if */
+                    break;
                 }/* end if */
 #else /* !SBN_PAYLOAD */
-                if(strcmp(EvsPacket->PacketID.AppName, "CFE_SB") == 0)
+                if(strcmp(EvsPacket->PacketID.AppName, "CFE_SB") == 0
+                    && EvsPacket->PacketID.EventID == CFE_SB_INIT_EID)
                 {
-                    if(EvsPacket->PacketID.EventID == CFE_SB_INIT_EID)
-                    {
-                        /* Unsubscribe from event messages */
-                        CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID,
-                            SBN.EventPipe);
-
-                        /* SBN needs to re-send request messages */
-                        return SBN_TRUE;
-                    }/* end if */
+                    break;
                 }/* end if */
 #endif /* SBN_PAYLOAD */
             }/* end if */
@@ -270,7 +273,13 @@ static int WaitForSBStartup(void)
         counter++;
     }/* end while */
 
-    return SBN_TRUE; /* This code should never be reached */
+    /* Unsubscribe from event messages */
+    CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, EventPipe);
+
+    CFE_SB_DeletePipe(EventPipe);
+
+    /* SBN needs to re-send request messages */
+    return SBN_TRUE;
 }/* end WaitForSBStartup */
 
 /** \brief Initializes SBN */
@@ -333,29 +342,74 @@ static int Init(void)
     /* Subscribe to Wakeup messages */
     Status = CFE_SB_CreatePipe(&SBN.SchPipeId, SBN.usSchPipeDepth,
         SBN.cSchPipeName);
-    if(Status == CFE_SUCCESS)
-    {
-        CFE_SB_Subscribe(SBN_WAKEUP_MID, SBN.SchPipeId);
-    }
-    else
+    if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create SCH pipe (0x%08X)", Status);
+            "SBN APP Failed to create SCH pipe (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    Status = CFE_SB_Subscribe(SBN_WAKEUP_MID, SBN.SchPipeId);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to subscribe to SCH wakeup (%d)", Status);
         return SBN_ERROR;
     }/* end if */
 
     /* Create pipe for subscribes and unsubscribes from SB */
-    CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");
-    CFE_SB_SubscribeLocal(CFE_SB_ALLSUBS_TLM_MID, SBN.SubPipe,
-            SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+    Status = CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH,
+        "SBNSubPipe");
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to create sub pipe (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
 
-    CFE_SB_SubscribeLocal(CFE_SB_ONESUB_TLM_MID, SBN.SubPipe,
-            SBN_MAX_ONESUB_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ALLSUBS_TLM_MID,
+        SBN.SubPipe, SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to subscribe to allsubs (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ONESUB_TLM_MID,
+        SBN.SubPipe, SBN_MAX_ONESUB_PKTS_ON_PIPE);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to subscribe to sub (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
 
     /* Create pipe for HK requests and gnd commands */
-    CFE_SB_CreatePipe(&SBN.CmdPipe,20,"SBNCmdPipe");
-    CFE_SB_Subscribe(SBN_CMD_MID,SBN.CmdPipe);
-    CFE_SB_Subscribe(SBN_SEND_HK_MID,SBN.CmdPipe);
+    Status = CFE_SB_CreatePipe(&SBN.CmdPipe,20,"SBNCmdPipe");
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to create cmdpipe (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    Status = CFE_SB_Subscribe(SBN_CMD_MID,SBN.CmdPipe);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to subscribe to cmd (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    Status = CFE_SB_Subscribe(SBN_SEND_HK_MID,SBN.CmdPipe);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN APP Failed to subscribe to hk (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "SBN APP Initialized V1.1, AppId=%d", SBN.AppId);
@@ -363,9 +417,6 @@ static int Init(void)
     /* Initialize HK Message */
     CFE_SB_InitMsg(&SBN.HkPkt, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
     SBN_InitializeCounters();
-
-    /* Create event message pipe */
-    CFE_SB_CreatePipe(&SBN.EventPipe, 100, "SBNEventPipe");
 
     /* Wait for event from SB saying it is initialized OR a response from SB
        to the above messages. SBN_TRUE means it needs to re-send subscription

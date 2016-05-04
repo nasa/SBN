@@ -281,6 +281,7 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
     int FirstOpenSlot = 0, idx = 0;
     CFE_SB_MsgId_t MsgId;
     CFE_SB_Qos_t Qos;
+    uint32 Status = CFE_SUCCESS;
 
     DEBUG_START();
 
@@ -309,8 +310,15 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
     }/* end if */
 
     /* SubscribeLocal suppresses the subscription report */
-    CFE_SB_SubscribeLocal(MsgId, SBN.Peer[PeerIdx].Pipe,
+    Status = CFE_SB_SubscribeLocal(MsgId, SBN.Peer[PeerIdx].Pipe,
             SBN_DEFAULT_MSG_LIM);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
+            "Cannot subscribe to peer msgid 0x%04X",
+            htons(MsgId));
+        return;
+    }/* end if */
     FirstOpenSlot = SBN.Peer[PeerIdx].SubCnt;
 
     /* log the subscription in the peer table */
@@ -323,8 +331,9 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
 void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
 {
     int i = 0, idx = 0;
-    CFE_SB_MsgId_t MsgId;
+    CFE_SB_MsgId_t MsgId = 0x0000;
     CFE_SB_Qos_t Qos;
+    int32 Status = CFE_SUCCESS;
 
     DEBUG_START();
 
@@ -353,7 +362,13 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
     SBN.Peer[PeerIdx].SubCnt--;
 
     /* unsubscribe to the msg id on the peer pipe */
-    CFE_SB_UnsubscribeLocal(MsgId, SBN.Peer[PeerIdx].Pipe);
+    Status = CFE_SB_UnsubscribeLocal(MsgId, SBN.Peer[PeerIdx].Pipe);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
+            "Cannot process unsubscription from 0x%04X",
+            htons(MsgId));
+    }/* end if */
 }/* SBN_ProcessUnsubFromPeer */
 
 void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
@@ -394,6 +409,7 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
 void SBN_RemoveAllSubsFromPeer(int PeerIdx)
 {
     int     i = 0;
+    uint32 Status = CFE_SUCCESS;
 
     DEBUG_START();
 
@@ -407,8 +423,14 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
 
     for(i = 0; i < SBN.Peer[PeerIdx].SubCnt; i++)
     {
-        CFE_SB_UnsubscribeLocal(SBN.Peer[PeerIdx].Sub[i].MsgId,
+        Status = CFE_SB_UnsubscribeLocal(SBN.Peer[PeerIdx].Sub[i].MsgId,
             SBN.Peer[PeerIdx].Pipe);
+        if(Status != CFE_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
+                "Unable to unsub from MID 0x%04X",
+                    htons(SBN.Peer[PeerIdx].Sub[i].MsgId));
+        }/* end if */
     }/* end for */
 
     CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,

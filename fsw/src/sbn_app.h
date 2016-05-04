@@ -70,7 +70,6 @@ typedef struct {
   int               NumEntries;
   CFE_SB_PipeId_t   SubPipe;
   CFE_SB_PipeId_t   CmdPipe;
-  CFE_SB_PipeId_t   EventPipe;
   CFE_SB_MsgPtr_t   CmdMsgPtr;
 
   int               LocalSubCnt;
