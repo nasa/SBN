@@ -45,22 +45,37 @@
 
 static void CheckPeerPipes(void)
 {
-    int     PeerIdx = 0;
-    CFE_SB_MsgPtr_t     SBMsgPtr = 0;
+    int PeerIdx = 0, ReceivedFlag = 0;
+    CFE_SB_MsgPtr_t SBMsgPtr = 0;
     CFE_SB_SenderId_t * lastSenderPtr = NULL;
 
     /* DEBUG_START(); chatty */
 
-    for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
+    /* Process one message per peer, then start again until no peers
+     * have pending messages. TODO: this could result in starvation if peers
+     * are publishing faster than this is reading, it would sit in this loop
+     * forever. Should keep a total count and break out if we process more
+     * than that many messages in one "go".
+     */
+    do
     {
-        /* if peer data is not in use, go to next peer */
-        if(SBN.Peer[PeerIdx].State == SBN_HEARTBEATING)
+        ReceivedFlag = 0;
+
+        for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
         {
+            /* if peer data is not in use, go to next peer */
+            if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
+            {
+                continue;
+            }
+
             if(CFE_SB_RcvMsg(&SBMsgPtr, SBN.Peer[PeerIdx].Pipe, CFE_SB_POLL)
-                    != CFE_SUCCESS)
+                != CFE_SUCCESS)
             {
                 continue;
             }/* end if */
+
+            ReceivedFlag = 1;
 
             /* don't re-send what SBN sent */
             CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peer[PeerIdx].Pipe);
@@ -71,8 +86,8 @@ static void CheckPeerPipes(void)
                 SBN_SendNetMsg(SBN_APP_MSG,
                     CFE_SB_GetTotalMsgLength(SBMsgPtr), SBMsgPtr, PeerIdx);
             }/* end if */
-        }
-    }/* end while */
+        }/* end for */
+    } while(ReceivedFlag); /* end for */
 }/* end CheckPeerPipes */
 
 static int32 CheckCmdPipe(void)
