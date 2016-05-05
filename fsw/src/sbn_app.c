@@ -45,19 +45,17 @@
 
 static void CheckPeerPipes(void)
 {
-    int PeerIdx = 0, ReceivedFlag = 0;
+    int PeerIdx = 0, ReceivedFlag = 0, iter = 0;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     CFE_SB_SenderId_t * lastSenderPtr = NULL;
 
     /* DEBUG_START(); chatty */
 
     /* Process one message per peer, then start again until no peers
-     * have pending messages. TODO: this could result in starvation if peers
-     * are publishing faster than this is reading, it would sit in this loop
-     * forever. Should keep a total count and break out if we process more
-     * than that many messages in one "go".
+     * have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
+     * per peer per wakeup otherwise I will starve other processing.
      */
-    do
+    for(iter = 0; iter < SBN_MAX_MSG_PER_WAKEUP; iter++)
     {
         ReceivedFlag = 0;
 
@@ -87,7 +85,12 @@ static void CheckPeerPipes(void)
                     CFE_SB_GetTotalMsgLength(SBMsgPtr), SBMsgPtr, PeerIdx);
             }/* end if */
         }/* end for */
-    } while(ReceivedFlag); /* end for */
+
+        if(!ReceivedFlag)
+        {
+            break;
+        }/* end if */
+    } /* end for */
 }/* end CheckPeerPipes */
 
 static int32 CheckCmdPipe(void)
