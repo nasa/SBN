@@ -419,6 +419,19 @@ int SBN_InitPeerInterface(void)
     return SBN_OK;
 }/* end SBN_InitPeerInterface */
 
+static void SwapBytes(void *addr, size_t size)
+{
+    size_t i = 0;
+    uint8 t = 0, *p = addr;
+
+    for(i = 0; i < size / 2; i++)
+    {
+        t = p[size - 1 - i];
+        p[size - 1 - i] = p[i];
+        p[i] = t;
+    }
+}/* end SwapBytes */
+
 /**
  * Sends a message to a peer using the module's SendNetMsg.
  *
@@ -434,9 +447,31 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
 {
     int status = 0;
 
+    /* not necessarily valid, if this is a cmd msg */
+    CCSDS_TlmPkt_t *TlmPktPtr = Msg;
+
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
         MsgSize);
-    
+
+#ifdef LITTLE_ENDIAN
+    if(MsgType == SBN_APP_MSG
+        && CCSDS_RD_TYPE(TlmPktPtr->PriHdr) == CCSDS_TLM)
+    {
+        /* SBN sends CCSDS telemetry messages with secondary headers in
+         * big-endian order.
+         */
+        SwapBytes(TlmPktPtr->SecHdr.Time, 4);
+        if(CCSDS_TIME_SIZE == 6)
+        {
+            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 2);
+        }
+        else
+        {
+            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 4);
+        }/* end if */
+    }/* end if */
+#endif /* LITTLE_ENDIAN */
+
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
         MsgType, MsgSize, Msg);
@@ -477,6 +512,9 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         if(status == SBN_OK)
         {
+            /* not necessarily valid, if this is a cmd msg */
+            CCSDS_TlmPkt_t *TlmPktPtr = Msg;
+
             PeerIdx = SBN_GetPeerIndex(CpuId);
             if(PeerIdx == SBN_ERROR)
             {
@@ -486,6 +524,25 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
             }/* end if */
 
             OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
+
+#ifdef LITTLE_ENDIAN
+            if(MsgType == SBN_APP_MSG
+                && CCSDS_RD_TYPE(TlmPktPtr->PriHdr) == CCSDS_TLM)
+            {
+                /* SBN sends CCSDS telemetry messages with secondary headers
+                 * big-endian order.
+                 */
+                SwapBytes(TlmPktPtr->SecHdr.Time, 4);
+                if(CCSDS_TIME_SIZE == 6)
+                {
+                    SwapBytes(TlmPktPtr->SecHdr.Time + 4, 2);
+                }
+                else
+                {
+                    SwapBytes(TlmPktPtr->SecHdr.Time + 4, 4);
+                }/* end if */
+            }/* end if */
+#endif /* LITTLE_ENDIAN */
 
             SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
         }
