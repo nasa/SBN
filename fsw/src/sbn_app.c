@@ -125,7 +125,7 @@ static void RunProtocol(void)
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
         /* if peer data is not in use, go to next peer */
-        if(SBN.Peer[PeerIdx].InUse != SBN_IN_USE) continue;
+        if(!SBN.Peer[PeerIdx].InUse) continue;
 
         OS_GetLocalTime(&current_time);
 
@@ -194,9 +194,9 @@ static int32 WaitForWakeup(int32 iTimeOut)
  * an event message that says SB has finished initializing. The latter message
  * means that SB was not started at the time SBN sent the "get subscriptions"
  * message, so that message will need to be sent again.
- * @return SBN_TRUE if message received was a initialization message and
+ * @return TRUE if message received was a initialization message and
  *      requests need to be sent again, or
- * @return SBN_FALSE if message received was a response
+ * @return FALSE if message received was a response
  */
 static int WaitForSBStartup(void)
 {
@@ -279,7 +279,7 @@ static int WaitForSBStartup(void)
     CFE_SB_DeletePipe(EventPipe);
 
     /* SBN needs to re-send request messages */
-    return SBN_TRUE;
+    return TRUE;
 }/* end WaitForSBStartup */
 
 /** \brief Initializes SBN */
@@ -319,7 +319,7 @@ static int Init(void)
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        SBN.Peer[PeerIdx].InUse = SBN_NOT_IN_USE;
+        SBN.Peer[PeerIdx].InUse = FALSE;
         SBN.Peer[PeerIdx].SubCnt = 0;
         for(j = 0; j < SBN_MAX_SUBS_PER_PEER; j++)
         {
@@ -419,7 +419,7 @@ static int Init(void)
     SBN_InitializeCounters();
 
     /* Wait for event from SB saying it is initialized OR a response from SB
-       to the above messages. SBN_TRUE means it needs to re-send subscription
+       to the above messages. TRUE means it needs to re-send subscription
        requests */
     if(WaitForSBStartup()) SBN_SendSubsRequests();
 
@@ -539,7 +539,7 @@ int SBN_GetPeerIndex(uint32 ProcessorId)
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(SBN.Peer[PeerIdx].InUse == SBN_NOT_IN_USE) continue;
+        if(!SBN.Peer[PeerIdx].InUse) continue;
 
         if(SBN.Peer[PeerIdx].ProcessorId == ProcessorId) return PeerIdx;
     }/* end for */

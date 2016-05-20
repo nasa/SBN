@@ -272,14 +272,14 @@ void Serial_IoReadTaskMain()
 /**
  * You cannot pass arguments to threads in CFE so this function puts the host in
  * an OS queue accessible across threads, starts a task, and the task pulls the 
- * host off the queue when it starts up. This function returns SBN_VALID or 
- * SBN_NOT_VALID because called during host validation. An error here means the
+ * host off the queue when it starts up. This function returns TRUE or 
+ * FALSE because called during host validation. An error here means the
  * host is not valid and shouldn't be used.
  *
  * @param host  The host to start reading from
  *
- * @return SBN_VALID on success
- * @return SBN_NOT_VALID on error
+ * @return TRUE on success
+ * @return FALSE on error
  */
 int32 Serial_IoStartReadTask(Serial_SBNHostData_t *Host)
 {
@@ -297,7 +297,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *Host)
         {
             CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
                 "Serial: Error creating host queue. Returned %d\n", Status); 
-            return SBN_NOT_VALID; 
+            return FALSE;
         }/* end if */
     }/* end if */
 
@@ -307,7 +307,7 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *Host)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
             "Serial: Error adding host to queue. Returned %d\n", Status); 
-        return SBN_NOT_VALID; 
+        return FALSE; 
     }/* end if */
 
     /* Start the child task that will read this host's fd */
@@ -321,8 +321,8 @@ int32 Serial_IoStartReadTask(Serial_SBNHostData_t *Host)
         CFE_EVS_SendEvent(SBN_SERIAL_IO_EID, CFE_EVS_INFORMATION,
             "Serial: Error creating read task for host %d. Returned %d\n", 
             Host->PairNum, Status); 
-        return SBN_NOT_VALID; 
+        return FALSE; 
     }/* end if */
 
-    return SBN_VALID; 
+    return TRUE; 
 }/* end Serial_IoStartReadTask */

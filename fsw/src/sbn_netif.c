@@ -250,7 +250,7 @@ int32 SBN_GetPeerFileData(void)
     }/* end if */
 
     /* If ram file failed to open, try to open non vol file */
-    if(FileOpened == FALSE)
+    if(!FileOpened)
     {
         PeerFile = OS_open(SBN_NONVOL_PEER_FILENAME, O_RDONLY, 0);
 
@@ -273,7 +273,7 @@ int32 SBN_GetPeerFileData(void)
     /*
      ** If no file was opened, SBN must terminate
      */
-    if(FileOpened == FALSE)
+    if(!FileOpened)
     {
         return SBN_ERROR;
     }/* end if */
@@ -375,7 +375,7 @@ int SBN_InitPeerInterface(void)
             CFE_PSP_MemSet(&SBN.Peer[SBN.NumPeers], 0,
                 sizeof(SBN.Peer[SBN.NumPeers]));
             SBN.Peer[SBN.NumPeers].IfData = &SBN.IfData[PeerIdx];
-            SBN.Peer[SBN.NumPeers].InUse = SBN_IN_USE;
+            SBN.Peer[SBN.NumPeers].InUse = TRUE;
 
             /* for ease of use, copy some data from the entry into the peer */
             SBN.Peer[SBN.NumPeers].QoS = SBN.IfData[PeerIdx].QoS;
@@ -401,7 +401,7 @@ int SBN_InitPeerInterface(void)
             /* Initialize the subscriptions count for each entry */
             for(i = 0; i < SBN_MAX_SUBS_PER_PEER; i++)
             {
-                SBN.Peer[SBN.NumPeers].Sub[i].InUseCtr = SBN_NOT_IN_USE;
+                SBN.Peer[SBN.NumPeers].Sub[i].InUseCtr = FALSE;
             }/* end for */
 
             /* Reset counters, flags and timers */
@@ -565,7 +565,7 @@ void SBN_CheckForNetAppMsgs(void)
 
     for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
     {
-        if(SBN.Host[HostIdx]->IsValid != SBN_VALID)
+        if(!SBN.Host[HostIdx]->IsValid)
         {
             continue;
         }/* end if */
@@ -584,14 +584,10 @@ void SBN_VerifyPeerInterfaces()
     {
         status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->VerifyPeerInterface(
             SBN.Peer[PeerIdx].IfData, SBN.Host, SBN.NumHosts);
-        if(status == SBN_VALID)
+        SBN.Peer[PeerIdx].IfData->IsValid = status;
+        if(!status)
         {
-            SBN.Peer[PeerIdx].IfData->IsValid = SBN_VALID;
-        }
-        else
-        {
-            SBN.Peer[PeerIdx].IfData->IsValid = SBN_NOT_VALID;
-            SBN.Peer[PeerIdx].InUse = SBN_NOT_IN_USE;
+            SBN.Peer[PeerIdx].InUse = FALSE;
 
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
                 "Peer %s Not Valid", SBN.Peer[PeerIdx].IfData->Name);
@@ -610,14 +606,9 @@ void SBN_VerifyHostInterfaces()
         status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->VerifyHostInterface(
             SBN.Host[HostIdx], SBN.Peer, SBN.NumPeers);
 
-        if(status == SBN_VALID)
+        SBN.Host[HostIdx]->IsValid = status;
+        if(!status)
         {
-            SBN.Host[HostIdx]->IsValid = SBN_VALID;
-        }
-        else
-        {
-            SBN.Host[HostIdx]->IsValid = SBN_NOT_VALID;
-
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
                 "Host %s Not Valid", SBN.Host[HostIdx]->Name);
         }/* end if */

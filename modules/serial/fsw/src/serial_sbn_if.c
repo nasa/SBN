@@ -270,14 +270,14 @@ int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
     {
         CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyPeerInterface: Peer is NULL.\n");
-        return SBN_NOT_VALID;
+        return FALSE;
     }/* end if */
 
     if(HostList == NULL)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyPeerInterface: Hosts is NULL.\n");
-        return SBN_NOT_VALID;
+        return FALSE;
     }/* end if */
 
     PeerEntry = (Serial_SBNEntry_t *)Peer->InterfacePvt;
@@ -291,12 +291,12 @@ int Serial_SbnVerifyPeerInterface(SBN_InterfaceData *Peer,
 
             if(IsHostPeerMatch(HostEntry, PeerEntry))
             {
-                return SBN_VALID;
+                return TRUE;
             }/* end if */
         }/* end if */
     }/* end for */
 
-    return SBN_NOT_VALID;
+    return FALSE;
 }/* end Serial_SbnVerifyPeerInterface */
 
 int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Data,
@@ -310,14 +310,14 @@ int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Data,
     {
         CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyHostInterface: Data is NULL.\n");
-        return SBN_NOT_VALID;
+        return FALSE;
     }/* end if */
 
     if(PeerList == NULL)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
             "Serial: Error in Serial_VerifyHostInterface: PeerList is NULL.\n");
-        return SBN_NOT_VALID;
+        return FALSE;
     }/* end if */
 
     HostEntry = (Serial_SBNEntry_t *)Data->InterfacePvt;
@@ -339,7 +339,7 @@ int Serial_SbnVerifyHostInterface(SBN_InterfaceData *Data,
         }/* end if */
     }/* end for */
 
-    return SBN_NOT_VALID;
+    return FALSE;
 }/* end Serial_SbnVerifyHostInterface */
 
 static int GetHostPeerMatchData(SBN_InterfaceData *Data,
@@ -509,7 +509,7 @@ int Serial_SbnResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
 
     /* Re-start read task */
     Status = Serial_IoStartReadTask(HostData);
-    if(Status != SBN_VALID)
+    if(!Status)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_EID, CFE_EVS_ERROR,
             "Serial: Could not restart the read task for host %d.\n",

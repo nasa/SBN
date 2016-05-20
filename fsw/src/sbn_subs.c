@@ -76,7 +76,7 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
     }/* end for */
 }/* end SBN_SendLocalSubsToPeer */
 
-static int CheckLocSubs4MsgId(int *IdxPtr, CFE_SB_MsgId_t MsgId)
+static int IsMsgIdSub(int *IdxPtr, CFE_SB_MsgId_t MsgId)
 {
     int     i = 0;
 
@@ -91,14 +91,14 @@ static int CheckLocSubs4MsgId(int *IdxPtr, CFE_SB_MsgId_t MsgId)
                 *IdxPtr = i;
             }/* end if */
 
-            return SBN_MSGID_FOUND;
+            return TRUE;
         }/* end if */
     }/* end for */
 
-    return SBN_MSGID_NOT_FOUND;
-}/* end CheckLocSubs4MsgId */
+    return FALSE;
+}/* end IsMsgIdSub */
 
-static int CheckPeerSubs4MsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId,
+static int IsPeerSubMsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId,
     int PeerIdx)
 {
     int     i = 0;
@@ -110,13 +110,13 @@ static int CheckPeerSubs4MsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId,
         if(SBN.Peer[PeerIdx].Sub[i].MsgId == MsgId)
         {
             *SubIdxPtr = i;
-            return SBN_MSGID_FOUND;
+            return TRUE;
         }/* end if */
     }/* end for */
 
-    return SBN_MSGID_NOT_FOUND;
+    return FALSE;
 
-}/* end heckPeerSubs4MsgId */
+}/* end IsPeerSubMsgId */
 
 static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
@@ -136,7 +136,7 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
     }/* end if */
 
     /* if there is already an entry for this msg id,just incr InUseCtr */
-    if(CheckLocSubs4MsgId(&SubIdx, MsgId) == SBN_MSGID_FOUND)
+    if(IsMsgIdSub(&SubIdx, MsgId))
     {
         SBN.LocalSubs[SubIdx].InUseCtr++;
         /* does not send to peers, as they already know */
@@ -151,7 +151,7 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(SBN.Peer[PeerIdx].InUse != SBN_IN_USE
+        if(!SBN.Peer[PeerIdx].InUse
             || SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
         {
             continue;
@@ -167,7 +167,7 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
     DEBUG_START();
 
     /* find idx of matching subscription */
-    if(CheckLocSubs4MsgId(&SubIdx, MsgId) == SBN_MSGID_NOT_FOUND)
+    if(!IsMsgIdSub(&SubIdx, MsgId))
     {
         return;
     }/* end if */
@@ -199,7 +199,7 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
     /* only if no more local subs (InUseCtr = 0)  */
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(SBN.Peer[PeerIdx].InUse != SBN_IN_USE
+        if(!SBN.Peer[PeerIdx].InUse
             || SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
         {
             continue;
@@ -239,7 +239,7 @@ int32 SBN_CheckSubscriptionPipe(void)
                             CFE_CPU_NAME, SubRprtMsgPtr->Payload.SubType);
                 }/* end switch */
 
-                return SBN_TRUE;
+                return TRUE;
 #else /* !SBN_PAYLOAD */
                 switch(SubRprtMsgPtr->SubType)
                 {
@@ -258,12 +258,12 @@ int32 SBN_CheckSubscriptionPipe(void)
                 }/* end switch */
 
 
-                return SBN_TRUE;
+                return TRUE;
 #endif /* SBN_PAYLOAD */
 
             case CFE_SB_ALLSUBS_TLM_MID:
                 SBN_ProcessAllSubscriptions((CFE_SB_PrevSubMsg_t *) SBMsgPtr);
-                return SBN_TRUE;
+                return TRUE;
 
             default:
                 CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
@@ -273,7 +273,7 @@ int32 SBN_CheckSubscriptionPipe(void)
         }/* end switch */
     }/* end while */
 
-    return SBN_FALSE;
+    return FALSE;
 }/* end SBN_CheckSubscriptionPipe */
 
 void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
@@ -304,7 +304,7 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
     UnPackSub(Msg, &MsgId, &Qos);
 
     /* if msg id already in the list, ignore */
-    if(CheckPeerSubs4MsgId(&idx, MsgId, PeerIdx) == SBN_MSGID_FOUND)
+    if(IsPeerSubMsgId(&idx, MsgId, PeerIdx))
     {
         return;
     }/* end if */
@@ -315,8 +315,8 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
-            "Cannot subscribe to peer msgid 0x%04X",
-            htons(MsgId));
+            "Cannot subscribe to peer msgid 0x%04X %d",
+            htons(MsgId), (int)Status);
         return;
     }/* end if */
     FirstOpenSlot = SBN.Peer[PeerIdx].SubCnt;
@@ -339,7 +339,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
 
     UnPackSub(Msg, &MsgId, &Qos);
 
-    if(CheckPeerSubs4MsgId(&idx, MsgId, PeerIdx)==SBN_MSGID_NOT_FOUND)
+    if(!IsPeerSubMsgId(&idx, MsgId, PeerIdx))
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:Cannot process unsubscription from %s,msg 0x%04X not found",

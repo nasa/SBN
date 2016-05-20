@@ -293,17 +293,17 @@ int IPv4_VerifyPeerInterface(SBN_InterfaceData *Peer,
     {
         if(HostList[HostIdx]->ProtocolId == SBN_IPv4)
         {
-            return SBN_VALID;
+            return TRUE;
         }/* end if */
     }/* end for */
 
-    return SBN_NOT_VALID;
+    return FALSE;
 }/* end IPv4_VerifyPeerInterface */
 
 int IPv4_VerifyHostInterface(SBN_InterfaceData *Host,
         SBN_PeerData_t *PeerList, int NumPeers)
 {
-    return SBN_VALID;
+    return TRUE;
 }/* end IPv4_VerifyHostInterface */
 
 int IPv4_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet,

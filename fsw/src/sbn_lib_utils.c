@@ -131,14 +131,10 @@ char *SBN_LIB_StateNum2Str(uint32 StateNum) {
     switch (StateNum)
     {
         case 0:
-            strcpy(SBN_StateName, "SBN_INIT");
-            break;
-
-        case 1:
             strcpy(SBN_StateName, "SBN_ANNOUNCING");
             break;
 
-        case 2:
+        case 1:
             strcpy(SBN_StateName, "SBN_HEARTBEATING");
             break;
 
