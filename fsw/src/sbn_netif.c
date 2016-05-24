@@ -433,6 +433,33 @@ static void SwapBytes(void *addr, size_t size)
         p[i] = t;
     }
 }/* end SwapBytes */
+
+static void SwapCCSDSSecHdr(void *Msg)
+{
+    int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
+    if(CCSDSType == CCSDS_TLM)
+    {
+        CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
+        /* SBN sends CCSDS telemetry messages with secondary headers in
+         * big-endian order.
+         */
+        SwapBytes(TlmPktPtr->SecHdr.Time, 4);
+        if(CCSDS_TIME_SIZE == 6)
+        {
+            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 2);
+        }
+        else
+        {
+            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 4);
+        }/* end if */
+    }
+    else if(CCSDSType == CCSDS_CMD)
+    {
+        CCSDS_CmdPkt_t *CmdPktPtr = (CCSDS_CmdPkt_t *)Msg;
+
+        SwapBytes(&(CmdPktPtr->SecHdr.Command), 2);
+    }/* end if */
+}/* end SwapCCSDSSecHdr */
 #endif /* LITTLE_ENDIAN */
 
 /**
@@ -450,30 +477,13 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
 {
     int status = 0;
 
-#ifdef LITTLE_ENDIAN
-    /* not necessarily valid, if this is a cmd msg */
-    CCSDS_TlmPkt_t *TlmPktPtr = Msg;
-#endif /* LITTLE_ENDIAN */
-
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
         MsgSize);
 
 #ifdef LITTLE_ENDIAN
-    if(MsgType == SBN_APP_MSG
-        && CCSDS_RD_TYPE(TlmPktPtr->PriHdr) == CCSDS_TLM)
+    if(MsgType == SBN_APP_MSG)
     {
-        /* SBN sends CCSDS telemetry messages with secondary headers in
-         * big-endian order.
-         */
-        SwapBytes(TlmPktPtr->SecHdr.Time, 4);
-        if(CCSDS_TIME_SIZE == 6)
-        {
-            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 2);
-        }
-        else
-        {
-            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 4);
-        }/* end if */
+        SwapCCSDSSecHdr(Msg);
     }/* end if */
 #endif /* LITTLE_ENDIAN */
 
@@ -517,11 +527,6 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         if(status == SBN_OK)
         {
-#ifdef LITTLE_ENDIAN
-            /* not necessarily valid, if this is a cmd msg */
-            CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
-#endif /* LITTLE_ENDIAN */
-
             PeerIdx = SBN_GetPeerIndex(CpuId);
             if(PeerIdx == SBN_ERROR)
             {
@@ -533,21 +538,9 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
             OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
 
 #ifdef LITTLE_ENDIAN
-            if(MsgType == SBN_APP_MSG
-                && CCSDS_RD_TYPE(TlmPktPtr->PriHdr) == CCSDS_TLM)
+            if(MsgType == SBN_APP_MSG)
             {
-                /* SBN sends CCSDS telemetry messages with secondary headers
-                 * big-endian order.
-                 */
-                SwapBytes(TlmPktPtr->SecHdr.Time, 4);
-                if(CCSDS_TIME_SIZE == 6)
-                {
-                    SwapBytes(TlmPktPtr->SecHdr.Time + 4, 2);
-                }
-                else
-                {
-                    SwapBytes(TlmPktPtr->SecHdr.Time + 4, 4);
-                }/* end if */
+                SwapCCSDSSecHdr(Msg);
             }/* end if */
 #endif /* LITTLE_ENDIAN */
 
