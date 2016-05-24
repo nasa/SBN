@@ -382,7 +382,8 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "%s:Entries value %d in SB PrevSubMsg exceeds max %d, aborting",
-            CFE_CPU_NAME, Ptr->Payload.Entries, CFE_SB_SUB_ENTRIES_PER_PKT);
+            CFE_CPU_NAME, (int)Ptr->Payload.Entries,
+            CFE_SB_SUB_ENTRIES_PER_PKT);
         return;
     }/* end if */
 
@@ -435,7 +436,7 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
 
     CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
         "%s:UnSubscribed %d MsgIds from %s", CFE_CPU_NAME,
-        SBN.Peer[PeerIdx].SubCnt, SBN.Peer[PeerIdx].Name);
+        (int)SBN.Peer[PeerIdx].SubCnt, SBN.Peer[PeerIdx].Name);
 
     SBN.Peer[PeerIdx].SubCnt = 0;
 }/* end SBN_RemoveAllSubsFromPeer */

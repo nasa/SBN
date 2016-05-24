@@ -334,7 +334,7 @@ void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
         CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
 
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-            "Peer list retrieved (%d peers)", response.NumPeers);
+            "Peer list retrieved (%d peers)", (int)response.NumPeers);
     }/* end if */
 }/* end SBN_GetPeerList */
 
@@ -370,7 +370,7 @@ void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
         {
             CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
                 "Peer status command not implemented for peer %d of type %d",
-                PeerIdx, response.ProtocolId);
+                (int)PeerIdx, (int)response.ProtocolId);
         }
         else
         {
@@ -378,7 +378,7 @@ void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
             CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
 
             CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-                "Peer status retrieved for peer %d", PeerIdx);
+                "Peer status retrieved for peer %d", (int)PeerIdx);
         }/* end if */
     }/* end if */
 }/* end SBN_GetPeerStatus */

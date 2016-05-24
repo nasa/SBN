@@ -213,7 +213,7 @@ static int WaitForSBStartup(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create EventPipe (%d)", Status);
+            "SBN APP Failed to create EventPipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -224,7 +224,7 @@ static int WaitForSBStartup(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to sub to EventPipe (%d)", Status);
+            "SBN APP Failed to sub to EventPipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -345,7 +345,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create SCH pipe (%d)", Status);
+            "SBN APP Failed to create SCH pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -353,7 +353,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to SCH wakeup (%d)", Status);
+            "SBN APP Failed to subscribe to SCH wakeup (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -363,7 +363,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create sub pipe (%d)", Status);
+            "SBN APP Failed to create sub pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -372,7 +372,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to allsubs (%d)", Status);
+            "SBN APP Failed to subscribe to allsubs (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -381,7 +381,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to sub (%d)", Status);
+            "SBN APP Failed to subscribe to sub (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -390,7 +390,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create cmdpipe (%d)", Status);
+            "SBN APP Failed to create cmdpipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -398,7 +398,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to cmd (%d)", Status);
+            "SBN APP Failed to subscribe to cmd (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -406,13 +406,13 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to hk (%d)", Status);
+            "SBN APP Failed to subscribe to hk (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "SBN APP Initialized V1.1, AppId=%d", SBN.AppId);
+        "SBN APP Initialized V1.1, AppId=%d", (int)SBN.AppId);
 
     /* Initialize HK Message */
     CFE_SB_InitMsg(&SBN.HkPkt, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);

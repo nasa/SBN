@@ -393,7 +393,8 @@ int SBN_InitPeerInterface(void)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                     "%s:Error creating pipe for %s,status=0x%x",
-                    CFE_CPU_NAME, SBN.Peer[SBN.NumPeers].Name, Stat);
+                    CFE_CPU_NAME, SBN.Peer[SBN.NumPeers].Name,
+                    (unsigned int)Stat);
                 return SBN_ERROR;
             }/* end if */
 
@@ -419,6 +420,7 @@ int SBN_InitPeerInterface(void)
     return SBN_OK;
 }/* end SBN_InitPeerInterface */
 
+#ifdef LITTLE_ENDIAN
 static void SwapBytes(void *addr, size_t size)
 {
     size_t i = 0;
@@ -431,6 +433,7 @@ static void SwapBytes(void *addr, size_t size)
         p[i] = t;
     }
 }/* end SwapBytes */
+#endif /* LITTLE_ENDIAN */
 
 /**
  * Sends a message to a peer using the module's SendNetMsg.
@@ -447,8 +450,10 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
 {
     int status = 0;
 
+#ifdef LITTLE_ENDIAN
     /* not necessarily valid, if this is a cmd msg */
     CCSDS_TlmPkt_t *TlmPktPtr = Msg;
+#endif /* LITTLE_ENDIAN */
 
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
         MsgSize);
@@ -512,8 +517,10 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         if(status == SBN_OK)
         {
+#ifdef LITTLE_ENDIAN
             /* not necessarily valid, if this is a cmd msg */
-            CCSDS_TlmPkt_t *TlmPktPtr = Msg;
+            CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
+#endif /* LITTLE_ENDIAN */
 
             PeerIdx = SBN_GetPeerIndex(CpuId);
             if(PeerIdx == SBN_ERROR)
