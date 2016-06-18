@@ -22,16 +22,14 @@
 #ifndef _sbn_events_h_
 #define _sbn_events_h_
 
-#define FIRST_SBN_EID                   0x0001
+#define SBN_FIRST_EID                   0x0001
 
-#define FIRST_SBN_LIB_EID               0x0080
-
-#define FIRST_SBN_IPV4_EID              0x0100
-#define FIRST_SBN_IPV6_EID              0x0200
-#define FIRST_SBN_SPACEWIRE_RMAP_EID    0x0300
-#define FIRST_SBN_SPACEWIRE_PKT_EID     0x0400
-#define FIRST_SBN_SHMEM_EID             0x0500
-#define FIRST_SBN_SERIAL_EID            0x0600
-#define FIRST_SBN_1553_EID              0x0700
+#define SBN_UDP_FIRST_EID               0x0100
+#define SBN_TCP_FIRST_EID               0x0200
+#define SBN_SPACEWIRE_RMAP_FIRST_EID    0x0300
+#define SBN_SPACEWIRE_PKT_FIRST_EID     0x0400
+#define SBN_SHMEM_FIRST_EID             0x0500
+#define SBN_SERIAL_FIRST_EID            0x0600
+#define SBN_1553_FIRST_EID              0x0700
 
 #endif /* _sbn_events_h_ */

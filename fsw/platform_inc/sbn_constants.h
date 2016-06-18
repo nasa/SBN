@@ -37,8 +37,8 @@
 /* at most process this many SB messages per peer per wakeup */
 #define SBN_MAX_MSG_PER_WAKEUP        32
 
-#define SBN_IPv4                      1
-#define SBN_IPv6                      2  /* not implemented */
+#define SBN_UDP                       1
+#define SBN_TCP                       2  /* not implemented */
 #define SBN_SPACEWIRE_RMAP            3  /* not implemented */
 #define SBN_SPACEWIRE_PKT             4  /* not implemented */
 #define SBN_SHMEM                     5
