@@ -88,7 +88,7 @@ typedef struct {
      * @return SBN_HOST if the interface is a host, SBN_PEER if a peer,
      *         SBN_ERROR otherwise
      */
-    int (*InitPeerInterface)(SBN_InterfaceData*);
+    int (*InitPeerInterface)(SBN_InterfaceData *);
 
     /**
      * Sends a message to a peer over the specified interface.
@@ -97,8 +97,6 @@ typedef struct {
      * un/subscriptions and app messages.  The protocol message buffer is used
      * for announce and heartbeat messages/acks.
      *
-     * @param SBN_InterfaceData *[] Array of all host interfaces in the SBN
-     * @param int                   Number of host interfaces in the SBN
      * @param SBN_InterfaceData *   Interface data describing the
      *                              intended peer recipient
      * @param SBN_MsgType_t         The SBN message type
@@ -106,14 +104,14 @@ typedef struct {
      * @param void *                The SBN message payload
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int (*SendNetMsg)(SBN_InterfaceData *[], int, SBN_InterfaceData *,
+    int (*SendNetMsg)(SBN_InterfaceData *,
         SBN_MsgType_t, SBN_MsgSize_t, void *);
 
 
     /**
      * Receives a data message from the specified interface.
      *
-     * @param SBN_InterfaceData *   Host interface from which to receive a
+     * @param SBN_InterfaceData *   Peer interface from which to receive a
      *                              message
      * @param SBN_MsgType_t *       SBN message type received.
      * @param SBN_MsgSize_t *       Payload size received.

@@ -353,7 +353,7 @@ int32 SBN_GetPeerFileData(void)
 int SBN_InitPeerInterface(void)
 {
     int32 Stat = 0, IFRole = 0; /* host or peer */
-    int i = 0, PeerIdx = 0;
+    int i = 0, EntryIdx = 0;
 
     DEBUG_START();
 
@@ -361,31 +361,32 @@ int SBN_InitPeerInterface(void)
     SBN.NumPeers = 0;
 
     /* loop through entries in peer data */
-    for(PeerIdx = 0; PeerIdx < SBN.NumEntries; PeerIdx++)
+    for(EntryIdx = 0; EntryIdx < SBN.NumEntries; EntryIdx++)
     {
         /* Call the correct init interface function based on the interface type */
-        IFRole = SBN.IfOps[SBN.IfData[PeerIdx].ProtocolId]->InitPeerInterface(&SBN.IfData[PeerIdx]);
+        IFRole = SBN.IfOps[SBN.IfData[EntryIdx].ProtocolId]
+            ->InitPeerInterface(&SBN.IfData[EntryIdx]);
         if(IFRole == SBN_HOST)
         {
-            SBN.Host[SBN.NumHosts] = &SBN.IfData[PeerIdx];
+            SBN.Host[SBN.NumHosts] = &SBN.IfData[EntryIdx];
             SBN.NumHosts++;
         }
         else if(IFRole == SBN_PEER)
         {
             CFE_PSP_MemSet(&SBN.Peer[SBN.NumPeers], 0,
                 sizeof(SBN.Peer[SBN.NumPeers]));
-            SBN.Peer[SBN.NumPeers].IfData = &SBN.IfData[PeerIdx];
+            SBN.Peer[SBN.NumPeers].IfData = &SBN.IfData[EntryIdx];
             SBN.Peer[SBN.NumPeers].InUse = TRUE;
 
             /* for ease of use, copy some data from the entry into the peer */
-            SBN.Peer[SBN.NumPeers].QoS = SBN.IfData[PeerIdx].QoS;
+            SBN.Peer[SBN.NumPeers].QoS = SBN.IfData[EntryIdx].QoS;
             SBN.Peer[SBN.NumPeers].ProcessorId =
-                SBN.IfData[PeerIdx].ProcessorId;
+                SBN.IfData[EntryIdx].ProcessorId;
             SBN.Peer[SBN.NumPeers].ProtocolId =
-                SBN.IfData[PeerIdx].ProtocolId;
+                SBN.IfData[EntryIdx].ProtocolId;
             SBN.Peer[SBN.NumPeers].SpaceCraftId =
-                SBN.IfData[PeerIdx].SpaceCraftId;
-            strncpy(SBN.Peer[SBN.NumPeers].Name, SBN.IfData[PeerIdx].Name,
+                SBN.IfData[EntryIdx].SpaceCraftId;
+            strncpy(SBN.Peer[SBN.NumPeers].Name, SBN.IfData[EntryIdx].Name,
                 SBN_MAX_PEERNAME_LENGTH);
 
             Stat = SBN_CreatePipe4Peer(SBN.NumPeers);
@@ -488,8 +489,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
 #endif /* LITTLE_ENDIAN */
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
-        SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
-        MsgType, MsgSize, Msg);
+        SBN.Peer[PeerIdx].IfData, MsgType, MsgSize, Msg);
 
     if(status != -1)
     {
@@ -503,22 +503,24 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
     return status;
 }/* end SBN_SendNetMsg */
 
-void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
+void SBN_ProcessNetAppMsgsFromPeer(int PeerIdx)
 {
-    int i = 0, status = 0, PeerIdx = 0;
+    int i = 0, status = 0;
 
     /* DEBUG_START(); chatty */
 
-    /* Process all the received messages */
-    for(i = 0; i <= 100; i++)
+    /* Process up to 100 received messages
+     * TODO: make configurable
+     */
+    for(i = 0; i < 100; i++)
     {
         SBN_CpuId_t CpuId = 0;
         SBN_MsgType_t MsgType = 0;
         SBN_MsgSize_t MsgSize = 0;
         uint8 Msg[SBN_MAX_MSG_SIZE];
 
-        status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->ReceiveMsg(
-            SBN.Host[HostIdx], &MsgType, &MsgSize, &CpuId, Msg);
+        status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->ReceiveMsg(
+            SBN.Peer[PeerIdx].IfData, &MsgType, &MsgSize, &CpuId, Msg);
 
         if(status == SBN_IF_EMPTY)
         {
@@ -527,14 +529,6 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
 
         if(status == SBN_OK)
         {
-            PeerIdx = SBN_GetPeerIndex(CpuId);
-            if(PeerIdx == SBN_ERROR)
-            {
-                CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
-                    "PeerIdx Bad.  PeerIdx = %d", PeerIdx);
-                continue;
-            }/* end if */
-
             OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
 
 #ifdef LITTLE_ENDIAN
@@ -549,7 +543,7 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
         else if(status == SBN_ERROR)
         {
             // TODO error message
-            SBN.HkPkt.PeerAppMsgRecvErrCount[HostIdx]++;
+            SBN.HkPkt.PeerAppMsgRecvErrCount[PeerIdx]++;
         }/* end if */
     }/* end for */
 }/* end SBN_RcvHostMsgs */
@@ -559,18 +553,13 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
  */
 void SBN_CheckForNetAppMsgs(void)
 {
-    int HostIdx = 0;
+    int PeerIdx = 0;
 
     /* DEBUG_START(); chatty */
 
-    for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
+    for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
-        if(!SBN.Host[HostIdx]->IsValid)
-        {
-            continue;
-        }/* end if */
-
-        SBN_ProcessNetAppMsgsFromHost(HostIdx);
+        SBN_ProcessNetAppMsgsFromPeer(PeerIdx);
     }/* end for */
 }/* end SBN_CheckForNetAppMsgs */
 

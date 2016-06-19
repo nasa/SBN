@@ -59,7 +59,7 @@ static void CheckPeerPipes(void)
     {
         ReceivedFlag = 0;
 
-        for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
         {
             /* if peer data is not in use, go to next peer */
             if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
@@ -122,7 +122,7 @@ static void RunProtocol(void)
 
     CFE_ES_PerfLogEntry(SBN_PERF_SEND_ID);
 
-    for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
         /* if peer data is not in use, go to next peer */
         if(!SBN.Peer[PeerIdx].InUse) continue;
@@ -317,7 +317,7 @@ static int Init(void)
         return SBN_ERROR;
     }/* end if */
 
-    for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
         SBN.Peer[PeerIdx].InUse = FALSE;
         SBN.Peer[PeerIdx].SubCnt = 0;
@@ -537,7 +537,7 @@ int SBN_GetPeerIndex(uint32 ProcessorId)
 
     /* DEBUG_START(); chatty */
 
-    for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
         if(!SBN.Peer[PeerIdx].InUse) continue;
 

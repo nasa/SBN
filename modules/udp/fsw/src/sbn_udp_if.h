@@ -17,11 +17,10 @@ int SBN_UDP_ParseFileEntry(char *, uint32, void *);
 
 int SBN_UDP_Init(SBN_InterfaceData* data);
 
-int SBN_UDP_Send(SBN_InterfaceData *HostList[], int NumHosts,
-    SBN_InterfaceData *IfData, SBN_MsgType_t MsgType,
+int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, void *Msg);
 
-int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
+int SBN_UDP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *MsgBuf);
 
 int SBN_UDP_VerifyPeerInterface(SBN_InterfaceData *Peer,

@@ -16,7 +16,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 
     if (fieldcount != 4)
     {
-        OS_printf("error: invalid field count %d (expected 4)\n", fieldcount); /* TODO: event */
+        OS_printf("SBN: invalid field count %d (expected 4)\n", fieldcount);
         return OS_SUCCESS;
     }
 
@@ -24,24 +24,27 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 
     if (ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES)
     {   
-        OS_printf("%s:Invalid protocol id %d\n",
-            CFE_CPU_NAME, ProtocolId);
+        OS_printf("SBN: Invalid protocol id %d\n", ProtocolId);
         return OS_SUCCESS;
     }/* end if */
 
     status = OS_ModuleLoad(&ModuleId, row[1], row[2]);
     if(status != OS_SUCCESS)
     {
+        OS_printf("SBN: Unable to load module %s (%s)\n", row[1], row[2]);
         return OS_SUCCESS;
     }/* end if */
 
     status = OS_SymbolLookup(&StructAddr, row[3]);
     if(status != OS_SUCCESS)
     {
-        OS_printf("Failed to find symbol %s\n", row[3]);
+        OS_printf("SBN: Failed to find symbol %s in %s (%s)\n",
+            row[3], row[1], row[2]);
         return OS_SUCCESS;
     }/* end if */
 
+    OS_printf("SBN: Module initialized: %s in %s (%s)\n",
+        row[3], row[1], row[2]);
     SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
 
     return OS_SUCCESS;
@@ -50,7 +53,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 static int SBN_ConfLoaderErrorCallback(const char *filename, int linenum,
     const char *errmessage, void *opaque)
 {
-    OS_printf("error: %s\n", errmessage); /* TODO: event */
+    OS_printf("SBN: error: %s\n", errmessage);
     return OS_SUCCESS;
 }
 
@@ -201,15 +204,14 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     */
     if (ScanfStatus != 4)
     {
-        OS_printf("%s:Invalid SBN module file line,exp %d items,found %d",
-            CFE_CPU_NAME, 4, ScanfStatus);
+        OS_printf("SBN: Invalid module file line, exp %d items, found %d",
+            4, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
     if (ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES)
     {
-        OS_printf("%s:Invalid protocol id %d",
-            CFE_CPU_NAME, ProtocolId);
+        OS_printf("SBN: Invalid protocol id %d", ProtocolId);
         return SBN_ERROR;
     }/* end if */
 
@@ -224,10 +226,13 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     if(ReturnCode != OS_SUCCESS)
     {
-        OS_printf("Failed to find symbol %s\n", StructName);
+        OS_printf("SBN: Failed to find symbol %s in %s (%s)\n", StructName,
+            ModuleName, ModuleFile);
         return SBN_ERROR;
     }/* end if */
 
+    OS_printf("SBN: Found symbol %s in %s (%s)\n", StructName, ModuleName,
+        ModuleFile);
     SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
 
     return SBN_OK;
