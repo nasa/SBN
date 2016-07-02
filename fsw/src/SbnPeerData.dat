@@ -1,5 +1,5 @@
-CPU1, 1, 1, 0, 0, 192.168.0.1, 15820;
-CPU2, 2, 1, 0, 1, 192.168.0.2, 15820;
+CPU1, 1, 1, 0, 0, 0, 192.168.0.1, 15820;
+CPU2, 2, 1, 0, 1, 0, 192.168.0.2, 15820;
 !
 ! The '!' is inserted after the last valid peer line, it is not a comment character
 !
@@ -11,9 +11,9 @@ CPU2, 2, 1, 0, 1, 192.168.0.2, 15820;
 ! Only IPv4, Shared Memory, and Serial are currently implemented
 !
 ! IPv4 example:
-! <Name, ProcessorId, ProtocolId, SpacecraftId, QoS, Addr, DataPort>
-! CPU1, 1, 1, 0, 0, 192.168.1.76, 15820;
-! CPU2, 2, 1, 0, 1, 192.168.1.77, 15820;
+! <Name, ProcessorId, ProtocolId, SpacecraftId, QoS, NetNumber, Addr, DataPort>
+! CPU1, 1, 1, 0, 0, 0, 192.168.1.76, 15820;
+! CPU2, 2, 1, 0, 1, 0, 192.168.1.77, 15820;
 ! The ProtoPort is arbitrary, but must be unique for processor/system.
 !
 ! Shared Memory example:

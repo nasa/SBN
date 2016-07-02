@@ -1,14 +1,11 @@
-1, IPv4, /cf/sbn_module_ipv4.so, IPv4Ops;
-6, Serial, /cf/sbn_module_serial.so, SerialOps; 
-!
-!1, IPv4, /cf/apps/ipv4.so, IPv4Ops;
-!5, ShMem, /cf/apps/shmem.so, ShMemOps;
-!6, Serial, /cf/apps/serial.so, SerialOps; 
+1, UDP, /cf/sbn_udp_module.so, SBN_UDP_Ops;
+2, TCP, /cf/sbn_tcp_module.so, SBN_TCP_Ops;
+6, Serial, /cf/sbn_serial_module.so, SBN_Serial_Ops; 
 !
 ! Format: ProtocolId, ModuleLocation, IFStructName
 !
-! Protocol id 1 = IPv4, 2 = IPv6, 3 = SpacewireRMAP, 4 = Spacewire packet, 5 = Shared Memory, 6 = Serial
-! Only IPv4, Shared Memory, and Serial are currently implemented
+! Protocol id 1 = UDP, 2 = TCP, 3 = SpacewireRMAP, 4 = Spacewire packet, 5 = Shared Memory, 6 = Serial
+! Only UDP and TCP are currently implemented
 !
 ! IFStructName is the name of the SBN_InterfaceOperations struct defined for the
 ! module. 
