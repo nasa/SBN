@@ -4,7 +4,6 @@
 #include "cfe.h"
 #include "sbn_constants.h"
 #include "sbn_msg.h"
-#include "sbn_lib_utils.h" /* in sbn_lib */
 
 /*
 ** Other Structures

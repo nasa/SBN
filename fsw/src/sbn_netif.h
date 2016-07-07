@@ -31,7 +31,6 @@ int32 SBN_GetPeerFileData(void);
 
 int SBN_InitPeerInterface(void);
 int SBN_CheckForNetProtoMsg(int PeerIdx);
-void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx);
 void  SBN_CheckForNetAppMsgs(void);
 void  SBN_VerifyPeerInterfaces(void);
 void  SBN_VerifyHostInterfaces(void);
@@ -44,7 +43,7 @@ uint8 SBN_GetPriorityFromQoS(uint8 QoS);
 uint8 SBN_GetPeerQoSReliability(const SBN_PeerData_t * peer);
 uint8 SBN_GetPeerQoSPriority(const SBN_PeerData_t * peer);
 
-extern sbn_t  SBN;
+extern SBN_AppData_t SBN;
 
 #endif /* _sbn_netif_ */
 /*****************************************************************************/

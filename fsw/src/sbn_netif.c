@@ -568,8 +568,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
  *
  * @param PeerIdx The index of the peer from whence to check for packets.
  */
- // TODO: make static
-void SBN_ProcessNetAppMsgsFromPeer(int PeerIdx)
+static void SBN_ProcessNetAppMsgsFromPeer(int PeerIdx)
 {
     int i = 0, status = 0;
 
@@ -612,7 +611,7 @@ void SBN_ProcessNetAppMsgsFromPeer(int PeerIdx)
             SBN.HkPkt.PeerAppMsgRecvErrCount[PeerIdx]++;
         }/* end if */
     }/* end for */
-}/* end SBN_RcvHostMsgs */
+}/* end SBN_ProcessNetAppMsgsFromPeer */
 
 /**
  * Checks all interfaces for messages from peers.
@@ -633,8 +632,7 @@ void SBN_CheckForNetAppMsgs(void)
  * Verifies the validity of all peers configured, using a per-protocol module
  * method.
  */
- // TODO: add void
-void SBN_VerifyPeerInterfaces()
+void SBN_VerifyPeerInterfaces(void)
 {
     int PeerIdx = 0, status = 0;
 
@@ -659,8 +657,7 @@ void SBN_VerifyPeerInterfaces()
  * Verifies the validity of all host interfaces configured, using a
  * per-protocol module method.
  */
- // TODO: add void
-void SBN_VerifyHostInterfaces()
+void SBN_VerifyHostInterfaces(void)
 {
     int HostIdx = 0, status = 0;
 

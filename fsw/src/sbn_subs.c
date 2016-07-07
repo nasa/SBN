@@ -61,7 +61,7 @@ void SBN_SendSubsRequests(void)
  *
  * @return CFE_PSP_SUCCESS on successful copy.
  */
-static int32 SBN_EndianMemCpy(void *dest, void *src, uint32 n)
+static int32 EndianMemCpy(void *dest, void *src, uint32 n)
 {
     uint32 i = 0;
     for(i = 0; i < n; i++)
@@ -69,11 +69,11 @@ static int32 SBN_EndianMemCpy(void *dest, void *src, uint32 n)
         ((uint8 *)dest)[i] = ((uint8 *)src)[n - i - 1];
     }/* end for */
     return CFE_PSP_SUCCESS;
-}/* end SBN_EndianMemCpy */
+}/* end EndianMemCpy */
 
 #else /* !LITTLE_ENDIAN */
 
-#define SBN_EndianMemCpy(D, S, N) CFE_PSP_MemCpy(D, S, N)
+#define EndianMemCpy(D, S, N) CFE_PSP_MemCpy(D, S, N)
 
 #endif /* LITTLE_ENDIAN */
 
@@ -86,7 +86,7 @@ static int32 SBN_EndianMemCpy(void *dest, void *src, uint32 n)
  */
 static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
-    SBN_EndianMemCpy(SubMsg, &MsgId, sizeof(MsgId));
+    EndianMemCpy(SubMsg, &MsgId, sizeof(MsgId));
     CFE_PSP_MemCpy(SubMsg + sizeof(MsgId), &Qos, sizeof(Qos));
 
 }
@@ -102,7 +102,7 @@ static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
     CFE_SB_Qos_t *QosPtr)
 {
-    SBN_EndianMemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
+    EndianMemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
     CFE_PSP_MemCpy(QosPtr, SubMsg + sizeof(*MsgIdPtr), sizeof(*QosPtr));
 }
 

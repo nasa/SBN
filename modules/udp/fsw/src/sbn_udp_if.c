@@ -2,7 +2,6 @@
 #include "sbn_udp_if.h"
 #include "sbn_udp_events.h"
 #include "cfe.h"
-#include "sbn_lib_utils.h"
 #include <network_includes.h>
 #include <string.h>
 #include <errno.h>
@@ -169,6 +168,35 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
     return SBN_PEER;
 }/* end SBN_UDP_Init */
 
+#ifdef LITTLE_ENDIAN
+
+/**
+ * Utility function to copy memory and simultaneously swapping bytes for 
+ * a little-endian platform. The SBN over-the-wire protocol is network order
+ * (big-endian).
+ * 
+ * @param[in] dest Pointer to the destination block in memory.
+ * @param[in] src Pointer to the source block in memory.
+ * @param[in] n The number of bytes to copy from the src to the dest.
+ *
+ * @return CFE_PSP_SUCCESS on successful copy.
+ */
+static int32 EndianMemCpy(void *dest, void *src, uint32 n)
+{
+    uint32 i = 0;
+    for(i = 0; i < n; i++)
+    {   
+        ((uint8 *)dest)[i] = ((uint8 *)src)[n - i - 1];
+    }/* end for */
+    return CFE_PSP_SUCCESS;
+}/* end EndianMemCpy */
+
+#else /* !LITTLE_ENDIAN */
+
+#define EndianMemCpy(D, S, N) CFE_PSP_MemCpy(D, S, N)
+
+#endif /* LITTLE_ENDIAN */
+
 int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, void *Msg)
 {
@@ -186,12 +214,12 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
 
     BufOffset = Network->SendBuf;
 
-    SBN_EndianMemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
+    EndianMemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
     BufOffset += sizeof(MsgSize);
     CFE_PSP_MemCpy(BufOffset, &MsgType, sizeof(MsgType));
     BufOffset += sizeof(MsgType);
     SBN_CpuId_t CpuId = CFE_CPU_ID;
-    SBN_EndianMemCpy(BufOffset, &CpuId, sizeof(CpuId));
+    EndianMemCpy(BufOffset, &CpuId, sizeof(CpuId));
     BufOffset += sizeof(CpuId);
 
     if(Msg && MsgSize)
@@ -247,7 +275,7 @@ printf("FOO Received=%d\n", Received);
     }/* end if */
 
     SBN_MsgSize_t MsgSize = 0;
-    SBN_EndianMemCpy(&MsgSize, Network->RecvBuf, sizeof(MsgSize));
+    EndianMemCpy(&MsgSize, Network->RecvBuf, sizeof(MsgSize));
 
     if(Network->RecvSize < MsgSize + SBN_PACKED_HDR_SIZE)
     {
@@ -262,7 +290,7 @@ printf("FOO Received=%d\n", Received);
     CFE_PSP_MemCpy(MsgTypePtr, BufPtr, sizeof(*MsgTypePtr));
     BufPtr += sizeof(*MsgTypePtr);
 
-    SBN_EndianMemCpy(CpuIdPtr, BufPtr, sizeof(*CpuIdPtr));
+    EndianMemCpy(CpuIdPtr, BufPtr, sizeof(*CpuIdPtr));
     BufPtr += sizeof(*CpuIdPtr);
 
     CFE_PSP_MemCpy(MsgBuf, BufPtr, MsgSize);
