@@ -43,7 +43,5 @@ uint8 SBN_GetPriorityFromQoS(uint8 QoS);
 uint8 SBN_GetPeerQoSReliability(const SBN_PeerData_t * peer);
 uint8 SBN_GetPeerQoSPriority(const SBN_PeerData_t * peer);
 
-extern SBN_AppData_t SBN;
-
 #endif /* _sbn_netif_ */
 /*****************************************************************************/

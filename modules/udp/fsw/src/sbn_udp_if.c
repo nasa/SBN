@@ -168,7 +168,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
     return SBN_PEER;
 }/* end SBN_UDP_Init */
 
-#ifdef LITTLE_ENDIAN
+#ifndef LITTLE_ENDIAN
 
 /**
  * Utility function to copy memory and simultaneously swapping bytes for 

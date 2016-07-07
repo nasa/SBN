@@ -123,6 +123,5 @@ int SBN_GetPeerIndex(uint32 ProcessorId);
 #define DEBUG_MSG(...) ;
 #endif /* SBN_DEBUG_MSGS */
 
-
 #endif /* _sbn_app_ */
 /*****************************************************************************/

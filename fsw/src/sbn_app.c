@@ -45,7 +45,7 @@
  */
 
 /** \brief SBN global application data. */
-SBN_AppData_t SBN_AppData;
+SBN_AppData_t SBN;
 
 /**
  * Iterate through all peers, examining the pipe to see if there are messages
