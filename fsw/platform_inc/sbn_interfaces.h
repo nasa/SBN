@@ -74,9 +74,9 @@ typedef struct {
      * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
      */
 #ifdef _osapi_confloader_
-    int (*LoadInterfaceEntry)(const char **, int, void *);
+    int (*Load)(const char **, int, void *);
 #else /* ! _osapi_confloader_ */
-    int (*ParseInterfaceFileEntry)(char *, uint32, void *);
+    int (*Parse)(char *, uint32, void *);
 #endif /* _osapi_confloader_ */
 
     /**
@@ -87,7 +87,7 @@ typedef struct {
      * @return SBN_HOST if the interface is a host, SBN_PEER if a peer,
      *         SBN_ERROR otherwise
      */
-    int (*InitPeerInterface)(SBN_InterfaceData *);
+    int (*Init)(SBN_InterfaceData *);
 
     /**
      * Sends a message to a peer over the specified interface.
@@ -103,7 +103,7 @@ typedef struct {
      * @param void *                The SBN message payload
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int (*SendNetMsg)(SBN_InterfaceData *,
+    int (*Send)(SBN_InterfaceData *,
         SBN_MsgType_t, SBN_MsgSize_t, void *);
 
 
@@ -119,7 +119,7 @@ typedef struct {
      *                              (pass in a buffer of SBN_MAX_MSG_SIZE)
      * @return SBN_OK on success, SBN_ERROR on failure
      */
-    int (*ReceiveMsg)(SBN_InterfaceData *, SBN_MsgType_t *,
+    int (*Recv)(SBN_InterfaceData *, SBN_MsgType_t *,
         SBN_MsgSize_t *, SBN_CpuId_t *, void *);
 
     /**
@@ -132,7 +132,7 @@ typedef struct {
      * @param int                    Number of hosts in the SBN
      * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
      */
-    int (*VerifyPeerInterface)(SBN_InterfaceData *, SBN_InterfaceData *[],
+    int (*VerifyPeer)(SBN_InterfaceData *, SBN_InterfaceData *[],
         int);
 
     /**
@@ -145,7 +145,7 @@ typedef struct {
      * @param int                    Number of peers in the SBN
      * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
      */
-    int (*VerifyHostInterface)(SBN_InterfaceData *, SBN_PeerData_t *, int);
+    int (*VerifyHost)(SBN_InterfaceData *, SBN_PeerData_t *, int);
 
     /**
      * Reports the status of the module.  The status can be in a module-specific

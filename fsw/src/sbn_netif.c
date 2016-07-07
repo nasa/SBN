@@ -89,7 +89,7 @@ static int PeerFileRowCallback(const char *filename, int linenum,
     SBN.IfData[SBN.NumEntries].SpaceCraftId = atoi(row[3]);
 
     /* Call the correct parse entry function based on the interface type */
-    status = SBN.IfOps[ProtocolId]->LoadInterfaceEntry(row + 5, fieldcount - 5,
+    status = SBN.IfOps[ProtocolId]->Load(row + 5, fieldcount - 5,
         &SBN.IfData[SBN.NumEntries].InterfacePvt);
 
     if(status == SBN_OK)
@@ -252,7 +252,7 @@ static int ParseFileEntry(char *FileEntry)
     SBN.IfData[SBN.NumEntries].SpaceCraftId = SpaceCraftId;
 
     /* Call the correct parse entry function based on the interface type */
-    status = SBN.IfOps[ProtocolId]->ParseInterfaceFileEntry(app_data, SBN.NumEntries, &SBN.IfData[SBN.NumEntries].InterfacePvt);
+    status = SBN.IfOps[ProtocolId]->Parse(app_data, SBN.NumEntries, &SBN.IfData[SBN.NumEntries].InterfacePvt);
 
     if(status == SBN_OK)
     {
@@ -397,7 +397,7 @@ int32 SBN_GetPeerFileData(void)
  * @return SBN_OK if interface is initialized successfully
  *         SBN_ERROR otherwise
  */
-int SBN_InitPeerInterface(void)
+int SBN_InitInterfaces(void)
 {
     int32 Stat = 0, IFRole = 0; /* host or peer */
     int i = 0, EntryIdx = 0;
@@ -410,9 +410,11 @@ int SBN_InitPeerInterface(void)
     /* loop through entries in peer data */
     for(EntryIdx = 0; EntryIdx < SBN.NumEntries; EntryIdx++)
     {
-        /* Call the correct init interface function based on the interface type */
+        /* Call the correct init interface function based on the interface
+         * type
+         */
         IFRole = SBN.IfOps[SBN.IfData[EntryIdx].ProtocolId]
-            ->InitPeerInterface(&SBN.IfData[EntryIdx]);
+            ->Init(&SBN.IfData[EntryIdx]);
         if(IFRole == SBN_HOST)
         {
             SBN.Host[SBN.NumHosts] = &SBN.IfData[EntryIdx];
@@ -466,7 +468,7 @@ int SBN_InitPeerInterface(void)
     CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
         "SBN: Num Hosts = %d, Num Peers = %d", SBN.NumHosts, SBN.NumPeers);
     return SBN_OK;
-}/* end SBN_InitPeerInterface */
+}/* end SBN_InitInterfaces */
 
 #ifdef LITTLE_ENDIAN
 /**
@@ -547,7 +549,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
     }/* end if */
 #endif /* LITTLE_ENDIAN */
 
-    status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
+    status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->Send(
         SBN.Peer[PeerIdx].IfData, MsgType, MsgSize, Msg);
 
     if(status != -1)
@@ -563,68 +565,55 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
 }/* end SBN_SendNetMsg */
 
 /**
+ * Checks all interfaces for messages from peers.
  * Receive (up to a hundred) messages from the specified peer, injecting them
  * onto the local software bus.
- *
- * @param PeerIdx The index of the peer from whence to check for packets.
  */
-static void SBN_ProcessNetAppMsgsFromPeer(int PeerIdx)
+void SBN_RecvNetMsgs(void)
 {
-    int i = 0, status = 0;
-
-    /* DEBUG_START(); chatty */
-
-    /* Process up to 100 received messages
-     * TODO: make configurable
-     */
-    for(i = 0; i < 100; i++)
-    {
-        SBN_CpuId_t CpuId = 0;
-        SBN_MsgType_t MsgType = 0;
-        SBN_MsgSize_t MsgSize = 0;
-        uint8 Msg[SBN_MAX_MSG_SIZE];
-
-        status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->ReceiveMsg(
-            SBN.Peer[PeerIdx].IfData, &MsgType, &MsgSize, &CpuId, Msg);
-
-        if(status == SBN_IF_EMPTY)
-        {
-            break; /* no (more) messages */
-        }/* end if */
-
-        if(status == SBN_OK)
-        {
-            OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
-
-#ifdef LITTLE_ENDIAN
-            if(MsgType == SBN_APP_MSG)
-            {
-                SwapCCSDSSecHdr(Msg);
-            }/* end if */
-#endif /* LITTLE_ENDIAN */
-
-            SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
-        }
-        else if(status == SBN_ERROR)
-        {
-            // TODO error message
-            SBN.HkPkt.PeerAppMsgRecvErrCount[PeerIdx]++;
-        }/* end if */
-    }/* end for */
-}/* end SBN_ProcessNetAppMsgsFromPeer */
-
-/**
- * Checks all interfaces for messages from peers.
- */
-void SBN_CheckForNetAppMsgs(void)
-{
-    int PeerIdx = 0;
+    int PeerIdx = 0, i = 0, status = 0;
 
     /* DEBUG_START(); chatty */
 
     for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
-        SBN_ProcessNetAppMsgsFromPeer(PeerIdx);
+        /* Process up to 100 received messages
+         * TODO: make configurable
+         */
+        for(i = 0; i < 100; i++)
+        {
+            SBN_CpuId_t CpuId = 0;
+            SBN_MsgType_t MsgType = 0;
+            SBN_MsgSize_t MsgSize = 0;
+            uint8 Msg[SBN_MAX_MSG_SIZE];
+
+            status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->Recv(
+                SBN.Peer[PeerIdx].IfData, &MsgType, &MsgSize, &CpuId, Msg);
+
+            if(status == SBN_IF_EMPTY)
+            {
+                break; /* no (more) messages */
+            }/* end if */
+
+            if(status == SBN_OK)
+            {
+                OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
+
+    #ifdef LITTLE_ENDIAN
+                if(MsgType == SBN_APP_MSG)
+                {
+                    SwapCCSDSSecHdr(Msg);
+                }/* end if */
+    #endif /* LITTLE_ENDIAN */
+
+                SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
+            }
+            else if(status == SBN_ERROR)
+            {
+                // TODO error message
+                SBN.HkPkt.PeerAppMsgRecvErrCount[PeerIdx]++;
+            }/* end if */
+        }/* end for */
     }/* end for */
 }/* end SBN_CheckForNetAppMsgs */
 
@@ -632,7 +621,7 @@ void SBN_CheckForNetAppMsgs(void)
  * Verifies the validity of all peers configured, using a per-protocol module
  * method.
  */
-void SBN_VerifyPeerInterfaces(void)
+void SBN_VerifyPeers(void)
 {
     int PeerIdx = 0, status = 0;
 
@@ -640,7 +629,7 @@ void SBN_VerifyPeerInterfaces(void)
 
     for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
     {
-        status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->VerifyPeerInterface(
+        status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->VerifyPeer(
             SBN.Peer[PeerIdx].IfData, SBN.Host, SBN.NumHosts);
         SBN.Peer[PeerIdx].IfData->IsValid = status;
         if(!status)
@@ -651,13 +640,13 @@ void SBN_VerifyPeerInterfaces(void)
                 "Peer %s Not Valid", SBN.Peer[PeerIdx].IfData->Name);
         }/* end if */
     }/* end for */
-}/* end SBN_VerifyPeerInterfaces */
+}/* end SBN_VerifyPeers */
 
 /**
  * Verifies the validity of all host interfaces configured, using a
  * per-protocol module method.
  */
-void SBN_VerifyHostInterfaces(void)
+void SBN_VerifyHosts(void)
 {
     int HostIdx = 0, status = 0;
 
@@ -665,7 +654,7 @@ void SBN_VerifyHostInterfaces(void)
 
     for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
     {
-        status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->VerifyHostInterface(
+        status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->VerifyHost(
             SBN.Host[HostIdx], SBN.Peer, SBN.NumPeers);
 
         SBN.Host[HostIdx]->IsValid = status;
@@ -675,4 +664,4 @@ void SBN_VerifyHostInterfaces(void)
                 "Host %s Not Valid", SBN.Host[HostIdx]->Name);
         }/* end if */
     }/* end for */
-}/* end SBN_VerifyHostInterfaces */
+}/* end SBN_VerifyHosts */

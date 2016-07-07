@@ -258,12 +258,20 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
             SBN_MAX_MSG_SIZE - Network->RecvSize,
             MSG_DONTWAIT, (struct sockaddr *) &Addr, &AddrLen);
 
-printf("FOO Received=%d\n", Received);
         if(Received == 0) break;
 
-        /* TODO: this make sense? */
-        if((Received < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)))
+        if(Received < 0)
+        {
+            if (errno == EWOULDBLOCK || errno == EAGAIN)
+            {
+                /* the socket is set to O_NONBLOCK, so these are valid return
+                 *  values when there are no packets to recv.
+                 */
+                break;
+            }/* end if */
+
             return SBN_ERROR;
+        }/* end if */
 
         Network->RecvSize += Received;
     }/* end while */

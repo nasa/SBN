@@ -29,14 +29,15 @@
 void  SBN_ShowPeerData(void);
 int32 SBN_GetPeerFileData(void);
 
-int SBN_InitPeerInterface(void);
-int SBN_CheckForNetProtoMsg(int PeerIdx);
-void  SBN_CheckForNetAppMsgs(void);
-void  SBN_VerifyPeerInterfaces(void);
-void  SBN_VerifyHostInterfaces(void);
+int SBN_InitInterfaces(void);
+
+void  SBN_RecvNetMsgs(void);
 
 int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
     int PeerIdx);
+
+void  SBN_VerifyPeers(void);
+void  SBN_VerifyHosts(void);
 
 uint8 SBN_GetReliabilityFromQoS(uint8 QoS);
 uint8 SBN_GetPriorityFromQoS(uint8 QoS);

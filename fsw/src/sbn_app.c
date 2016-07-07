@@ -206,7 +206,7 @@ static int32 WaitForWakeup(int32 iTimeOut)
         CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
 
         RunProtocol();
-        SBN_CheckForNetAppMsgs();
+        SBN_RecvNetMsgs();
         SBN_CheckSubscriptionPipe();
         CheckPeerPipes();
         CheckCmdPipe();
@@ -357,9 +357,9 @@ static int Init(void)
         SBN.LocalSubCnt = 0;
     }/* end for */
 
-    SBN_InitPeerInterface();
-    SBN_VerifyPeerInterfaces();
-    SBN_VerifyHostInterfaces();
+    SBN_InitInterfaces();
+    SBN_VerifyPeers();
+    SBN_VerifyHosts();
 
     CFE_ES_GetAppID(&SBN.AppId);
 
