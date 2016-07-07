@@ -16,8 +16,7 @@
 **
 ** Authors:   J. Wilmot/GSFC Code582
 **            R. McGraw/SSI
-**
-** $Log: sbn_netif.h  $
+**            C. Knight/ARC Code TI
 **
 ******************************************************************************/
 

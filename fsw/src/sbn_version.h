@@ -1,5 +1,5 @@
 /*************************************************************************
-** File: sbn_version.h
+** \File sbn_version.h
 **
 **  Copyright © 2007-2014 United States Government as represented by the 
 **  Administrator of the National Aeronautics and Space Administration. 

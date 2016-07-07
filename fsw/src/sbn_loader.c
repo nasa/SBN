@@ -4,6 +4,18 @@
 #include "sbn_loader.h"
 
 #ifdef _osapi_confloader_
+/**
+ * Handles a row's worth of fields from a configuration file.
+ * @param[in] filename The filename of the configuration file currently being
+ *            processed.
+ * @param[in] linenum The line number of the line being processed.
+ * @param[in] header The section header (if any) for the configuration file
+ *            section.
+ * @param[in] row The entries from the row.
+ * @param[in] fieldcount The number of fields in the row array.
+ * @param[in] opaque The opaque data passed through the parser.
+ * @return OS_SUCCESS on successful loading of the configuration file row.
+ */
 static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
     const char *header, const char *row[], int fieldcount, void *opaque)
 {
@@ -50,6 +62,16 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
     return OS_SUCCESS;
 }
 
+/**
+ * When the configuration file loader encounters an error, it will call this
+ * function with details.
+ * @param[in] filename The filename of the configuration file currently being
+ *            processed.
+ * @param[in] linenum The line number of the line being processed.
+ * @param[in] errmessage The textual description of the error.
+ * @param[in] opaque The opaque data passed through the parser.
+ * @return OS_SUCCESS
+ */
 static int SBN_ConfLoaderErrorCallback(const char *filename, int linenum,
     const char *errmessage, void *opaque)
 {
@@ -57,6 +79,11 @@ static int SBN_ConfLoaderErrorCallback(const char *filename, int linenum,
     return OS_SUCCESS;
 }
 
+/**
+ * Function to read in, using the OS_ConfLoader API, the configuration file
+ * entries.
+ * @return OS_SUCCESS on successful completion.
+ */
 int32 SBN_ReadModuleFile(void)
 {
     int32 status = 0, id = 0;
@@ -92,10 +119,11 @@ int32 SBN_ReadModuleFile(void)
 #else /* ! _osapi_confloader_ */
 
 /**
- * Reads a file describing the interface modules that
- * must be loaded.
+ * \brief Reads a file describing the interface modules that must be loaded.
  *
- * The format is the same as that for the peer file.
+ * \note The format is the same as that for the peer file.
+ *
+ * @return SBN_SUCCESS on success.
  */
 int32 SBN_ReadModuleFile(void)
 {
@@ -118,9 +146,7 @@ int32 SBN_ReadModuleFile(void)
     CFE_PSP_MemSet(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
     BuffLen = 0;
 
-    /*
-     ** Parse the lines from the file
-     */
+    /* Parse the lines from the file */
     while(1)
     {
         OS_read(ModuleFile, &c, 1);
@@ -176,8 +202,8 @@ int32 SBN_ReadModuleFile(void)
  * Parses a module file entry to obtain the protocol id, name,
  * path, and function structure for an interface type.
  *
- * @param FileEntry  Interface description line as read from file
- * @param LineNum    The line number in the module file
+ * @param[in] FileEntry  Interface description line as read from file
+ * @param[in] LineNum    The line number in the module file
 
  * @return  SBN_OK on success, SBN_ERROR on error
  */

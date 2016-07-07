@@ -16,9 +16,7 @@
 **
 ** Authors:   J. Wilmot/GSFC Code582
 **            R. McGraw/SSI
-**
-** $Log: sbn_app.c  $
-** Revision 1.4 2010/10/05 15:24:12EDT jmdagost
+**            C. Knight/ARC Code TI
 **
 ******************************************************************************/
 
@@ -37,6 +35,18 @@
 #include <errno.h>
 
 #ifdef _osapi_confloader_
+/**
+ * Handles a row's worth of fields from a configuration file.
+ * @param[in] filename The filename of the configuration file currently being
+ *            processed.
+ * @param[in] linenum The line number of the line being processed.
+ * @param[in] header The section header (if any) for the configuration file
+ *            section.
+ * @param[in] row The entries from the row.
+ * @param[in] fieldcount The number of fields in the row array.
+ * @param[in] opaque The opaque data passed through the parser.
+ * @return OS_SUCCESS on successful loading of the configuration file row.
+ */
 static int PeerFileRowCallback(const char *filename, int linenum,
     const char *header, const char *row[], int fieldcount, void *opaque)
 {
@@ -90,12 +100,28 @@ static int PeerFileRowCallback(const char *filename, int linenum,
     return OS_SUCCESS;
 }/* end PeerFileRowCallback */
 
+/**
+ * When the configuration file loader encounters an error, it will call this
+ * function with details.
+ * @param[in] filename The filename of the configuration file currently being
+ *            processed.
+ * @param[in] linenum The line number of the line being processed.
+ * @param[in] errmessage The textual description of the error.
+ * @param[in] opaque The opaque data passed through the parser.
+ * @return OS_SUCCESS
+ */
 static int PeerFileErrCallback(const char *filename, int linenum,
     const char *err, void *opaque)
 {
     return OS_SUCCESS;
 }/* end PeerFileErrCallback */
 
+/**
+ * Function to read in, using the OS_ConfLoader API, the configuration file
+ * entries.
+ *
+ * @return OS_SUCCESS on successful completion.
+ */
 int32 SBN_GetPeerFileData(void)
 {
     int32 status = 0, id = 0;
@@ -132,6 +158,14 @@ int32 SBN_GetPeerFileData(void)
 
 #else /* ! _osapi_confloader_ */
 
+/**
+ * Finds the protocol-specific fields in the configuration file.
+ *
+ * @param[in] entry Peer configuration line from the config file.
+ * @param[in] num_fields The number of fields to skip.
+
+ * @return Pointer to the first entry after the num_fields entries.
+ */
 static char *SBN_FindFileEntryAppData(char *entry, int num_fields)
 {
     char *char_ptr = entry;
@@ -151,6 +185,13 @@ static char *SBN_FindFileEntryAppData(char *entry, int num_fields)
     return char_ptr;
 }/* end SBN_FindFileEntryAppData */
 
+/**
+ * Parses a peer configuration file entry to obtain the peer configuration.
+ *
+ * @param[in] FileEntry  The row of peer configuration data.
+
+ * @return  SBN_OK on success, SBN_ERROR on error
+ */
 static int ParseFileEntry(char *FileEntry)
 {
     char Name[SBN_MAX_PEERNAME_LENGTH];
@@ -221,6 +262,12 @@ static int ParseFileEntry(char *FileEntry)
     return status;
 }/* end ParseFileEntry */
 
+/**
+ * Parse the peer configuration file(s) to find the peers that this cFE should
+ * connect to.
+ *
+ * @return SBN_OK on success.
+ */
 int32 SBN_GetPeerFileData(void)
 {
     static char     SBN_PeerData[SBN_PEER_FILE_LINE_SIZE];
@@ -422,6 +469,12 @@ int SBN_InitPeerInterface(void)
 }/* end SBN_InitPeerInterface */
 
 #ifdef LITTLE_ENDIAN
+/**
+ * Utility function to swap bytes.
+ *
+ * @param addr The pointer to the start of the block of data to swap.
+ * @param size The size of the block to swap.
+ */
 static void SwapBytes(void *addr, size_t size)
 {
     size_t i = 0;
@@ -435,6 +488,12 @@ static void SwapBytes(void *addr, size_t size)
     }
 }/* end SwapBytes */
 
+/**
+ * On little-endian systems, I need to swap CCSDS secondary headers as the
+ * apps on this platform expects the headers to be in platform-endian order.
+ *
+ * @param Msg A pointer to the message buffer.
+ */
 static void SwapCCSDSSecHdr(void *Msg)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
@@ -503,6 +562,13 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
     return status;
 }/* end SBN_SendNetMsg */
 
+/**
+ * Receive (up to a hundred) messages from the specified peer, injecting them
+ * onto the local software bus.
+ *
+ * @param PeerIdx The index of the peer from whence to check for packets.
+ */
+ // TODO: make static
 void SBN_ProcessNetAppMsgsFromPeer(int PeerIdx)
 {
     int i = 0, status = 0;
@@ -563,6 +629,11 @@ void SBN_CheckForNetAppMsgs(void)
     }/* end for */
 }/* end SBN_CheckForNetAppMsgs */
 
+/**
+ * Verifies the validity of all peers configured, using a per-protocol module
+ * method.
+ */
+ // TODO: add void
 void SBN_VerifyPeerInterfaces()
 {
     int PeerIdx = 0, status = 0;
@@ -584,6 +655,11 @@ void SBN_VerifyPeerInterfaces()
     }/* end for */
 }/* end SBN_VerifyPeerInterfaces */
 
+/**
+ * Verifies the validity of all host interfaces configured, using a
+ * per-protocol module method.
+ */
+ // TODO: add void
 void SBN_VerifyHostInterfaces()
 {
     int HostIdx = 0, status = 0;

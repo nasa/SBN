@@ -17,6 +17,7 @@
 ** Authors:   J. Wilmot/GSFC Code582
 **            R. McGraw/SSI
 **            E. Timmons/GSFC Code587
+**            C. Knight/ARC Code TI
 **
 ******************************************************************************/
 

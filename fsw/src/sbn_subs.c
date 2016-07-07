@@ -16,6 +16,7 @@
  ** Authors:   J. Wilmot/GSFC Code582
  **            R. McGraw/SSI
  **            E. Timmons/GSFC Code587
+ **            C. Knight/ARC Code TI
  */
 
 #include <string.h>
@@ -23,6 +24,12 @@
 #include "sbn_main_events.h"
 #include <arpa/inet.h>
 
+// TODO: instead of using void * for the buffer for SBN messages, use
+// a struct that has the SBN header in packed bytes.
+
+/**
+ * Informs the software bus to send this application all subscription requests.
+ */
 void SBN_SendSubsRequests(void)
 {
     CFE_SB_CmdHdr_t     SBCmdMsg;
@@ -41,6 +48,42 @@ void SBN_SendSubsRequests(void)
     CFE_SB_SendMsg((CFE_SB_MsgPtr_t) &SBCmdMsg);
 }/* end SBN_SendSubsRequests */
 
+#ifdef LITTLE_ENDIAN
+
+/**
+ * Utility function to copy memory and simultaneously swapping bytes for 
+ * a little-endian platform. The SBN over-the-wire protocol is network order
+ * (big-endian).
+ * 
+ * @param[in] dest Pointer to the destination block in memory.
+ * @param[in] src Pointer to the source block in memory.
+ * @param[in] n The number of bytes to copy from the src to the dest.
+ *
+ * @return CFE_PSP_SUCCESS on successful copy.
+ */
+static int32 SBN_EndianMemCpy(void *dest, void *src, uint32 n)
+{
+    uint32 i = 0;
+    for(i = 0; i < n; i++)
+    {
+        ((uint8 *)dest)[i] = ((uint8 *)src)[n - i - 1];
+    }/* end for */
+    return CFE_PSP_SUCCESS;
+}/* end SBN_EndianMemCpy */
+
+#else /* !LITTLE_ENDIAN */
+
+#define SBN_EndianMemCpy(D, S, N) CFE_PSP_MemCpy(D, S, N)
+
+#endif /* LITTLE_ENDIAN */
+
+/**
+ * \brief Utility function to pack SBN protocol subscription information.
+ *
+ * @param[out] SubMsg Destination SBN msg buffer for subscription information.
+ * @param[in] MsgId The CCSDS message ID for the subscription.
+ * @param[in] Qos The CCSDS quality of service for the subscription.
+ */
 static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
     SBN_EndianMemCpy(SubMsg, &MsgId, sizeof(MsgId));
@@ -48,6 +91,14 @@ static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 
 }
 
+/**
+ * \brief Utility function to unpack SBN protocol subscription information.
+ *
+ * @param[in] SubMsg Source SBN msg buffer for subscription information.
+ * @param[out] MsgIdPtr A pointer to the CCSDS message ID for the subscription.
+ * @param[out] QosPtr A pointer to CCSDS quality of service for the
+ *             subscription.
+ */
 static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
     CFE_SB_Qos_t *QosPtr)
 {
@@ -55,6 +106,14 @@ static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
     CFE_PSP_MemCpy(QosPtr, SubMsg + sizeof(*MsgIdPtr), sizeof(*QosPtr));
 }
 
+/**
+ * \brief Sends a local subscription over the wire to a peer.
+ *
+ * @param[in] SubFlag Whether this is a subscription or unsubscription.
+ * @param[in] MsgId The CCSDS message ID being (un)subscribed.
+ * @param[in] Qos The CCSDS quality of service being (un)subscribed.
+ * @param[in] PeerIdx The index in SBN.Peer of the peer.
+ */
 static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgId,
     CFE_SB_Qos_t Qos, int PeerIdx)
 {
@@ -64,6 +123,11 @@ static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgId,
     SBN_SendNetMsg(SubFlag, sizeof(SubMsg), SubMsg, PeerIdx);
 }/* end SendLocalSubToPeer */
 
+/**
+ * \brief Sends all local subscriptions over the wire to a peer.
+ *
+ * @param[in] PeerIdx The index in SBN.Peer of the peer.
+ */
 void SBN_SendLocalSubsToPeer(int PeerIdx)
 {
     int i = 0;
@@ -76,6 +140,14 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
     }/* end for */
 }/* end SBN_SendLocalSubsToPeer */
 
+/**
+ * Utility to find the subscription index (SBN.LocalSubs)
+ * that is subscribed to the CCSDS message ID.
+ *
+ * @param[out] IdxPtr The subscription index found.
+ * @param[in] MsgId The CCSDS message ID of the subscription being sought.
+ * @return TRUE if found.
+ */
 static int IsMsgIdSub(int *IdxPtr, CFE_SB_MsgId_t MsgId)
 {
     int     i = 0;
@@ -98,6 +170,16 @@ static int IsMsgIdSub(int *IdxPtr, CFE_SB_MsgId_t MsgId)
     return FALSE;
 }/* end IsMsgIdSub */
 
+/**
+ * \brief Is this peer subscribed to this message ID? If so, what is the index
+ *        of the subscription?
+ *
+ * @param[out] SubIdxPtr The pointer to the subscription index value.
+ * @param[in] MsgId The CCSDS message ID of the subscription being sought.
+ * @param[in] PeerIdx The peer whose subscription is being sought.
+ *
+ * @return TRUE if found.
+ */
 static int IsPeerSubMsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId,
     int PeerIdx)
 {
@@ -118,6 +200,13 @@ static int IsPeerSubMsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId,
 
 }/* end IsPeerSubMsgId */
 
+/**
+ * \brief I have seen a local subscription, send it on to peers if this is the
+ * first instance of a subscription for this message ID.
+ *
+ * @param[in] MsgId The CCSDS Message ID of the local subscription.
+ * @param[in] Qos The CCSDS quality of service of the local subscription.
+ */
 static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
     int SubIdx = 0, PeerIdx = 0;
@@ -160,6 +249,13 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
     }/* end for */
 }/* end ProcessLocalSub */
 
+/**
+ * \brief I have seen a local unsubscription, send it on to peers if this is the
+ * last instance of a subscription for this message ID.
+ *
+ * @param[in] MsgId The CCSDS Message ID of the local unsubscription.
+ * @param[in] Qos The CCSDS quality of service of the local unsubscription.
+ */
 static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
 {
     int SubIdx = 0, PeerIdx = 0, i = 0;
@@ -208,6 +304,11 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
     }/* end for */
 }/* end ProcessLocalUnsub */
 
+/**
+ * \brief Check the local pipe for subscription messages. Send them on to peers
+ *        if there are any (new)subscriptions.
+ * @return TRUE if subscriptions received.
+ */
 int32 SBN_CheckSubscriptionPipe(void)
 {
     CFE_SB_MsgPtr_t SBMsgPtr;
@@ -276,6 +377,12 @@ int32 SBN_CheckSubscriptionPipe(void)
     return FALSE;
 }/* end SBN_CheckSubscriptionPipe */
 
+/**
+ * \brief Process a subscription message from a peer.
+ *
+ * @param[in] PeerIdx The peer index (in SBN.Peer)
+ * @param[in] Msg The subscription SBN message.
+ */
 void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
 {
     int FirstOpenSlot = 0, idx = 0;
@@ -328,6 +435,12 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
     SBN.Peer[PeerIdx].SubCnt++;
 }/* SBN_ProcessSubFromPeer */
 
+/**
+ * \brief Process an unsubscription message from a peer.
+ *
+ * @param[in] PeerIdx The peer index (in SBN.Peer)
+ * @param[in] Msg The unsubscription SBN message.
+ */
 void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
 {
     int i = 0, idx = 0;
@@ -371,6 +484,13 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
     }/* end if */
 }/* SBN_ProcessUnsubFromPeer */
 
+/**
+ * When SBN starts, it queries for all existing subscriptions. This method
+ * processes those subscriptions.
+ *
+ * @param[in] Ptr SB message pointer.
+ */
+// TODO: make static, also do we need the PAYLOAD ifdef still?
 void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
 {
     int                     i = 0;
@@ -407,6 +527,12 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
 #endif /* SBN_PAYLOAD */
 }/* end SBN_ProcessAllSubscriptions */
 
+/**
+ * Removes all subscriptions (unsubscribe from the local SB )
+ * for the specified peer, particularly when the peer connection has been lost.
+ *
+ * @param[in] PeerIdx The peer index (into SBN.Peer) to clear.
+ */
 void SBN_RemoveAllSubsFromPeer(int PeerIdx)
 {
     int     i = 0;

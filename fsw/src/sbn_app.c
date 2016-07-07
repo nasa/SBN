@@ -11,11 +11,12 @@
  **      for use thereof.
  **
  ** Purpose:
- **      This file contains source code for the Software Bus Network Application.
+ **      This file contains source code for the Software Bus Network
+ **      Application.
  **
  ** Authors:   J. Wilmot/GSFC Code582
  **            R. McGraw/SSI
- **             C. Knight/ARC Code TI
+ **            C. Knight/ARC Code TI
  ******************************************************************************/
 
 /*
@@ -43,6 +44,13 @@
  **   Task Globals
  */
 
+/** \brief SBN global application data. */
+SBN_AppData_t SBN_AppData;
+
+/**
+ * Iterate through all peers, examining the pipe to see if there are messages
+ * I need to send to that peer.
+ */
 static void CheckPeerPipes(void)
 {
     int PeerIdx = 0, ReceivedFlag = 0, iter = 0;
@@ -51,8 +59,9 @@ static void CheckPeerPipes(void)
 
     /* DEBUG_START(); chatty */
 
-    /* Process one message per peer, then start again until no peers
-     * have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
+    /**
+     * \note This processes one message per peer, then start again until no
+     * peers have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
      * per peer per wakeup otherwise I will starve other processing.
      */
     for(iter = 0; iter < SBN_MAX_MSG_PER_WAKEUP; iter++)
@@ -93,6 +102,9 @@ static void CheckPeerPipes(void)
     } /* end for */
 }/* end CheckPeerPipes */
 
+/**
+ * Check the SBN command pipe for commands.
+ */
 static int32 CheckCmdPipe(void)
 {
     CFE_SB_MsgPtr_t     SBMsgPtr = 0;
@@ -113,6 +125,15 @@ static int32 CheckCmdPipe(void)
     return Status;
 }/* end CheckCmdPipe */
 
+/**
+ * SBN uses an inline protocol for maintaining the peer connections. Before a
+ * peer is connected, an SBN_ANNOUNCE_MSG message is sent. (This is necessary
+ * for connectionless protocols such as UDP.) Once the peer is connected,
+ * a heartbeat is sent if no traffic is seen from that peer in the last
+ * SBN_HEARTBEAT_SENDTIME seconds. If no traffic (heartbeat or data) is seen
+ * in the last SBN_HEARTBEAT_TIMEOUT seconds, the peer is considered to be
+ * lost/disconnected.
+ */
 static void RunProtocol(void)
 {
     int         PeerIdx = 0;
@@ -158,6 +179,13 @@ static void RunProtocol(void)
     CFE_ES_PerfLogExit(SBN_PERF_SEND_ID);
 }/* end RunProtocol */
 
+/**
+ * This function waits for the scheduler (SCH) to wake this code up, so that
+ * nothing transpires until the cFE is fully operational.
+ *
+ * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
+ * @return CFE_SUCCESS on success, otherwise an error value.
+ */
 static int32 WaitForWakeup(int32 iTimeOut)
 {
     int32           Status = CFE_SUCCESS;
@@ -335,13 +363,9 @@ static int Init(void)
 
     CFE_ES_GetAppID(&SBN.AppId);
 
-    /* Init schedule pipe */
-    SBN.usSchPipeDepth = SBN_SCH_PIPE_DEPTH;
-    strncpy(SBN.cSchPipeName, "SBN_SCH_PIPE", OS_MAX_API_NAME-1);
-
     /* Subscribe to Wakeup messages */
-    Status = CFE_SB_CreatePipe(&SBN.SchPipeId, SBN.usSchPipeDepth,
-        SBN.cSchPipeName);
+    Status = CFE_SB_CreatePipe(&SBN.SchPipeId, SBN_SCH_PIPE_DEPTH,
+        "SBN_SCH_PIPE");
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
@@ -441,6 +465,13 @@ void SBN_AppMain(void)
     CFE_ES_ExitApp(RunStatus);
 }/* end SBN_AppMain */
 
+/**
+ * Creates a local pipe to receive messages from the software bus that this
+ * application will send to the peer.
+ *
+ * @param[in] PeerIdx The index of the peer.
+ * @return SBN_OK on success, otherwise error code.
+ */
 int SBN_CreatePipe4Peer(int PeerIdx)
 {
     int32   Status = 0;
@@ -469,6 +500,13 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     return SBN_OK;
 }/* end SBN_CreatePipe4Peer */
 
+/**
+ * Sends a message to a peer.
+ * @param[in] MsgType The type of the message (application data, SBN protocol)
+ * @param[in] CpuId The CpuId to send this message to.
+ * @param[in] MsgSize The size of the message (in bytes).
+ * @param[in] Msg The message contents.
+ */
 void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     SBN_MsgSize_t MsgSize, void *Msg)
 {
@@ -531,6 +569,11 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     }/* end switch */
 }/* end SBN_ProcessNetMsg */
 
+/**
+ * Find the PeerIndex for a given CpuId.
+ * @param[in] ProcessorId The CpuId of the peer being sought.
+ * @return The Peer index (index into the SBN.Peer array, or SBN_ERROR.
+ */
 int SBN_GetPeerIndex(uint32 ProcessorId)
 {
     int     PeerIdx = 0;
