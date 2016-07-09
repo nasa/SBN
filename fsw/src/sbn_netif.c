@@ -571,7 +571,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
  */
 void SBN_RecvNetMsgs(void)
 {
-    int PeerIdx = 0, i = 0, status = 0;
+    int PeerIdx = 0, i = 0, status = 0, RealPeerIdx;
 
     /* DEBUG_START(); chatty */
 
@@ -595,9 +595,14 @@ void SBN_RecvNetMsgs(void)
                 break; /* no (more) messages */
             }/* end if */
 
+            /* for UDP, the message received may not be from the peer
+             * expected.
+             */
+            RealPeerIdx = SBN_GetPeerIndex(CpuId);
+
             if(status == SBN_OK)
             {
-                OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
+                OS_GetLocalTime(&SBN.Peer[RealPeerIdx].last_received);
 
     #ifdef LITTLE_ENDIAN
                 if(MsgType == SBN_APP_MSG)
@@ -611,7 +616,7 @@ void SBN_RecvNetMsgs(void)
             else if(status == SBN_ERROR)
             {
                 // TODO error message
-                SBN.HkPkt.PeerAppMsgRecvErrCount[PeerIdx]++;
+                SBN.HkPkt.PeerAppMsgRecvErrCount[RealPeerIdx]++;
             }/* end if */
         }/* end for */
     }/* end for */
