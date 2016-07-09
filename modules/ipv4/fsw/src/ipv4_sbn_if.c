@@ -183,8 +183,6 @@ int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
     IPv4_SBNHostData_t *Host = NULL;
     uint32 HostIdx = 0;
     uint8 Buf[SBN_MAX_MSG_SIZE]; /* it all needs to go into one packet */
-    void *BufOffset = Buf;
-    SBN_CpuId_t CpuId = CFE_CPU_ID;
 
     /* Find the host that goes with this peer.  There should only be one
        ethernet host */
@@ -208,17 +206,7 @@ int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
     s_addr.sin_addr.s_addr = inet_addr(Peer->Addr);
     s_addr.sin_port = htons(Peer->Port);
 
-    SBN_EndianMemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
-    BufOffset += sizeof(MsgSize);
-    CFE_PSP_MemCpy(BufOffset, &MsgType, sizeof(MsgType));
-    BufOffset += sizeof(MsgType);
-    SBN_EndianMemCpy(BufOffset, &CpuId, sizeof(CpuId));
-    BufOffset += sizeof(CpuId);
-
-    if(Msg && MsgSize)
-    {
-        CFE_PSP_MemCpy(BufOffset, Msg, MsgSize);
-    }/* end if */
+    SBN_PackMsg(Buf, MsgSize, MsgType, CFE_CPU_ID, Msg);
 
     sendto(Host->SockId, Buf, MsgSize + SBN_PACKED_HDR_SIZE, 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
@@ -229,55 +217,27 @@ int SBN_SendIPv4NetMsg(SBN_InterfaceData *HostList[], int NumHosts,
 int SBN_RcvIPv4Msg(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *MsgBuf)
 {
-    ssize_t             Received = 0, TotalReceived = 0;
-    struct sockaddr_in  s_addr;
-    socklen_t           addr_len = sizeof(s_addr);
-    IPv4_SBNHostData_t  *Host = (IPv4_SBNHostData_t *)Data->InterfacePvt;
-    void *MsgBufPtr = MsgBuf;
+    ssize_t Received = 0;
+    IPv4_SBNHostData_t *Host = (IPv4_SBNHostData_t *)Data->InterfacePvt;
+    char Buf[SBN_MAX_MSG_SIZE];
 
-    bzero((char *) &s_addr, sizeof(s_addr));
-    *MsgSizePtr = 0;
+    Received = recv(Host->SockId, Buf, SBN_MAX_MSG_SIZE, MSG_DONTWAIT);
 
-    while(1)
+    if(Received == 0)
     {
-        addr_len = sizeof(s_addr);
-        Received = recvfrom(Host->SockId, (char *)MsgBuf + TotalReceived,
-            SBN_MAX_MSG_SIZE - TotalReceived,
-            MSG_DONTWAIT, (struct sockaddr *) &s_addr, &addr_len);
-
-        if(Received == 0) return SBN_IF_EMPTY;
-
-        if((Received < 0) && ((errno == EWOULDBLOCK) || (errno == EAGAIN)))
-            return SBN_ERROR;
-
-        TotalReceived += Received;
-        if(TotalReceived < sizeof(SBN_MsgSize_t))
-        {
-            continue;
-        }/* end if */
-
-        if(MsgBufPtr == MsgBuf) /* we haven't read the size yet */
-        {
-            SBN_EndianMemCpy(MsgSizePtr, MsgBufPtr, sizeof(*MsgSizePtr));
-            MsgBufPtr += sizeof(*MsgSizePtr);
-        }/* end if */
-
-        if(TotalReceived >= SBN_PACKED_HDR_SIZE + *MsgSizePtr)
-        {
-            break;
-        }/* end if */
-    }/* end while */
-
-    CFE_PSP_MemCpy(MsgTypePtr, MsgBufPtr, sizeof(*MsgTypePtr));
-    MsgBufPtr += sizeof(*MsgTypePtr);
-
-    SBN_EndianMemCpy(CpuIdPtr, MsgBufPtr, sizeof(*CpuIdPtr));
-    MsgBufPtr += sizeof(*CpuIdPtr);
-
-    if(TotalReceived > SBN_PACKED_HDR_SIZE)
-    {
-        memmove(MsgBuf, MsgBufPtr, TotalReceived - SBN_PACKED_HDR_SIZE);
+        return SBN_IF_EMPTY;
     }/* end if */
+
+    if(Received < 0)
+    {
+        if((errno == EWOULDBLOCK) || (errno == EAGAIN))
+        {
+            return SBN_IF_EMPTY;
+        }/* end if */
+        return SBN_ERROR;
+    }/* end if */
+
+    SBN_UnpackMsg(Buf, MsgSizePtr, MsgTypePtr, CpuIdPtr, MsgBuf);
 
     return SBN_OK;
 }/* end SBN_IPv4RcvMsg */

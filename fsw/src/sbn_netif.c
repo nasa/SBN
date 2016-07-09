@@ -343,6 +343,130 @@ int32 SBN_GetPeerFileData(void)
 
 #endif /* _osapi_confloader_ */
 
+#ifdef SOFTWARE_BIG_BIT_ORDER
+  #define CFE_MAKE_BIG32(n) (n)
+#else /* !SOFTWARE_BIG_BIT_ORDER */
+  #define CFE_MAKE_BIG32(n) ( (((n) << 24) & 0xFF000000) | (((n) << 8) & 0x00FF0000) | (((n) >> 8) & 0x0000FF00) | (((n) >> 24) & 0x000000FF) )
+#endif /* SOFTWARE_BIG_BIT_ORDER */
+
+/* \brief Utility function to swap headers.
+ * \note Don't run this on a pointer given to us by the SB, as the SB may
+ *       re-use the same buffer for multiple pipes.
+ */
+static void SwapCCSDS(CFE_SB_Msg_t *Msg)
+{
+    uint16 *Util16 = NULL; uint32 *Util32 = NULL;
+    int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
+    if(CCSDSType == CCSDS_TLM)
+    {   
+        CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
+        /* SBN sends CCSDS telemetry messages with secondary headers in
+         * big-endian order.
+         */
+        Util32 = (uint32 *)TlmPktPtr->SecHdr.Time;
+        *Util32 = CFE_MAKE_BIG32(*Util32);
+        if(CCSDS_TIME_SIZE == 6)
+        {
+            Util16 = (uint16 *)TlmPktPtr->SecHdr.Time + 4;
+            *Util16 = CFE_MAKE_BIG16(*Util16);
+        }
+        else
+        {
+            Util32 = (uint32 *)(TlmPktPtr->SecHdr.Time + 4);
+            *Util32 = CFE_MAKE_BIG32(*Util32);
+        }/* end if */
+    }
+    else if(CCSDSType == CCSDS_CMD)
+    {
+        CCSDS_CmdPkt_t *CmdPktPtr = (CCSDS_CmdPkt_t *)Msg;
+
+        Util16 = (uint16 *)&CmdPktPtr->SecHdr.Command;
+        *Util16 = CFE_MAKE_BIG16(*Util16);
+    /* else what? */
+    }/* end if */
+}/* end SwapCCSDS */
+
+/**
+ * \brief Packs a CCSDS message with an SBN message header.
+ * \note Ensures the SBN fields (CPU ID, MsgSize) and CCSDS message headers
+ *       are in network (big-endian) byte order.
+ * \param SBNBuf[out] The buffer to pack into.
+ * \param MsgType[in] The SBN message type.
+ * \param MsgSize[in] The size of the payload.
+ * \param CpuId[in] The CpuId of the sender (should be CFE_CPU_ID)
+ * \param Msg[in] The payload (CCSDS message or SBN sub/unsub.)
+ * \todo Use a type for SBNBuf.
+ */
+void SBN_PackMsg(void *SBNBuf, SBN_MsgSize_t MsgSize, SBN_MsgType_t MsgType,
+    SBN_CpuId_t CpuId, void *Msg)
+{
+    char *BufOffset = SBNBuf;
+    uint16 *Util16 = NULL;
+
+    CFE_PSP_MemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
+    Util16 = (uint16 *)BufOffset; *Util16 = CFE_MAKE_BIG16(*Util16);
+    BufOffset += sizeof(MsgSize);
+
+    CFE_PSP_MemCpy(BufOffset, &MsgType, sizeof(MsgType));
+    BufOffset += sizeof(MsgType);
+
+    CFE_PSP_MemCpy(BufOffset, &CpuId, sizeof(CpuId));
+    Util16 = (uint16 *)BufOffset; *Util16 = CFE_MAKE_BIG16(*Util16);
+    BufOffset += sizeof(CpuId);
+
+    if(!Msg || !MsgSize)
+    {
+        return;
+    }/* end if */
+
+    CFE_PSP_MemCpy(BufOffset, Msg, MsgSize);
+
+    if(MsgType == SBN_APP_MSG)
+    {
+        SwapCCSDS((CFE_SB_Msg_t *)BufOffset);
+    }/* end if */
+}/* end SBN_PackMsg */
+
+/**
+ * \brief Unpacks a CCSDS message with an SBN message header.
+ * \param SBNBuf[in] The buffer to unpack.
+ * \param MsgTypePtr[out] The SBN message type.
+ * \param MsgSizePtr[out] The payload size.
+ * \param CpuId[out] The CpuId of the sender.
+ * \param Msg[out] The payload (a CCSDS message, or SBN sub/unsub).
+ * \note Ensures the SBN fields (CPU ID, MsgSize) and CCSDS message headers
+ *       are in platform byte order.
+ * \todo Use a type for SBNBuf.
+ */
+void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, void *Msg)
+{
+    char *BufOffset = SBNBuf;
+
+    CFE_PSP_MemCpy(MsgSizePtr, BufOffset, sizeof(*MsgSizePtr));
+    *MsgSizePtr = CFE_MAKE_BIG16(*MsgSizePtr);
+    BufOffset += sizeof(*MsgSizePtr);
+
+    CFE_PSP_MemCpy(MsgTypePtr, BufOffset, sizeof(*MsgTypePtr));
+    BufOffset += sizeof(*MsgTypePtr);
+
+    CFE_PSP_MemCpy(CpuIdPtr, BufOffset, sizeof(*CpuIdPtr));
+    *CpuIdPtr = CFE_MAKE_BIG16(*CpuIdPtr);
+    BufOffset += sizeof(*CpuIdPtr);
+
+    if(!*MsgSizePtr)
+    {
+        return;
+    }/* end if */
+
+    CFE_PSP_MemCpy(Msg, BufOffset, *MsgSizePtr);
+
+    if(*MsgTypePtr == SBN_APP_MSG)
+    {
+        SwapCCSDS((CFE_SB_Msg_t *)Msg);
+    }/* end if */
+}/* end SBN_UnpackMsg */
+
 /**
  * Loops through all entries, categorizes them as "Host" or "Peer", and
  * initializes them according to their role and protocol ID.
@@ -420,48 +544,6 @@ int SBN_InitPeerInterface(void)
     return SBN_OK;
 }/* end SBN_InitPeerInterface */
 
-#ifdef LITTLE_ENDIAN
-static void SwapBytes(void *addr, size_t size)
-{
-    size_t i = 0;
-    uint8 t = 0, *p = addr;
-
-    for(i = 0; i < size / 2; i++)
-    {
-        t = p[size - 1 - i];
-        p[size - 1 - i] = p[i];
-        p[i] = t;
-    }
-}/* end SwapBytes */
-
-static void SwapCCSDSSecHdr(void *Msg)
-{
-    int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
-    if(CCSDSType == CCSDS_TLM)
-    {
-        CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
-        /* SBN sends CCSDS telemetry messages with secondary headers in
-         * big-endian order.
-         */
-        SwapBytes(TlmPktPtr->SecHdr.Time, 4);
-        if(CCSDS_TIME_SIZE == 6)
-        {
-            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 2);
-        }
-        else
-        {
-            SwapBytes(TlmPktPtr->SecHdr.Time + 4, 4);
-        }/* end if */
-    }
-    else if(CCSDSType == CCSDS_CMD)
-    {
-        CCSDS_CmdPkt_t *CmdPktPtr = (CCSDS_CmdPkt_t *)Msg;
-
-        SwapBytes(&(CmdPktPtr->SecHdr.Command), 2);
-    }/* end if */
-}/* end SwapCCSDSSecHdr */
-#endif /* LITTLE_ENDIAN */
-
 /**
  * Sends a message to a peer using the module's SendNetMsg.
  *
@@ -479,13 +561,6 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
 
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
         MsgSize);
-
-#ifdef LITTLE_ENDIAN
-    if(MsgType == SBN_APP_MSG)
-    {
-        SwapCCSDSSecHdr(Msg);
-    }/* end if */
-#endif /* LITTLE_ENDIAN */
 
     status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->SendNetMsg(
         SBN.Host, SBN.NumHosts, SBN.Peer[PeerIdx].IfData,
@@ -536,13 +611,6 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
             }/* end if */
 
             OS_GetLocalTime(&SBN.Peer[PeerIdx].last_received);
-
-#ifdef LITTLE_ENDIAN
-            if(MsgType == SBN_APP_MSG)
-            {
-                SwapCCSDSSecHdr(Msg);
-            }/* end if */
-#endif /* LITTLE_ENDIAN */
 
             SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
         }
