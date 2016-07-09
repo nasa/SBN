@@ -206,7 +206,7 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
     SBN_UDP_Peer_t *Peer = &Network->Peers[Entry->PeerNumber];
     char *BufOffset = NULL;
-    
+
     CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = Peer->EntryPtr->Addr;
@@ -245,55 +245,35 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
 
-    while(1)
+    int Received = 0;
+
+    Received = recv(Network->Host.Socket,
+        (char *)Network->RecvBuf, SBN_MAX_MSG_SIZE,
+        MSG_DONTWAIT);
+
+    if(Received == 0)
     {
-        struct sockaddr_in Addr;
-        socklen_t AddrLen = 0;
-        int Received = 0;
+        return SBN_IF_EMPTY;
+    }/* end if */
 
-        CFE_PSP_MemSet(&Addr, 0, sizeof(Addr));
-        AddrLen = sizeof(Addr);
-        Received = recvfrom(Network->Host.Socket,
-            (char *)Network->RecvBuf + Network->RecvSize,
-            SBN_MAX_MSG_SIZE - Network->RecvSize,
-            MSG_DONTWAIT, (struct sockaddr *) &Addr, &AddrLen);
-
-        if(Received == 0) break;
-
-        if(Received < 0)
+    if(Received < 0)
+    {
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
         {
-            if (errno == EWOULDBLOCK || errno == EAGAIN)
-            {
-                /* the socket is set to O_NONBLOCK, so these are valid return
-                 *  values when there are no packets to recv.
-                 */
-                break;
-            }/* end if */
-
-            return SBN_ERROR;
+            /* the socket is set to O_NONBLOCK, so these are valid return
+             *  values when there are no packets to recv.
+             */
+            return SBN_IF_EMPTY;
         }/* end if */
 
-        Network->RecvSize += Received;
-    }/* end while */
-
-    if(Network->RecvSize < SBN_PACKED_HDR_SIZE)
-    {
-        /* don't have enough for even a header, wait 'til later */
-        return SBN_IF_EMPTY;
+        return SBN_ERROR;
     }/* end if */
 
-    SBN_MsgSize_t MsgSize = 0;
-    EndianMemCpy(&MsgSize, Network->RecvBuf, sizeof(MsgSize));
+    /* each UDP packet is a full SBN message */
 
-    if(Network->RecvSize < MsgSize + SBN_PACKED_HDR_SIZE)
-    {
-        /* still don't have a complete message, wait 'til later */
-        return SBN_IF_EMPTY;
-    }/* end if */
+    EndianMemCpy(MsgSizePtr, Network->RecvBuf, sizeof(*MsgSizePtr));
 
-    *MsgSizePtr = MsgSize;
-
-    char *BufPtr = Network->RecvBuf + sizeof(MsgSize);
+    char *BufPtr = Network->RecvBuf + sizeof(*MsgSizePtr);
 
     CFE_PSP_MemCpy(MsgTypePtr, BufPtr, sizeof(*MsgTypePtr));
     BufPtr += sizeof(*MsgTypePtr);
@@ -301,35 +281,7 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     EndianMemCpy(CpuIdPtr, BufPtr, sizeof(*CpuIdPtr));
     BufPtr += sizeof(*CpuIdPtr);
 
-    CFE_PSP_MemCpy(MsgBuf, BufPtr, MsgSize);
-
-    /* shift back the received bytes not part of this message,
-     * we may have part of the next message
-     */
-    int Overage = Network->RecvSize - MsgSize - SBN_PACKED_HDR_SIZE;
-    Network->RecvSize = Overage;
-
-    /* move the overage to the start of the buffer */
-    if(Overage < MsgSize + SBN_PACKED_HDR_SIZE)
-    {   
-        /* overage less than the current message, I can use MemCpy as there's
-         * no overlap.
-         */
-        CFE_PSP_MemCpy(Network->RecvBuf, BufPtr, Overage);
-    }
-    else
-    {   
-        char *Start = Network->RecvBuf;
-
-        /* the overage is larger than the message, so the memcpy
-         * would overlap, which may be undefined
-         */
-        while(Overage)
-        {   
-            *Start++ = *BufPtr++;
-            Overage--;
-        }/* end while */
-    }/* end if */
+    CFE_PSP_MemCpy(MsgBuf, BufPtr, *MsgSizePtr);
 
     return SBN_OK;
 }/* end SBN_UDP_Recv */

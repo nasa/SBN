@@ -33,7 +33,6 @@ typedef struct
     int PeerCount;
 
     char SendBuf[SBN_MAX_MSG_SIZE], RecvBuf[SBN_MAX_MSG_SIZE];
-    int RecvSize;
 } SBN_UDP_Network_t;
 
 typedef struct
