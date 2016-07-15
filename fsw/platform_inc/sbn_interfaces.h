@@ -39,6 +39,13 @@ typedef struct {
     uint8  InterfacePvt[128]; /* generic blob of bytes, interface-specific */
 } SBN_InterfaceData;
 
+/* used by modules to pack messages to send */
+void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSize_t MsgSize,
+    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, void *Msg);
+
+/* used by modules to unpack messages it receives */
+void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, void *Msg);
 
 typedef struct {
     uint8             InUse;

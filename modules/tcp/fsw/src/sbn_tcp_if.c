@@ -258,17 +258,8 @@ int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
         return SBN_OK;
     }/* end if */
 
-    /* send the SBN header as individual fields so that there's no alignment */
-    SBN_MsgSize_t MsgSizeEndian = htons(MsgSize);
-    send(PeerSocket, &MsgSizeEndian, sizeof(MsgSizeEndian), 0);
-    send(PeerSocket, &MsgType, sizeof(MsgType), 0);
-    SBN_CpuId_t CpuIdEndian = htons(CFE_CPU_ID);
-    send(PeerSocket, &CpuIdEndian, sizeof(CpuIdEndian), 0);
-
-    if(Msg && MsgSize)
-    {
-        send(PeerSocket, Msg, MsgSize, 0);
-    }/* end if */
+    SBN_PackMsg(Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
+    send(PeerSocket, Network->SendBuf, MsgSize + SBN_PACKED_HDR_SIZE, 0);
 
     return SBN_OK;
 }/* end SBN_TCP_Send */
@@ -319,7 +310,7 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 
         if (Peer->RecvSize >= SBN_PACKED_HDR_SIZE)
         {
-            MsgSize = ntohs(*((SBN_MsgSize_t *)Peer->RecvBuf));
+            MsgSize = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)Peer->RecvBuf));
 
             if(Peer->RecvSize < MsgSize + SBN_PACKED_HDR_SIZE)
             {
@@ -336,42 +327,30 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
                 continue;
             }/* end if */
 
-            /* Ok we have the message! read off the SBN header */
-            char *BufPtr = (char *)Peer->RecvBuf;
-
-            *MsgSizePtr = MsgSize;
-            BufPtr += sizeof(MsgSize);
-
-            *MsgTypePtr = *((SBN_MsgType_t *)BufPtr);
-            BufPtr += sizeof(*MsgTypePtr);
-
-            *CpuIdPtr = ntohs(*((SBN_CpuId_t *)BufPtr));
-            BufPtr += sizeof(*CpuIdPtr);
-
-            /* and read the body */
-            CFE_PSP_MemCpy(MsgBuf, BufPtr, MsgSize);
-            BufPtr += MsgSize;
+            SBN_UnpackMsg(Peer->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr,
+                MsgBuf);
 
             /* shift back the received bytes not part of this message,
              * we may have part of the next message
              */
             int Overage = Peer->RecvSize - MsgSize - SBN_PACKED_HDR_SIZE;
+            char *To = Peer->RecvBuf,
+                *From = Peer->RecvBuf + MsgSize + SBN_PACKED_HDR_SIZE;
             Peer->RecvSize = Overage;
 
             /* move the overage to the start of the buffer */
-            if(Overage < MsgSize + SBN_PACKED_HDR_SIZE)
+            if(To + Overage < From)
             {
-                CFE_PSP_MemCpy(Peer->RecvBuf, BufPtr, Overage);
+                CFE_PSP_MemCpy(To, From, Overage);
             }
             else
             {
-                char *Start = Peer->RecvBuf;
-
-                /* the overage is larger than the message, so the memcpy
-                 * would overlap, which may be undefined */
+                /* the to overlaps with from, MemCpy has undefined behavior
+                 * with overlaps.
+                 */
                 while(Overage)
                 {
-                    *Start++ = *BufPtr++;
+                    *To++ = *From++;
                     Overage--;
                 }/* end while */
             }/* end if */

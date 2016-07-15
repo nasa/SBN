@@ -205,27 +205,13 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
     SBN_UDP_Peer_t *Peer = &Network->Peers[Entry->PeerNumber];
-    char *BufOffset = NULL;
 
     CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = Peer->EntryPtr->Addr;
     s_addr.sin_port = htons(Peer->EntryPtr->Port);
 
-    BufOffset = Network->SendBuf;
-
-    EndianMemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
-    BufOffset += sizeof(MsgSize);
-    CFE_PSP_MemCpy(BufOffset, &MsgType, sizeof(MsgType));
-    BufOffset += sizeof(MsgType);
-    SBN_CpuId_t CpuId = CFE_CPU_ID;
-    EndianMemCpy(BufOffset, &CpuId, sizeof(CpuId));
-    BufOffset += sizeof(CpuId);
-
-    if(Msg && MsgSize)
-    {
-        CFE_PSP_MemCpy(BufOffset, Msg, MsgSize);
-    }/* end if */
+    SBN_PackMsg(Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
 
     sendto(Network->Host.Socket, Network->SendBuf,
         MsgSize + SBN_PACKED_HDR_SIZE, 0,
@@ -247,9 +233,8 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
 
     int Received = 0;
 
-    Received = recv(Network->Host.Socket,
-        (char *)Network->RecvBuf, SBN_MAX_MSG_SIZE,
-        MSG_DONTWAIT);
+    Received = recv(Network->Host.Socket, (char *)Network->RecvBuf,
+        SBN_MAX_MSG_SIZE, MSG_DONTWAIT);
 
     if(Received == 0)
     {
@@ -271,17 +256,7 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
 
     /* each UDP packet is a full SBN message */
 
-    EndianMemCpy(MsgSizePtr, Network->RecvBuf, sizeof(*MsgSizePtr));
-
-    char *BufPtr = Network->RecvBuf + sizeof(*MsgSizePtr);
-
-    CFE_PSP_MemCpy(MsgTypePtr, BufPtr, sizeof(*MsgTypePtr));
-    BufPtr += sizeof(*MsgTypePtr);
-
-    EndianMemCpy(CpuIdPtr, BufPtr, sizeof(*CpuIdPtr));
-    BufPtr += sizeof(*CpuIdPtr);
-
-    CFE_PSP_MemCpy(MsgBuf, BufPtr, *MsgSizePtr);
+    SBN_UnpackMsg(Network->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr, MsgBuf);
 
     return SBN_OK;
 }/* end SBN_UDP_Recv */

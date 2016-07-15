@@ -1,15 +1,6 @@
 cmake_minimum_required(VERSION 2.6.4)
 project(SBN_APP C)
 
-INCLUDE(TestBigEndian)
-TEST_BIG_ENDIAN(BIG_ENDIAN)
-
-if(BIG_ENDIAN)
-    add_definitions(-DBIG_ENDIAN)
-else(BIG_ENDIAN)
-    add_definitions(-DLITTLE_ENDIAN)
-endif(BIG_ENDIAN)
-
 # workaround until these definitions are exposed by cfe_sb
 include_directories(${CFECORE_SOURCE_DIR}/src/sb)
 

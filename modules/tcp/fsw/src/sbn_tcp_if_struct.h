@@ -35,6 +35,7 @@ typedef struct
 {
     SBN_TCP_Host_t Host;
     SBN_TCP_Peer_t Peers[SBN_MAX_NETWORK_PEERS];
+    char SendBuf[SBN_MAX_MSG_SIZE];
     int PeerCount;
 } SBN_TCP_Network_t;
 
