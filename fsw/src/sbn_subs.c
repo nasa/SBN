@@ -43,7 +43,8 @@ void SBN_SendSubsRequests(void)
 
 static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
-    SBN_EndianMemCpy(SubMsg, &MsgId, sizeof(MsgId));
+    MsgId = CFE_MAKE_BIG16(MsgId);
+    CFE_PSP_MemCpy(SubMsg, &MsgId, sizeof(MsgId));
     CFE_PSP_MemCpy(SubMsg + sizeof(MsgId), &Qos, sizeof(Qos));
 
 }
@@ -51,7 +52,8 @@ static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
     CFE_SB_Qos_t *QosPtr)
 {
-    SBN_EndianMemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
+    CFE_PSP_MemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
+    *MsgIdPtr = CFE_MAKE_BIG16(*MsgIdPtr);
     CFE_PSP_MemCpy(QosPtr, SubMsg + sizeof(*MsgIdPtr), sizeof(*QosPtr));
 }
 

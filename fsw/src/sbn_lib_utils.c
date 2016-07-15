@@ -149,17 +149,3 @@ char *SBN_LIB_StateNum2Str(uint32 StateNum) {
     return SBN_StateName;
 
 }/* end SBN_StateNum2Str */
-
-int32 SBN_EndianMemCpy(void *dest, void *src, uint32 n)
-{
-#ifdef LITTLE_ENDIAN
-    uint32 i = 0;
-    for(i = 0; i < n; i++)
-    {
-        ((uint8 *)dest)[i] = ((uint8 *)src)[n - i - 1];
-    }/* end for */
-    return CFE_PSP_SUCCESS;
-#else /* !LITTLE_ENDIAN */
-    return CFE_PSP_MemCpy(dest, src, n);
-#endif /* LITTLE_ENDIAN */
-}/* end SBN_EndianMemCpy */
