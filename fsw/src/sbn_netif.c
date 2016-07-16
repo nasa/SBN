@@ -442,35 +442,31 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
  * \param MsgSize[in] The size of the payload.
  * \param CpuId[in] The CpuId of the sender (should be CFE_CPU_ID)
  * \param Msg[in] The payload (CCSDS message or SBN sub/unsub.)
- * \todo Use a type for SBNBuf.
  */
-void SBN_PackMsg(void *SBNBuf, SBN_MsgSize_t MsgSize, SBN_MsgType_t MsgType,
-    SBN_CpuId_t CpuId, void *Msg)
+void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
+    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t *Msg)
 {
-    char *BufOffset = SBNBuf;
-    uint16 *Util16 = NULL;
+    MsgSize = CFE_MAKE_BIG16(MsgSize);
+    CFE_PSP_MemCpy(SBNBuf->Hdr.MsgSizeBuf, &MsgSize, sizeof(MsgSize));
+    MsgSize = CFE_MAKE_BIG16(MsgSize); /* swap back */
 
-    CFE_PSP_MemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
-    Util16 = (uint16 *)BufOffset; *Util16 = CFE_MAKE_BIG16(*Util16);
-    BufOffset += sizeof(MsgSize);
+    CFE_PSP_MemCpy(SBNBuf->Hdr.MsgTypeBuf, &MsgType, sizeof(MsgType));
 
-    CFE_PSP_MemCpy(BufOffset, &MsgType, sizeof(MsgType));
-    BufOffset += sizeof(MsgType);
-
-    CFE_PSP_MemCpy(BufOffset, &CpuId, sizeof(CpuId));
-    Util16 = (uint16 *)BufOffset; *Util16 = CFE_MAKE_BIG16(*Util16);
-    BufOffset += sizeof(CpuId);
+    CpuId = CFE_MAKE_BIG16(CpuId);
+    CFE_PSP_MemCpy(SBNBuf->Hdr.CpuIdBuf, &CpuId, sizeof(CpuId));
+    CpuId = CFE_MAKE_BIG16(CpuId); /* swap back */
 
     if(!Msg || !MsgSize)
     {
         return;
     }/* end if */
 
-    CFE_PSP_MemCpy(BufOffset, Msg, MsgSize);
+printf("PACKED: type=%d size=%d\n", MsgType, MsgSize);
+    CFE_PSP_MemCpy(SBNBuf->Payload.CCSDSMsgBuf, (char *)Msg, MsgSize);
 
     if(MsgType == SBN_APP_MSG)
     {
-        SwapCCSDS((CFE_SB_Msg_t *)BufOffset);
+        SwapCCSDS(&SBNBuf->Payload.CCSDSMsg);
     }/* end if */
 }/* end SBN_PackMsg */
 
@@ -485,32 +481,24 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSize_t MsgSize, SBN_MsgType_t MsgType,
  *       are in platform byte order.
  * \todo Use a type for SBNBuf.
  */
-void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, void *Msg)
+void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *Msg)
 {
-    char *BufOffset = SBNBuf;
-
-    CFE_PSP_MemCpy(MsgSizePtr, BufOffset, sizeof(*MsgSizePtr));
-    *MsgSizePtr = CFE_MAKE_BIG16(*MsgSizePtr);
-    BufOffset += sizeof(*MsgSizePtr);
-
-    CFE_PSP_MemCpy(MsgTypePtr, BufOffset, sizeof(*MsgTypePtr));
-    BufOffset += sizeof(*MsgTypePtr);
-
-    CFE_PSP_MemCpy(CpuIdPtr, BufOffset, sizeof(*CpuIdPtr));
-    *CpuIdPtr = CFE_MAKE_BIG16(*CpuIdPtr);
-    BufOffset += sizeof(*CpuIdPtr);
+    *MsgSizePtr = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)SBNBuf->Hdr.MsgSizeBuf));
+    *MsgTypePtr = *((SBN_MsgType_t *)SBNBuf->Hdr.MsgTypeBuf);
+    *CpuIdPtr = CFE_MAKE_BIG16(*((SBN_CpuId_t *)SBNBuf->Hdr.CpuIdBuf));
 
     if(!*MsgSizePtr)
     {
         return;
     }/* end if */
 
-    CFE_PSP_MemCpy(Msg, BufOffset, *MsgSizePtr);
+    CFE_PSP_MemCpy(Msg, SBNBuf->Payload.CCSDSMsgBuf, *MsgSizePtr);
 
+printf("UNPACK: type=%d size=%d\n", *MsgTypePtr, *MsgSizePtr);
     if(*MsgTypePtr == SBN_APP_MSG)
     {
-        SwapCCSDS((CFE_SB_Msg_t *)Msg);
+        SwapCCSDS(&Msg->CCSDSMsg);
     }/* end if */
 }/* end SBN_UnpackMsg */
 
@@ -604,8 +592,8 @@ int SBN_InitInterfaces(void)
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
-     int PeerIdx)
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
+    SBN_Payload_t *Msg, int PeerIdx)
 {
     int status = 0;
 
@@ -648,10 +636,10 @@ void SBN_RecvNetMsgs(void)
             SBN_CpuId_t CpuId = 0;
             SBN_MsgType_t MsgType = 0;
             SBN_MsgSize_t MsgSize = 0;
-            uint8 Msg[SBN_MAX_MSG_SIZE];
+            SBN_Payload_t Msg;
 
             status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->Recv(
-                SBN.Peer[PeerIdx].IfData, &MsgType, &MsgSize, &CpuId, Msg);
+                SBN.Peer[PeerIdx].IfData, &MsgType, &MsgSize, &CpuId, &Msg);
 
             if(status == SBN_IF_EMPTY)
             {
@@ -667,7 +655,7 @@ void SBN_RecvNetMsgs(void)
             {
                 OS_GetLocalTime(&SBN.Peer[RealPeerIdx].last_received);
 
-                SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
+                SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, &Msg);
             }
             else if(status == SBN_ERROR)
             {

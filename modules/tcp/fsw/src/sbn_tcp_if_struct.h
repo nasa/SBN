@@ -2,6 +2,7 @@
 #define _sbn_tcp_if_struct_h_
 
 #include "sbn_constants.h"
+#include "sbn_interfaces.h"
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
 
@@ -25,7 +26,8 @@ typedef struct
 {
     SBN_TCP_Entry_t *EntryPtr;
     int Socket;
-    char RecvBuf[SBN_MAX_MSG_SIZE];
+    uint8 ReceivingBody; /**< \brief recv the header first */
+    SBN_PackedMsg_t RecvBuf;
     int RecvSize;
     int ConnectOut;
     OS_time_t LastConnectTry;
@@ -35,7 +37,7 @@ typedef struct
 {
     SBN_TCP_Host_t Host;
     SBN_TCP_Peer_t Peers[SBN_MAX_NETWORK_PEERS];
-    char SendBuf[SBN_MAX_MSG_SIZE];
+    SBN_PackedMsg_t SendBuf;
     int PeerCount;
 } SBN_TCP_Network_t;
 

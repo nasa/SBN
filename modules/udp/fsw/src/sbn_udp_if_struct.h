@@ -2,6 +2,7 @@
 #define _sbn_udp_if_struct_h_
 
 #include "sbn_constants.h"
+#include "sbn_interfaces.h"
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
 
@@ -32,7 +33,7 @@ typedef struct
     SBN_UDP_Peer_t Peers[SBN_MAX_NETWORK_PEERS];
     int PeerCount;
 
-    char SendBuf[SBN_MAX_MSG_SIZE], RecvBuf[SBN_MAX_MSG_SIZE];
+    SBN_PackedMsg_t SendBuf, RecvBuf;
 } SBN_UDP_Network_t;
 
 typedef struct

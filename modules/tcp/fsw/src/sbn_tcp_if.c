@@ -245,7 +245,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
 }/* end GetPeerSocket */
 
 int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, void *Msg)
+    SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     int PeerSocket = 0;
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -258,14 +258,14 @@ int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
         return SBN_OK;
     }/* end if */
 
-    SBN_PackMsg(Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
-    send(PeerSocket, Network->SendBuf, MsgSize + SBN_PACKED_HDR_SIZE, 0);
+    SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
+    send(PeerSocket, &Network->SendBuf, MsgSize + SBN_PACKED_HDR_SIZE, 0);
 
     return SBN_OK;
 }/* end SBN_TCP_Send */
 
 int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *MsgBuf)
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
     SBN_TCP_Network_t *Network
@@ -279,91 +279,78 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
         return SBN_IF_EMPTY;
     }/* end if */
 
-    while(1)
+    ssize_t Received = 0;
+    fd_set ReadFDs;
+    struct timeval timeout;
+
+    CFE_PSP_MemSet(&timeout, 0, sizeof(timeout));
+    timeout.tv_usec = 100;
+
+    FD_ZERO(&ReadFDs);
+    FD_SET(PeerSocket, &ReadFDs);
+
+    if(select(PeerSocket + 1, &ReadFDs, 0, 0, &timeout) < 0)
     {
-        ssize_t Received = 0;
-        fd_set ReadFDs;
-        struct timeval timeout;
-        SBN_MsgSize_t MsgSize = 0;
+        return SBN_ERROR;
+    }/* end if */
 
-        CFE_PSP_MemSet(&timeout, 0, sizeof(timeout));
-        timeout.tv_usec = 100;
+    if (!FD_ISSET(PeerSocket, &ReadFDs))
+    {
+        return SBN_IF_EMPTY;
+    }/* end if */
 
-        FD_ZERO(&ReadFDs);
-        FD_SET(PeerSocket, &ReadFDs);
+    int ToRead = 0;
 
-        if(select(PeerSocket + 1, &ReadFDs, 0, 0, &timeout) < 0)
+    if(!Peer->ReceivingBody)
+    {
+        /* recv the header first */
+        ToRead = SBN_PACKED_HDR_SIZE - Peer->RecvSize;
+
+        Received = recv(PeerSocket,
+            (char *)&Peer->RecvBuf + Peer->RecvSize, ToRead, 0);
+
+        if(Received < 0)
         {
             return SBN_ERROR;
         }/* end if */
-        if (FD_ISSET(PeerSocket, &ReadFDs))
+
+        Peer->RecvSize += Received;
+
+        if(Received >= ToRead)
         {
-            Received = recv(PeerSocket, Peer->RecvBuf + Peer->RecvSize,
-                SBN_MAX_MSG_SIZE - Peer->RecvSize, 0);
-            if(Received < 0)
-            {
-                return SBN_ERROR;
-            }/* end if */
-
-            Peer->RecvSize += Received;
-        }/* end if */
-
-        if (Peer->RecvSize >= SBN_PACKED_HDR_SIZE)
+            Peer->ReceivingBody = 1; /* and continue on to recv body */
+        }
+        else
         {
-            MsgSize = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)Peer->RecvBuf));
-
-            if(Peer->RecvSize < MsgSize + SBN_PACKED_HDR_SIZE)
-            {
-                if(Received == 0)
-                {
-                    /* nothing received this time through and the buffer
-                     * does not have enough to make a message...we're done
-                     * for now.
-                     */
-                    return SBN_IF_EMPTY;
-                }/* end if */
-
-                /* we received bytes, continue to accumulate the message */
-                continue;
-            }/* end if */
-
-            SBN_UnpackMsg(Peer->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr,
-                MsgBuf);
-
-            /* shift back the received bytes not part of this message,
-             * we may have part of the next message
-             */
-            int Overage = Peer->RecvSize - MsgSize - SBN_PACKED_HDR_SIZE;
-            char *To = Peer->RecvBuf,
-                *From = Peer->RecvBuf + MsgSize + SBN_PACKED_HDR_SIZE;
-            Peer->RecvSize = Overage;
-
-            /* move the overage to the start of the buffer */
-            if(To + Overage < From)
-            {
-                CFE_PSP_MemCpy(To, From, Overage);
-            }
-            else
-            {
-                /* the to overlaps with from, MemCpy has undefined behavior
-                 * with overlaps.
-                 */
-                while(Overage)
-                {
-                    *To++ = *From++;
-                    Overage--;
-                }/* end while */
-            }/* end if */
-
-            return SBN_OK;
+            return SBN_IF_EMPTY; /* wait for the complete header */
         }/* end if */
-        
-        if(Received == 0)
-        {
-            return SBN_IF_EMPTY;
-        }/* end if */
-    }/* end while */
-    /* will never get here */
+    }/* end if */
+
+    /* only get here if we're recv'd the header and ready for the body */
+
+    ToRead = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)Peer->RecvBuf.Hdr.MsgSizeBuf))
+        + SBN_PACKED_HDR_SIZE - Peer->RecvSize;
+    Received = recv(PeerSocket,
+        (char *)&Peer->RecvBuf + Peer->RecvSize, ToRead, 0);
+    if(Received < 0)
+    {
+        return SBN_ERROR;
+    }/* end if */
+
+    Peer->RecvSize += Received;
+
+    if(Received < ToRead)
+    {
+        return SBN_IF_EMPTY; /* wait for the complete body */
+    }/* end if */
+
+    /* we have the complete body, decode! */
+    SBN_UnpackMsg(&Peer->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr,
+        MsgBuf);
+
+    Peer->ReceivingBody = 0;
+
+    return SBN_OK;
 }/* end SBN_TCP_Recv */
 
 int SBN_TCP_VerifyPeerInterface(SBN_InterfaceData *Peer,

@@ -168,37 +168,8 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
     return SBN_PEER;
 }/* end SBN_UDP_Init */
 
-#ifndef LITTLE_ENDIAN
-
-/**
- * Utility function to copy memory and simultaneously swapping bytes for 
- * a little-endian platform. The SBN over-the-wire protocol is network order
- * (big-endian).
- * 
- * @param[in] dest Pointer to the destination block in memory.
- * @param[in] src Pointer to the source block in memory.
- * @param[in] n The number of bytes to copy from the src to the dest.
- *
- * @return CFE_PSP_SUCCESS on successful copy.
- */
-static int32 EndianMemCpy(void *dest, void *src, uint32 n)
-{
-    uint32 i = 0;
-    for(i = 0; i < n; i++)
-    {   
-        ((uint8 *)dest)[i] = ((uint8 *)src)[n - i - 1];
-    }/* end for */
-    return CFE_PSP_SUCCESS;
-}/* end EndianMemCpy */
-
-#else /* !LITTLE_ENDIAN */
-
-#define EndianMemCpy(D, S, N) CFE_PSP_MemCpy(D, S, N)
-
-#endif /* LITTLE_ENDIAN */
-
 int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, void *Msg)
+    SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     static struct sockaddr_in s_addr;
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->InterfacePvt;
@@ -211,9 +182,9 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     s_addr.sin_addr.s_addr = Peer->EntryPtr->Addr;
     s_addr.sin_port = htons(Peer->EntryPtr->Port);
 
-    SBN_PackMsg(Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
+    SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
 
-    sendto(Network->Host.Socket, Network->SendBuf,
+    sendto(Network->Host.Socket, &Network->SendBuf,
         MsgSize + SBN_PACKED_HDR_SIZE, 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
 
@@ -225,7 +196,7 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
  * good!
  */
 int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, void *MsgBuf)
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)Data->InterfacePvt;
     SBN_UDP_Network_t *Network
@@ -233,7 +204,7 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
 
     int Received = 0;
 
-    Received = recv(Network->Host.Socket, (char *)Network->RecvBuf,
+    Received = recv(Network->Host.Socket, (char *)&Network->RecvBuf,
         SBN_MAX_MSG_SIZE, MSG_DONTWAIT);
 
     if(Received == 0)
@@ -256,7 +227,7 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
 
     /* each UDP packet is a full SBN message */
 
-    SBN_UnpackMsg(Network->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr, MsgBuf);
+    SBN_UnpackMsg(&Network->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr, MsgBuf);
 
     return SBN_OK;
 }/* end SBN_UDP_Recv */

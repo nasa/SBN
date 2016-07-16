@@ -20,32 +20,79 @@ typedef uint16 SBN_MsgSize_t;
 typedef uint8 SBN_MsgType_t;
 typedef uint32 SBN_CpuId_t;
 
+/**
+ * Byte arrays to prevent data structure alignment.
+ */
+typedef struct
+{
+    uint8 MsgSizeBuf[sizeof(SBN_MsgSize_t)]; /**< \brief Size of payload not including SBN header */
+    uint8 MsgTypeBuf[sizeof(SBN_MsgType_t)]; /**< \brief Type of SBN message */
+    uint8 CpuIdBuf[sizeof(SBN_CpuId_t)]; /**< \brief CpuId of sender */
+}
+SBN_PackedHdr_t;
+
+typedef struct
+{
+    uint8 MsgId[sizeof(CFE_SB_MsgId_t)]; /**< \brief CCSDS MsgID of sub */
+    uint8 Qos[sizeof(CFE_SB_Qos_t)]; /**< \brief CCSDS Qos of sub */
+}
+SBN_PackedSub_t;
+
 /* note that the packed size is likely smaller than an in-memory's struct
  * size, as the CPU will align objects.
  * SBN headers are MsgSize + MsgType + CpuId
  * SBN subscription messages are MsgId + Qos
  */
-#define SBN_PACKED_HDR_SIZE (sizeof(SBN_MsgSize_t) + sizeof(SBN_MsgType_t) + sizeof(SBN_CpuId_t))
+#define SBN_PACKED_HDR_SIZE (sizeof(SBN_PackedHdr_t))
+#define SBN_PACKED_SUB_SIZE (sizeof(SBN_PackedSub_t))
+#define SBN_MAX_PACKED_MSG_SIZE (SBN_PACKED_HDR_SIZE + CFE_SB_MAX_SB_MSG_SIZE)
 
-#define SBN_PACKED_SUB_SIZE (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t))
+typedef union
+{
+    SBN_PackedSub_t SBNSub;
+    uint8 CCSDSMsgBuf[CFE_SB_MAX_SB_MSG_SIZE]; /* ensures enough allocation */
+    CFE_SB_Msg_t CCSDSMsg; /* convenience for CCSDS header fields. */
+}
+SBN_Payload_t;
+
+typedef struct
+{
+    SBN_PackedHdr_t Hdr;
+    SBN_Payload_t Payload;
+}
+SBN_PackedMsg_t;
 
 typedef struct {
     char   Name[SBN_MAX_PEERNAME_LENGTH];
-    int    ProtocolId;      /* from SbnPeerData.dat file */
-    uint32 ProcessorId;     /* from SbnPeerData.dat file */
-    uint32 SpaceCraftId;    /* from SbnPeerData.dat file */
-    uint8  QoS;             /* from SbnPeerData.dat file */
-    uint8  IsValid;         /* used by interfaces that require a match - 1 if match exists, 0 if not */
-    uint8  InterfacePvt[128]; /* generic blob of bytes, interface-specific */
+    int    ProtocolId;      /**< \brief from SbnPeerData.dat file */
+    uint32 ProcessorId;     /**< \brief from SbnPeerData.dat file */
+    uint32 SpaceCraftId;    /**< \brief from SbnPeerData.dat file */
+    uint8  QoS;             /**< \brief from SbnPeerData.dat file */
+    uint8  IsValid;         /**< \brief used by interfaces that require a match - 1 if match exists, 0 if not */
+    uint8  InterfacePvt[128]; /**< \brief generic blob of bytes, interface-specific */
 } SBN_InterfaceData;
 
-/* used by modules to pack messages to send */
-void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSize_t MsgSize,
-    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, void *Msg);
+/**
+ * \brief Used by modules to pack messages to send.
+ * \param SBNMsgBuf[out] The buffer pointer to receive the packed message.
+ * \param MsgSize[in] The size of the Msg parameter.
+ * \param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
+ * \param CpuId[in] The CPU ID of the sender (should be CFE_CPU_ID)
+ * \param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
+ */
+void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
+    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t *Msg);
 
-/* used by modules to unpack messages it receives */
-void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, void *Msg);
+/**
+ * \brief Used by modules to unpack messages received.
+ * \param SBNMsgBuf[in] The buffer pointer containing the SBN message.
+ * \param MsgSizePtr[out] The size of the Msg parameter.
+ * \param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
+ * \param CpuId[out] The CPU ID of the sender (should be CFE_CPU_ID)
+ * \param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least sizeof(SBN_Payload_t) in size.)
+ */
+void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *Msg);
 
 typedef struct {
     uint8             InUse;
@@ -107,11 +154,11 @@ typedef struct {
      *                              intended peer recipient
      * @param SBN_MsgType_t         The SBN message type
      * @param SBN_MsgSize_t         The size of the SBN message payload
-     * @param void *                The SBN message payload
+     * @param SBN_Payload_t *       The SBN message payload
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
     int (*Send)(SBN_InterfaceData *,
-        SBN_MsgType_t, SBN_MsgSize_t, void *);
+        SBN_MsgType_t, SBN_MsgSize_t, SBN_Payload_t *);
 
 
     /**
@@ -122,12 +169,12 @@ typedef struct {
      * @param SBN_MsgType_t *       SBN message type received.
      * @param SBN_MsgSize_t *       Payload size received.
      * @param SBN_CpuId_t *         CpuId of the sender.
-     * @param void *                Message buf
+     * @param SBN_Payload_t *       Payload buffer
      *                              (pass in a buffer of SBN_MAX_MSG_SIZE)
      * @return SBN_OK on success, SBN_ERROR on failure
      */
     int (*Recv)(SBN_InterfaceData *, SBN_MsgType_t *,
-        SBN_MsgSize_t *, SBN_CpuId_t *, void *);
+        SBN_MsgSize_t *, SBN_CpuId_t *, SBN_Payload_t *);
 
     /**
      * Iterates through the list of all host interfaces to see if there is a
@@ -139,8 +186,7 @@ typedef struct {
      * @param int                    Number of hosts in the SBN
      * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
      */
-    int (*VerifyPeer)(SBN_InterfaceData *, SBN_InterfaceData *[],
-        int);
+    int (*VerifyPeer)(SBN_InterfaceData *, SBN_InterfaceData *[], int);
 
     /**
      * Iterates through the list of all peer interfaces to see if there is a

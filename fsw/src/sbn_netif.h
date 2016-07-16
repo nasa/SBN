@@ -33,8 +33,8 @@ int SBN_InitInterfaces(void);
 
 void  SBN_RecvNetMsgs(void);
 
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
-    int PeerIdx);
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
+    SBN_Payload_t *Msg, int PeerIdx);
 
 void  SBN_VerifyPeers(void);
 void  SBN_VerifyHosts(void);

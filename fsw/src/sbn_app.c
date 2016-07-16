@@ -91,7 +91,8 @@ static void CheckPeerPipes(void)
                 OS_MAX_API_NAME))
             {
                 SBN_SendNetMsg(SBN_APP_MSG,
-                    CFE_SB_GetTotalMsgLength(SBMsgPtr), SBMsgPtr, PeerIdx);
+                    CFE_SB_GetTotalMsgLength(SBMsgPtr),
+                    (SBN_Payload_t *)SBMsgPtr, PeerIdx);
             }/* end if */
         }/* end for */
 
@@ -530,9 +531,7 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     switch(MsgType)
     {
         case SBN_ANNOUNCE_MSG:
-        case SBN_ANNOUNCE_ACK_MSG:
         case SBN_HEARTBEAT_MSG:
-        case SBN_HEARTBEAT_ACK_MSG:
             break;
 
         case SBN_APP_MSG:

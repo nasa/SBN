@@ -117,10 +117,10 @@ static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
 static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgId,
     CFE_SB_Qos_t Qos, int PeerIdx)
 {
-    uint8 SubMsg[SBN_PACKED_SUB_SIZE];
-    CFE_PSP_MemSet(SubMsg, 0, sizeof(SubMsg));
-    PackSub(SubMsg, MsgId, Qos);
-    SBN_SendNetMsg(SubFlag, sizeof(SubMsg), SubMsg, PeerIdx);
+    SBN_PackedSub_t SubMsg;
+    CFE_PSP_MemSet(&SubMsg, 0, sizeof(SubMsg));
+    PackSub(&SubMsg, MsgId, Qos);
+    SBN_SendNetMsg(SubFlag, sizeof(SubMsg), &SubMsg, PeerIdx);
 }/* end SendLocalSubToPeer */
 
 /**
