@@ -48,35 +48,6 @@ void SBN_SendSubsRequests(void)
     CFE_SB_SendMsg((CFE_SB_MsgPtr_t) &SBCmdMsg);
 }/* end SBN_SendSubsRequests */
 
-#ifdef LITTLE_ENDIAN
-
-/**
- * Utility function to copy memory and simultaneously swapping bytes for 
- * a little-endian platform. The SBN over-the-wire protocol is network order
- * (big-endian).
- * 
- * @param[in] dest Pointer to the destination block in memory.
- * @param[in] src Pointer to the source block in memory.
- * @param[in] n The number of bytes to copy from the src to the dest.
- *
- * @return CFE_PSP_SUCCESS on successful copy.
- */
-static int32 EndianMemCpy(void *dest, void *src, uint32 n)
-{
-    uint32 i = 0;
-    for(i = 0; i < n; i++)
-    {
-        ((uint8 *)dest)[i] = ((uint8 *)src)[n - i - 1];
-    }/* end for */
-    return CFE_PSP_SUCCESS;
-}/* end EndianMemCpy */
-
-#else /* !LITTLE_ENDIAN */
-
-#define EndianMemCpy(D, S, N) CFE_PSP_MemCpy(D, S, N)
-
-#endif /* LITTLE_ENDIAN */
-
 /**
  * \brief Utility function to pack SBN protocol subscription information.
  *
@@ -86,9 +57,8 @@ static int32 EndianMemCpy(void *dest, void *src, uint32 n)
  */
 static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
-    EndianMemCpy(SubMsg, &MsgId, sizeof(MsgId));
-    CFE_PSP_MemCpy(SubMsg + sizeof(MsgId), &Qos, sizeof(Qos));
-
+    MsgId = CFE_MAKE_BIG16(MsgId);
+    CFE_PSP_MemCpy(SubMsg, &MsgId, sizeof(MsgId));
 }
 
 /**
@@ -102,7 +72,8 @@ static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
     CFE_SB_Qos_t *QosPtr)
 {
-    EndianMemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
+    CFE_PSP_MemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
+    *MsgIdPtr = CFE_MAKE_BIG16(*MsgIdPtr);
     CFE_PSP_MemCpy(QosPtr, SubMsg + sizeof(*MsgIdPtr), sizeof(*QosPtr));
 }
 
