@@ -294,7 +294,7 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
         return SBN_ERROR;
     }/* end if */
 
-    if (!FD_ISSET(PeerSocket, &ReadFDs))
+    if(!FD_ISSET(PeerSocket, &ReadFDs))
     {
         return SBN_IF_EMPTY;
     }/* end if */
@@ -328,20 +328,24 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 
     /* only get here if we're recv'd the header and ready for the body */
 
-    ToRead = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)Peer->RecvBuf.Hdr.MsgSizeBuf))
+    ToRead =
+        CFE_MAKE_BIG16(*((SBN_MsgSize_t *)Peer->RecvBuf.Hdr.MsgSizeBuf))
         + SBN_PACKED_HDR_SIZE - Peer->RecvSize;
-    Received = recv(PeerSocket,
-        (char *)&Peer->RecvBuf + Peer->RecvSize, ToRead, 0);
-    if(Received < 0)
+    if(ToRead)
     {
-        return SBN_ERROR;
-    }/* end if */
+        Received = recv(PeerSocket,
+            (char *)&Peer->RecvBuf + Peer->RecvSize, ToRead, 0);
+        if(Received < 0)
+        {
+            return SBN_ERROR;
+        }/* end if */
 
-    Peer->RecvSize += Received;
+        Peer->RecvSize += Received;
 
-    if(Received < ToRead)
-    {
-        return SBN_IF_EMPTY; /* wait for the complete body */
+        if(Received < ToRead)
+        {
+            return SBN_IF_EMPTY; /* wait for the complete body */
+        }/* end if */
     }/* end if */
 
     /* we have the complete body, decode! */
@@ -349,6 +353,7 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
         MsgBuf);
 
     Peer->ReceivingBody = 0;
+    Peer->RecvSize = 0;
 
     return SBN_OK;
 }/* end SBN_TCP_Recv */

@@ -120,7 +120,7 @@ static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgId,
     SBN_PackedSub_t SubMsg;
     CFE_PSP_MemSet(&SubMsg, 0, sizeof(SubMsg));
     PackSub(&SubMsg, MsgId, Qos);
-    SBN_SendNetMsg(SubFlag, sizeof(SubMsg), &SubMsg, PeerIdx);
+    SBN_SendNetMsg(SubFlag, sizeof(SubMsg), (SBN_Payload_t *)&SubMsg, PeerIdx);
 }/* end SendLocalSubToPeer */
 
 /**

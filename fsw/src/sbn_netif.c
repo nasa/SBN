@@ -461,7 +461,6 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
         return;
     }/* end if */
 
-printf("PACKED: type=%d size=%d\n", MsgType, MsgSize);
     CFE_PSP_MemCpy(SBNBuf->Payload.CCSDSMsgBuf, (char *)Msg, MsgSize);
 
     if(MsgType == SBN_APP_MSG)
@@ -495,7 +494,6 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
 
     CFE_PSP_MemCpy(Msg, SBNBuf->Payload.CCSDSMsgBuf, *MsgSizePtr);
 
-printf("UNPACK: type=%d size=%d\n", *MsgTypePtr, *MsgSizePtr);
     if(*MsgTypePtr == SBN_APP_MSG)
     {
         SwapCCSDS(&Msg->CCSDSMsg);
