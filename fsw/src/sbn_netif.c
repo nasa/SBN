@@ -402,6 +402,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSize_t MsgSize, SBN_MsgType_t MsgType,
 {
     char *BufOffset = SBNBuf;
     uint16 *Util16 = NULL;
+    uint32 *Util32 = NULL;
 
     CFE_PSP_MemCpy(BufOffset, &MsgSize, sizeof(MsgSize));
     Util16 = (uint16 *)BufOffset; *Util16 = CFE_MAKE_BIG16(*Util16);
@@ -411,7 +412,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSize_t MsgSize, SBN_MsgType_t MsgType,
     BufOffset += sizeof(MsgType);
 
     CFE_PSP_MemCpy(BufOffset, &CpuId, sizeof(CpuId));
-    Util16 = (uint16 *)BufOffset; *Util16 = CFE_MAKE_BIG16(*Util16);
+    Util32 = (uint32 *)BufOffset; *Util32 = CFE_MAKE_BIG32(*Util32);
     BufOffset += sizeof(CpuId);
 
     if(!Msg || !MsgSize)
@@ -451,7 +452,7 @@ void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     BufOffset += sizeof(*MsgTypePtr);
 
     CFE_PSP_MemCpy(CpuIdPtr, BufOffset, sizeof(*CpuIdPtr));
-    *CpuIdPtr = CFE_MAKE_BIG16(*CpuIdPtr);
+    *CpuIdPtr = CFE_MAKE_BIG32(*CpuIdPtr);
     BufOffset += sizeof(*CpuIdPtr);
 
     if(!*MsgSizePtr)
