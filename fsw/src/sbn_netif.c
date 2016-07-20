@@ -452,9 +452,9 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
 
     CFE_PSP_MemCpy(SBNBuf->Hdr.MsgTypeBuf, &MsgType, sizeof(MsgType));
 
-    CpuId = CFE_MAKE_BIG16(CpuId);
+    CpuId = CFE_MAKE_BIG32(CpuId);
     CFE_PSP_MemCpy(SBNBuf->Hdr.CpuIdBuf, &CpuId, sizeof(CpuId));
-    CpuId = CFE_MAKE_BIG16(CpuId); /* swap back */
+    CpuId = CFE_MAKE_BIG32(CpuId); /* swap back */
 
     if(!Msg || !MsgSize)
     {
@@ -485,7 +485,7 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
 {
     *MsgSizePtr = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)SBNBuf->Hdr.MsgSizeBuf));
     *MsgTypePtr = *((SBN_MsgType_t *)SBNBuf->Hdr.MsgTypeBuf);
-    *CpuIdPtr = CFE_MAKE_BIG16(*((SBN_CpuId_t *)SBNBuf->Hdr.CpuIdBuf));
+    *CpuIdPtr = CFE_MAKE_BIG32(*((SBN_CpuId_t *)SBNBuf->Hdr.CpuIdBuf));
 
     if(!*MsgSizePtr)
     {
