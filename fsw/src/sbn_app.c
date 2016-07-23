@@ -27,6 +27,7 @@
 #include "cfe.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
+#include "sbn_version.h"
 #include "sbn_app.h"
 #include "sbn_netif.h"
 #include "sbn_msgids.h"
@@ -134,7 +135,10 @@ static void RunProtocol(void)
             if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, 0, NULL, PeerIdx);
+                char AnnMsg[32];
+                snprintf(AnnMsg, 32, SBN_IDENT);
+                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, strlen(SBN_IDENT) + 1,
+                    SBN_IDENT, PeerIdx);
             }/* end if */
             return;
         }/* end if */
@@ -432,6 +436,9 @@ void SBN_AppMain(void)
     int     Status = CFE_SUCCESS;
     uint32  RunStatus = CFE_ES_APP_RUN;
 
+    CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
+        "SBN APP starting, identity: %s", SBN_IDENT);
+
     Status = Init();
     if(Status != CFE_SUCCESS) RunStatus = CFE_ES_APP_ERROR;
 
@@ -478,7 +485,35 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
 
     PeerIdx = SBN_GetPeerIndex(CpuId);
 
-    if(PeerIdx == SBN_ERROR) return;
+    if(PeerIdx == SBN_ERROR)
+    {
+        return;
+    }/* end if */
+
+    if(MsgType == SBN_ANNOUNCE_MSG)
+    {
+        if(MsgSize < 1)
+        {
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+                "Peer running old (unversioned) code!");
+        }
+        else
+        {
+            if(strncmp(SBN_IDENT, (char *)Msg, strlen(SBN_IDENT)))
+            {
+                CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+                    "Peer #%d running a different version of SBN "
+                        "(my identity=%s, his identity=%s)",
+                    PeerIdx, SBN_IDENT, (char *)Msg);
+            }
+            else
+            {
+                CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+                    "Peer #%d running same version of SBN (%s)",
+                    PeerIdx, SBN_IDENT);
+            }/* end if */
+        }/* end if */
+    }/* end if */
 
     if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING
         || MsgType == SBN_ANNOUNCE_MSG)
