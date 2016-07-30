@@ -12,24 +12,38 @@ typedef struct /* stashed in the SBN InterfacePvt buffer */
 {
     int NetworkNumber;
     int PeerNumber;
-    uint32 Addr;
+    char Host[16];
     int  Port;
 } SBN_TCP_Entry_t;
 
 typedef struct
 {
+    uint8 ConnectedFlag;
+#ifdef OS_NET_IMPL
+    int NetID;
+#else /* !OS_NET_IMPL */
     int Socket;
+#endif /* OS_NET_IMPL */
     SBN_TCP_Entry_t *EntryPtr;
 } SBN_TCP_Host_t;
 
 typedef struct
 {
     SBN_TCP_Entry_t *EntryPtr;
+#ifdef OS_NET_IMPL
+    int NetID;
+#else /* !OS_NET_IMPL */
     int Socket;
-    uint8 ReceivingBody; /**< \brief recv the header first */
+#endif /* OS_NET_IMPL */
+    uint8 /** flags */
+            /** \brief recv the header first */
+            ReceivingBody,
+            /** \brief Do I connect to this peer or do they connect to me? */
+            ConnectOut,
+            /** \brief Is this peer currently connected? */
+            Connected;
     SBN_PackedMsg_t RecvBuf;
     int RecvSize;
-    int ConnectOut;
     OS_time_t LastConnectTry;
 } SBN_TCP_Peer_t;
 
