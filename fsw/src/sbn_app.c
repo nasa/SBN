@@ -140,7 +140,7 @@ static void RunProtocol(void)
                 SBN_SendNetMsg(SBN_ANNOUNCE_MSG, strlen(SBN_IDENT) + 1,
                     SBN_IDENT, PeerIdx);
             }/* end if */
-            return;
+            continue;
         }/* end if */
         if(current_time.seconds - SBN.Peer[PeerIdx].last_received.seconds
                 > SBN_HEARTBEAT_TIMEOUT)
@@ -150,7 +150,7 @@ static void RunProtocol(void)
                 "peer %d lost connection, resetting\n", PeerIdx);
             SBN_RemoveAllSubsFromPeer(PeerIdx);
             SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
-
+            continue;
         }/* end if */
         if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                 > SBN_HEARTBEAT_SENDTIME)
