@@ -12,7 +12,7 @@ typedef struct
 {
     int NetworkNumber;
     int PeerNumber;
-    uint32 Addr;
+    char Addr[16];
     int  Port;
 } SBN_UDP_Entry_t;
 
@@ -23,7 +23,11 @@ typedef struct
 
 typedef struct
 {
+#ifdef OS_NETWORK_IMPL
+    int32 NetID;
+#else /* OS_NETWORK_IMPL */
     int Socket;
+#endif /* OS_NETWORK_IMPL */
     SBN_UDP_Entry_t *EntryPtr;
 } SBN_UDP_Host_t;
 

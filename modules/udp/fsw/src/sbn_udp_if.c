@@ -6,7 +6,11 @@
 #include <string.h>
 #include <errno.h>
 
+#ifdef OS_NETWORK_IMPL
+static void ClearSocket(int32 NetID)
+#else /* !OS_NETWORK_IMPL */
 static void ClearSocket(int SockId)
+#endif /* OS_NETWORK_IMPL */
 {
     struct sockaddr_in  s_addr;
     socklen_t           addr_len = 0;
@@ -17,16 +21,41 @@ static void ClearSocket(int SockId)
     addr_len = sizeof(s_addr);
     CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
 
+#ifdef OS_NETWORK_IMPL
+
+    CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
+        "Clearing socket %d", NetID);
+
+#else /* !OS_NETWORK_IMPL */
+
     CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
         "Clearing socket %d", SockId);
+
+#endif /* OS_NETWORK_IMPL */
 
     /* change to while loop */
     for(i = 0; i <= 50; i++)
     {
+#ifdef OS_NETWORK_IMPL
+
+        size_t Size = sizeof(DiscardData);
+        status = OS_NetworkRecv(NetID, DiscardData, &Size);
+        if(status < 0)
+        {
+            break;
+        }/* end if */
+
+#else /* !OS_NETWORK_IMPL */
+
         status = recvfrom(SockId, DiscardData, sizeof(DiscardData),
             MSG_DONTWAIT,(struct sockaddr *) &s_addr, &addr_len);
         if((status < 0) && (errno == EWOULDBLOCK)) // TODO: add EAGAIN?
+        {
             break; /* no (more) messages */
+        }/* end if */
+
+#endif /* OS_NETWORK_IMPL */
+
     }/* end for */
 }/* end ClearSocket */
 
@@ -47,7 +76,7 @@ int SBN_UDP_LoadEntry(const char **row, int fieldcount, void *entryptr)
         return SBN_ERROR;
     }/* end if */
  
-    entry->Addr = inet_addr(row[1]);
+    strncpy(entry->Addr, row[1], sizeof(entry->Addr));
     entry->Port = atoi(row[2]);
 
     return SBN_OK;
@@ -55,9 +84,9 @@ int SBN_UDP_LoadEntry(const char **row, int fieldcount, void *entryptr)
 
 #else /* ! _osapi_confloader_ */
 
-int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
+int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
 {
-    SBN_UDP_Entry_t *entry = (SBN_UDP_Entry_t *)entryptr;
+    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryPtr;
 
     char Addr[16];
     int ScanfStatus = 0, NetworkNumber = 0, Port = 0;
@@ -85,9 +114,8 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
         return SBN_ERROR;
     }/* end if */
 
- 
-    entry->Addr = inet_addr(Addr);
-    entry->Port = Port;
+    strncpy(Entry->Addr, Addr, sizeof(Entry->Addr));
+    Entry->Port = Port;
 
     return SBN_OK;
 }/* end SBN_UDP_ParseFileEntry */
@@ -118,13 +146,38 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
 
         Network->Host.EntryPtr = Entry;
 
-        static struct sockaddr_in my_addr;
-        Network->Host.Socket = 0;
-
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-            "Creating socket for 0x%04X:%d",
+            "Creating socket for %s:%d",
             Entry->Addr, Entry->Port);
 
+#ifdef OS_NETWORK_IMPL
+
+        if((Network->Host.NetID
+            = OS_NetworkOpen(OS_NET_DOMAIN_INET4, OS_NET_TYPE_DATAGRAM)) < 0)
+        {
+            CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+                "Unable to open network (%d)",
+                Network->Host.NetID);
+            return SBN_ERROR;
+        }/* end if */
+
+        OS_NetworkSetBlocking(Network->Host.NetID, TRUE);
+        
+        OS_NetAddr_t Addr;
+        OS_NetworkAddrInit(&Addr, OS_NET_DOMAIN_INET4);
+        OS_NetworkSetAddr(&Addr, Entry->Addr);
+        OS_NetworkSetPort(&Addr, Entry->Port);
+        if(OS_NetworkBind(Network->Host.NetID, &Addr) < 0)
+        {
+            CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+                "Unable to bind network (%d %s:%d)",
+                Network->Host.NetID, Entry->Addr, Entry->Port);
+            return SBN_ERROR;
+        }/* end if */
+
+        ClearSocket(Network->Host.NetID);
+
+#else /* !OS_NETWORK_IMPL */
         if((Network->Host.Socket
             = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
         {
@@ -134,7 +187,9 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
             return SBN_ERROR;
         }/* end if */
 
-        my_addr.sin_addr.s_addr = Entry->Addr;
+        static struct sockaddr_in my_addr;
+
+        my_addr.sin_addr.s_addr = inet_addr(Entry->Addr);
         my_addr.sin_family = AF_INET;
         my_addr.sin_port = htons(Entry->Port);
 
@@ -158,6 +213,8 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
 
         ClearSocket(Network->Host.Socket);
 
+#endif /* OS_NETWORK_IMPL */
+
         return SBN_HOST;
     }
 
@@ -171,22 +228,37 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
 int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
-    static struct sockaddr_in s_addr;
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->InterfacePvt;
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
+
+    SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
+
+#ifdef OS_NETWORK_IMPL
+
+    OS_NetAddr_t Addr;
+    OS_NetworkAddrInit(&Addr, OS_NET_DOMAIN_INET4);
+    OS_NetworkSetAddr(&Addr, Entry->Addr);
+    OS_NetworkSetPort(&Addr, Entry->Port);
+
+    OS_NetworkSendTo(Network->Host.NetID, &Network->SendBuf,
+        MsgSize + SBN_PACKED_HDR_SIZE, &Addr);
+
+#else /* !OS_NETWORK_IMPL */
     SBN_UDP_Peer_t *Peer = &Network->Peers[Entry->PeerNumber];
+
+    static struct sockaddr_in s_addr;
 
     CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = Peer->EntryPtr->Addr;
+    s_addr.sin_addr.s_addr = inet_addr(Peer->EntryPtr->Addr);
     s_addr.sin_port = htons(Peer->EntryPtr->Port);
-
-    SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
 
     sendto(Network->Host.Socket, &Network->SendBuf,
         MsgSize + SBN_PACKED_HDR_SIZE, 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
+
+#endif /* OS_NETWORK_IMPL */
 
     return SBN_OK;
 }/* end SBN_UDP_Send */
@@ -202,9 +274,24 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
 
-    int Received = 0;
+#ifdef OS_NETWORK_IMPL
 
-    Received = recv(Network->Host.Socket, (char *)&Network->RecvBuf,
+    size_t Received = SBN_MAX_MSG_SIZE;
+    int32 Status = OS_NetworkRecv(Network->Host.NetID,
+        (char *)&Network->RecvBuf, &Received);
+    if(Status < 0)
+    {
+        return SBN_ERROR;
+    }/* end if */
+
+    if(Received == 0)
+    {
+        return SBN_IF_EMPTY;
+    }/* end if */
+
+#else /* !OS_NETWORK_IMPL */
+
+    int Received = recv(Network->Host.Socket, (char *)&Network->RecvBuf,
         SBN_MAX_MSG_SIZE, MSG_DONTWAIT);
 
     if(Received == 0)
@@ -226,6 +313,8 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     }/* end if */
 
     /* each UDP packet is a full SBN message */
+
+#endif /* OS_NETWORK_IMPL */
 
     SBN_UnpackMsg(&Network->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr, MsgBuf);
 
