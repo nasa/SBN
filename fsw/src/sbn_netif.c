@@ -607,7 +607,7 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
             if(PeerIdx == SBN_ERROR)
             {
                 CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
-                    "PeerIdx Bad.  PeerIdx = %d", PeerIdx);
+                    "Unknown peer (CpuId = %d)", CpuId);
                 continue;
             }/* end if */
 
