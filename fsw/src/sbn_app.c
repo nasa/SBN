@@ -502,8 +502,7 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
             if(strncmp(SBN_IDENT, (char *)Msg, strlen(SBN_IDENT)))
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                    "Peer #%d running a different version of SBN "
-                        "(my identity=%s, his identity=%s)",
+                    "Peer #%d version mismatch (me=%s, him=%s)",
                     PeerIdx, SBN_IDENT, (char *)Msg);
             }
             else
