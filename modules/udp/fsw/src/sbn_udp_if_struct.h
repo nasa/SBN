@@ -12,7 +12,7 @@ typedef struct
 {
     int NetworkNumber;
     int PeerNumber;
-    char Addr[16];
+    char Host[16];
     int  Port;
 } SBN_UDP_Entry_t;
 

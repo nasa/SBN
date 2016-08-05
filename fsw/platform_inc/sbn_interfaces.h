@@ -50,6 +50,7 @@ SBN_PackedSub_t;
 typedef union
 {
     SBN_PackedSub_t SBNSub;
+    char AnnounceMsg[CFE_SB_MAX_SB_MSG_SIZE];
     uint8 CCSDSMsgBuf[CFE_SB_MAX_SB_MSG_SIZE]; /* ensures enough allocation */
     CFE_SB_Msg_t CCSDSMsg; /* convenience for CCSDS header fields. */
 }

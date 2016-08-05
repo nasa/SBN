@@ -31,6 +31,5 @@
 #define SBN_MAJOR_VERSION   1
 #define SBN_MINOR_VERSION   2
 #define SBN_REVISION        0
-#define SBN_IDENT           "$Id$"
 
 #endif /*_sbn_version_*/

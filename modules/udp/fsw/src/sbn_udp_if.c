@@ -76,7 +76,7 @@ int SBN_UDP_LoadEntry(const char **row, int fieldcount, void *entryptr)
         return SBN_ERROR;
     }/* end if */
  
-    strncpy(entry->Addr, row[1], sizeof(entry->Addr));
+    strncpy(entry->Host, row[1], sizeof(entry->Host));
     entry->Port = atoi(row[2]);
 
     return SBN_OK;
@@ -88,14 +88,14 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryPtr;
 
-    char Addr[16];
+    char Host[16];
     int ScanfStatus = 0, NetworkNumber = 0, Port = 0;
 
     /*
      * Using sscanf to parse the string.
      * Currently no error handling
      */
-    ScanfStatus = sscanf(FileEntry, "%d %s %d", &NetworkNumber, Addr, &Port);
+    ScanfStatus = sscanf(FileEntry, "%d %s %d", &NetworkNumber, Host, &Port);
 
     /*
      * Check to see if the correct number of items were parsed
@@ -114,7 +114,7 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(Entry->Addr, Addr, sizeof(Entry->Addr));
+    strncpy(Entry->Host, Host, sizeof(Entry->Host));
     Entry->Port = Port;
 
     return SBN_OK;
@@ -148,7 +148,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
 
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
             "Creating socket for %s:%d",
-            Entry->Addr, Entry->Port);
+            Entry->Host, Entry->Port);
 
 #ifdef OS_NETWORK_IMPL
 
@@ -161,17 +161,17 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
             return SBN_ERROR;
         }/* end if */
 
-        OS_NetworkSetBlocking(Network->Host.NetID, TRUE);
+        OS_NetworkSetNonBlocking(Network->Host.NetID, TRUE);
         
         OS_NetAddr_t Addr;
         OS_NetworkAddrInit(&Addr, OS_NET_DOMAIN_INET4);
-        OS_NetworkSetAddr(&Addr, Entry->Addr);
+        OS_NetworkSetHost(&Addr, Entry->Host);
         OS_NetworkSetPort(&Addr, Entry->Port);
         if(OS_NetworkBind(Network->Host.NetID, &Addr) < 0)
         {
             CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
                 "Unable to bind network (%d %s:%d)",
-                Network->Host.NetID, Entry->Addr, Entry->Port);
+                Network->Host.NetID, Entry->Host, Entry->Port);
             return SBN_ERROR;
         }/* end if */
 
@@ -189,7 +189,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
 
         static struct sockaddr_in my_addr;
 
-        my_addr.sin_addr.s_addr = inet_addr(Entry->Addr);
+        my_addr.sin_addr.s_addr = inet_addr(Entry->Host);
         my_addr.sin_family = AF_INET;
         my_addr.sin_port = htons(Entry->Port);
 
@@ -238,7 +238,7 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
 
     OS_NetAddr_t Addr;
     OS_NetworkAddrInit(&Addr, OS_NET_DOMAIN_INET4);
-    OS_NetworkSetAddr(&Addr, Entry->Addr);
+    OS_NetworkSetHost(&Addr, Entry->Host);
     OS_NetworkSetPort(&Addr, Entry->Port);
 
     OS_NetworkSendTo(Network->Host.NetID, &Network->SendBuf,
@@ -251,7 +251,7 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
 
     CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = inet_addr(Peer->EntryPtr->Addr);
+    s_addr.sin_addr.s_addr = inet_addr(Peer->EntryPtr->Host);
     s_addr.sin_port = htons(Peer->EntryPtr->Port);
 
     sendto(Network->Host.Socket, &Network->SendBuf,

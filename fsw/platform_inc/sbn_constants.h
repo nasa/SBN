@@ -87,5 +87,8 @@
 #define SBN_UN_SUBSCRIBE_MSG          0x0040
 #define SBN_APP_MSG                   0x0050
 
+#define SBN_IDENT           "$Id$"
+#define SBN_IDENT_LEN       48 /**< \brief Id is always the same len, plus \0 */
+
 #endif /* _sbn_constants_h_ */
 /*****************************************************************************/

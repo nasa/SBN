@@ -157,10 +157,10 @@ static void RunProtocol(void)
             if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                char AnnMsg[32];
-                snprintf(AnnMsg, 32, SBN_IDENT);
-                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, strlen(SBN_IDENT) + 1,
-                    SBN_IDENT, PeerIdx);
+                SBN_Payload_t AnnMsgPayload;
+                strncpy(AnnMsgPayload.AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
+                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, SBN_IDENT_LEN,
+                    &AnnMsgPayload, PeerIdx);
             }/* end if */
             continue;
         }/* end if */
@@ -538,7 +538,7 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
         }
         else
         {
-            if(strncmp(SBN_IDENT, (char *)Msg, strlen(SBN_IDENT)))
+            if(strncmp(SBN_IDENT, (char *)Msg, SBN_IDENT_LEN))
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
                     "Peer #%d version mismatch (me=%s, him=%s)",
