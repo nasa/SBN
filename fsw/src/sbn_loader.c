@@ -16,7 +16,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 
     if (fieldcount != 4)
     {
-        OS_printf("error: invalid field count %d (expected 4)\n", fieldcount); /* TODO: event */
+        OS_printf("SBN invalid field count %d (expected 4)\n", fieldcount); /* TODO: event */
         return OS_SUCCESS;
     }
 
@@ -24,8 +24,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 
     if (ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES)
     {   
-        OS_printf("%s:Invalid protocol id %d\n",
-            CFE_CPU_NAME, ProtocolId);
+        OS_printf("SBN invalid protocol id %d\n", ProtocolId);
         return OS_SUCCESS;
     }/* end if */
 
@@ -38,7 +37,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
     status = OS_SymbolLookup(&StructAddr, row[3]);
     if(status != OS_SUCCESS)
     {
-        OS_printf("Failed to find symbol %s\n", row[3]);
+        OS_printf("SBN failed to find symbol %s\n", row[3]);
         return OS_SUCCESS;
     }/* end if */
 
@@ -50,7 +49,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 static int SBN_ConfLoaderErrorCallback(const char *filename, int linenum,
     const char *errmessage, void *opaque)
 {
-    OS_printf("error: %s\n", errmessage); /* TODO: event */
+    OS_printf("SBN %s\n", errmessage); /* TODO: event */
     return OS_SUCCESS;
 }
 
@@ -201,15 +200,14 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     */
     if (ScanfStatus != 4)
     {
-        OS_printf("%s:Invalid SBN module file line,exp %d items,found %d",
-            CFE_CPU_NAME, 4, ScanfStatus);
+        OS_printf("SBN invalid module file line (exp %d items, found %d)",
+            4, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
     if (ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES)
     {
-        OS_printf("%s:Invalid protocol id %d",
-            CFE_CPU_NAME, ProtocolId);
+        OS_printf("SBN invalid protocol id %d", ProtocolId);
         return SBN_ERROR;
     }/* end if */
 
@@ -224,7 +222,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     if(ReturnCode != OS_SUCCESS)
     {
-        OS_printf("Failed to find symbol %s\n", StructName);
+        OS_printf("SBN failed to find symbol %s\n", StructName);
         return SBN_ERROR;
     }/* end if */
 

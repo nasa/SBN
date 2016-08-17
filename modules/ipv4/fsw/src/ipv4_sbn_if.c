@@ -20,7 +20,7 @@ static void ClearSocket(int SockId)
     bzero((char *) &s_addr, sizeof(s_addr));
 
     CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_DEBUG,
-        "Clearing socket %d", SockId);
+        "clearing socket %d", SockId);
 
     /* change to while loop */
     for(i = 0; i <= 50; i++)
@@ -38,13 +38,13 @@ static int CreateSocket(char *Addr, int Port)
     int                         SockId = 0;
 
     CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_DEBUG,
-        "Creating socket for %s:%d", Addr, Port);
+        "creating socket for %s:%d", Addr, Port);
 
     if((SockId = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
     {
         CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_ERROR,
-            "%s:socket call failed,line %d,rtn val %d,errno=%d",
-            CFE_CPU_NAME, __LINE__, SockId, errno);
+            "socket call failed (SockId=%d errno=%d)",
+            SockId, errno);
         return SockId;
     }/* end if */
 
@@ -55,8 +55,8 @@ static int CreateSocket(char *Addr, int Port)
     if(bind(SockId, (struct sockaddr *) &my_addr, sizeof(my_addr)) < 0 )
     {
         CFE_EVS_SendEvent(SBN_IPV4_SOCK_EID, CFE_EVS_ERROR,
-            "%s:bind call failed,line %d,rtn val %d,errno=%d",
-            CFE_CPU_NAME, __LINE__, SockId, errno);
+            "bind call failed (SockId=%d,errno=%d)",
+            SockId, errno);
         return SockId;
     }/* end if */
 
@@ -111,8 +111,8 @@ int SBN_ParseIPv4FileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
     if(ScanfStatus != IPV4_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_IPV4_CONFIG_EID,CFE_EVS_ERROR,
-                "%s:Invalid SBN peer file line,exp %d items,found %d",
-                CFE_CPU_NAME, IPV4_ITEMS_PER_FILE_LINE, ScanfStatus);
+            "invalid SBN peer file line, expected %d items, found %d",
+            IPV4_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
