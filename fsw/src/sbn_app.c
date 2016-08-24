@@ -415,9 +415,17 @@ static int Init(void)
 
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "initialized "
-        "(CFE_CPU_NAME='%s' CFE_CPU_ID=%d SBN.AppId=%d SBN_IDENT=%s)",
-        CFE_CPU_NAME, CFE_CPU_ID, (int)SBN.AppId, SBN_IDENT);
+        "initialized (CFE_CPU_NAME='%s' CFE_CPU_ID=%d SBN.AppId=%d...",
+        CFE_CPU_NAME, CFE_CPU_ID, (int)SBN.AppId);
+    CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
+        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s)",
+        SBN_IDENT,
+#ifdef SBN_DEBUG_MSGS
+        "TRUE"
+#else /* !SBN_DEBUG_MSGS */
+        "FALSE"
+#endif /* SBN_DEBUG_MSGS */
+        );
 
     /* Initialize HK Message */
     CFE_SB_InitMsg(&SBN.HkPkt, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);

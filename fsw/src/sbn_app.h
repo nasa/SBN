@@ -97,9 +97,6 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     SBN_MsgSize_t MsgSize, void *Msg);
 int SBN_GetPeerIndex(uint32 ProcessorId);
 
-/* define to turn on debug event messages, warning, chatty! */
-#undef SBN_DEBUG_MSGS
-
 #ifdef SBN_DEBUG_MSGS
 #define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)
 #define DEBUG_START() CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, "%s starting", __FUNCTION__)
