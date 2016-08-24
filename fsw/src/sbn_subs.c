@@ -212,6 +212,7 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
 
 int32 SBN_CheckSubscriptionPipe(void)
 {
+    int32 RecvSub = FALSE;
     CFE_SB_MsgPtr_t SBMsgPtr;
     CFE_SB_SubRprtMsg_t *SubRprtMsgPtr;
 
@@ -230,9 +231,11 @@ int32 SBN_CheckSubscriptionPipe(void)
                     case CFE_SB_SUBSCRIPTION:
                         ProcessLocalSub(SubRprtMsgPtr->Payload.MsgId,
                             SubRprtMsgPtr->Payload.Qos);
+                        RecvSub = TRUE;
                         break;
                     case CFE_SB_UNSUBSCRIPTION:
                         ProcessLocalUnsub(SubRprtMsgPtr->Payload.MsgId);
+                        RecvSub = TRUE;
                         break;
                     default:
                         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
@@ -240,17 +243,18 @@ int32 SBN_CheckSubscriptionPipe(void)
                             "SBN_CheckSubscriptionPipe",
                             SubRprtMsgPtr->Payload.SubType);
                 }/* end switch */
-
-                return TRUE;
+                break;
 #else /* !SBN_PAYLOAD */
                 switch(SubRprtMsgPtr->SubType)
                 {
                     case CFE_SB_SUBSCRIPTION:
                         ProcessLocalSub(SubRprtMsgPtr->MsgId,
                             SubRprtMsgPtr->Qos);
+                        RecvSub = TRUE;
                         break;
                     case CFE_SB_UNSUBSCRIPTION:
                         ProcessLocalUnsub(SubRprtMsgPtr->MsgId);
+                        RecvSub = TRUE;
                         break;
                     default:
                         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
@@ -258,24 +262,22 @@ int32 SBN_CheckSubscriptionPipe(void)
                             "SBN_CheckSubscriptionPipe",
                             SubRprtMsgPtr->SubType);
                 }/* end switch */
-
-
-                return TRUE;
+                break;
 #endif /* SBN_PAYLOAD */
 
             case CFE_SB_ALLSUBS_TLM_MID:
                 SBN_ProcessAllSubscriptions((CFE_SB_PrevSubMsg_t *) SBMsgPtr);
-                return TRUE;
+                RecvSub = TRUE;
+                break;
 
             default:
                 CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
                         "unexpected message id (0x%04X) on SBN.SubPipe",
                         ntohs(CFE_SB_GetMsgId(SBMsgPtr)));
-
         }/* end switch */
     }/* end while */
 
-    return FALSE;
+    return RecvSub;
 }/* end SBN_CheckSubscriptionPipe */
 
 void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
