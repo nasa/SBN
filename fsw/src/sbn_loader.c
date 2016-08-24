@@ -192,7 +192,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     DEBUG_START();
 
     /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%d %s %s %s",
+    ScanfStatus = sscanf(FileEntry, "%d %49s %49s %49s",
         &ProtocolId, ModuleName, ModuleFile, StructName);
 
     /*
