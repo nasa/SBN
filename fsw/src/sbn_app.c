@@ -106,7 +106,7 @@ static int32 CheckCmdPipe(void)
     {
         Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.CmdPipe, CFE_SB_POLL);
 
-        if(Status == CFE_SUCCESS) SBN_AppPipe(SBMsgPtr);
+        if(Status == CFE_SUCCESS) SBN_HandleCommand(SBMsgPtr);
     }/* end while */
 
     if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;
@@ -405,26 +405,18 @@ static int Init(void)
         return SBN_ERROR;
     }/* end if */
 
-    Status = CFE_SB_Subscribe(SBN_SEND_HK_MID,SBN.CmdPipe);
-    if(Status != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "failed to subscribe to housekeeping pipe (%d)", (int)Status);
-        return SBN_ERROR;
-    }/* end if */
-
-
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "initialized (CFE_CPU_NAME='%s' CFE_CPU_ID=%d SBN.AppId=%d...",
         CFE_CPU_NAME, CFE_CPU_ID, (int)SBN.AppId);
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s)",
+        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X)",
         SBN_IDENT,
 #ifdef SBN_DEBUG_MSGS
-        "TRUE"
+        "TRUE",
 #else /* !SBN_DEBUG_MSGS */
-        "FALSE"
+        "FALSE",
 #endif /* SBN_DEBUG_MSGS */
+        SBN_CMD_MID
         );
 
     /* Initialize HK Message */

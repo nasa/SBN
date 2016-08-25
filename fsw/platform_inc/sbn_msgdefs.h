@@ -6,5 +6,6 @@
 #define SBN_GET_PEER_LIST_CC    2
 #define SBN_GET_PEER_STATUS_CC  3
 #define SBN_RESET_PEER_CC       4
+#define SBN_SEND_HK_CC          5
 
 #endif /* _sbn_msgdefs_h_ */

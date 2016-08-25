@@ -27,7 +27,6 @@
 ** Local Defines
 */
 #define SBN_CMD_MID      0x18FA
-#define SBN_SEND_HK_MID  0x18FC
 #define SBN_WAKEUP_MID   0x18FF
 
 #define SBN_HK_TLM_MID               0x08FC

@@ -33,6 +33,9 @@ typedef struct {
     uint8 PeerIdx;
 } SBN_ResetPeerCmd_t;
 
+typedef struct {
+    uint16 RecvCount, SendCount, RecvErrCount, SendErrCount, SubsCount;
+} SBN_PeerHk_t;
 /**
  * \brief Housekeeping packet structure
  */
@@ -45,14 +48,8 @@ typedef struct {
     uint16 CmdErrCount;
 
     /* SBN Module Stats */
-    uint16 PeerAppMsgRecvCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerAppMsgSendCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerAppMsgRecvErrCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerAppMsgSendErrCount[SBN_MAX_NETWORK_PEERS];
-
-    uint32 PeerSubsCount[SBN_MAX_NETWORK_PEERS];
-
-} OS_PACK SBN_HkPacket_t;
+    SBN_PeerHk_t PeerHk[SBN_MAX_NETWORK_PEERS];
+} SBN_HkPacket_t;
 
 /**
  * \brief Summary of peer information that would be useful on the ground
@@ -73,7 +70,6 @@ typedef struct {
     uint8              TlmHeader[CFE_SB_TLM_HDR_SIZE];
     int32              NumPeers;
     SBN_PeerSummary_t  PeerList[SBN_MAX_NETWORK_PEERS];
-
 } SBN_PeerListResponsePacket_t;
 
 /**
