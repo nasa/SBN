@@ -23,10 +23,7 @@ void SBN_InitializeCounters(void)
 
     for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
     {
-        SBN.HkPkt.PeerAppMsgRecvCount[i] = 0;
-        SBN.HkPkt.PeerAppMsgSendCount[i] = 0;
-        SBN.HkPkt.PeerAppMsgRecvErrCount[i] = 0;
-        SBN.HkPkt.PeerAppMsgSendErrCount[i] = 0;
+        CFE_PSP_MemSet(&SBN.HkPkt.PeerHk[i], 0, sizeof(SBN.HkPkt.PeerHk));
     }/* end for */
 }/* end SBN_InitializeCounters */
 
@@ -132,7 +129,7 @@ static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
     */
     for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
     {
-        SBN.HkPkt.PeerSubsCount[i] = SBN.Peer[i].SubCnt;
+        SBN.HkPkt.PeerHk[i].SubsCount = SBN.Peer[i].SubCnt;
     }/* end if */
 
     /* 

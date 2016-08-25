@@ -565,7 +565,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
     }
     else
     {
-        SBN.HkPkt.PeerAppMsgSendErrCount[PeerIdx]++;
+        SBN.HkPkt.PeerHk[PeerIdx].SendErrCount++;
     }/* end if */
 
     return status;
@@ -610,7 +610,7 @@ void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
         else if(status == SBN_ERROR)
         {
             // TODO error message
-            SBN.HkPkt.PeerAppMsgRecvErrCount[HostIdx]++;
+            SBN.HkPkt.PeerHk[HostIdx].RecvErrCount++;
         }/* end if */
     }/* end for */
 }/* end SBN_RcvHostMsgs */
