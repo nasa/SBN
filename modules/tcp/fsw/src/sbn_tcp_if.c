@@ -53,8 +53,8 @@ int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
     if(ScanfStatus != SBN_TCP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID,CFE_EVS_ERROR,
-                "%s:Invalid SBN peer file line,exp %d items,found %d",
-                CFE_CPU_NAME, SBN_TCP_ITEMS_PER_FILE_LINE, ScanfStatus);
+                "invalid peer file line (expected %d items,found %d)",
+                SBN_TCP_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
@@ -113,20 +113,20 @@ int SBN_TCP_Init(SBN_InterfaceData *Data)
         Network->Host.NetID = 0;
 
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
-            "Creating network connection for %s:%d", Entry->Host, Entry->Port);
+            "creating network connection for %s:%d", Entry->Host, Entry->Port);
 
         if((NetID = OS_NetOpen(
             OS_NET_DOMAIN_INET4, OS_NET_TYPE_STREAM)) < 0)
         {
             CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "Unable to open socket. (errno=%d)", errno);
+                "unable to open socket (errno=%d)", errno);
             return SBN_ERROR;
         }/* end if*/
 
         if(OS_NetBind(NetID, &Addr) != OS_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "Unable to bind socket. (%s:%d errno=%d)",
+                "unable to bind socket (%s:%d errno=%d)",
                 Entry->Host, Entry->Port, errno);
             return SBN_ERROR;
         }/* end if */
@@ -134,7 +134,7 @@ int SBN_TCP_Init(SBN_InterfaceData *Data)
         if(OS_NetListen(Network->Host.NetID, SBN_MAX_NETWORK_PEERS))
         {
             CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "Unable to set listen queue. (errno=%d)", errno);
+                "unable to set listen queue (errno=%d)", errno);
             return SBN_ERROR;
         }/* end if */
 
@@ -149,13 +149,12 @@ int SBN_TCP_Init(SBN_InterfaceData *Data)
         int Socket = 0;
 
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
-            "Creating socket for %s:%d", Entry->Host, Entry->Port);
+            "creating socket for %s:%d", Entry->Host, Entry->Port);
 
         if((Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         {
             CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "%s:socket call failed,line %d,rtn val %d,errno=%d",
-                CFE_CPU_NAME, __LINE__, Socket, errno);
+                "unable to create socket (errno=%d)", Socket, errno);
             return SBN_ERROR;
         }/* end if */
 
@@ -172,8 +171,8 @@ int SBN_TCP_Init(SBN_InterfaceData *Data)
         {
             close(Socket);
             CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "%s:bind call failed,line %d,rtn val %d,errno=%d",
-                CFE_CPU_NAME, __LINE__, Socket, errno);
+                "bind call failed (%s:%s Socket=%d errno=%d)",
+                Entry->Host, Entry->Port, Socket, errno);
             return SBN_ERROR;
         }/* end if */
 
@@ -181,8 +180,8 @@ int SBN_TCP_Init(SBN_InterfaceData *Data)
         {
             close(Socket);
             CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "%s:listen call failed,line %d,rtn val %d,errno=%d",
-                CFE_CPU_NAME, __LINE__, Socket, errno);
+                "listen call failed (%s:%d Socket=%d errno=%d)",
+                Entry->Host, Entry->Port, Socket, errno);
             return SBN_ERROR;
         }/* end if */
 
@@ -304,7 +303,8 @@ int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
         != OS_SUCCESS)
     {
         Peer->Connected = FALSE;
-        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR, "Send failed. Peer (%d) reset.", PeerEntry->PeerNumber);
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "send failed, peer #%d reset", PeerEntry->PeerNumber);
         return SBN_ERROR;
     }/* end if */
 
@@ -453,26 +453,31 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
             {
                 int Socket = 0;
 
-                if((Socket = socket(AF_INET, SOCK_STREAM, 0)) > 0)
+                if((Socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
                 {
-                    struct sockaddr_in ServerAddr;
-                    CFE_PSP_MemSet(&ServerAddr, 0, sizeof(ServerAddr));
-                    ServerAddr.sin_family = AF_INET;
-                    ServerAddr.sin_addr.s_addr = inet_addr(PeerEntry->Host);
-                    ServerAddr.sin_port = htons(PeerEntry->Port);
+                    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+                        "unable to create socket (errno=%d)", errno);
+                    return;
+                }/* end if */
 
-                    if((connect(Socket, (struct sockaddr *)&ServerAddr,
-                        sizeof(ServerAddr)))
-                            >= 0)
-                    {
-                        Peer->Socket = Socket;
-                        Peer->Connected = TRUE;
-                        return Socket;
-                    }
-                    else
-                    {
-                        Peer->LastConnectTry.seconds = LocalTime.seconds;
-                    }/* end if */
+                struct sockaddr_in ServerAddr;
+                CFE_PSP_MemSet(&ServerAddr, 0, sizeof(ServerAddr));
+                ServerAddr.sin_family = AF_INET;
+                ServerAddr.sin_addr.s_addr = inet_addr(PeerEntry->Host);
+                ServerAddr.sin_port = htons(PeerEntry->Port);
+
+                if((connect(Socket, (struct sockaddr *)&ServerAddr,
+                    sizeof(ServerAddr)))
+                        >= 0)
+                {
+                    Peer->Socket = Socket;
+                    Peer->Connected = TRUE;
+                    return Socket;
+                }
+                else
+                {
+                    close(Socket);
+                    Peer->LastConnectTry.seconds = LocalTime.seconds;
                 }/* end if */
             }/* end if */
         }/* end if */

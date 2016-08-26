@@ -24,12 +24,12 @@ static void ClearSocket(int SockId)
 #ifdef OS_NET_IMPL
 
     CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-        "Clearing socket %d", NetID);
+        "clearing socket (NetID=%d)", NetID);
 
 #else /* !OS_NET_IMPL */
 
     CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-        "Clearing socket %d", SockId);
+        "clearing socket (SockId=%d)", SockId);
 
 #endif /* OS_NET_IMPL */
 
@@ -103,8 +103,8 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
     if(ScanfStatus != SBN_UDP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID,CFE_EVS_ERROR,
-                "%s:Invalid SBN peer file line,exp %d items,found %d",
-                CFE_CPU_NAME, SBN_UDP_ITEMS_PER_FILE_LINE, ScanfStatus);
+                "invalid peer file line (expected %d items, found %d)",
+                SBN_UDP_ITEMS_PER_FILE_LINE, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
@@ -147,8 +147,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
         Network->Host.EntryPtr = Entry;
 
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-            "Creating socket for %s:%d",
-            Entry->Host, Entry->Port);
+            "creating socket (%s:%d)", Entry->Host, Entry->Port);
 
 #ifdef OS_NET_IMPL
 
@@ -156,8 +155,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
             = OS_NetOpen(OS_NET_DOMAIN_INET4, OS_NET_TYPE_DATAGRAM)) < 0)
         {
             CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-                "Unable to open network (%d)",
-                Network->Host.NetID);
+                "unable to open network (NetID=%d)", Network->Host.NetID);
             return SBN_ERROR;
         }/* end if */
 
@@ -170,8 +168,8 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
         if(OS_NetBind(Network->Host.NetID, &Addr) < 0)
         {
             CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-                "Unable to bind network (%d %s:%d)",
-                Network->Host.NetID, Entry->Host, Entry->Port);
+                "unable to bind network (%s:%d NetID=%d)",
+                Entry->Host, Entry->Port, Network->Host.NetID);
             return SBN_ERROR;
         }/* end if */
 
@@ -182,8 +180,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
             = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
         {
             CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-                "%s:socket call failed,line %d,rtn val %d,errno=%d",
-                CFE_CPU_NAME, __LINE__, Network->Host.Socket, errno);
+                "socket call failed (errno=%d)", errno);
             return SBN_ERROR;
         }/* end if */
 
@@ -197,8 +194,8 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
             sizeof(my_addr)) < 0)
         {
             CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-                "%s:bind call failed,line %d,rtn val %d,errno=%d",
-                CFE_CPU_NAME, __LINE__, Network->Host.Socket, errno);
+                "bind call failed (%s:%s Socket=%d errno=%d)",
+                Entry->Host, Entry->Port, Network->Host.Socket, errno);
             return SBN_ERROR;
         }/* end if */
 

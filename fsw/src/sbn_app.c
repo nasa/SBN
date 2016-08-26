@@ -169,7 +169,7 @@ static void RunProtocol(void)
         {
             /* lost connection, reset */
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                "peer %d lost connection, resetting\n", PeerIdx);
+                "peer %d lost connection", PeerIdx);
             SBN_RemoveAllSubsFromPeer(PeerIdx);
             SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
             continue;
@@ -246,7 +246,7 @@ static int WaitForSBStartup(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create EventPipe (%d)", (int)Status);
+            "failed to create event pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -257,7 +257,7 @@ static int WaitForSBStartup(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to sub to EventPipe (%d)", (int)Status);
+            "failed to subscribe to event pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -339,14 +339,14 @@ static int Init(void)
     if(SBN_ReadModuleFile() == SBN_ERROR)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "SBN APP Will Terminate, Module File Not Found or Data Invalid!");
+            "module file not found or data invalid");
         return SBN_ERROR;
     }/* end if */
 
     if(SBN_GetPeerFileData() == SBN_ERROR)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "SBN APP Will Terminate, Peer File Not Found or Data Invalid!");
+            "peer file not found or data invalid");
         return SBN_ERROR;
     }/* end if */
 
@@ -374,7 +374,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create SCH pipe (%d)", (int)Status);
+            "failed to create scheduler pipe (Status=%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -382,44 +382,43 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to SCH wakeup (%d)", (int)Status);
+            "failed to subscribe to scheduler wakeup (Status=%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
     /* Create pipe for subscribes and unsubscribes from SB */
-    Status = CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH,
-        "SBNSubPipe");
+    Status = CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create sub pipe (%d)", (int)Status);
+            "failed to create subscription pipe (Status=%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
-    Status = CFE_SB_SubscribeLocal(CFE_SB_ALLSUBS_TLM_MID,
-        SBN.SubPipe, SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ALLSUBS_TLM_MID, SBN.SubPipe,
+        SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to allsubs (%d)", (int)Status);
+            "failed to subscribe to allsubs (Status=%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
-    Status = CFE_SB_SubscribeLocal(CFE_SB_ONESUB_TLM_MID,
-        SBN.SubPipe, SBN_MAX_ONESUB_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ONESUB_TLM_MID, SBN.SubPipe,
+        SBN_MAX_ONESUB_PKTS_ON_PIPE);
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to sub (%d)", (int)Status);
+            "failed to subscribe to sub (Status=%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
     /* Create pipe for HK requests and gnd commands */
-    Status = CFE_SB_CreatePipe(&SBN.CmdPipe,20,"SBNCmdPipe");
+    Status = CFE_SB_CreatePipe(&SBN.CmdPipe, 20, "SBNCmdPipe");
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to create cmdpipe (%d)", (int)Status);
+            "failed to create command pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -427,7 +426,7 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to cmd (%d)", (int)Status);
+            "failed to subscribe to command pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -435,13 +434,15 @@ static int Init(void)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN APP Failed to subscribe to hk (%d)", (int)Status);
+            "failed to subscribe to housekeeping pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
 
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "SBN APP Initialized V1.1, AppId=%d", (int)SBN.AppId);
+        "initialized "
+        "(CFE_CPU_NAME='%s' CFE_CPU_ID=%d SBN.AppId=%d SBN_IDENT=%s)",
+        CFE_CPU_NAME, CFE_CPU_ID, (int)SBN.AppId, SBN_IDENT);
 
     /* Initialize HK Message */
     CFE_SB_InitMsg(&SBN.HkPkt, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
@@ -460,9 +461,6 @@ void SBN_AppMain(void)
 {
     int     Status = CFE_SUCCESS;
     uint32  RunStatus = CFE_ES_APP_RUN;
-
-    CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "SBN APP starting, identity: %s", SBN_IDENT);
 
     Status = Init();
     if(Status != CFE_SUCCESS) RunStatus = CFE_ES_APP_ERROR;
@@ -495,7 +493,7 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "%s:failed to create pipe %s", CFE_CPU_NAME, PipeName);
+            "failed to create pipe '%s'", PipeName);
 
         return Status;
     }/* end if */
@@ -503,7 +501,7 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     strncpy(SBN.Peer[PeerIdx].PipeName, PipeName, OS_MAX_API_NAME);
 
     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-        "%s: pipe created %s", CFE_CPU_NAME, PipeName);
+        "pipe created '%s'", PipeName);
 
     return SBN_OK;
 }/* end SBN_CreatePipe4Peer */
@@ -534,20 +532,20 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
         if(MsgSize < 1)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                "Peer running old (unversioned) code!");
+                "peer running old (unversioned) code!");
         }
         else
         {
             if(strncmp(SBN_IDENT, (char *)Msg, SBN_IDENT_LEN))
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                    "Peer #%d version mismatch (me=%s, him=%s)",
+                    "peer #%d version mismatch (me=%s, him=%s)",
                     PeerIdx, SBN_IDENT, (char *)Msg);
             }
             else
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                    "Peer #%d running same version of SBN (%s)",
+                    "peer #%d running same version of SBN (%s)",
                     PeerIdx, SBN_IDENT);
             }/* end if */
         }/* end if */
@@ -557,7 +555,7 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
         || MsgType == SBN_ANNOUNCE_MSG)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-            "Peer #%d alive, resetting", PeerIdx);
+            "peer #%d alive", PeerIdx);
         SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
         SBN_SendLocalSubsToPeer(PeerIdx);
     }/* end if */
@@ -575,9 +573,8 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
-                    "%s:CFE_SB_SendMsg err %d. type 0x%x",
-                    CFE_CPU_NAME, Status,
-                    MsgType);
+                    "CFE_SB_SendMsg error (Status=%d MsgType=0x%x)",
+                    Status, MsgType);
             }/* end if */
             break;
 
@@ -596,8 +593,7 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
         default:
             /* make sure of termination */
             CFE_EVS_SendEvent(SBN_MSG_EID, CFE_EVS_ERROR,
-                "%s:Unknown Msg Type 0x%x", CFE_CPU_NAME,
-                MsgType);
+                "unknown message type (MsgType=0x%x)", MsgType);
             break;
     }/* end switch */
 }/* end SBN_ProcessNetMsg */

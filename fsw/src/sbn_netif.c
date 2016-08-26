@@ -55,16 +55,14 @@ static int PeerFileRowCallback(const char *filename, int linenum,
     if(fieldcount < 4)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "SBN %s: Too few fields (%d)",
-            CFE_CPU_NAME, fieldcount);
+            "too few fields (fieldcount=%d)", fieldcount);
         return OS_SUCCESS;
     }/* end if */
 
     if(SBN.NumEntries >= SBN_MAX_NETWORK_PEERS)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "SBN %s: Max entry count reached, skipping.",
-            CFE_CPU_NAME);
+            "max entry count reached, skipping");
         return OS_ERROR;
     }/* end if */
 
@@ -73,8 +71,8 @@ static int PeerFileRowCallback(const char *filename, int linenum,
         || !SBN.IfOps[ProtocolId])
     {   
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "SBN %s: Invalid ProtocolId %d",
-            CFE_CPU_NAME, ProtocolId);
+            "invalid protocol id (ProtocolId=%d)",
+            ProtocolId);
         return OS_SUCCESS;
     }/* end if */
 
@@ -221,17 +219,16 @@ static int ParseFileEntry(char *FileEntry)
     if(ScanfStatus != NumFields)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "%s:Invalid SBN peer file line, "
-            "expected %d, found %d",
-            CFE_CPU_NAME, NumFields, ScanfStatus);
+            "invalid peer file line (expected %d, found %d)",
+            NumFields, ScanfStatus);
         return SBN_ERROR;
     }/* end if */
 
     if(SBN.NumEntries >= SBN_MAX_NETWORK_PEERS)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "SBN %s: Max Peers Exceeded. Max=%d, This=%d.",
-            CFE_CPU_NAME, SBN_MAX_NETWORK_PEERS, SBN.NumEntries);
+            "max peers exceeded (max=%d this=%d)",
+            SBN_MAX_NETWORK_PEERS, SBN.NumEntries);
         return SBN_ERROR;
     }/* end if */
 
@@ -239,8 +236,7 @@ static int ParseFileEntry(char *FileEntry)
         || !SBN.IfOps[ProtocolId])
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "SBN %s: Invalid ProtocolId %d",
-            CFE_CPU_NAME, ProtocolId);
+            "invalid protocol ID (%d)", ProtocolId);
         return SBN_ERROR;
     }
 
@@ -284,15 +280,13 @@ int32 SBN_GetPeerFileData(void)
     if(PeerFile != OS_ERROR)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-            "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME,
-            SBN_VOL_PEER_FILENAME);
+            "opened peer data file '%s'", SBN_VOL_PEER_FILENAME);
         FileOpened = TRUE;
     }
     else
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "%s:Failed to open peer file %s", CFE_CPU_NAME,
-            SBN_VOL_PEER_FILENAME);
+            "failed to open peer file '%s'", SBN_VOL_PEER_FILENAME);
         FileOpened = FALSE;
     }/* end if */
 
@@ -304,15 +298,13 @@ int32 SBN_GetPeerFileData(void)
         if(PeerFile != OS_ERROR)
         {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-                "%s:Opened SBN Peer Data file %s", CFE_CPU_NAME,
-                SBN_NONVOL_PEER_FILENAME);
+                "opened peer data file '%s'", SBN_NONVOL_PEER_FILENAME);
             FileOpened = TRUE;
         }
         else
         {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-                "%s:Peer file %s failed to open", CFE_CPU_NAME,
-                SBN_NONVOL_PEER_FILENAME);
+                "peer file '%s' failed to open", SBN_NONVOL_PEER_FILENAME);
             FileOpened = FALSE;
         }/* end if */
     }/* end if */
@@ -552,8 +544,8 @@ int SBN_InitInterfaces(void)
             if(Stat == SBN_ERROR)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "%s:Error creating pipe for %s,status=0x%x",
-                    CFE_CPU_NAME, SBN.Peer[SBN.NumPeers].Name,
+                    "error creating pipe for %s (Stat=0x%x)",
+                    SBN.Peer[SBN.NumPeers].Name,
                     (unsigned int)Stat);
                 return SBN_ERROR;
             }/* end if */
@@ -576,7 +568,7 @@ int SBN_InitInterfaces(void)
     }/* end for */
 
     CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-        "SBN: Num Hosts = %d, Num Peers = %d", SBN.NumHosts, SBN.NumPeers);
+        "configured, %d hosts and %d peers", SBN.NumHosts, SBN.NumPeers);
     return SBN_OK;
 }/* end SBN_InitInterfaces */
 
@@ -684,7 +676,7 @@ void SBN_VerifyPeers(void)
             SBN.Peer[PeerIdx].InUse = FALSE;
 
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-                "Peer %s Not Valid", SBN.Peer[PeerIdx].IfData->Name);
+                "peer '%s' not valid", SBN.Peer[PeerIdx].IfData->Name);
         }/* end if */
     }/* end for */
 }/* end SBN_VerifyPeers */
@@ -708,7 +700,7 @@ void SBN_VerifyHosts(void)
         if(!status)
         {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-                "Host %s Not Valid", SBN.Host[HostIdx]->Name);
+                "host '%s' not valid", SBN.Host[HostIdx]->Name);
         }/* end if */
     }/* end for */
 }/* end SBN_VerifyHosts */
