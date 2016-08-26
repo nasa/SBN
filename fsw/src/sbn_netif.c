@@ -518,7 +518,7 @@ int SBN_InitPeerInterface(void)
             /* Initialize the subscriptions count for each entry */
             for(i = 0; i < SBN_MAX_SUBS_PER_PEER; i++)
             {
-                SBN.Peer[SBN.Hk.PeerCount].Sub[i].InUseCtr = FALSE;
+                SBN.Peer[SBN.Hk.PeerCount].Subs[i].InUseCtr = FALSE;
             }/* end for */
 
             /* Reset counters, flags and timers */

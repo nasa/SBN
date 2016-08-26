@@ -51,7 +51,7 @@ void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
 typedef struct {
     CFE_SB_PipeId_t   Pipe;
     char              PipeName[OS_MAX_API_NAME];
-    SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
+    SBN_Subs_t        Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
     SBN_InterfaceData *IfData;
 } SBN_PeerData_t;
 

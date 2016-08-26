@@ -22,7 +22,7 @@ typedef struct {
 typedef struct {
     uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
     uint8 PeerIdx;
-} SBN_ResetPeerCmd_t;
+} SBN_PeerIdxArgsCmd_t;
 
 typedef struct {
     uint8 InUse, QoS, ProtocolId, State; // 4 bytes
@@ -41,6 +41,9 @@ typedef struct {
 typedef struct {
     uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
+    uint16 CC;
+    uint16 Padding;
+
     uint16 CmdCount; // 2 bytes
     uint16 CmdErrCount; // 2 + 2 = 4 bytes
 
@@ -54,6 +57,15 @@ typedef struct {
     SBN_PeerStatus_t PeerStatus[SBN_MAX_NETWORK_PEERS];
 } SBN_HkPacket_t;
 
+typedef struct {
+    uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
+
+    uint16 CC;
+    uint16 PeerIdx;
+
+    uint32 SubCount;
+    CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER];
+} SBN_HkSubsPkt_t;
 /**
  * \brief Module status response packet structure
  */

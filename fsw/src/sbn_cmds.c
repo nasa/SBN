@@ -125,6 +125,8 @@ static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
 
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
 
+    SBN.Hk.CC = SBN_SEND_HK_CC;
+
     /* 
     ** Timestamp and send packet
     */
@@ -220,17 +222,16 @@ static void ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     int PeerIdx = 0;
-    SBN_ResetPeerCmd_t *Command = NULL;
+    SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
 
     DEBUG_START();
 
-    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_ResetPeerCmd_t)))
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "invalid reset peer command");
     }/* end if */
 
-    Command = (SBN_ResetPeerCmd_t*)MessagePtr;
     PeerIdx = Command->PeerIdx;
 
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
@@ -259,6 +260,93 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
             "reset peer %d", PeerIdx);
     }/* end if */
 }/* end ResetPeerCmd */
+/************************************************************************/
+/** \brief Send My Subscriptions
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_MYSUBS_CC
+**
+*************************************************************************/
+static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    SBN_HkSubsPkt_t Pkt;
+    int SubNum = 0;
+
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
+    {   
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid my subscriptions command");
+    }/* end if */
+
+    CFE_SB_InitMsg(&Pkt, SBN_HK_TLM_MID, sizeof(Pkt), TRUE);
+    Pkt.CC = SBN_MYSUBS_CC;
+    Pkt.PeerIdx = 0;
+
+    Pkt.SubCount = SBN.Hk.SubCount;
+    for(SubNum = 0; SubNum < SBN.Hk.SubCount; SubNum++)
+    {
+        Pkt.Subs[SubNum] = SBN.LocalSubs[SubNum].MsgId;
+    }/* end for */
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &Pkt);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) &Pkt);
+}/* end MySubsCmd */
+
+/************************************************************************/
+/** \brief Send A Peer's Subscriptions
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_MYSUBS_CC
+**
+*************************************************************************/
+static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    SBN_HkSubsPkt_t Pkt;
+    int PeerIdx = 0;
+    int SubNum = 0;
+    SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
+
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid reset peer command");
+    }/* end if */
+
+    PeerIdx = Command->PeerIdx;
+
+    CFE_SB_InitMsg(&Pkt, SBN_HK_TLM_MID, sizeof(Pkt), TRUE);
+    Pkt.CC = SBN_PEERSUBS_CC;
+    Pkt.PeerIdx = PeerIdx;
+
+    Pkt.SubCount = SBN.Hk.PeerStatus[PeerIdx].SubCount;
+    for(SubNum = 0; SubNum < Pkt.SubCount; SubNum++)
+    {
+        Pkt.Subs[SubNum] = SBN.Peer[PeerIdx].Subs[SubNum].MsgId;
+    }/* end for */
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &Pkt);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) &Pkt);
+}/* end PeerSubsCmd */
 
 /*******************************************************************/
 /*                                                                 */
@@ -294,6 +382,12 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr)
             break;
         case SBN_SEND_HK_CC:
             HKCmd(MessagePtr);
+            break;
+        case SBN_MYSUBS_CC:
+            MySubsCmd(MessagePtr);
+            break;
+        case SBN_PEERSUBS_CC:
+            PeerSubsCmd(MessagePtr);
             break;
         default:
             SBN.Hk.CmdErrCount++;
