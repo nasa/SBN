@@ -94,26 +94,6 @@ static void CheckPeerPipes(void)
     } /* end for */
 }/* end CheckPeerPipes */
 
-static int32 CheckCmdPipe(void)
-{
-    CFE_SB_MsgPtr_t     SBMsgPtr = 0;
-    int                 Status = 0;
-
-    /* DEBUG_START(); */
-
-    /* Command and HK requests pipe */
-    while(Status == CFE_SUCCESS)
-    {
-        Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.CmdPipe, CFE_SB_POLL);
-
-        if(Status == CFE_SUCCESS) SBN_HandleCommand(SBMsgPtr);
-    }/* end while */
-
-    if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;
-
-    return Status;
-}/* end CheckCmdPipe */
-
 static void RunProtocol(void)
 {
     int         PeerIdx = 0;
@@ -165,30 +145,32 @@ static void RunProtocol(void)
 static int32 WaitForWakeup(int32 iTimeOut)
 {
     int32           Status = CFE_SUCCESS;
-    CFE_SB_MsgPtr_t SBMsgPtr = 0;
+    CFE_SB_MsgPtr_t Msg = 0;
 
     /* DEBUG_START(); chatty */
 
     /* Wait for WakeUp messages from scheduler */
-    Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.SchPipeId, iTimeOut);
+    Status = CFE_SB_RcvMsg(&Msg, SBN.CmdPipe, iTimeOut);
 
-    /* success or timeout is ok to proceed through main loop */
-    if(Status == CFE_SB_TIME_OUT || (Status == CFE_SUCCESS && CFE_SB_GetMsgId(SBMsgPtr) == SBN_WAKEUP_MID))
+    /* For sbn, we still want to perform cyclic processing
+    ** if the WaitForWakeup time out
+    ** cyclic processing at timeout rate
+    */
+    CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
+
+    if(Status == CFE_SUCCESS)
     {
-        /* For sbn, we still want to perform cyclic processing
-        ** if the WaitForWakeup time out
-        ** cyclic processing at timeout rate
-        */
-        CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
-
-        RunProtocol();
-        SBN_CheckForNetAppMsgs();
-        SBN_CheckSubscriptionPipe();
-        CheckPeerPipes();
-        CheckCmdPipe();
-
-        CFE_ES_PerfLogExit(SBN_PERF_RECV_ID);
+        SBN_HandleCommand(Msg);
     }/* end if */
+
+    RunProtocol();
+    SBN_CheckForNetAppMsgs();
+    SBN_CheckSubscriptionPipe();
+    CheckPeerPipes();
+
+    if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;
+
+    CFE_ES_PerfLogExit(SBN_PERF_RECV_ID);
 
     return Status;
 }/* end WaitForWakeup */
@@ -301,7 +283,7 @@ static int Init(void)
     DEBUG_START();
 
     CFE_PSP_MemSet(&SBN, 0, sizeof(SBN));
-    CFE_SB_InitMsg(&SBN.Hk, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
+    CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
 
     /* load the App_FullName so I can ignore messages I send out to SB */
     TskId = OS_TaskGetId();
@@ -326,28 +308,6 @@ static int Init(void)
     SBN_VerifyHostInterfaces();
 
     CFE_ES_GetAppID(&SBN.AppId);
-
-    /* Init schedule pipe */
-    SBN.usSchPipeDepth = SBN_SCH_PIPE_DEPTH;
-    strncpy(SBN.cSchPipeName, "SBN_SCH_PIPE", OS_MAX_API_NAME-1);
-
-    /* Subscribe to Wakeup messages */
-    Status = CFE_SB_CreatePipe(&SBN.SchPipeId, SBN.usSchPipeDepth,
-        SBN.cSchPipeName);
-    if(Status != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "failed to create scheduler pipe (Status=%d)", (int)Status);
-        return SBN_ERROR;
-    }/* end if */
-
-    Status = CFE_SB_Subscribe(SBN_WAKEUP_MID, SBN.SchPipeId);
-    if(Status != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "failed to subscribe to scheduler wakeup (Status=%d)", (int)Status);
-        return SBN_ERROR;
-    }/* end if */
 
     /* Create pipe for subscribes and unsubscribes from SB */
     Status = CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");

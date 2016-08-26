@@ -7,5 +7,6 @@
 #define SBN_SEND_HK_CC          3
 #define SBN_MYSUBS_CC           4
 #define SBN_PEERSUBS_CC         5
+#define SBN_SCH_WAKEUP_CC       100
 
 #endif /* _sbn_msgdefs_h_ */

@@ -27,11 +27,7 @@
 ** Local Defines
 */
 #define SBN_CMD_MID      0x18FA
-#define SBN_WAKEUP_MID   0x18FF
-
-#define SBN_HK_TLM_MID               0x08FC
-#define SBN_GET_PEER_LIST_RSP_MID    0x08FA
-#define SBN_GET_PEER_STATUS_RSP_MID  0x08FB
+#define SBN_TLM_MID      0x08FA
 /*
 ** Include Files
 */

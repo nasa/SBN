@@ -38,14 +38,8 @@ typedef struct {
   char              App_FullName[(OS_MAX_API_NAME * 2)];
   CFE_SB_PipeId_t   SubPipe;
   CFE_SB_PipeId_t   CmdPipe;
-  CFE_SB_MsgPtr_t   CmdMsgPtr;
 
   SBN_Subs_t        LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
-
-  /* CFE scheduling pipe */
-  CFE_SB_PipeId_t  SchPipeId;
-  uint16           usSchPipeDepth;
-  char             cSchPipeName[OS_MAX_API_NAME];
 
   SBN_InterfaceOperations *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
 

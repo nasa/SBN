@@ -285,7 +285,7 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
             "invalid my subscriptions command");
     }/* end if */
 
-    CFE_SB_InitMsg(&Pkt, SBN_HK_TLM_MID, sizeof(Pkt), TRUE);
+    CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
     Pkt.CC = SBN_MYSUBS_CC;
     Pkt.PeerIdx = 0;
 
@@ -331,7 +331,7 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 
     PeerIdx = Command->PeerIdx;
 
-    CFE_SB_InitMsg(&Pkt, SBN_HK_TLM_MID, sizeof(Pkt), TRUE);
+    CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
     Pkt.CC = SBN_PEERSUBS_CC;
     Pkt.PeerIdx = PeerIdx;
 
@@ -388,6 +388,9 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr)
             break;
         case SBN_PEERSUBS_CC:
             PeerSubsCmd(MessagePtr);
+            break;
+        case SBN_SCH_WAKEUP_CC:
+            /* TODO: debug message? */
             break;
         default:
             SBN.Hk.CmdErrCount++;
