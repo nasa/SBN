@@ -63,7 +63,7 @@ static void CheckPeerPipes(void)
         for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
         {
             /* if peer data is not in use, go to next peer */
-            if(SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
+            if(SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
             {
                 continue;
             }
@@ -126,13 +126,13 @@ static void RunProtocol(void)
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
         /* if peer data is not in use, go to next peer */
-        if(!SBN.Peer[PeerIdx].InUse) continue;
+        if(!SBN.Hk.PeerStatus[PeerIdx].InUse) continue;
 
         OS_GetLocalTime(&current_time);
 
-        if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING)
+        if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING)
         {
-            if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
+            if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
                 char AnnMsg[32];
@@ -142,17 +142,17 @@ static void RunProtocol(void)
             }/* end if */
             continue;
         }/* end if */
-        if(current_time.seconds - SBN.Peer[PeerIdx].last_received.seconds
+        if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastReceived.seconds
                 > SBN_HEARTBEAT_TIMEOUT)
         {
             /* lost connection, reset */
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
                 "peer %d lost connection", PeerIdx);
             SBN_RemoveAllSubsFromPeer(PeerIdx);
-            SBN.Peer[PeerIdx].State = SBN_ANNOUNCING;
+            SBN.Hk.PeerStatus[PeerIdx].State = SBN_ANNOUNCING;
             continue;
         }/* end if */
-        if(current_time.seconds - SBN.Peer[PeerIdx].last_sent.seconds
+        if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
                 > SBN_HEARTBEAT_SENDTIME)
         {
             SBN_SendNetMsg(SBN_HEARTBEAT_MSG, 0, NULL, PeerIdx);
@@ -290,8 +290,7 @@ static int WaitForSBStartup(void)
 static int Init(void)
 {
     int Status = CFE_SUCCESS;
-    int     PeerIdx = 0, j = 0;
-    uint32  TskId = 0;
+    uint32 TskId = 0;
 
     Status = CFE_ES_RegisterApp();
     if(Status != CFE_SUCCESS) return Status;
@@ -302,10 +301,11 @@ static int Init(void)
     DEBUG_START();
 
     CFE_PSP_MemSet(&SBN, 0, sizeof(SBN));
+    CFE_SB_InitMsg(&SBN.Hk, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
 
     /* load the App_FullName so I can ignore messages I send out to SB */
     TskId = OS_TaskGetId();
-    CFE_SB_GetAppTskName(TskId,SBN.App_FullName);
+    CFE_SB_GetAppTskName(TskId, SBN.App_FullName);
 
     if(SBN_ReadModuleFile() == SBN_ERROR)
     {
@@ -320,18 +320,6 @@ static int Init(void)
             "peer file not found or data invalid");
         return SBN_ERROR;
     }/* end if */
-
-    for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
-    {
-        SBN.Peer[PeerIdx].InUse = FALSE;
-        SBN.Peer[PeerIdx].SubCnt = 0;
-        for(j = 0; j < SBN_MAX_SUBS_PER_PEER; j++)
-        {
-            SBN.Peer[PeerIdx].Sub[j].InUseCtr = 0;
-        }/* end for */
-
-        SBN.LocalSubCnt = 0;
-    }/* end for */
 
     SBN_InitPeerInterface();
     SBN_VerifyPeerInterfaces();
@@ -419,8 +407,6 @@ static int Init(void)
         SBN_CMD_MID
         );
 
-    /* Initialize HK Message */
-    CFE_SB_InitMsg(&SBN.HkPkt, SBN_HK_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
     SBN_InitializeCounters();
 
     /* Wait for event from SB saying it is initialized OR a response from SB
@@ -454,7 +440,7 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     DEBUG_START();
 
     /* create a pipe name string similar to SBN_CPU2_Pipe */
-    sprintf(PipeName, "SBN_%s_Pipe", SBN.Peer[PeerIdx].Name);
+    sprintf(PipeName, "SBN_%s_Pipe", SBN.Hk.PeerStatus[PeerIdx].Name);
     Status = CFE_SB_CreatePipe(&SBN.Peer[PeerIdx].Pipe, SBN_PEER_PIPE_DEPTH,
             PipeName);
 
@@ -512,12 +498,12 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
         }/* end if */
     }/* end if */
 
-    if(SBN.Peer[PeerIdx].State == SBN_ANNOUNCING
+    if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING
         || MsgType == SBN_ANNOUNCE_MSG)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
             "peer #%d alive", PeerIdx);
-        SBN.Peer[PeerIdx].State = SBN_HEARTBEATING;
+        SBN.Hk.PeerStatus[PeerIdx].State = SBN_HEARTBEATING;
         SBN_SendLocalSubsToPeer(PeerIdx);
     }/* end if */
 
@@ -563,15 +549,21 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
 
 int SBN_GetPeerIndex(uint32 ProcessorId)
 {
-    int     PeerIdx = 0;
+    int PeerIdx = 0;
 
     /* DEBUG_START(); chatty */
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(!SBN.Peer[PeerIdx].InUse) continue;
+        if(!SBN.Hk.PeerStatus[PeerIdx].InUse)
+        {
+            continue;
+        }/* end if */
 
-        if(SBN.Peer[PeerIdx].ProcessorId == ProcessorId) return PeerIdx;
+        if(SBN.Hk.PeerStatus[PeerIdx].ProcessorId == ProcessorId)
+        {
+            return PeerIdx;
+        }/* end if */
     }/* end for */
 
     return SBN_ERROR;

@@ -49,17 +49,8 @@ void SBN_UnpackMsg(void *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, void *Msg);
 
 typedef struct {
-    uint8             InUse;
     CFE_SB_PipeId_t   Pipe;
     char              PipeName[OS_MAX_API_NAME];
-    char              Name[SBN_MAX_PEERNAME_LENGTH];
-    uint8             QoS;       /* Quality of Service */
-    uint32            ProcessorId;
-    int               ProtocolId;
-    uint32            SpaceCraftId;
-    uint32            State;
-    OS_time_t         last_sent, last_received;
-    uint32            SubCnt;
     SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
     SBN_InterfaceData *IfData;
 } SBN_PeerData_t;

@@ -72,7 +72,7 @@ void SBN_SendLocalSubsToPeer(int PeerIdx)
 
     DEBUG_START();
 
-    for(i = 0; i < SBN.LocalSubCnt; i++)
+    for(i = 0; i < SBN.Hk.SubCount; i++)
     {
         SendLocalSubToPeer(SBN_SUBSCRIBE_MSG, SBN.LocalSubs[i].MsgId, SBN.LocalSubs[i].Qos, PeerIdx);
     }/* end for */
@@ -84,7 +84,7 @@ static int IsMsgIdSub(int *IdxPtr, CFE_SB_MsgId_t MsgId)
 
     DEBUG_START();
 
-    for(i = 0; i < SBN.LocalSubCnt; i++)
+    for(i = 0; i < SBN.Hk.SubCount; i++)
     {
         if(SBN.LocalSubs[i].MsgId == MsgId)
         {
@@ -107,7 +107,7 @@ static int IsPeerSubMsgId(int *SubIdxPtr, CFE_SB_MsgId_t MsgId,
 
     DEBUG_START();
 
-    for(i = 0; i < SBN.Peer[PeerIdx].SubCnt; i++)
+    for(i = 0; i < SBN.Hk.PeerStatus[PeerIdx].SubCount; i++)
     {
         if(SBN.Peer[PeerIdx].Sub[i].MsgId == MsgId)
         {
@@ -129,7 +129,7 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
     /* don't subscribe to event messages */
     if(MsgId == CFE_EVS_EVENT_MSG_MID) return;
 
-    if(SBN.LocalSubCnt >= SBN_MAX_SUBS_PER_PEER)
+    if(SBN.Hk.SubCount >= SBN_MAX_SUBS_PER_PEER)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
                 "local subscription ignored for MsgId 0x%04X, max (%d) met",
@@ -146,15 +146,15 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
     }/* end if */
 
     /* log new entry into LocalSubs array */
-    SBN.LocalSubs[SBN.LocalSubCnt].InUseCtr = 1;
-    SBN.LocalSubs[SBN.LocalSubCnt].MsgId = MsgId;
-    SBN.LocalSubs[SBN.LocalSubCnt].Qos = Qos;
-    SBN.LocalSubCnt++;
+    SBN.LocalSubs[SBN.Hk.SubCount].InUseCtr = 1;
+    SBN.LocalSubs[SBN.Hk.SubCount].MsgId = MsgId;
+    SBN.LocalSubs[SBN.Hk.SubCount].Qos = Qos;
+    SBN.Hk.SubCount++;
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(!SBN.Peer[PeerIdx].InUse
-            || SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
+        if(!SBN.Hk.PeerStatus[PeerIdx].InUse
+            || SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
         {
             continue;
         }/* end if */
@@ -189,20 +189,20 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
     ** note that the LocalSubs[] array has one extra element to allow for an
     ** unsub from a full table.
     */
-    for(i = SubIdx; i < SBN.LocalSubCnt; i++)
+    for(i = SubIdx; i < SBN.Hk.SubCount; i++)
     {
         CFE_PSP_MemCpy(&SBN.LocalSubs[i], &SBN.LocalSubs[i + 1],
             sizeof(SBN_Subs_t));
     }/* end for */
 
-    SBN.LocalSubCnt--;
+    SBN.Hk.SubCount--;
 
     /* send unsubscription to all peers if peer state is heartbeating and */
     /* only if no more local subs (InUseCtr = 0)  */
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(!SBN.Peer[PeerIdx].InUse
-            || SBN.Peer[PeerIdx].State != SBN_HEARTBEATING)
+        if(!SBN.Hk.PeerStatus[PeerIdx].InUse
+            || SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
         {
             continue;
         }/* end if */
@@ -297,11 +297,11 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
         return;
     }/* end if */
 
-    if(SBN.Peer[PeerIdx].SubCnt >= SBN_MAX_SUBS_PER_PEER)
+    if(SBN.Hk.PeerStatus[PeerIdx].SubCount >= SBN_MAX_SUBS_PER_PEER)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "cannot process subscription from '%s', max (%d) met",
-            SBN.Peer[PeerIdx].Name, SBN_MAX_SUBS_PER_PEER);
+            SBN.Hk.PeerStatus[PeerIdx].Name, SBN_MAX_SUBS_PER_PEER);
         return;
     }/* end if */
 
@@ -323,13 +323,13 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
             htons(MsgId), (int)Status);
         return;
     }/* end if */
-    FirstOpenSlot = SBN.Peer[PeerIdx].SubCnt;
+    FirstOpenSlot = SBN.Hk.PeerStatus[PeerIdx].SubCount;
 
     /* log the subscription in the peer table */
     SBN.Peer[PeerIdx].Sub[FirstOpenSlot].MsgId = MsgId;
     SBN.Peer[PeerIdx].Sub[FirstOpenSlot].Qos = Qos;
 
-    SBN.Peer[PeerIdx].SubCnt++;
+    SBN.Hk.PeerStatus[PeerIdx].SubCount++;
 }/* SBN_ProcessSubFromPeer */
 
 void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
@@ -348,7 +348,7 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "cannot process unsubscription from %s, "
             "message id not found (MsgId=0x%04X)",
-            SBN.Peer[PeerIdx].Name, htons(MsgId));
+            SBN.Hk.PeerStatus[PeerIdx].Name, htons(MsgId));
         return;
     }/* end if */
 
@@ -357,14 +357,14 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
     ** note that the Sub[] array has one extra element to allow for an
     ** unsub from a full table.
     */
-    for(i = idx; i < SBN.Peer[PeerIdx].SubCnt; i++)
+    for(i = idx; i < SBN.Hk.PeerStatus[PeerIdx].SubCount; i++)
     {
         CFE_PSP_MemCpy(&SBN.Peer[PeerIdx].Sub[i], &SBN.Peer[PeerIdx].Sub[i + 1],
             sizeof(SBN_Subs_t));
     }/* end for */
 
     /* decrement sub cnt */
-    SBN.Peer[PeerIdx].SubCnt--;
+    SBN.Hk.PeerStatus[PeerIdx].SubCount--;
 
     /* unsubscribe to the msg id on the peer pipe */
     Status = CFE_SB_UnsubscribeLocal(MsgId, SBN.Peer[PeerIdx].Pipe);
@@ -427,7 +427,7 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
         return;
     }/* end if */
 
-    for(i = 0; i < SBN.Peer[PeerIdx].SubCnt; i++)
+    for(i = 0; i < SBN.Hk.PeerStatus[PeerIdx].SubCount; i++)
     {
         Status = CFE_SB_UnsubscribeLocal(SBN.Peer[PeerIdx].Sub[i].MsgId,
             SBN.Peer[PeerIdx].Pipe);
@@ -440,8 +440,9 @@ void SBN_RemoveAllSubsFromPeer(int PeerIdx)
     }/* end for */
 
     CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-        "unsubscribed %d message id's from %s", (int)SBN.Peer[PeerIdx].SubCnt,
-        SBN.Peer[PeerIdx].Name);
+        "unsubscribed %d message id's from %s",
+        (int)SBN.Hk.PeerStatus[PeerIdx].SubCount,
+        SBN.Hk.PeerStatus[PeerIdx].Name);
 
-    SBN.Peer[PeerIdx].SubCnt = 0;
+    SBN.Hk.PeerStatus[PeerIdx].SubCount = 0;
 }/* end SBN_RemoveAllSubsFromPeer */
