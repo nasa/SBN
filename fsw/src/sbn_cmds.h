@@ -25,7 +25,7 @@
 **  \sa #CFE_SB_RcvMsg
 **
 *************************************************************************/
-void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr);
+void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr);
 
 /************************************************************************/
 /** \brief Reset telemetry counters to zero

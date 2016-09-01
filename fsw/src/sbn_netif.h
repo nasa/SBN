@@ -39,10 +39,5 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 void  SBN_VerifyPeers(void);
 void  SBN_VerifyHosts(void);
 
-uint8 SBN_GetReliabilityFromQoS(uint8 QoS);
-uint8 SBN_GetPriorityFromQoS(uint8 QoS);
-uint8 SBN_GetPeerQoSReliability(const SBN_PeerData_t * peer);
-uint8 SBN_GetPeerQoSPriority(const SBN_PeerData_t * peer);
-
 #endif /* _sbn_netif_ */
 /*****************************************************************************/

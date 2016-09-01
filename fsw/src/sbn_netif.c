@@ -59,7 +59,7 @@ static int PeerFileRowCallback(const char *filename, int linenum,
         return OS_SUCCESS;
     }/* end if */
 
-    if(SBN.NumEntries >= SBN_MAX_NETWORK_PEERS)
+    if(SBN.Hk.EntryCount >= SBN_MAX_NETWORK_PEERS)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "max entry count reached, skipping");
@@ -80,19 +80,19 @@ static int PeerFileRowCallback(const char *filename, int linenum,
         ranges */
 
     /* Copy over the general info into the interface data structure */
-    strncpy(SBN.IfData[SBN.NumEntries].Name, row[0], SBN_MAX_PEERNAME_LENGTH);
-    SBN.IfData[SBN.NumEntries].QoS = atoi(row[4]);
-    SBN.IfData[SBN.NumEntries].ProtocolId = ProtocolId;
-    SBN.IfData[SBN.NumEntries].ProcessorId = atoi(row[1]);
-    SBN.IfData[SBN.NumEntries].SpaceCraftId = atoi(row[3]);
+    strncpy(SBN.Ifs[SBN.Hk.EntryCount].Name, row[0], SBN_MAX_PEERNAME_LENGTH);
+    SBN.Ifs[SBN.Hk.EntryCount].QoS = atoi(row[4]);
+    SBN.Ifs[SBN.Hk.EntryCount].ProtocolId = ProtocolId;
+    SBN.Ifs[SBN.Hk.EntryCount].ProcessorId = atoi(row[1]);
+    SBN.Ifs[SBN.Hk.EntryCount].SpaceCraftId = atoi(row[3]);
 
     /* Call the correct parse entry function based on the interface type */
     status = SBN.IfOps[ProtocolId]->Load(row + 5, fieldcount - 5,
-        &SBN.IfData[SBN.NumEntries].InterfacePvt);
+        &SBN.Ifs[SBN.Hk.EntryCount].InterfacePvt);
 
     if(status == SBN_OK)
     {   
-        SBN.NumEntries++;
+        SBN.Hk.EntryCount++;
     }/* end if */
 
     return OS_SUCCESS;
@@ -224,11 +224,11 @@ static int ParseFileEntry(char *FileEntry)
         return SBN_ERROR;
     }/* end if */
 
-    if(SBN.NumEntries >= SBN_MAX_NETWORK_PEERS)
+    if(SBN.Hk.EntryCount >= SBN_MAX_NETWORK_PEERS)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "max peers exceeded (max=%d this=%d)",
-            SBN_MAX_NETWORK_PEERS, SBN.NumEntries);
+            SBN_MAX_NETWORK_PEERS, SBN.Hk.EntryCount);
         return SBN_ERROR;
     }/* end if */
 
@@ -241,18 +241,18 @@ static int ParseFileEntry(char *FileEntry)
     }
 
     /* Copy over the general info into the interface data structure */
-    strncpy(SBN.IfData[SBN.NumEntries].Name, Name, SBN_MAX_PEERNAME_LENGTH);
-    SBN.IfData[SBN.NumEntries].QoS = QoS;
-    SBN.IfData[SBN.NumEntries].ProtocolId = ProtocolId;
-    SBN.IfData[SBN.NumEntries].ProcessorId = ProcessorId;
-    SBN.IfData[SBN.NumEntries].SpaceCraftId = SpaceCraftId;
+    strncpy(SBN.Ifs[SBN.Hk.EntryCount].Name, Name, SBN_MAX_PEERNAME_LENGTH);
+    SBN.Ifs[SBN.Hk.EntryCount].QoS = QoS;
+    SBN.Ifs[SBN.Hk.EntryCount].ProtocolId = ProtocolId;
+    SBN.Ifs[SBN.Hk.EntryCount].ProcessorId = ProcessorId;
+    SBN.Ifs[SBN.Hk.EntryCount].SpaceCraftId = SpaceCraftId;
 
     /* Call the correct parse entry function based on the interface type */
-    status = SBN.IfOps[ProtocolId]->Parse(app_data, SBN.NumEntries, &SBN.IfData[SBN.NumEntries].InterfacePvt);
+    status = SBN.IfOps[ProtocolId]->Parse(app_data, SBN.Hk.EntryCount, &SBN.Ifs[SBN.Hk.EntryCount].InterfacePvt);
 
     if(status == SBN_OK)
     {
-        SBN.NumEntries++;
+        SBN.Hk.EntryCount++;
     }/* end if */
 
     return status;
@@ -506,46 +506,46 @@ int SBN_InitInterfaces(void)
 
     DEBUG_START();
 
-    SBN.NumHosts = 0;
-    SBN.NumPeers = 0;
+    SBN.Hk.HostCount = 0;
+    SBN.Hk.PeerCount = 0;
 
     /* loop through entries in peer data */
-    for(EntryIdx = 0; EntryIdx < SBN.NumEntries; EntryIdx++)
+    for(EntryIdx = 0; EntryIdx < SBN.Hk.EntryCount; EntryIdx++)
     {
         /* Call the correct init interface function based on the interface
          * type
          */
-        IFRole = SBN.IfOps[SBN.IfData[EntryIdx].ProtocolId]
-            ->Init(&SBN.IfData[EntryIdx]);
+        IFRole = SBN.IfOps[SBN.Ifs[EntryIdx].ProtocolId]
+            ->Init(&SBN.Ifs[EntryIdx]);
         if(IFRole == SBN_HOST)
         {
-            SBN.Host[SBN.NumHosts] = &SBN.IfData[EntryIdx];
-            SBN.NumHosts++;
+            SBN.Hosts[SBN.Hk.HostCount] = &SBN.Ifs[EntryIdx];
+            SBN.Hk.HostCount++;
         }
         else if(IFRole == SBN_PEER)
         {
-            CFE_PSP_MemSet(&SBN.Peer[SBN.NumPeers], 0,
-                sizeof(SBN.Peer[SBN.NumPeers]));
-            SBN.Peer[SBN.NumPeers].IfData = &SBN.IfData[EntryIdx];
-            SBN.Peer[SBN.NumPeers].InUse = TRUE;
+            CFE_PSP_MemSet(&SBN.Peers[SBN.Hk.PeerCount], 0,
+                sizeof(SBN.Peers[SBN.Hk.PeerCount]));
+            SBN.Peers[SBN.Hk.PeerCount].If = &SBN.Ifs[EntryIdx];
+            SBN.Hk.PeerStatus[SBN.Hk.PeerCount].InUse = TRUE;
 
             /* for ease of use, copy some data from the entry into the peer */
-            SBN.Peer[SBN.NumPeers].QoS = SBN.IfData[EntryIdx].QoS;
-            SBN.Peer[SBN.NumPeers].ProcessorId =
-                SBN.IfData[EntryIdx].ProcessorId;
-            SBN.Peer[SBN.NumPeers].ProtocolId =
-                SBN.IfData[EntryIdx].ProtocolId;
-            SBN.Peer[SBN.NumPeers].SpaceCraftId =
-                SBN.IfData[EntryIdx].SpaceCraftId;
-            strncpy(SBN.Peer[SBN.NumPeers].Name, SBN.IfData[EntryIdx].Name,
-                SBN_MAX_PEERNAME_LENGTH);
+            SBN.Hk.PeerStatus[SBN.Hk.PeerCount].QoS = SBN.Ifs[EntryIdx].QoS;
+            SBN.Hk.PeerStatus[SBN.Hk.PeerCount].ProcessorId =
+                SBN.Ifs[EntryIdx].ProcessorId;
+            SBN.Hk.PeerStatus[SBN.Hk.PeerCount].ProtocolId =
+                SBN.Ifs[EntryIdx].ProtocolId;
+            SBN.Hk.PeerStatus[SBN.Hk.PeerCount].SpaceCraftId =
+                SBN.Ifs[EntryIdx].SpaceCraftId;
+            strncpy(SBN.Hk.PeerStatus[SBN.Hk.PeerCount].Name,
+                SBN.Ifs[EntryIdx].Name, SBN_MAX_PEERNAME_LENGTH);
 
-            Stat = SBN_CreatePipe4Peer(SBN.NumPeers);
+            Stat = SBN_CreatePipe4Peer(SBN.Hk.PeerCount);
             if(Stat == SBN_ERROR)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                     "error creating pipe for %s (Stat=0x%x)",
-                    SBN.Peer[SBN.NumPeers].Name,
+                    SBN.Hk.PeerStatus[SBN.Hk.PeerCount].Name,
                     (unsigned int)Stat);
                 return SBN_ERROR;
             }/* end if */
@@ -553,13 +553,13 @@ int SBN_InitInterfaces(void)
             /* Initialize the subscriptions count for each entry */
             for(i = 0; i < SBN_MAX_SUBS_PER_PEER; i++)
             {
-                SBN.Peer[SBN.NumPeers].Sub[i].InUseCtr = FALSE;
+                SBN.Peers[SBN.Hk.PeerCount].Subs[i].InUseCtr = FALSE;
             }/* end for */
 
             /* Reset counters, flags and timers */
-            SBN.Peer[SBN.NumPeers].State = SBN_ANNOUNCING;
+            SBN.Hk.PeerStatus[SBN.Hk.PeerCount].State = SBN_ANNOUNCING;
 
-            SBN.NumPeers++;
+            SBN.Hk.PeerCount++;
         }
         else
         {
@@ -568,7 +568,7 @@ int SBN_InitInterfaces(void)
     }/* end for */
 
     CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-        "configured, %d hosts and %d peers", SBN.NumHosts, SBN.NumPeers);
+        "configured, %d hosts and %d peers", SBN.Hk.HostCount, SBN.Hk.PeerCount);
     return SBN_OK;
 }/* end SBN_InitInterfaces */
 
@@ -590,16 +590,17 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
     DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
         MsgSize);
 
-    status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->Send(
-        SBN.Peer[PeerIdx].IfData, MsgType, MsgSize, Msg);
+    status = SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->Send(
+        SBN.Peers[PeerIdx].If, MsgType, MsgSize, Msg);
 
     if(status != -1)
     {
-        OS_GetLocalTime(&SBN.Peer[PeerIdx].last_sent);
+        SBN.Hk.PeerStatus[PeerIdx].SentCount++;
+        OS_GetLocalTime(&SBN.Hk.PeerStatus[PeerIdx].LastSent);
     }
     else
     {
-        SBN.HkPkt.PeerAppMsgSendErrCount[PeerIdx]++;
+        SBN.Hk.PeerStatus[PeerIdx].SentErrCount++;
     }/* end if */
 
     return status;
@@ -616,7 +617,7 @@ void SBN_RecvNetMsgs(void)
 
     /* DEBUG_START(); chatty */
 
-    for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
     {
         /* Process up to 100 received messages
          * TODO: make configurable
@@ -628,8 +629,8 @@ void SBN_RecvNetMsgs(void)
             SBN_MsgSize_t MsgSize = 0;
             SBN_Payload_t Msg;
 
-            status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->Recv(
-                SBN.Peer[PeerIdx].IfData, &MsgType, &MsgSize, &CpuId, &Msg);
+            status = SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->Recv(
+                SBN.Peers[PeerIdx].If, &MsgType, &MsgSize, &CpuId, &Msg);
 
             if(status == SBN_IF_EMPTY)
             {
@@ -643,14 +644,14 @@ void SBN_RecvNetMsgs(void)
 
             if(status == SBN_OK)
             {
-                OS_GetLocalTime(&SBN.Peer[RealPeerIdx].last_received);
+                OS_GetLocalTime(&SBN.Hk.PeerStatus[RealPeerIdx].LastReceived);
 
                 SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, &Msg);
             }
             else if(status == SBN_ERROR)
             {
                 // TODO error message
-                SBN.HkPkt.PeerAppMsgRecvErrCount[RealPeerIdx]++;
+                SBN.Hk.PeerStatus[RealPeerIdx].RecvErrCount++;
             }/* end if */
         }/* end for */
     }/* end for */
@@ -666,17 +667,17 @@ void SBN_VerifyPeers(void)
 
     DEBUG_START();
 
-    for(PeerIdx = 0; PeerIdx < SBN.NumPeers; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
     {
-        status = SBN.IfOps[SBN.Peer[PeerIdx].ProtocolId]->VerifyPeer(
-            SBN.Peer[PeerIdx].IfData, SBN.Host, SBN.NumHosts);
-        SBN.Peer[PeerIdx].IfData->IsValid = status;
+        status = SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->VerifyPeer(
+            SBN.Peers[PeerIdx].If, SBN.Hosts, SBN.Hk.HostCount);
+        SBN.Peers[PeerIdx].If->IsValid = status;
         if(!status)
         {
-            SBN.Peer[PeerIdx].InUse = FALSE;
+            SBN.Hk.PeerStatus[PeerIdx].InUse = FALSE;
 
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-                "peer '%s' not valid", SBN.Peer[PeerIdx].IfData->Name);
+                "peer '%s' not valid", SBN.Peers[PeerIdx].If->Name);
         }/* end if */
     }/* end for */
 }/* end SBN_VerifyPeers */
@@ -691,16 +692,16 @@ void SBN_VerifyHosts(void)
 
     DEBUG_START();
 
-    for(HostIdx = 0; HostIdx < SBN.NumHosts; HostIdx++)
+    for(HostIdx = 0; HostIdx < SBN.Hk.HostCount; HostIdx++)
     {
-        status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->VerifyHost(
-            SBN.Host[HostIdx], SBN.Peer, SBN.NumPeers);
+        status = SBN.IfOps[SBN.Hosts[HostIdx]->ProtocolId]->VerifyHost(
+            SBN.Hosts[HostIdx], SBN.Peers, SBN.Hk.PeerCount);
 
-        SBN.Host[HostIdx]->IsValid = status;
+        SBN.Hosts[HostIdx]->IsValid = status;
         if(!status)
         {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-                "host '%s' not valid", SBN.Host[HostIdx]->Name);
+                "host '%s' not valid", SBN.Hosts[HostIdx]->Name);
         }/* end if */
     }/* end for */
 }/* end SBN_VerifyHosts */

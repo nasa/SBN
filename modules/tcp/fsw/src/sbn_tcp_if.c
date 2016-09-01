@@ -79,7 +79,7 @@ int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
  * @param  Interface data structure containing the file entry
  * @return SBN_OK on success, error code otherwise
  */
-int SBN_TCP_Init(SBN_InterfaceData *Data)
+int SBN_TCP_Init(SBN_Interface_t *Data)
 {
     SBN_TCP_Entry_t *Entry
         = (SBN_TCP_Entry_t *)Data->InterfacePvt;
@@ -283,7 +283,7 @@ static int GetPeerNetID(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
     }/* end if */
 }/* end GetPeerNetID */
 
-int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
+int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -311,7 +311,7 @@ int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     return SBN_OK;
 }/* end SBN_TCP_Send */
 
-int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
+int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -485,7 +485,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
     }/* end if */
 }/* end GetPeerSocket */
 
-int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
+int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -505,7 +505,7 @@ int SBN_TCP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
     return SBN_OK;
 }/* end SBN_TCP_Send */
 
-int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
+int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -601,26 +601,27 @@ int SBN_TCP_Recv(SBN_InterfaceData *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 
 #endif /* OS_NET_IMPL */
 
-int SBN_TCP_VerifyPeerInterface(SBN_InterfaceData *Peer,
-        SBN_InterfaceData *HostList[], int NumHosts)
+int SBN_TCP_VerifyPeerInterface(SBN_Interface_t *Peer,
+    SBN_Interface_t *HostList[], int NumHosts)
 {
     return TRUE;
 }/* end SBN_TCP_VerifyPeerInterface */
 
-int SBN_TCP_VerifyHostInterface(SBN_InterfaceData *Host,
-        SBN_PeerData_t *PeerList, int NumPeers)
+int SBN_TCP_VerifyHostInterface(SBN_Interface_t *Host,
+    SBN_Peer_t *PeerList, int NumPeers)
 {
     return TRUE;
 }/* end SBN_TCP_VerifyHostInterface */
 
 int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet,
-        SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts)
+    SBN_Interface_t *Peer, SBN_Interface_t *HostList[],
+    int NumHosts)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ReportModuleStatus */
 
-int SBN_TCP_ResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
-        int NumHosts)
+int SBN_TCP_ResetPeer(SBN_Interface_t *Peer,
+    SBN_Interface_t *HostList[], int NumHosts)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ResetPeer */

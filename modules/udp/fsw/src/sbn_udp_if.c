@@ -129,7 +129,7 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
  * @param  Interface data structure containing the file entry
  * @return SBN_OK on success, error code otherwise
  */
-int SBN_UDP_Init(SBN_InterfaceData *Data)
+int SBN_UDP_Init(SBN_Interface_t *Data)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)Data->InterfacePvt;
     SBN_UDP_Network_t *Network
@@ -222,7 +222,7 @@ int SBN_UDP_Init(SBN_InterfaceData *Data)
     return SBN_PEER;
 }/* end SBN_UDP_Init */
 
-int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
+int SBN_UDP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->InterfacePvt;
@@ -264,7 +264,7 @@ int SBN_UDP_Send(SBN_InterfaceData *PeerInterface, SBN_MsgType_t MsgType,
  * from all peers but that's ok, I just inject them into the SB and all is
  * good!
  */
-int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
+int SBN_UDP_Recv(SBN_Interface_t *Data, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)Data->InterfacePvt;
@@ -318,26 +318,26 @@ int SBN_UDP_Recv(SBN_InterfaceData *Data, SBN_MsgType_t *MsgTypePtr,
     return SBN_OK;
 }/* end SBN_UDP_Recv */
 
-int SBN_UDP_VerifyPeerInterface(SBN_InterfaceData *Peer,
-        SBN_InterfaceData *HostList[], int NumHosts)
+int SBN_UDP_VerifyPeerInterface(SBN_Interface_t *Peer,
+        SBN_Interface_t *HostList[], int HostCount)
 {
     return TRUE;
 }/* end SBN_UDP_VerifyPeerInterface */
 
-int SBN_UDP_VerifyHostInterface(SBN_InterfaceData *Host,
-        SBN_PeerData_t *PeerList, int NumPeers)
+int SBN_UDP_VerifyHostInterface(SBN_Interface_t *Host,
+        SBN_Peer_t *PeerList, int PeerCount)
 {
     return TRUE;
 }/* end SBN_UDP_VerifyHostInterface */
 
 int SBN_UDP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet,
-        SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int NumHosts)
+        SBN_Interface_t *Peer, SBN_Interface_t *HostList[], int HostCount)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_UDP_ReportModuleStatus */
 
-int SBN_UDP_ResetPeer(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[],
-        int NumHosts)
+int SBN_UDP_ResetPeer(SBN_Interface_t *Peer, SBN_Interface_t *HostList[],
+        int HostCount)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_UDP_ResetPeer */

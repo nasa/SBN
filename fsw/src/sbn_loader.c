@@ -56,7 +56,7 @@ static int SBN_ConfLoaderRowCallback(const char *filename, int linenum,
 
     OS_printf("SBN: Module initialized: %s in %s (%s)\n",
         row[3], row[1], row[2]);
-    SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
+    SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations_t *)StructAddr;
 
     return OS_SUCCESS;
 }
@@ -221,7 +221,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     DEBUG_START();
 
     /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%d %s %s %s",
+    ScanfStatus = sscanf(FileEntry, "%d %49s %49s %49s",
         &ProtocolId, ModuleName, ModuleFile, StructName);
 
     /*
@@ -257,7 +257,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     OS_printf("SBN found symbol %s in %s (%s)\n", StructName, ModuleName,
         ModuleFile);
-    SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations *)StructAddr;
+    SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations_t *)StructAddr;
 
     return SBN_OK;
 }/* end SBN_ParseModuleEntry */

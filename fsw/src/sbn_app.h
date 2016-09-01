@@ -40,27 +40,23 @@
 /**
  * \brief SBN global data structure definition
  */
-typedef struct {
+typedef struct
+{
     /** 
      * \brief Interface definitions for all interfaces defined in the Peer
      * configuration file.
      */
-    SBN_InterfaceData IfData[SBN_MAX_NETWORK_PEERS*2];
-    /** \brief Number of IfData entries. */
-    int NumEntries;
+    SBN_Interface_t Ifs[SBN_MAX_NETWORK_PEERS*2];
 
     /** \brief Data only on host definitions. */
-    SBN_InterfaceData *Host[SBN_MAX_NETWORK_PEERS];
-    /** \brief Number of hosts in the Host array */
-    int NumHosts;
+    SBN_Interface_t *Hosts[SBN_MAX_NETWORK_PEERS];
 
     /** \brief Data only no devices that are not the host */
-    SBN_PeerData_t Peer[SBN_MAX_NETWORK_PEERS];
-    /** \brief Number of peers in the Peer array */
-    int NumPeers;
+    SBN_Peer_t Peers[SBN_MAX_NETWORK_PEERS];
 
     /** \brief The application ID provided by ES */
     uint32 AppId;
+
     /** \brief The application full name provided by SB */
     char App_FullName[(OS_MAX_API_NAME * 2)];
 
@@ -92,16 +88,16 @@ typedef struct {
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_InterfaceOperations *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
+    SBN_InterfaceOperations_t *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
 
     /** \brief Housekeeping information. */
-    SBN_HkPacket_t HkPkt;
-} SBN_AppData_t;
+    SBN_HkPacket_t Hk;
+} SBN_App_t;
 
 /**
  * \brief SBN glocal data structure reference.
  */
-extern SBN_AppData_t SBN;
+extern SBN_App_t SBN;
 
 /*
 ** Prototypes
@@ -111,9 +107,6 @@ int SBN_CreatePipe4Peer(int PeerIdx);
 void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     SBN_MsgSize_t MsgSize, void *Msg);
 int SBN_GetPeerIndex(uint32 ProcessorId);
-
-/* define to turn on debug event messages, warning, chatty! */
-#undef SBN_DEBUG_MSGS
 
 #ifdef SBN_DEBUG_MSGS
 #define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)

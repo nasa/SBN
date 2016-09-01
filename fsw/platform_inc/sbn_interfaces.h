@@ -71,7 +71,7 @@ typedef struct {
     uint8  QoS;             /**< \brief from SbnPeerData.dat file */
     uint8  IsValid;         /**< \brief used by interfaces that require a match - 1 if match exists, 0 if not */
     uint8  InterfacePvt[128]; /**< \brief generic blob of bytes, interface-specific */
-} SBN_InterfaceData;
+} SBN_Interface_t;
 
 /**
  * \brief Used by modules to pack messages to send.
@@ -96,20 +96,11 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *Msg);
 
 typedef struct {
-    uint8             InUse;
     CFE_SB_PipeId_t   Pipe;
     char              PipeName[OS_MAX_API_NAME];
-    char              Name[SBN_MAX_PEERNAME_LENGTH];
-    uint8             QoS;       /* Quality of Service */
-    uint32            ProcessorId;
-    int               ProtocolId;
-    uint32            SpaceCraftId;
-    uint32            State;
-    OS_time_t         last_sent, last_received;
-    uint32            SubCnt;
-    SBN_Subs_t        Sub[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
-    SBN_InterfaceData *IfData;
-} SBN_PeerData_t;
+    SBN_Subs_t        Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
+    SBN_Interface_t   *If;
+} SBN_Peer_t;
 
 /**
  * This structure contains function pointers to interface-specific versions
@@ -138,11 +129,11 @@ typedef struct {
      * Initializes the interface, classifies each interface based as a host
      * or a peer.  Hosts are those interfaces that are on the current CPU.
      *
-     * @param SBN_InterfaceData* Struct pointer describing a single interface
+     * @param SBN_Interface_t * Struct pointer describing a single interface
      * @return SBN_HOST if the interface is a host, SBN_PEER if a peer,
      *         SBN_ERROR otherwise
      */
-    int (*Init)(SBN_InterfaceData *);
+    int (*Init)(SBN_Interface_t *);
 
     /**
      * Sends a message to a peer over the specified interface.
@@ -151,21 +142,21 @@ typedef struct {
      * un/subscriptions and app messages.  The protocol message buffer is used
      * for announce and heartbeat messages/acks.
      *
-     * @param SBN_InterfaceData *   Interface data describing the
+     * @param SBN_Interface_t *     Interface data describing the
      *                              intended peer recipient
      * @param SBN_MsgType_t         The SBN message type
      * @param SBN_MsgSize_t         The size of the SBN message payload
      * @param SBN_Payload_t *       The SBN message payload
      * @return  Number of bytes sent on success, SBN_ERROR on error
      */
-    int (*Send)(SBN_InterfaceData *,
+    int (*Send)(SBN_Interface_t *,
         SBN_MsgType_t, SBN_MsgSize_t, SBN_Payload_t *);
 
 
     /**
      * Receives a data message from the specified interface.
      *
-     * @param SBN_InterfaceData *   Peer interface from which to receive a
+     * @param SBN_Interface_t *     Peer interface from which to receive a
      *                              message
      * @param SBN_MsgType_t *       SBN message type received.
      * @param SBN_MsgSize_t *       Payload size received.
@@ -174,7 +165,7 @@ typedef struct {
      *                              (pass in a buffer of SBN_MAX_MSG_SIZE)
      * @return SBN_OK on success, SBN_ERROR on failure
      */
-    int (*Recv)(SBN_InterfaceData *, SBN_MsgType_t *,
+    int (*Recv)(SBN_Interface_t *, SBN_MsgType_t *,
         SBN_MsgSize_t *, SBN_CpuId_t *, SBN_Payload_t *);
 
     /**
@@ -182,24 +173,24 @@ typedef struct {
      * match for the specified peer interface.  This function must be present,
      * but can return SBN_VALID for interfaces that don't require a match.
      *
-     * @param SBN_InterfaceData *    Peer to verify
-     * @param SBN_InterfaceData *[]  List of hosts to check against the peer
+     * @param SBN_Interface_t *      Peer to verify
+     * @param SBN_Interface_t *[]    List of hosts to check against the peer
      * @param int                    Number of hosts in the SBN
      * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
      */
-    int (*VerifyPeer)(SBN_InterfaceData *, SBN_InterfaceData *[], int);
+    int (*VerifyPeer)(SBN_Interface_t *, SBN_Interface_t *[], int);
 
     /**
      * Iterates through the list of all peer interfaces to see if there is a
      * match for the specified host interface.  This function must be present,
      * but can return SBN_VALID for interfaces that don't require a match.
      *
-     * @param SBN_InterfaceData *    Host to verify
-     * @param SBN_PeerData_t *       List of peers to check against the host
+     * @param SBN_Interface_t *      Host to verify
+     * @param SBN_Peer_t *           List of peers to check against the host
      * @param int                    Number of peers in the SBN
      * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
      */
-    int (*VerifyHost)(SBN_InterfaceData *, SBN_PeerData_t *, int);
+    int (*VerifyHost)(SBN_Interface_t *, SBN_Peer_t *, int);
 
     /**
      * Reports the status of the module.  The status can be in a module-specific
@@ -209,31 +200,31 @@ typedef struct {
      * return the SBN application sends the message over the software bus.
      *
      * @param SBN_ModuleStatusPacket_t *  Status packet to fill
-     * @param SBN_InterfaceData *         Peer to report status
-     * @param SBN_InterfaceData *[]       List of hosts that may match with peer
+     * @param SBN_Interface_t *           Peer to report status
+     * @param SBN_Interface_t *[]         List of hosts that may match with peer
      * @param int                         Number of hosts in the SBN
      * @return SBN_NOT_IMPLEMENTED if the module does not implement this
      *         function
      *         SBN_OK otherwise
      */
     int (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *,
-        SBN_InterfaceData *, SBN_InterfaceData *[], int);
+        SBN_Interface_t *, SBN_Interface_t *[], int);
 
     /**
      * Resets a specific peer.
      * This function must be present, but can simply return SBN_NOT_IMPLEMENTED
      * if it is not used by or not applicable to a module.
      *
-     * @param SBN_InterfaceData *         Peer to report status
-     * @param SBN_InterfaceData *[]       List of hosts that may match with peer
+     * @param SBN_Interface_t *           Peer to report status
+     * @param SBN_Interface_t *[]         List of hosts that may match with peer
      * @param int                         Number of hosts in the SBN
      * @return  SBN_OK when the peer is reset correcly
      *          SBN_ERROR if the peer cannot be reset
      *          SBN_NOT_IMPLEMENTED if the module does not implement this
      *          function
      */
-    int (*ResetPeer)(SBN_InterfaceData *, SBN_InterfaceData *[], int);
+    int (*ResetPeer)(SBN_Interface_t *, SBN_Interface_t *[], int);
 
-} SBN_InterfaceOperations;
+} SBN_InterfaceOperations_t;
 
 #endif /* _sbn_interfaces_h_ */

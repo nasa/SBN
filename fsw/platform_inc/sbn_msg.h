@@ -16,66 +16,56 @@ typedef struct {
 } SBN_NoArgsCmd_t;
 
 /**
- * \brief Get Peer Status Command
- * For command details see #SBN_GET_PEER_STATUS_CC
- */
-typedef struct {
-    uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
-    uint8 PeerIdx;
-} SBN_GetPeerStatusCmd_t;
-
-/**
  * \brief Reset Peer Command
  * For command details see #SBN_RESET_PEER_CC
  */
 typedef struct {
     uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
     uint8 PeerIdx;
-} SBN_ResetPeerCmd_t;
+} SBN_PeerIdxArgsCmd_t;
+
+typedef struct {
+    uint8 InUse, QoS, ProtocolId, State; // 4 bytes
+    char Name[SBN_MAX_PEERNAME_LENGTH]; // 4 + 8 = 12 bytes
+    uint32 ProcessorId, SpaceCraftId; // 12 + 8 = 20 bytes
+    OS_time_t LastSent, LastReceived; // 20 + 8 = 28 bytes
+    uint16 SentCount, RecvCount, // 28 + 4 = 32 bytes
+        SentErrCount, RecvErrCount, SubCount; // 32 + 6 = 38 bytes
+    uint8 Padding[2]; // 38 + 2 = 40 bytes
+    uint8 IFData[32]; /* opaque, dependent on the interface module */
+} SBN_PeerStatus_t;
 
 /**
  * \brief Housekeeping packet structure
  */
 typedef struct {
-
     uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
-    /* SBN App Telemetry */
-    uint16 CmdCount;
-    uint16 CmdErrCount;
+    uint16 CC;
+    uint16 Padding;
+
+    uint16 CmdCount; // 2 bytes
+    uint16 CmdErrCount; // 2 + 2 = 4 bytes
+
+    uint16 SubCount; // 4 + 2 = 6 bytes
+
+    uint16 EntryCount; // 6 + 2 = 8 bytes
+    uint16 HostCount; // 8 + 2 = 10 bytes
+    uint16 PeerCount; // 10 + 2 = 12 bytes
 
     /* SBN Module Stats */
-    uint16 PeerAppMsgRecvCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerAppMsgSendCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerAppMsgRecvErrCount[SBN_MAX_NETWORK_PEERS];
-    uint16 PeerAppMsgSendErrCount[SBN_MAX_NETWORK_PEERS];
+    SBN_PeerStatus_t PeerStatus[SBN_MAX_NETWORK_PEERS];
+} SBN_HkPacket_t;
 
-    uint32 PeerSubsCount[SBN_MAX_NETWORK_PEERS];
-
-} OS_PACK SBN_HkPacket_t;
-
-/**
- * \brief Summary of peer information that would be useful on the ground
- */
 typedef struct {
-    char    Name[SBN_MAX_PEERNAME_LENGTH];
-    uint32  ProcessorId;
-    uint32  ProtocolId;
-    uint32  SpaceCraftId;
-    uint32  State;
-    uint32  SubCnt;
-} SBN_PeerSummary_t;
+    uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
-/**
- * \brief Peer List response packet structure
- */
-typedef struct {
-    uint8              TlmHeader[CFE_SB_TLM_HDR_SIZE];
-    int32              NumPeers;
-    SBN_PeerSummary_t  PeerList[SBN_MAX_NETWORK_PEERS];
+    uint16 CC;
+    uint16 PeerIdx;
 
-} SBN_PeerListResponsePacket_t;
-
+    uint32 SubCount;
+    CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER];
+} SBN_HkSubsPkt_t;
 /**
  * \brief Module status response packet structure
  */

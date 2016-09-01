@@ -27,8 +27,7 @@
 ** Local Defines
 */
 #define SBN_CMD_MID      0x18FA
-
-#define SBN_TLM_MID               0x08FC
+#define SBN_TLM_MID      0x08FA
 /*
 ** Include Files
 */

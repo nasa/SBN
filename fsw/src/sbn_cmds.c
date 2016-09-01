@@ -7,116 +7,28 @@
 #include "sbn_app.h"
 #include "cfe.h"
 
-/************************************************************************/
-/** \brief Housekeeping request
-**
-**  \par Description
-**       Processes an on-board housekeeping request message.
-**
-**  \par Assumptions, External Events, and Notes:
-**       This message does not affect the command execution counter
+/*******************************************************************/
+/*                                                                 */
+/* Reset telemetry counters                                        */
+/*                                                                 */
+/*******************************************************************/
+void SBN_InitializeCounters(void)
+{
+    int32 i = 0;
 
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-*************************************************************************/
-void SBN_HousekeepingReq(CFE_SB_MsgPtr_t MessagePtr);
+    DEBUG_START();
 
-/************************************************************************/
-/** \brief Noop command
-**  
-**  \par Description
-**       Processes a noop ground command.
-**  
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-**  \sa #SBN_RESET_CC
-**
-*************************************************************************/
-void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr);
+    SBN.Hk.CmdCount = 0;
+    SBN.Hk.CmdErrCount = 0;
 
-/************************************************************************/
-/** \brief Reset counters command
-**
-**  \par Description
-**       Processes a reset counters command which will reset the
-**       following SBN application counters to zero:
-**         - Command counter
-**         - Command error counter
-**         - App messages sent counter for each peer
-**         - App message send error counter for each peer
-**         - App messages received counter for each peer
-**         - App message receive error counter for each peer
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-**  \sa #SBN_RESET_CC
-**
-*************************************************************************/
-void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr);
-
-/************************************************************************/
-/** \brief Get Peer List Command
-**
-**  \par Description
-**       Gets a list of all the peers recognized by the SBN.  The list
-**       includes all available identifying information about the peer.
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-**  \sa #SBN_GET_PEER_LIST_CC
-**  \sa #SBN_PeerSummary_t
-**
-*************************************************************************/
-void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr);
-
-/************************************************************************/
-/** \brief Get Peer Status Command
-**
-**  \par Description
-**       Get status information on the specified peer.  The interface 
-**       module fills up to a maximum number of bytes with status 
-**       information in a module-defined format.
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-**  \sa #SBN_GET_PEER_STATUS_CC
-**
-*************************************************************************/
-void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr);
-
-/************************************************************************/
-/** \brief Reset Peer
-**
-**  \par Description
-**       Reset a specified peer.
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-**  \sa #SBN_RESET_PEER_CC
-**
-*************************************************************************/
-void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr);
+    for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
+    {
+        SBN.Hk.PeerStatus[i].SentCount = 0;
+        SBN.Hk.PeerStatus[i].RecvCount = 0;
+        SBN.Hk.PeerStatus[i].SentErrCount = 0;
+        SBN.Hk.PeerStatus[i].RecvErrCount = 0;
+    }/* end for */
+}/* end SBN_InitializeCounters */
 
 /************************************************************************/
 /** \brief Verify message length 
@@ -143,307 +55,22 @@ void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr);
 **  \sa #SBN_LEN_EID
 **
 *************************************************************************/
-boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength);
-
-/*******************************************************************/
-/*                                                                 */
-/* Process a command pipe message                                  */
-/*                                                                 */
-/*******************************************************************/
-void SBN_AppPipe(CFE_SB_MsgPtr_t MessagePtr)
+static boolean VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
 {
-    CFE_SB_MsgId_t  MsgId = 0;
-    uint16          CommandCode = 0;
-
-    DEBUG_START();
-
-    MsgId = CFE_SB_GetMsgId(MessagePtr);
-    switch(MsgId)
-    {
-        /* Housekeeping Telemetry Requests */
-        case SBN_SEND_HK_MID:
-            SBN_HousekeepingReq(MessagePtr);
-            break;
-
-        case SBN_CMD_MID:
-            CommandCode = CFE_SB_GetCmdCode(MessagePtr);
-            switch(CommandCode)
-            {
-                case SBN_NOOP_CC:
-                    SBN_NoopCmd(MessagePtr);
-                    break;
-                case SBN_RESET_CC:
-                    SBN_ResetCountersCmd(MessagePtr);
-                    break;
-                case SBN_GET_PEER_LIST_CC:
-                    SBN_GetPeerList(MessagePtr);
-                    break;
-                case SBN_GET_PEER_STATUS_CC:
-                    SBN_GetPeerStatus(MessagePtr);
-                    break;
-                case SBN_RESET_PEER_CC:
-                    SBN_ResetPeer(MessagePtr);
-                    break;
-                default:
-                    SBN.HkPkt.CmdErrCount++;
-                    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-                        "invalid command code (ID=0x%04X, CC=%d)",
-                        MsgId, CommandCode);
-                    break;
-            }/* end switch */
-            break;
-
-        default:
-            SBN.HkPkt.CmdErrCount++;
-            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-                "invalid command pipe message ID (ID=0x%04X)",
-                MsgId);
-            break;
-    }/* end switch */
-}/* end SBN_AppPipe */
-
-/*******************************************************************/
-/*                                                                 */
-/* Reset telemetry counters                                        */
-/*                                                                 */
-/*******************************************************************/
-void SBN_InitializeCounters(void)
-{
-    int32   i = 0;
-
-    DEBUG_START();
-
-    SBN.HkPkt.CmdCount = 0;
-    SBN.HkPkt.CmdErrCount = 0;
-
-    for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
-    {
-        SBN.HkPkt.PeerAppMsgRecvCount[i] = 0;
-        SBN.HkPkt.PeerAppMsgSendCount[i] = 0;
-        SBN.HkPkt.PeerAppMsgRecvErrCount[i] = 0;
-        SBN.HkPkt.PeerAppMsgSendErrCount[i] = 0;
-    }/* end for */
-}/* end SBN_InitializeCounters */
-
-/*******************************************************************/
-/*                                                                 */
-/* Housekeeping request                                            */
-/*                                                                 */
-/*******************************************************************/
-void SBN_HousekeepingReq(CFE_SB_MsgPtr_t MessagePtr)
-{
-    int32   i = 0;
-    uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
-
-    DEBUG_START();
-
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
-    {
-        /* 
-        ** Update with the latest subscription counts 
-        */
-        for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
-            SBN.HkPkt.PeerSubsCount[i] = SBN.Peer[i].SubCnt;
-
-        /* 
-        ** Timestamp and send packet
-        */
-        CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.HkPkt);
-        CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.HkPkt);
-    }/* end if */
-}/* end SBN_HousekeepingReq */
-
-/*******************************************************************/
-/*                                                                 */
-/* Noop command                                                    */
-/*                                                                 */
-/*******************************************************************/
-void SBN_NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
-{
-    uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
-
-    DEBUG_START();
-
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
-    {
-        SBN.HkPkt.CmdCount++;
-
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-            "no-op command");
-    }/* end if */
-}/* end SBN_NoopCmd */
-
-/*******************************************************************/
-/*                                                                 */
-/* Reset counters command                                          */
-/*                                                                 */
-/*******************************************************************/
-void SBN_ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
-{
-    uint16  ExpectedLength = sizeof(SBN_NoArgsCmd_t);
-
-    DEBUG_START();
-
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
-    {
-        /*
-        ** Don't increment counter because we're resetting anyway
-        */
-        SBN_InitializeCounters();
-
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-            "reset counters command");
-    }/* end if */
-}/* end SBN_ResetCountersCmd */
-
-/*******************************************************************/
-/*                                                                 */
-/* Get list of peers                                               */
-/*                                                                 */
-/*******************************************************************/
-void SBN_GetPeerList(CFE_SB_MsgPtr_t MessagePtr)
-{
-    SBN_PeerListResponsePacket_t    response;
-    int32                           i = 0;
-    uint16                          ExpectedLength = sizeof(SBN_NoArgsCmd_t);
-
-    DEBUG_START();
-
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
-    {
-        CFE_SB_InitMsg(&response, SBN_GET_PEER_LIST_RSP_MID,
-            sizeof(SBN_PeerListResponsePacket_t), TRUE);
-        response.NumPeers = SBN.NumPeers;
-
-        for(i = 0; i < response.NumPeers; i++)
-        {
-            strncpy(response.PeerList[i].Name, SBN.Peer[i].Name,
-                SBN_MAX_PEERNAME_LENGTH);
-            response.PeerList[i].ProcessorId = SBN.Peer[i].ProcessorId;
-            response.PeerList[i].ProtocolId = SBN.Peer[i].ProtocolId;
-            response.PeerList[i].SpaceCraftId = SBN.Peer[i].SpaceCraftId;
-            response.PeerList[i].State = SBN.Peer[i].State;
-            response.PeerList[i].SubCnt = SBN.Peer[i].SubCnt;
-        }/* end for */
-
-        SBN.HkPkt.CmdCount++;
-        /* 
-        ** Timestamp and send packet
-        */
-        CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &response);
-        CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
-
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-            "peer list retrieved (%d peers)", (int)response.NumPeers);
-    }/* end if */
-}/* end SBN_GetPeerList */
-
-/*******************************************************************/
-/*                                                                 */
-/* Get status of a specified peer                                  */
-/*                                                                 */
-/*******************************************************************/
-void SBN_GetPeerStatus(CFE_SB_MsgPtr_t MessagePtr)
-{
-    SBN_ModuleStatusPacket_t    response;
-    int32                       PeerIdx = 0, Status = 0;
-    SBN_PeerData_t              Peer;
-
-    uint16                    ExpectedLength = sizeof(SBN_GetPeerStatusCmd_t);
-    
-    DEBUG_START();
-
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
-    {
-        SBN_GetPeerStatusCmd_t *Command = (SBN_GetPeerStatusCmd_t*)MessagePtr;
-        PeerIdx = Command->PeerIdx;
-        Peer = SBN.Peer[PeerIdx];
-        
-        SBN.HkPkt.CmdCount++;
-        CFE_SB_InitMsg(&response, SBN_GET_PEER_STATUS_RSP_MID,
-            sizeof(SBN_ModuleStatusPacket_t), TRUE);
-        response.ProtocolId = Peer.ProtocolId;
-        Status = SBN.IfOps[Peer.ProtocolId]->ReportModuleStatus(&response,
-            Peer.IfData, SBN.Host, SBN.NumHosts);
-        
-        if(Status == SBN_NOT_IMPLEMENTED)
-        {
-            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-                "peer status command not implemented for peer %d of type %d",
-                (int)PeerIdx, (int)response.ProtocolId);
-        }
-        else
-        {
-            CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &response);
-            CFE_SB_SendMsg((CFE_SB_Msg_t *) &response);
-
-            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-                "peer status retrieved for peer %d", (int)PeerIdx);
-        }/* end if */
-    }/* end if */
-}/* end SBN_GetPeerStatus */
-
-/*******************************************************************/
-/*                                                                 */
-/* Reset peer                                                      */
-/*                                                                 */
-/*******************************************************************/
-void SBN_ResetPeer(CFE_SB_MsgPtr_t MessagePtr)
-{
-    int                 PeerIdx = 0, Status = 0;
-    SBN_PeerData_t      Peer;
-    SBN_ResetPeerCmd_t *Command = NULL;
-
-    uint16              ExpectedLength = sizeof(SBN_ResetPeerCmd_t);
-
-    DEBUG_START();
-
-    if(SBN_VerifyMsgLength(MessagePtr, ExpectedLength))
-    {
-        SBN.HkPkt.CmdCount++;
-        Command = (SBN_ResetPeerCmd_t*)MessagePtr;
-        PeerIdx = Command->PeerIdx;
-        Peer = SBN.Peer[PeerIdx];
-        
-        Status = SBN.IfOps[Peer.ProtocolId]->ResetPeer(
-            Peer.IfData, SBN.Host, SBN.NumHosts);
-        
-        if(Status == SBN_NOT_IMPLEMENTED)
-        {
-            CFE_EVS_SendEvent(SBN_CMD_EID,
-                CFE_EVS_INFORMATION,
-                "reset peer not implemented for peer %d of type %d",
-                PeerIdx, Peer.ProtocolId);
-        }
-        else
-        {
-            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-                "reset peer %d", PeerIdx);
-        }/* end if */
-    }/* end if */
-}/* end SBN_ResetPeer */
-
-/*******************************************************************/
-/*                                                                 */
-/* Verify message packet length                                    */
-/*                                                                 */
-/*******************************************************************/
-boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
-{
-    boolean         result = TRUE;
-    uint16          CommandCode = 0;
-    uint16          ActualLength = 0;
-    CFE_SB_MsgId_t  MsgId;
+    uint16 CommandCode = 0;
+    uint16 ActualLength = 0;
+    CFE_SB_MsgId_t MsgId = 0;
 
     DEBUG_START();
 
     ActualLength = CFE_SB_GetTotalMsgLength(msg);
+
     if(ExpectedLength != ActualLength)
     {
-        MsgId   = CFE_SB_GetMsgId(msg);
+        MsgId = CFE_SB_GetMsgId(msg);
         CommandCode = CFE_SB_GetCmdCode(msg);
 
-        if(MsgId == SBN_SEND_HK_MID)
+        if(CommandCode == SBN_SEND_HK_CC)
         {
             /*
             ** For a bad HK request, just send the event.  We only increment
@@ -464,11 +91,312 @@ boolean SBN_VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
                 "CC=%d Len=%d Expected=%d)",
                 MsgId, CommandCode, ActualLength, ExpectedLength);
 
-            SBN.HkPkt.CmdErrCount++;
+            SBN.Hk.CmdErrCount++;
         }/* end if */
 
         return FALSE;
     }/* end if */
 
-    return result;
-}/* end SBN_VerifyMsgLength */
+    return TRUE;
+}/* end VerifyMsgLength */
+
+/************************************************************************/
+/** \brief Housekeeping request command
+**
+**  \par Description
+**       Processes an on-board housekeeping request message.
+**
+**  \par Assumptions, External Events, and Notes:
+**       This message does not affect the command execution counter
+
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+*************************************************************************/
+static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
+        return;
+    }/* end if */
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
+
+    SBN.Hk.CC = SBN_SEND_HK_CC;
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.Hk);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.Hk);
+}/* end HKCmd */
+
+/************************************************************************/
+/** \brief Noop command
+**  
+**  \par Description
+**       Processes a noop ground command.
+**  
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_RESET_CC
+**
+*************************************************************************/
+static void NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid no-op command");
+        return;
+    }/* end if */
+
+    SBN.Hk.CmdCount++;
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "no-op command");
+}/* end NoopCmd */
+
+/************************************************************************/
+/** \brief Reset counters command
+**
+**  \par Description
+**       Processes a reset counters command which will reset the
+**       following SBN application counters to zero:
+**         - Command counter
+**         - Command error counter
+**         - App messages sent counter for each peer
+**         - App message send error counter for each peer
+**         - App messages received counter for each peer
+**         - App message receive error counter for each peer
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_RESET_CC
+**
+*************************************************************************/
+static void ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid reset command");
+        return;
+    }/* end if */
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "reset command");
+
+    /*
+    ** Don't increment counter because we're resetting anyway
+    */
+    SBN_InitializeCounters();
+}/* end ResetCountersCmd */
+
+/************************************************************************/
+/** \brief Reset Peer
+**
+**  \par Description
+**       Reset a specified peer.
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_RESET_PEER_CC
+**
+*************************************************************************/
+static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    int PeerIdx = 0;
+    SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
+
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid reset peer command");
+    }/* end if */
+
+    PeerIdx = Command->PeerIdx;
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
+        "reset peer command (PeerIdx=%d)", PeerIdx);
+
+    if(PeerIdx < 0 || PeerIdx >= SBN.Hk.PeerCount)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid peer");
+        return;
+    }/* end if */
+
+    SBN.Hk.CmdCount++;
+    
+    if(SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->ResetPeer(
+            SBN.Peers[PeerIdx].If, SBN.Hosts, SBN.Hk.HostCount)
+        == SBN_NOT_IMPLEMENTED)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID,
+            CFE_EVS_INFORMATION,
+            "reset peer not implemented for peer %d of type %d",
+            PeerIdx, SBN.Hk.PeerStatus[PeerIdx].ProtocolId);
+    }
+    else
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
+            "reset peer %d", PeerIdx);
+    }/* end if */
+}/* end ResetPeerCmd */
+/************************************************************************/
+/** \brief Send My Subscriptions
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_MYSUBS_CC
+**
+*************************************************************************/
+static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    SBN_HkSubsPkt_t Pkt;
+    int SubNum = 0;
+
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
+    {   
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid my subscriptions command");
+    }/* end if */
+
+    CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
+    Pkt.CC = SBN_MYSUBS_CC;
+    Pkt.PeerIdx = 0;
+
+    Pkt.SubCount = SBN.Hk.SubCount;
+    for(SubNum = 0; SubNum < SBN.Hk.SubCount; SubNum++)
+    {
+        Pkt.Subs[SubNum] = SBN.LocalSubs[SubNum].MsgId;
+    }/* end for */
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &Pkt);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) &Pkt);
+}/* end MySubsCmd */
+
+/************************************************************************/
+/** \brief Send A Peer's Subscriptions
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+**                             references the software bus message
+**
+**  \sa #SBN_MYSUBS_CC
+**
+*************************************************************************/
+static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    SBN_HkSubsPkt_t Pkt;
+    int PeerIdx = 0;
+    int SubNum = 0;
+    SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
+
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid reset peer command");
+    }/* end if */
+
+    PeerIdx = Command->PeerIdx;
+
+    CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
+    Pkt.CC = SBN_PEERSUBS_CC;
+    Pkt.PeerIdx = PeerIdx;
+
+    Pkt.SubCount = SBN.Hk.PeerStatus[PeerIdx].SubCount;
+    for(SubNum = 0; SubNum < Pkt.SubCount; SubNum++)
+    {
+        Pkt.Subs[SubNum] = SBN.Peers[PeerIdx].Subs[SubNum].MsgId;
+    }/* end for */
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &Pkt);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) &Pkt);
+}/* end PeerSubsCmd */
+
+/*******************************************************************/
+/*                                                                 */
+/* Process a command pipe message                                  */
+/*                                                                 */
+/*******************************************************************/
+void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr)
+{
+    CFE_SB_MsgId_t MsgId = 0;
+    uint16 CommandCode = 0;
+
+    DEBUG_START();
+
+    if((MsgId = CFE_SB_GetMsgId(MessagePtr)) != SBN_CMD_MID)
+    {
+        SBN.Hk.CmdErrCount++;
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid command pipe message ID (ID=0x%04X)",
+            MsgId);
+        return;
+    }/* end if */
+
+    switch((CommandCode = CFE_SB_GetCmdCode(MessagePtr)))
+    {
+        case SBN_NOOP_CC:
+            NoopCmd(MessagePtr);
+            break;
+        case SBN_RESET_CC:
+            ResetCountersCmd(MessagePtr);
+            break;
+        case SBN_RESET_PEER_CC:
+            ResetPeerCmd(MessagePtr);
+            break;
+        case SBN_SEND_HK_CC:
+            HKCmd(MessagePtr);
+            break;
+        case SBN_MYSUBS_CC:
+            MySubsCmd(MessagePtr);
+            break;
+        case SBN_PEERSUBS_CC:
+            PeerSubsCmd(MessagePtr);
+            break;
+        case SBN_SCH_WAKEUP_CC:
+            /* TODO: debug message? */
+            break;
+        default:
+            SBN.Hk.CmdErrCount++;
+            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+                "invalid command code (ID=0x%04X, CC=%d)",
+                MsgId, CommandCode);
+            break;
+    }/* end switch */
+}/* end SBN_HandleCommand */
