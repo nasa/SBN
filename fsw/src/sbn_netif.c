@@ -416,7 +416,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSize_t MsgSize, SBN_MsgType_t MsgType,
 
     if(MsgType == SBN_APP_MSG)
     {
-        SwapCCSDS((CFE_SB_Msg_t *)BufOffset);
+        SwapCCSDS((CFE_SB_Msg_t *)SBNBuf);
     }/* end if */
 }/* end SBN_PackMsg */
 
