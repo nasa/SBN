@@ -40,6 +40,11 @@
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
 
+#ifndef SBN_TLM_MID
+/* backwards compatability in case you're using a MID generator */
+#define SBN_TLM_MID SBN_HK_TLM_MID
+#endif /* SBN_TLM_MID */
+
 /*
  **   Task Globals
  */
@@ -345,7 +350,7 @@ static int Init(void)
         return SBN_ERROR;
     }/* end if */
 
-    Status = CFE_SB_Subscribe(SBN_CMD_MID,SBN.CmdPipe);
+    Status = CFE_SB_Subscribe(SBN_CMD_MID, SBN.CmdPipe);
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
