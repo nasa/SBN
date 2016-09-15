@@ -359,8 +359,14 @@ static int Init(void)
     }/* end if */
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "initialized (CFE_CPU_NAME='%s' CFE_CPU_ID=%d SBN.AppId=%d...",
-        CFE_CPU_NAME, CFE_CPU_ID, (int)SBN.AppId);
+        "initialized (CFE_CPU_NAME='%s' CFE_CPU_ID=%d %s SBN.AppId=%d...",
+        CFE_CPU_NAME, CFE_CPU_ID,
+#ifdef SOFTWARE_BIG_BIT_ORDER
+        "big-endian",
+#else /* !SOFTWARE_BIG_BIT_ORDER */
+        "little-endian",
+#endif /* SOFTWARE_BIG_BIT_ORDER */
+        (int)SBN.AppId);
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X)",
         SBN_IDENT,
