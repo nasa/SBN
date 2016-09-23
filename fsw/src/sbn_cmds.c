@@ -80,7 +80,7 @@ static boolean VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
             ** For a bad HK request, just send the event.  We only increment
             ** the error counter for ground commands and not internal messages.
             */
-            CFE_EVS_SendEvent(SBN_HK_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
                 "invalid housekeeping request message length (ID=0x%04X "
                 "CC=%d Len=%d Expected=%d)",
                 MsgId, CommandCode, ActualLength, ExpectedLength);
