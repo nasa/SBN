@@ -27,26 +27,30 @@
 #include "sbn_interfaces.h"
 #include "sbn_msg.h"
 #include "sbn_platform_cfg.h"
+#include "sbn_tables.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
 
 typedef struct {
-  SBN_InterfaceData IfData[SBN_MAX_NETWORK_PEERS*2];  /* Data on all devices in the peer file (allow a host for every peer) */
-  SBN_InterfaceData *Host[SBN_MAX_NETWORK_PEERS];   /* Data only on devices that are the host */
-  SBN_PeerData_t    Peer[SBN_MAX_NETWORK_PEERS];    /* Data only no devices that are not the host */
-  uint32            AppId;
-  char              App_FullName[(OS_MAX_API_NAME * 2)];
-  CFE_SB_PipeId_t   SubPipe;
-  CFE_SB_PipeId_t   CmdPipe;
+    SBN_InterfaceData IfData[SBN_MAX_NETWORK_PEERS*2];  /* Data on all devices in the peer file (allow a host for every peer) */
+    SBN_InterfaceData *Host[SBN_MAX_NETWORK_PEERS];   /* Data only on devices that are the host */
+    SBN_PeerData_t Peer[SBN_MAX_NETWORK_PEERS];    /* Data only no devices that are not the host */
+    uint32 AppId;
+    char App_FullName[(OS_MAX_API_NAME * 2)];
+    CFE_SB_PipeId_t SubPipe;
+    CFE_SB_PipeId_t CmdPipe;
 
-  SBN_Subs_t        LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
 
-  SBN_InterfaceOperations *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
+    SBN_InterfaceOperations *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
 
-  SBN_HkPacket_t   Hk;
-}sbn_t;
+    SBN_HkPacket_t Hk;
 
-sbn_t SBN;
+    CFE_TBL_Handle_t TableHandle;
+    SBN_RemapTable_t *RemapTable;
+} SBN_t;
+
+SBN_t SBN;
 
 /*
 ** Prototypes
