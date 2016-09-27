@@ -394,33 +394,36 @@ int32 SBN_GetPeerFileData(void)
  */
 static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
-    uint16 *Util16 = NULL; uint32 *Util32 = NULL;
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
     if(CCSDSType == CCSDS_TLM)
     {   
         CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
+
+        uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->SecHdr);
+        Seconds = CFE_MAKE_BIG32(Seconds);
+        CCSDS_WR_SEC_HDR_SEC(TlmPktPtr->SecHdr, Seconds);
+
         /* SBN sends CCSDS telemetry messages with secondary headers in
          * big-endian order.
          */
-        Util32 = (uint32 *)TlmPktPtr->SecHdr.Time;
-        *Util32 = CFE_MAKE_BIG32(*Util32);
         if(CCSDS_TIME_SIZE == 6)
         {
-            Util16 = (uint16 *)TlmPktPtr->SecHdr.Time + 4;
-            *Util16 = CFE_MAKE_BIG16(*Util16);
+            uint16 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr);
+            SubSeconds = CFE_MAKE_BIG16(SubSeconds);
+            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr, SubSeconds);
         }
         else
         {
-            Util32 = (uint32 *)(TlmPktPtr->SecHdr.Time + 4);
-            *Util32 = CFE_MAKE_BIG32(*Util32);
+            uint32 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr);
+            SubSeconds = CFE_MAKE_BIG32(SubSeconds);
+            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr, SubSeconds);
         }/* end if */
     }
     else if(CCSDSType == CCSDS_CMD)
     {
         CCSDS_CmdPkt_t *CmdPktPtr = (CCSDS_CmdPkt_t *)Msg;
 
-        Util16 = (uint16 *)&CmdPktPtr->SecHdr.Command;
-        *Util16 = CFE_MAKE_BIG16(*Util16);
+        CmdPktPtr->SecHdr.Command = CFE_MAKE_BIG16(CmdPktPtr->SecHdr.Command);;
     /* else what? */
     }/* end if */
 }/* end SwapCCSDS */

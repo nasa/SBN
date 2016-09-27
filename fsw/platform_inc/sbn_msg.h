@@ -41,17 +41,18 @@ typedef struct {
 typedef struct {
     uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
-    uint16 CC;
-    uint16 Padding;
+    uint8 CC; // 1 byte
 
-    uint16 CmdCount; // 2 bytes
-    uint16 CmdErrCount; // 2 + 2 = 4 bytes
+    uint8 CmdCount; // 1 + 1 = 2 bytes
+    uint8 CmdErrCount; // 2 + 1 = 3 bytes
+
+    uint8 Padding; // 3 + 1 = 4 bytes
 
     uint16 SubCount; // 4 + 2 = 6 bytes
 
     uint16 EntryCount; // 6 + 2 = 8 bytes
     uint16 HostCount; // 8 + 2 = 10 bytes
-    uint16 PeerCount; // 10 + 2 = 12 bytes
+    uint16 PeerCount; // 10 + 2 = 12 bytes // want to 32-bit align below
 
     /* SBN Module Stats */
     SBN_PeerStatus_t PeerStatus[SBN_MAX_NETWORK_PEERS];
@@ -60,10 +61,10 @@ typedef struct {
 typedef struct {
     uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
-    uint16 CC;
-    uint16 PeerIdx;
+    uint8 CC;
+    uint8 PeerIdx;
+    uint16 SubCount;
 
-    uint32 SubCount;
     CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER];
 } SBN_HkSubsPkt_t;
 /**

@@ -12,7 +12,8 @@
 
 #include "sbn_events.h"
 
-#define SBN_INIT_EID SBN_FIRST_EID + 1 /* yes we skip the 0th */
+/*
+#define SBN_INIT_EID SBN_FIRST_EID + 1
 #define SBN_APP_EXIT_EID SBN_FIRST_EID + 2
 #define SBN_CR_CMD_PIPE_EID SBN_FIRST_EID + 3
 #define SBN_SUB_REQ_EID SBN_FIRST_EID + 4
@@ -39,5 +40,15 @@
 #define SBN_PIPE_EID              SBN_FIRST_EID + 44
 
 #define SBN_DEBUG_EID                 SBN_FIRST_EID + 46
+*/
+
+#define SBN_SB_EID           SBN_FIRST_EID + 0
+#define SBN_INIT_EID           SBN_FIRST_EID + 1
+#define SBN_MSG_EID             SBN_FIRST_EID + 2
+#define SBN_FILE_EID              SBN_FIRST_EID + 3
+#define SBN_PEER_EID       SBN_FIRST_EID + 4
+#define SBN_PROTO_EID             SBN_FIRST_EID + 5
+#define SBN_CMD_EID              SBN_FIRST_EID + 6
+#define SBN_SUB_EID           SBN_FIRST_EID + 7
 
 #endif /* _sbn_main_events_h_ */
