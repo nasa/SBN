@@ -20,8 +20,6 @@
 
 #define SBN_MOD_STATUS_MSG_SIZE       128 /* bytes */
 
-#define SBN_MAX_MSG_RETRANSMISSIONS   3
-
 #undef SBN_DEBUG_MSGS /* warning, turning this on makes SBN very chatty, likely overloading the Event pipes */
 
 #endif /* _sbn_platform_cfg_h_ */

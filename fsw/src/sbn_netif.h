@@ -26,7 +26,7 @@
 
 #include "cfe.h"
 
-void  SBN_ShowPeerData(void);
+void SBN_ShowPeerData(void);
 int32 SBN_GetPeerFileData(void);
 
 int SBN_InitInterfaces(void);

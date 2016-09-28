@@ -28,6 +28,7 @@
 #include "sbn_interfaces.h"
 #include "sbn_msg.h"
 #include "sbn_platform_cfg.h"
+#include "sbn_tables.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
 
@@ -92,6 +93,9 @@ typedef struct
 
     /** \brief Housekeeping information. */
     SBN_HkPacket_t Hk;
+
+    CFE_TBL_Handle_t TableHandle;
+    SBN_RemapTable_t *RemapTable;
 } SBN_App_t;
 
 /**

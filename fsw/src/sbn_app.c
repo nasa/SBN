@@ -37,6 +37,7 @@
 #include "sbn_subs.h"
 #include "sbn_main_events.h"
 #include "sbn_perfids.h"
+#include "sbn_tables.h"
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
@@ -46,9 +47,54 @@
 #define SBN_TLM_MID SBN_HK_TLM_MID
 #endif /* SBN_TLM_MID */
 
-/*
- **   Task Globals
- */
+/* Remap table from fields are sorted and unique, use a binary search. */
+static CFE_SB_MsgId_t RemapMID(uint32 ProcessorId, CFE_SB_MsgId_t from)
+{
+    SBN_RemapTable_t *RemapTable = SBN.RemapTable;
+    int start = 0, end = RemapTable->Entries - 1, midpoint = 0;
+
+    while(end > start)
+    {
+        midpoint = (end + start) / 2;
+        if(RemapTable->Entry[midpoint].ProcessorId == ProcessorId
+            && RemapTable->Entry[midpoint].from == from)
+        {
+            break;
+        }/* end if */
+
+        if(RemapTable->Entry[midpoint].ProcessorId < ProcessorId
+            || (RemapTable->Entry[midpoint].ProcessorId == ProcessorId
+            && RemapTable->Entry[midpoint].from < from))
+        {
+            if(midpoint == start) /* degenerate case where end = start + 1 */
+            {
+                return 0;
+            }
+            else
+            {
+                start = midpoint;
+            }/* end if */
+        }
+        else
+        {
+            end = midpoint;
+        }/* end if */
+    }
+
+    if(end > start)
+    {
+        return RemapTable->Entry[midpoint].to;
+    }/* end if */
+
+    /* not found... */
+
+    if(RemapTable->RemapDefaultFlag == SBN_REMAP_DEFAULT_SEND)
+    {
+        return from;
+    }/* end if */
+
+    return 0;
+}/* end RemapMID */
 
 /** \brief SBN global application data. */
 SBN_App_t SBN;
@@ -96,6 +142,17 @@ static void CheckPeerPipes(void)
             if(strncmp(SBN.App_FullName, lastSenderPtr->AppName,
                 OS_MAX_API_NAME))
             {
+                if(SBN.RemapTable)
+                {
+                    CFE_SB_MsgId_t mid =
+                        RemapMID(SBN.Hk.PeerStatus[PeerIdx].ProcessorId,
+                        CFE_SB_GetMsgId(SBMsgPtr));
+                    if(!mid)
+                    {
+                        break; /* don't send message, filtered out */
+                    }/* end if */
+                    CFE_SB_SetMsgId(SBMsgPtr, mid);
+                }/* end if */
                 SBN_SendNetMsg(SBN_APP_MSG,
                     CFE_SB_GetTotalMsgLength(SBMsgPtr),
                     (SBN_Payload_t *)SBMsgPtr, PeerIdx);
@@ -405,6 +462,16 @@ static int Init(void)
             "failed to subscribe to command pipe (%d)", (int)Status);
         return SBN_ERROR;
     }/* end if */
+
+    Status = SBN_LoadTables(&SBN.TableHandle);
+    if (Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN failed to load SBN.RemapTable (%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    CFE_TBL_GetAddress((void **)&SBN.RemapTable, SBN.TableHandle);
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "initialized (CFE_CPU_NAME='%s' CFE_CPU_ID=%d %s SBN.AppId=%d...",

@@ -352,6 +352,36 @@ int32 SBN_CheckSubscriptionPipe(void)
     return RecvSub;
 }/* end SBN_CheckSubscriptionPipe */
 
+static void ProcessSubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId,
+    CFE_SB_Qos_t Qos)
+{   
+    int idx = 0, FirstOpenSlot = SBN.Hk.PeerStatus[PeerIdx].SubCount;
+    uint32 Status = CFE_SUCCESS;
+    
+    /* if msg id already in the list, ignore */
+    if(IsPeerSubMsgId(&idx, MsgId, PeerIdx))
+    {   
+        return;
+    }/* end if */
+
+    
+    /* SubscribeLocal suppresses the subscription report */
+    Status = CFE_SB_SubscribeLocal(MsgId, SBN.Peers[PeerIdx].Pipe,
+            SBN_DEFAULT_MSG_LIM);
+    if(Status != CFE_SUCCESS)
+    {   
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
+            "Unable to subscribe to MID 0x%04X", htons(MsgId));
+        return;
+    }/* end if */
+    
+    /* log the subscription in the peer table */ 
+    SBN.Peers[PeerIdx].Subs[FirstOpenSlot].MsgId = MsgId;
+    SBN.Peers[PeerIdx].Subs[FirstOpenSlot].Qos = Qos;
+    
+    SBN.Hk.PeerStatus[PeerIdx].SubCount++;
+}/* end ProcessSubFromPeer */
+
 /**
  * \brief Process a subscription message from a peer.
  *
@@ -360,10 +390,9 @@ int32 SBN_CheckSubscriptionPipe(void)
  */
 void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
 {
-    int FirstOpenSlot = 0, idx = 0;
+    int idx = 0, RemappedFlag = 0;
     CFE_SB_MsgId_t MsgId;
     CFE_SB_Qos_t Qos;
-    uint32 Status = CFE_SUCCESS;
 
     DEBUG_START();
 
@@ -385,54 +414,38 @@ void SBN_ProcessSubFromPeer(int PeerIdx, void *Msg)
 
     UnPackSub(Msg, &MsgId, &Qos);
 
-    /* if msg id already in the list, ignore */
-    if(IsPeerSubMsgId(&idx, MsgId, PeerIdx))
+    /*****
+     * For each subscription, if there's a remap that would generate that
+     * MID, I need to subscribe locally to the "from". Usually this will
+     * only be one "from" but it's possible that multiple "from"s map to
+     * the same "to". Note will shortcut if there's no table.
+     */
+    for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {
-        return;
-    }/* end if */
+        if(SBN.RemapTable->Entry[idx].ProcessorId == SBN.Hk.PeerStatus[PeerIdx].ProcessorId && SBN.RemapTable->Entry[idx].to == MsgId)
+        {
+            ProcessSubFromPeer(PeerIdx, SBN.RemapTable->Entry[idx].from, Qos);
+            RemappedFlag = 1;
+        }/* end if */
+    }/* end for */
 
-    /* SubscribeLocal suppresses the subscription report */
-    Status = CFE_SB_SubscribeLocal(MsgId, SBN.Peers[PeerIdx].Pipe,
-            SBN_DEFAULT_MSG_LIM);
-    if(Status != CFE_SUCCESS)
+    /* if there's no remap ID's, subscribe to the original MID. */
+    if(!RemappedFlag)
     {
-        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
-            "cannot subscribe to peer message id (MsgId=0x%04X Status=%d)",
-            htons(MsgId), (int)Status);
-        return;
+        ProcessSubFromPeer(PeerIdx, MsgId, Qos);
     }/* end if */
-    FirstOpenSlot = SBN.Hk.PeerStatus[PeerIdx].SubCount;
-
-    /* log the subscription in the peer table */
-    SBN.Peers[PeerIdx].Subs[FirstOpenSlot].MsgId = MsgId;
-    SBN.Peers[PeerIdx].Subs[FirstOpenSlot].Qos = Qos;
-
-    SBN.Hk.PeerStatus[PeerIdx].SubCount++;
 }/* SBN_ProcessSubFromPeer */
 
-/**
- * \brief Process an unsubscription message from a peer.
- *
- * @param[in] PeerIdx The peer index (in SBN.Peer)
- * @param[in] Msg The unsubscription SBN message.
- */
-void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
+static void ProcessUnsubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId)
 {
     int i = 0, idx = 0;
-    CFE_SB_MsgId_t MsgId = 0x0000;
-    CFE_SB_Qos_t Qos;
-    int32 Status = CFE_SUCCESS;
+    uint32 Status = CFE_SUCCESS;
 
-    DEBUG_START();
-
-    UnPackSub(Msg, &MsgId, &Qos);
-
-    if(!IsPeerSubMsgId(&idx, MsgId, PeerIdx))
+    if(IsPeerSubMsgId(&idx, MsgId, PeerIdx))
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-            "cannot process unsubscription from %s, "
-            "message id not found (MsgId=0x%04X)",
-            SBN.Hk.PeerStatus[PeerIdx].Name, htons(MsgId));
+            "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
+            CFE_CPU_NAME, SBN.Hk.PeerStatus[PeerIdx].Name, htons(MsgId));
         return;
     }/* end if */
 
@@ -443,7 +456,8 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
     */
     for(i = idx; i < SBN.Hk.PeerStatus[PeerIdx].SubCount; i++)
     {
-        CFE_PSP_MemCpy(&SBN.Peers[PeerIdx].Subs[i], &SBN.Peers[PeerIdx].Subs[i + 1],
+        CFE_PSP_MemCpy(&SBN.Peers[PeerIdx].Subs[i],
+            &SBN.Peers[PeerIdx].Subs[i + 1],
             sizeof(SBN_Subs_t));
     }/* end for */
 
@@ -454,11 +468,51 @@ void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
     Status = CFE_SB_UnsubscribeLocal(MsgId, SBN.Peers[PeerIdx].Pipe);
     if(Status != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-            "cannot process unsubscription (MsgId=0x%04X)",
-            htons(MsgId));
+        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
+            "Unable to unsubscribe from MID 0x%04X", htons(MsgId));
+        return;
     }/* end if */
-}/* SBN_ProcessUnsubFromPeer */
+}/* end ProcessUnsubFromPeer */
+
+/**
+ * \brief Process an unsubscription message from a peer.
+ *
+ * @param[in] PeerIdx The peer index (in SBN.Peer)
+ * @param[in] Msg The unsubscription SBN message.
+ */
+void SBN_ProcessUnsubFromPeer(int PeerIdx, void *Msg)
+{
+    int idx = 0, RemappedFlag = 0;
+    CFE_SB_MsgId_t MsgId = 0x0000;
+    CFE_SB_Qos_t Qos;
+
+    DEBUG_START();
+
+    UnPackSub(Msg, &MsgId, &Qos);
+
+    /*****
+     * For each subscription, if there's a remap that would generate that
+     * MID, I need to unsubscribe locally to the "from". Usually this will
+     * only be one "from" but it's possible that multiple "from"s map to
+     * the same "to". Note will shortcut if there's no remap table.
+     */
+    for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
+    {   
+        if(SBN.RemapTable->Entry[idx].ProcessorId
+                == SBN.Hk.PeerStatus[PeerIdx].ProcessorId
+            && SBN.RemapTable->Entry[idx].to == MsgId)
+        {   
+            ProcessUnsubFromPeer(PeerIdx, SBN.RemapTable->Entry[idx].from);
+            RemappedFlag = 1;
+        }/* end if */
+    }/* end for */
+      
+    /* if there's no remap ID's, subscribe to the original MID. */
+    if(!RemappedFlag)
+    {   
+        ProcessUnsubFromPeer(PeerIdx, MsgId);
+    }/* end if */
+}/* end SBN_ProcessUnsubFromPeer */
 
 /**
  * When SBN starts, it queries for all existing subscriptions. This method
