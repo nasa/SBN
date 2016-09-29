@@ -194,7 +194,7 @@ int32 SBN_ReadModuleFile(void)
 
     OS_close(ModuleFile);
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_ReadModuleFile */
 
 /**
@@ -204,7 +204,7 @@ int32 SBN_ReadModuleFile(void)
  * @param[in] FileEntry  Interface description line as read from file
  * @param[in] LineNum    The line number in the module file
 
- * @return  SBN_OK on success, SBN_ERROR on error
+ * @return  SBN_SUCCESS on success, SBN_ERROR on error
  */
 int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 {
@@ -259,6 +259,6 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
         ModuleFile);
     SBN.IfOps[ProtocolId] = (SBN_InterfaceOperations_t *)StructAddr;
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_ParseModuleEntry */
 #endif /* _osapi_confloader_ */

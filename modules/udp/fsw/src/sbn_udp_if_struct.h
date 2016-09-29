@@ -6,7 +6,7 @@
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
 
-#define SBN_UDP_ITEMS_PER_FILE_LINE 3
+#define SBN_UDP_ITEMS_PER_FILE_LINE 2
 
 typedef struct
 {

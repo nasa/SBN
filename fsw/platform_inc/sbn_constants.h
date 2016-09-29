@@ -23,14 +23,14 @@
 #ifndef _sbn_constants_h_
 #define _sbn_constants_h_
 
-#define SBN_OK                        0
+#define SBN_SUCCESS                   0
 #define SBN_ERROR                     (-1)
 #define SBN_IF_EMPTY                  (-2)
 #define SBN_NOT_IMPLEMENTED           (-3)
 
 #define SBN_MAX_MSG_SIZE              1400
 #define SBN_MAX_SUBS_PER_PEER         256 
-#define SBN_MAX_PEERNAME_LENGTH       8
+#define SBN_MAX_PEERNAME_LENGTH       32
 #define SBN_DONT_CARE                 0
 #define SBN_MAX_PEER_PRIORITY         16
 

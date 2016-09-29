@@ -212,8 +212,7 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(!SBN.Hk.PeerStatus[PeerIdx].InUse
-            || SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
+        if(SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
         {
             continue;
         }/* end if */
@@ -267,8 +266,7 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
     /* only if no more local subs (InUseCtr = 0)  */
     for(PeerIdx = 0; PeerIdx < SBN_MAX_NETWORK_PEERS; PeerIdx++)
     {
-        if(!SBN.Hk.PeerStatus[PeerIdx].InUse
-            || SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
+        if(SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
         {
             continue;
         }/* end if */

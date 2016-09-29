@@ -250,8 +250,7 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
     SBN.Hk.CmdCount++;
     
     if(SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->ResetPeer(
-            SBN.Peers[PeerIdx].If, SBN.Hosts, SBN.Hk.HostCount)
-        == SBN_NOT_IMPLEMENTED)
+        &SBN.Peers[PeerIdx]) == SBN_NOT_IMPLEMENTED)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID,
             CFE_EVS_INFORMATION,

@@ -6,7 +6,7 @@
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
 
-#define SBN_TCP_ITEMS_PER_FILE_LINE 3
+#define SBN_TCP_ITEMS_PER_FILE_LINE 2
 
 typedef struct /* stashed in the SBN InterfacePvt buffer */
 {
@@ -18,13 +18,13 @@ typedef struct /* stashed in the SBN InterfacePvt buffer */
 
 typedef struct
 {
+    SBN_TCP_Entry_t *EntryPtr;
     uint8 ConnectedFlag;
 #ifdef OS_NET_IMPL
     int NetID;
 #else /* !OS_NET_IMPL */
     int Socket;
 #endif /* OS_NET_IMPL */
-    SBN_TCP_Entry_t *EntryPtr;
 } SBN_TCP_Host_t;
 
 typedef struct

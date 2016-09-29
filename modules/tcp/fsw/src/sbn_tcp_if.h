@@ -7,34 +7,27 @@
 
 #ifdef _osapi_confloader_
 
-int SBN_TCP_LoadEntry(const char **, int, void *);
+int SBN_TCP_LoadEntry(const char **Row, int RowCount, void *EntryBuffer);
 
 #else /* ! _osapi_confloader_ */
 
-int SBN_TCP_ParseFileEntry(char *, uint32, void *);
+int SBN_TCP_ParseFileEntry(char *Line, uint32 LineNum, void *EntryBuffer);
 
 #endif /* _osapi_confloader_ */
 
-int SBN_TCP_Init(SBN_Interface_t* data);
+int SBN_TCP_InitHost(SBN_HostInterface_t *Host);
 
-int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
+int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer);
+
+int SBN_TCP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg);
 
-int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
+int SBN_TCP_Recv(SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr, 
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf);
 
-int SBN_TCP_VerifyPeerInterface(SBN_Interface_t *Peer,
-    SBN_Interface_t *HostList[], int HostCount);
+int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
-int SBN_TCP_VerifyHostInterface(SBN_Interface_t *Host,
-    SBN_Peer_t *PeerList, int PeerCount);
-
-int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet,
-    SBN_Interface_t *Peer, SBN_Interface_t *HostList[],
-    int HostCount);
-
-int SBN_TCP_ResetPeer(SBN_Interface_t *Peer, SBN_Interface_t *HostList[],
-    int HostCount);
+int SBN_TCP_ResetPeer(SBN_PeerInterface_t *Peer);
 
 SBN_InterfaceOperations_t SBN_TCP_Ops =
 {
@@ -43,11 +36,10 @@ SBN_InterfaceOperations_t SBN_TCP_Ops =
 #else /* ! _osapi_confloader_ */
     SBN_TCP_ParseFileEntry,
 #endif /* _osapi_confloader_ */
-    SBN_TCP_Init,
+    SBN_TCP_InitHost,
+    SBN_TCP_InitPeer,
     SBN_TCP_Send,
     SBN_TCP_Recv,
-    SBN_TCP_VerifyPeerInterface,
-    SBN_TCP_VerifyHostInterface,
     SBN_TCP_ReportModuleStatus,
     SBN_TCP_ResetPeer
 };

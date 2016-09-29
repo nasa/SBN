@@ -25,16 +25,24 @@ typedef uint32 SBN_CpuId_t;
  */
 typedef struct
 {
-    uint8 MsgSizeBuf[sizeof(SBN_MsgSize_t)]; /**< \brief Size of payload not including SBN header */
-    uint8 MsgTypeBuf[sizeof(SBN_MsgType_t)]; /**< \brief Type of SBN message */
-    uint8 CpuIdBuf[sizeof(SBN_CpuId_t)]; /**< \brief CpuId of sender */
+    /** \brief Size of payload not including SBN header */
+    uint8 MsgSizeBuf[sizeof(SBN_MsgSize_t)];
+
+    /** \brief Type of SBN message */
+    uint8 MsgTypeBuf[sizeof(SBN_MsgType_t)];
+
+    /** \brief CpuId of sender */
+    uint8 CpuIdBuf[sizeof(SBN_CpuId_t)];
 }
 SBN_PackedHdr_t;
 
 typedef struct
 {
-    uint8 MsgId[sizeof(CFE_SB_MsgId_t)]; /**< \brief CCSDS MsgID of sub */
-    uint8 Qos[sizeof(CFE_SB_Qos_t)]; /**< \brief CCSDS Qos of sub */
+    /** \brief CCSDS MsgID of sub */
+    uint8 MsgId[sizeof(CFE_SB_MsgId_t)];
+
+    /** \brief CCSDS Qos of sub */
+    uint8 Qos[sizeof(CFE_SB_Qos_t)];
 }
 SBN_PackedSub_t;
 
@@ -63,16 +71,6 @@ typedef struct
 }
 SBN_PackedMsg_t;
 
-typedef struct {
-    char   Name[SBN_MAX_PEERNAME_LENGTH];
-    int    ProtocolId;      /**< \brief from SbnPeerData.dat file */
-    uint32 ProcessorId;     /**< \brief from SbnPeerData.dat file */
-    uint32 SpaceCraftId;    /**< \brief from SbnPeerData.dat file */
-    uint8  QoS;             /**< \brief from SbnPeerData.dat file */
-    uint8  IsValid;         /**< \brief used by interfaces that require a match - 1 if match exists, 0 if not */
-    uint8  InterfacePvt[128]; /**< \brief generic blob of bytes, interface-specific */
-} SBN_Interface_t;
-
 /**
  * \brief Used by modules to pack messages to send.
  * \param SBNMsgBuf[out] The buffer pointer to receive the packed message.
@@ -96,11 +94,22 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *Msg);
 
 typedef struct {
-    CFE_SB_PipeId_t   Pipe;
-    char              PipeName[OS_MAX_API_NAME];
-    SBN_Subs_t        Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
-    SBN_Interface_t   *If;
-} SBN_Peer_t;
+    SBN_HostStatus_t *Status;
+
+    /** \brief generic blob of bytes, interface-specific */
+    uint8  InterfacePvt[128];
+} SBN_HostInterface_t;
+
+typedef struct {
+    SBN_PeerStatus_t *Status;
+
+    CFE_SB_PipeId_t Pipe;
+    char PipeName[OS_MAX_API_NAME];
+    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
+
+    /** \brief generic blob of bytes, interface-specific */
+    uint8 InterfacePvt[128];
+} SBN_PeerInterface_t;
 
 /**
  * This structure contains function pointers to interface-specific versions
@@ -108,32 +117,40 @@ typedef struct {
  * structure that points to the approprate functions for that interface.
  */
 typedef struct {
+#ifdef _osapi_confloader_
+    int (*Load)(const char **, int, void *);
+#else /* ! _osapi_confloader_ */
     /**
      * Parses a peer data file line into an interface-specific entry structure.
      * Information that is common to all interface types is captured in the SBN
      * and may be captured here or not, at the discretion of the interface
      * developer.
      *
-     * @param char*   Interface description line as read from file
-     * @param uint32  The line number in the peer file
-     * @param void*   The address of the entry struct to be loaded
-     * @return SBN_OK if entry is parsed correctly, SBN_ERROR otherwise
+     * @param Line Interface description line as read from file
+     * @param LineNum The line number in the peer file
+     * @param EntryBuffer The address of the entry struct to be loaded
+     * @return SBN_SUCCESS if entry is parsed correctly, SBN_ERROR otherwise
      */
-#ifdef _osapi_confloader_
-    int (*Load)(const char **, int, void *);
-#else /* ! _osapi_confloader_ */
-    int (*Parse)(char *, uint32, void *);
+    int (*Parse)(char *Line, uint32 LineNum, void *EntryBuffer);
 #endif /* _osapi_confloader_ */
 
     /**
-     * Initializes the interface, classifies each interface based as a host
-     * or a peer.  Hosts are those interfaces that are on the current CPU.
+     * Initializes the host interface.
      *
-     * @param SBN_Interface_t * Struct pointer describing a single interface
-     * @return SBN_HOST if the interface is a host, SBN_PEER if a peer,
+     * @param Host Struct pointer describing a single interface
+     * @return SBN_SUCCESS on successful initialization
      *         SBN_ERROR otherwise
      */
-    int (*Init)(SBN_Interface_t *);
+    int (*InitHost)(SBN_HostInterface_t *Host);
+
+    /**
+     * Initializes the peer interface.
+     *
+     * @param Peer The peer interface to initialize
+     * @return SBN_SUCCESS on successful initialization
+     *         SBN_ERROR otherwise
+     */
+    int (*InitPeer)(SBN_PeerInterface_t *Peer);
 
     /**
      * Sends a message to a peer over the specified interface.
@@ -142,55 +159,29 @@ typedef struct {
      * un/subscriptions and app messages.  The protocol message buffer is used
      * for announce and heartbeat messages/acks.
      *
-     * @param SBN_Interface_t *     Interface data describing the
-     *                              intended peer recipient
-     * @param SBN_MsgType_t         The SBN message type
-     * @param SBN_MsgSize_t         The size of the SBN message payload
-     * @param SBN_Payload_t *       The SBN message payload
-     * @return  Number of bytes sent on success, SBN_ERROR on error
+     * @param Peer Interface data describing the intended peer recipient
+     * @param MsgType The SBN message type
+     * @param MsgSize The size of the SBN message payload
+     * @param Payload The SBN message payload
+     * @return Number of bytes sent on success, -1 on error
      */
-    int (*Send)(SBN_Interface_t *,
-        SBN_MsgType_t, SBN_MsgSize_t, SBN_Payload_t *);
-
+    int (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+        SBN_MsgSize_t MsgSize, SBN_Payload_t *Payload);
 
     /**
      * Receives a data message from the specified interface.
      *
-     * @param SBN_Interface_t *     Peer interface from which to receive a
-     *                              message
-     * @param SBN_MsgType_t *       SBN message type received.
-     * @param SBN_MsgSize_t *       Payload size received.
-     * @param SBN_CpuId_t *         CpuId of the sender.
-     * @param SBN_Payload_t *       Payload buffer
-     *                              (pass in a buffer of SBN_MAX_MSG_SIZE)
-     * @return SBN_OK on success, SBN_ERROR on failure
+     * @param Peer Peer interface from which to receive a message
+     * @param MsgTypePtr SBN message type received.
+     * @param MsgSizePtr Payload size received.
+     * @param CpuIdPtr CpuId of the sender.
+     * @param PayloadBuffer Payload buffer
+     *                      (pass in a buffer of SBN_MAX_MSG_SIZE)
+     * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
-    int (*Recv)(SBN_Interface_t *, SBN_MsgType_t *,
-        SBN_MsgSize_t *, SBN_CpuId_t *, SBN_Payload_t *);
-
-    /**
-     * Iterates through the list of all host interfaces to see if there is a
-     * match for the specified peer interface.  This function must be present,
-     * but can return SBN_VALID for interfaces that don't require a match.
-     *
-     * @param SBN_Interface_t *      Peer to verify
-     * @param SBN_Interface_t *[]    List of hosts to check against the peer
-     * @param int                    Number of hosts in the SBN
-     * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
-     */
-    int (*VerifyPeer)(SBN_Interface_t *, SBN_Interface_t *[], int);
-
-    /**
-     * Iterates through the list of all peer interfaces to see if there is a
-     * match for the specified host interface.  This function must be present,
-     * but can return SBN_VALID for interfaces that don't require a match.
-     *
-     * @param SBN_Interface_t *      Host to verify
-     * @param SBN_Peer_t *           List of peers to check against the host
-     * @param int                    Number of peers in the SBN
-     * @return SBN_VALID if the required match exists, SBN_NOT_VALID if not
-     */
-    int (*VerifyHost)(SBN_Interface_t *, SBN_Peer_t *, int);
+    int (*Recv)(SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr,
+        SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr,
+        SBN_Payload_t *PayloadBuffer);
 
     /**
      * Reports the status of the module.  The status can be in a module-specific
@@ -199,31 +190,27 @@ typedef struct {
      * initialized (with message ID and size), the module fills it, and upon
      * return the SBN application sends the message over the software bus.
      *
-     * @param SBN_ModuleStatusPacket_t *  Status packet to fill
-     * @param SBN_Interface_t *           Peer to report status
-     * @param SBN_Interface_t *[]         List of hosts that may match with peer
-     * @param int                         Number of hosts in the SBN
+     * @param Buffer Status packet to fill
+     * @param Peer Peer to report status
+     *
      * @return SBN_NOT_IMPLEMENTED if the module does not implement this
      *         function
-     *         SBN_OK otherwise
+     *         SBN_SUCCESS otherwise
      */
-    int (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *,
-        SBN_Interface_t *, SBN_Interface_t *[], int);
+    int (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *Buffer);
 
     /**
      * Resets a specific peer.
      * This function must be present, but can simply return SBN_NOT_IMPLEMENTED
      * if it is not used by or not applicable to a module.
      *
-     * @param SBN_Interface_t *           Peer to report status
-     * @param SBN_Interface_t *[]         List of hosts that may match with peer
-     * @param int                         Number of hosts in the SBN
-     * @return  SBN_OK when the peer is reset correcly
+     * @param Peer Peer to report status
+     * @return  SBN_SUCCESS when the peer is reset correcly
      *          SBN_ERROR if the peer cannot be reset
      *          SBN_NOT_IMPLEMENTED if the module does not implement this
      *          function
      */
-    int (*ResetPeer)(SBN_Interface_t *, SBN_Interface_t *[], int);
+    int (*ResetPeer)(SBN_PeerInterface_t *Peer);
 
 } SBN_InterfaceOperations_t;
 

@@ -9,43 +9,36 @@
 
 #ifdef _osapi_confloader_
 
-int SBN_TCP_LoadEntry(const char **row, int fieldcount, void *entryptr)
+int SBN_TCP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
 {
-    SBN_TCP_Entry_t *entry = (SBN_TCP_Entry_t *)entryptr;
+    SBN_TCP_Entry_t *Entry = (SBN_TCP_Entry_t *)EntryBuffer;
 
-    if(fieldcount < SBN_TCP_ITEMS_PER_FILE_LINE)
+    if(FieldCount < SBN_TCP_ITEMS_PER_FILE_LINE)
     {
         return SBN_ERROR;
     }/* end if */
 
-    entry->NetworkNumber = atoi(row[0]);
-    if(entry->NetworkNumber < 0
-        || entry->NetworkNumber >= SBN_MAX_NETWORK_PEERS)
-    {
-        return SBN_ERROR;
-    }/* end if */
+    strncpy(Entry->Host, Row[0], sizeof(Entry->Host));
+    Entry->Port = atoi(Row[1]);
 
-    strncpy(entry->Host, row[1], sizeof(entry->Host));
-    entry->Port = atoi(row[2]);
-
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_LoadEntry */
 
 #else /* ! _osapi_confloader_ */
 
-int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
+int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryBuffer)
 {
-    SBN_TCP_Entry_t *entry = (SBN_TCP_Entry_t *)entryptr;
+    SBN_TCP_Entry_t *Entry = (SBN_TCP_Entry_t *)EntryBuffer;
 
     int ScanfStatus = 0;
     char Host[16];
-    int Port = 0, NetworkNumber = 0;
+    int Port = 0;
 
     /*
      * Using sscanf to parse the string.
      * Currently no error handling
      */
-    ScanfStatus = sscanf(FileEntry, "%d %s %d", &NetworkNumber, Host, &Port);
+    ScanfStatus = sscanf(FileEntry, "%16s %d", Host, &Port);
 
     /*
      * Check to see if the correct number of items were parsed
@@ -58,16 +51,10 @@ int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
         return SBN_ERROR;
     }/* end if */
 
-    if(NetworkNumber < 0 || NetworkNumber >= SBN_MAX_NETWORK_PEERS)
-    {
-        return SBN_ERROR;
-    }/* end if */
+    strncpy(Entry->Host, Host, sizeof(Entry->Host));
+    Entry->Port = Port;
 
-    entry->NetworkNumber = NetworkNumber;
-    strncpy(entry->Host, Host, sizeof(entry->Host));
-    entry->Port = Port;
-
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_ParseFileEntry */
 
 #endif /* _osapi_confloader_ */
@@ -77,12 +64,12 @@ int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *entryptr)
  * CPU name.
  *
  * @param  Interface data structure containing the file entry
- * @return SBN_OK on success, error code otherwise
+ * @return SBN_SUCCESS on success, error code otherwise
  */
-int SBN_TCP_Init(SBN_Interface_t *Data)
+int SBN_TCP_InitHost(SBN_HostInterface_t *HostPtr)
 {
     SBN_TCP_Entry_t *Entry
-        = (SBN_TCP_Entry_t *)Data->InterfacePvt;
+        = (SBN_TCP_Entry_t *)HostPtr->InterfacePvt;
     SBN_TCP_Network_t *Network = NULL;
 
     if(!SBN_TCP_ModuleDataInitialized)
@@ -93,110 +80,122 @@ int SBN_TCP_Init(SBN_Interface_t *Data)
 
     Network = &SBN_TCP_ModuleData.Networks[Entry->NetworkNumber];
 
-    if(Data->ProcessorId == CFE_CPU_ID)
-    {
-        Network->Host.EntryPtr = Entry;
-        /* CPU id match - this is host data.
-         * Create msg interface when we find entry matching its own name
-         * because the self entry has port info needed to bind this interface.
-         */
-        /* create, fill, and store an TCP-specific host data structure */
+    Network->Host.EntryPtr = Entry;
 
 #ifdef OS_NET_IMPL
 
-        int32 NetID = 0;
-        OS_NetAddr_t Addr;
-        OS_NetAddrInit(&Addr, OS_NET_DOMAIN_INET4);
-        OS_NetAddrSetHost(&Addr, Entry->Host);
-        OS_NetAddrSetPort(&Addr, Entry->Port);
+    int32 NetID = 0;
+    OS_NetAddr_t Addr;
+    OS_NetAddrInit(&Addr, OS_NET_DOMAIN_INET4);
+    OS_NetAddrSetHost(&Addr, Entry->Host);
+    OS_NetAddrSetPort(&Addr, Entry->Port);
 
-        Network->Host.NetID = 0;
+    Network->Host.NetID = 0;
 
-        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
-            "creating network connection for %s:%d", Entry->Host, Entry->Port);
+    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
+        "creating network connection for %s:%d", Entry->Host, Entry->Port);
 
-        if((NetID = OS_NetOpen(
-            OS_NET_DOMAIN_INET4, OS_NET_TYPE_STREAM)) < 0)
-        {
-            CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "unable to open socket (errno=%d)", errno);
-            return SBN_ERROR;
-        }/* end if*/
+    if((NetID = OS_NetOpen(
+        OS_NET_DOMAIN_INET4, OS_NET_TYPE_STREAM)) < 0)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "unable to open socket (errno=%d)", errno);
+        return SBN_ERROR;
+    }/* end if*/
 
-        if(OS_NetBind(NetID, &Addr) != OS_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "unable to bind socket (%s:%d errno=%d)",
-                Entry->Host, Entry->Port, errno);
-            return SBN_ERROR;
-        }/* end if */
+    if(OS_NetBind(NetID, &Addr) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "unable to bind socket (%s:%d errno=%d)",
+            Entry->Host, Entry->Port, errno);
+        return SBN_ERROR;
+    }/* end if */
 
-        if(OS_NetListen(Network->Host.NetID, SBN_MAX_NETWORK_PEERS))
-        {
-            CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "unable to set listen queue (errno=%d)", errno);
-            return SBN_ERROR;
-        }/* end if */
+    if(OS_NetListen(Network->Host.NetID, SBN_MAX_NETWORK_PEERS))
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "unable to set listen queue (errno=%d)", errno);
+        return SBN_ERROR;
+    }/* end if */
 
-        Network->Host.NetID = NetID;
+    Network->Host.NetID = NetID;
 
 #else /* !OS_NET_IMPL */
 
-        struct sockaddr_in my_addr;
-        int OptVal = 0;
+    struct sockaddr_in my_addr;
+    int OptVal = 0;
 
-        Network->Host.Socket = 0;
-        int Socket = 0;
+    Network->Host.Socket = 0;
+    int Socket = 0;
 
-        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
-            "creating socket for %s:%d", Entry->Host, Entry->Port);
+    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
+        "creating socket for %s:%d", Entry->Host, Entry->Port);
 
-        if((Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-        {
-            CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "unable to create socket (errno=%d)", Socket, errno);
-            return SBN_ERROR;
-        }/* end if */
+    if((Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "unable to create socket (errno=%d)", Socket, errno);
+        return SBN_ERROR;
+    }/* end if */
 
-        OptVal = 1;
-        setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR,
-            (const void *)&OptVal, sizeof(int));
+    OptVal = 1;
+    setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR,
+        (const void *)&OptVal, sizeof(int));
 
-        my_addr.sin_addr.s_addr = inet_addr(Entry->Host);
-        my_addr.sin_family = AF_INET;
-        my_addr.sin_port = htons(Entry->Port);
+    my_addr.sin_addr.s_addr = inet_addr(Entry->Host);
+    my_addr.sin_family = AF_INET;
+    my_addr.sin_port = htons(Entry->Port);
 
-        if(bind(Socket, (struct sockaddr *) &my_addr,
-            sizeof(my_addr)) < 0)
-        {
-            close(Socket);
-            CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "bind call failed (%s:%s Socket=%d errno=%d)",
-                Entry->Host, Entry->Port, Socket, errno);
-            return SBN_ERROR;
-        }/* end if */
+    if(bind(Socket, (struct sockaddr *) &my_addr,
+        sizeof(my_addr)) < 0)
+    {
+        close(Socket);
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "bind call failed (%s:%s Socket=%d errno=%d)",
+            Entry->Host, Entry->Port, Socket, errno);
+        return SBN_ERROR;
+    }/* end if */
 
-        if(listen(Socket, SBN_MAX_NETWORK_PEERS) < 0)
-        {
-            close(Socket);
-            CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                "listen call failed (%s:%d Socket=%d errno=%d)",
-                Entry->Host, Entry->Port, Socket, errno);
-            return SBN_ERROR;
-        }/* end if */
+    if(listen(Socket, SBN_MAX_NETWORK_PEERS) < 0)
+    {
+        close(Socket);
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "listen call failed (%s:%d Socket=%d errno=%d)",
+            Entry->Host, Entry->Port, Socket, errno);
+        return SBN_ERROR;
+    }/* end if */
 
-        Network->Host.Socket = Socket;
-
+    Network->Host.Socket = Socket;
 #endif /* OS_NET_IMPL */
 
-        return SBN_HOST;
-    }
+    return SBN_SUCCESS;
+}/* end SBN_TCP_Init */
 
-    /* not me, it's a peer */
+/**
+ * Initializes an TCP peer.
+ *
+ * @param  Interface data structure containing the file entry
+ * @return SBN_SUCCESS on success, error code otherwise
+ */
+int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
+{
+    SBN_TCP_Entry_t *Entry
+        = (SBN_TCP_Entry_t *)Peer->InterfacePvt;
+    SBN_TCP_Network_t *Network = NULL;
+
+    if(!SBN_TCP_ModuleDataInitialized)
+    {
+        CFE_PSP_MemSet(&SBN_TCP_ModuleData, 0, sizeof(SBN_TCP_ModuleData));
+        SBN_TCP_ModuleDataInitialized = 1;
+    }/* end if */
+
+    Network = &SBN_TCP_ModuleData.Networks[Entry->NetworkNumber];
+
     Entry->PeerNumber = Network->PeerCount++;
     Network->Peers[Entry->PeerNumber].EntryPtr = Entry;
 
-    Network->Peers[Entry->PeerNumber].ConnectOut = (Data->ProcessorId > CFE_CPU_ID);
+    Network->Peers[Entry->PeerNumber].ConnectOut =
+        (Peer->Status->ProcessorId > CFE_PSP_GetProcessorId());
 
     return SBN_PEER;
 }/* end SBN_TCP_Init */
@@ -283,7 +282,7 @@ static int GetPeerNetID(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
     }/* end if */
 }/* end GetPeerNetID */
 
-int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
+int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -295,7 +294,7 @@ int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
     if (PeerNetID < 0)
     {
         /* fail silently as the peer is not connected (yet) */
-        return SBN_OK;
+        return SBN_SUCCESS;
     }/* end if */
 
     SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
@@ -308,10 +307,10 @@ int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
         return SBN_ERROR;
     }/* end if */
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_Send */
 
-int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
+int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -384,7 +383,7 @@ int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     Peer->ReceivingBody = 0;
     Peer->RecvSize = 0;
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_Recv */
 
 #else /* !OS_NET_IMPL */
@@ -485,7 +484,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
     }/* end if */
 }/* end GetPeerSocket */
 
-int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
+int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -496,16 +495,16 @@ int SBN_TCP_Send(SBN_Interface_t *PeerInterface, SBN_MsgType_t MsgType,
     if (Socket < 0)
     {
         /* fail silently as the peer is not connected (yet) */
-        return SBN_OK;
+        return SBN_SUCCESS;
     }/* end if */
 
     SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
     send(Socket, &Network->SendBuf, MsgSize + SBN_PACKED_HDR_SIZE, 0);
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_Send */
 
-int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
+int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
@@ -596,32 +595,17 @@ int SBN_TCP_Recv(SBN_Interface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     Peer->ReceivingBody = 0;
     Peer->RecvSize = 0;
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_Recv */
 
 #endif /* OS_NET_IMPL */
 
-int SBN_TCP_VerifyPeerInterface(SBN_Interface_t *Peer,
-    SBN_Interface_t *HostList[], int NumHosts)
-{
-    return TRUE;
-}/* end SBN_TCP_VerifyPeerInterface */
-
-int SBN_TCP_VerifyHostInterface(SBN_Interface_t *Host,
-    SBN_Peer_t *PeerList, int NumPeers)
-{
-    return TRUE;
-}/* end SBN_TCP_VerifyHostInterface */
-
-int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet,
-    SBN_Interface_t *Peer, SBN_Interface_t *HostList[],
-    int NumHosts)
+int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ReportModuleStatus */
 
-int SBN_TCP_ResetPeer(SBN_Interface_t *Peer,
-    SBN_Interface_t *HostList[], int NumHosts)
+int SBN_TCP_ResetPeer(SBN_PeerInterface_t *Peer)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ResetPeer */

@@ -43,17 +43,11 @@
  */
 typedef struct
 {
-    /** 
-     * \brief Interface definitions for all interfaces defined in the Peer
-     * configuration file.
-     */
-    SBN_Interface_t Ifs[SBN_MAX_NETWORK_PEERS*2];
-
     /** \brief Data only on host definitions. */
-    SBN_Interface_t *Hosts[SBN_MAX_NETWORK_PEERS];
+    SBN_HostInterface_t Hosts[SBN_MAX_NETWORK_PEERS];
 
     /** \brief Data only no devices that are not the host */
-    SBN_Peer_t Peers[SBN_MAX_NETWORK_PEERS];
+    SBN_PeerInterface_t Peers[SBN_MAX_NETWORK_PEERS];
 
     /** \brief The application ID provided by ES */
     uint32 AppId;
@@ -107,7 +101,7 @@ extern SBN_App_t SBN;
 ** Prototypes
 */
 void SBN_AppMain(void);
-int SBN_CreatePipe4Peer(int PeerIdx);
+int SBN_CreatePipe4Peer(SBN_PeerInterface_t *PeerInterface);
 void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     SBN_MsgSize_t MsgSize, void *Msg);
 int SBN_GetPeerIndex(uint32 ProcessorId);

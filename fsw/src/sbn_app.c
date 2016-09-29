@@ -186,9 +186,6 @@ static void RunProtocol(void)
 
     for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
     {
-        /* if peer data is not in use, go to next peer */
-        if(!SBN.Hk.PeerStatus[PeerIdx].InUse) continue;
-
         OS_GetLocalTime(&current_time);
 
         if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING)
@@ -367,8 +364,7 @@ static int WaitForSBStartup(void)
 /** \brief Initializes SBN */
 static int Init(void)
 {
-    int Status = CFE_SUCCESS,
-        PeerIdx = 0;
+    int Status = CFE_SUCCESS;
     uint32 TskId = 0;
 
     Status = CFE_ES_RegisterApp();
@@ -400,22 +396,7 @@ static int Init(void)
         return SBN_ERROR;
     }/* end if */
 
-    for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
-    {
-        int SubNumber = 0;
-        SBN.Hk.PeerStatus[PeerIdx].InUse = FALSE;
-        SBN.Hk.PeerStatus[PeerIdx].SubCount = 0;
-        for(SubNumber = 0; SubNumber < SBN_MAX_SUBS_PER_PEER; SubNumber++)
-        {
-            SBN.Peers[PeerIdx].Subs[SubNumber].InUseCtr = 0;
-        }/* end for */
-
-        SBN.Hk.SubCount = 0;
-    }/* end for */
-
     SBN_InitInterfaces();
-    SBN_VerifyPeers();
-    SBN_VerifyHosts();
 
     CFE_ES_GetAppID(&SBN.AppId);
 
@@ -474,8 +455,9 @@ static int Init(void)
     CFE_TBL_GetAddress((void **)&SBN.RemapTable, SBN.TableHandle);
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "initialized (CFE_CPU_NAME='%s' CFE_CPU_ID=%d %s SBN.AppId=%d...",
-        CFE_CPU_NAME, CFE_CPU_ID,
+        "initialized (CFE_CPU_NAME='%s' ProcessorId=%d SpacecraftId=%d %s "
+        "SBN.AppId=%d...",
+        CFE_CPU_NAME, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(),
 #ifdef SOFTWARE_BIG_BIT_ORDER
         "big-endian",
 #else /* !SOFTWARE_BIG_BIT_ORDER */
@@ -500,7 +482,7 @@ static int Init(void)
        requests */
     if(WaitForSBStartup()) SBN_SendSubsRequests();
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end Init */
 
 /** \brief SBN Main Routine */
@@ -523,9 +505,9 @@ void SBN_AppMain(void)
  * application will send to the peer.
  *
  * @param[in] PeerIdx The index of the peer.
- * @return SBN_OK on success, otherwise error code.
+ * @return SBN_SUCCESS on success, otherwise error code.
  */
-int SBN_CreatePipe4Peer(int PeerIdx)
+int SBN_CreatePipe4Peer(SBN_PeerInterface_t *PeerInterface)
 {
     int32   Status = 0;
     char    PipeName[OS_MAX_API_NAME];
@@ -533,8 +515,9 @@ int SBN_CreatePipe4Peer(int PeerIdx)
     DEBUG_START();
 
     /* create a pipe name string similar to SBN_CPU2_Pipe */
-    sprintf(PipeName, "SBN_%s_Pipe", SBN.Hk.PeerStatus[PeerIdx].Name);
-    Status = CFE_SB_CreatePipe(&SBN.Peers[PeerIdx].Pipe, SBN_PEER_PIPE_DEPTH,
+    snprintf(PipeName, OS_MAX_API_NAME, "SBN_%s_Pipe",
+        PeerInterface->Status->Name);
+    Status = CFE_SB_CreatePipe(&PeerInterface->Pipe, SBN_PEER_PIPE_DEPTH,
             PipeName);
 
     if(Status != CFE_SUCCESS)
@@ -545,12 +528,10 @@ int SBN_CreatePipe4Peer(int PeerIdx)
         return Status;
     }/* end if */
 
-    strncpy(SBN.Peers[PeerIdx].PipeName, PipeName, OS_MAX_API_NAME);
-
     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
         "pipe created '%s'", PipeName);
 
-    return SBN_OK;
+    return SBN_SUCCESS;
 }/* end SBN_CreatePipe4Peer */
 
 /**
@@ -658,11 +639,6 @@ int SBN_GetPeerIndex(uint32 ProcessorId)
 
     for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
     {
-        if(!SBN.Hk.PeerStatus[PeerIdx].InUse)
-        {
-            continue;
-        }/* end if */
-
         if(SBN.Hk.PeerStatus[PeerIdx].ProcessorId == ProcessorId)
         {
             return PeerIdx;
