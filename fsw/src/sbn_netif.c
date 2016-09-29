@@ -60,7 +60,7 @@ static int AddHost(uint8 ProtocolId, uint8 NetNum, void **InterfacePvtPtr)
     return SBN_SUCCESS;
 }/* end AddHost */
 
-static int AddPeer(char *Name, uint32 ProcessorId, uint8 ProtocolId,
+static int AddPeer(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
     uint32 SpacecraftId, uint8 QoS, uint8 NetNum, void **InterfacePvtPtr)
 {
     if(SBN.Hk.PeerCount >= SBN_MAX_NETWORK_PEERS)
@@ -92,7 +92,7 @@ static int AddPeer(char *Name, uint32 ProcessorId, uint8 ProtocolId,
     return SBN_SUCCESS;
 }/* end AddPeer */
 
-static int AddEntry(char *Name, uint32 ProcessorId, uint8 ProtocolId,
+static int AddEntry(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
     uint32 SpacecraftId, uint8 QoS, uint8 NetNum, void **InterfacePvtPtr)
 {
     if(SpacecraftId != CFE_PSP_GetSpacecraftId())
@@ -116,26 +116,26 @@ static int AddEntry(char *Name, uint32 ProcessorId, uint8 ProtocolId,
 #ifdef _osapi_confloader_
 /**
  * Handles a row's worth of fields from a configuration file.
- * @param[in] filename The filename of the configuration file currently being
+ * @param[in] FileName The FileName of the configuration file currently being
  *            processed.
- * @param[in] linenum The line number of the line being processed.
+ * @param[in] LineNum The line number of the line being processed.
  * @param[in] header The section header (if any) for the configuration file
  *            section.
- * @param[in] row The entries from the row.
- * @param[in] fieldcount The number of fields in the row array.
- * @param[in] opaque The opaque data passed through the parser.
+ * @param[in] Row The entries from the row.
+ * @param[in] FieldCount The number of fields in the row array.
+ * @param[in] Opaque The Opaque data passed through the parser.
  * @return OS_SUCCESS on successful loading of the configuration file row.
  */
-static int PeerFileRowCallback(const char *filename, int linenum,
-    const char *header, const char *row[], int fieldcount, void *opaque)
+static int PeerFileRowCallback(const char *Filename, int LineNum,
+    const char *Header, const char *Row[], int FieldCount, void *Opaque)
 {
     void *InterfacePvt = NULL;
     int Status = 0;
 
-    if(fieldcount < 4)
+    if(FieldCount < 4)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "too few fields (fieldcount=%d)", fieldcount);
+            "too few fields (FieldCount=%d)", FieldCount);
         return OS_SUCCESS;
     }/* end if */
 
@@ -146,18 +146,18 @@ static int PeerFileRowCallback(const char *filename, int linenum,
         return OS_ERROR;
     }/* end if */
 
-    char *Name = row[0];
+    const char *Name = Row[0];
     if(strlen(Name) >= SBN_MAX_PEERNAME_LENGTH)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "Processor name too long: %s (%d)", Name,
-            strlen(Name);
+            strlen(Name));
         return OS_ERROR;;
     }/* end if */
 
-    uint32 ProcessorId = atoi(row[1]); /* TODO: validate */
+    uint32 ProcessorId = atoi(Row[1]); /* TODO: validate */
 
-    uint8 ProtocolId = atoi(row[2]);
+    uint8 ProtocolId = atoi(Row[2]);
     if(ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
         || !SBN.IfOps[ProtocolId])
     {
@@ -167,16 +167,16 @@ static int PeerFileRowCallback(const char *filename, int linenum,
         return OS_SUCCESS;
     }/* end if */
 
-    uint32 SpacecraftId = atoi(row[3]); /* TODO: validate */
+    uint32 SpacecraftId = atoi(Row[3]); /* TODO: validate */
 
-    uint8 QoS = atoi(row[4]); /* TODO: validate */
+    uint8 QoS = atoi(Row[4]); /* TODO: validate */
 
-    uint8 NetNum = atoi(row[5]); /* TODO: validate */
+    uint8 NetNum = atoi(Row[5]); /* TODO: validate */
 
     if((Status = AddEntry(Name, ProcessorId, ProtocolId, SpacecraftId, QoS,
-        NetNum, &InterfacPvt)) == SBN_SUCCESS)
+        NetNum, &InterfacePvt)) == SBN_SUCCESS)
     {
-        Status = SBN.IfOps[ProtocolId]->Load(row + 5, fieldcount - 5,
+        Status = SBN.IfOps[ProtocolId]->Load(Row + 6, FieldCount - 6,
             InterfacePvt);
     }
 
@@ -186,15 +186,15 @@ static int PeerFileRowCallback(const char *filename, int linenum,
 /**
  * When the configuration file loader encounters an error, it will call this
  * function with details.
- * @param[in] filename The filename of the configuration file currently being
+ * @param[in] FileName The FileName of the configuration file currently being
  *            processed.
- * @param[in] linenum The line number of the line being processed.
- * @param[in] errmessage The textual description of the error.
- * @param[in] opaque The opaque data passed through the parser.
+ * @param[in] LineNum The line number of the line being processed.
+ * @param[in] ErrMessage The textual description of the error.
+ * @param[in] Opaque The Opaque data passed through the parser.
  * @return OS_SUCCESS
  */
-static int PeerFileErrCallback(const char *filename, int linenum,
-    const char *err, void *opaque)
+static int PeerFileErrCallback(const char *FileName, int LineNum,
+    const char *Err, void *Opaque)
 {
     return OS_SUCCESS;
 }/* end PeerFileErrCallback */

@@ -177,7 +177,7 @@ int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
         sizeof(my_addr)) < 0)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (%s:%s Socket=%d errno=%d)",
+            "bind call failed (%s:%d Socket=%d errno=%d)",
             Entry->Host, Entry->Port, Network->Host.Socket, errno);
         return SBN_ERROR;
     }/* end if */

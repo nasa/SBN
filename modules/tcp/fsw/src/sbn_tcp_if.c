@@ -134,7 +134,7 @@ int SBN_TCP_InitHost(SBN_HostInterface_t *HostPtr)
     if((Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
     {
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "unable to create socket (errno=%d)", Socket, errno);
+            "unable to create socket (errno=%d)", errno);
         return SBN_ERROR;
     }/* end if */
 
@@ -151,7 +151,7 @@ int SBN_TCP_InitHost(SBN_HostInterface_t *HostPtr)
     {
         close(Socket);
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (%s:%s Socket=%d errno=%d)",
+            "bind call failed (%s:%d Socket=%d errno=%d)",
             Entry->Host, Entry->Port, Socket, errno);
         return SBN_ERROR;
     }/* end if */
@@ -456,7 +456,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
                 {
                     CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
                         "unable to create socket (errno=%d)", errno);
-                    return;
+                    return -1;
                 }/* end if */
 
                 struct sockaddr_in ServerAddr;
