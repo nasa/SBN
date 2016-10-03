@@ -576,52 +576,6 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, void *Msg,
     return status;
 }/* end SBN_SendNetMsg */
 
-void SBN_ProcessNetAppMsgsFromHost(int HostIdx)
-{
-    int i = 0, status = 0, PeerIdx = 0;
-
-    /* DEBUG_START(); chatty */
-
-    /* Process all the received messages */
-    for(i = 0; i <= 100; i++)
-    {
-        SBN_CpuId_t CpuId = 0;
-        SBN_MsgType_t MsgType = 0;
-        SBN_MsgSize_t MsgSize = 0;
-        uint8 Msg[SBN_MAX_MSG_SIZE];
-
-        status = SBN.IfOps[SBN.Host[HostIdx]->ProtocolId]->ReceiveMsg(
-            SBN.Host[HostIdx], &MsgType, &MsgSize, &CpuId, Msg);
-
-        if(status == SBN_IF_EMPTY)
-        {
-            break; /* no (more) messages */
-        }/* end if */
-
-        if(status == SBN_OK)
-        {
-            PeerIdx = SBN_GetPeerIndex(CpuId);
-            if(PeerIdx == SBN_ERROR)
-            {
-                CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
-                    "unknown peer (CpuId = %d)", CpuId);
-                continue;
-            }/* end if */
-
-            OS_GetLocalTime(&SBN.Hk.PeerStatus[PeerIdx].LastReceived);
-
-            SBN.Hk.PeerStatus[PeerIdx].RecvCount++;
-
-            SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, Msg);
-        }
-        else if(status == SBN_ERROR)
-        {
-            // TODO error message
-            SBN.Hk.PeerStatus[HostIdx].RecvErrCount++;
-        }/* end if */
-    }/* end for */
-}/* end SBN_RcvHostMsgs */
-
 /**
  * Checks all interfaces for messages from peers.
  */

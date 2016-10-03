@@ -32,7 +32,6 @@ int32 SBN_GetPeerFileData(void);
 
 int SBN_InitPeerInterface(void);
 int SBN_CheckForNetProtoMsg(int PeerIdx);
-void inline SBN_ProcessNetAppMsgsFromHost(int HostIdx);
 void  SBN_CheckForNetAppMsgs(void);
 void  SBN_VerifyPeerInterfaces(void);
 void  SBN_VerifyHostInterfaces(void);

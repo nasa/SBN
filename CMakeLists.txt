@@ -12,7 +12,9 @@ execute_process(
 )
 
 if(NOT(${subrprtpayload}))
-    add_definitions(-DSBN_PAYLOAD)
+    add_definitions(-DSBN_PAYLOAD=Payload.PacketID.)
+else()
+    add_definitions(-DSBN_PAYLOAD=PacketID.)
 endif()
 
 aux_source_directory(fsw/src APP_SRC_FILES)
