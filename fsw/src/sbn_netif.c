@@ -34,7 +34,7 @@
 #include <string.h>
 #include <errno.h>
 
-static int AddHost(uint8 ProtocolId, uint8 NetNum, void **InterfacePvtPtr)
+static int AddHost(uint8 ProtocolId, uint8 NetNum, void **ModulePvtPtr)
 {
     if(SBN.Hk.HostCount >= SBN_MAX_NETWORK_PEERS)
     {
@@ -54,14 +54,14 @@ static int AddHost(uint8 ProtocolId, uint8 NetNum, void **InterfacePvtPtr)
     HostInterface->Status->NetNum = NetNum;
     HostInterface->Status->ProtocolId = ProtocolId;
 
-    *InterfacePvtPtr = HostInterface->InterfacePvt;
+    *ModulePvtPtr = HostInterface->ModulePvt;
     SBN.Hk.HostCount++;
 
     return SBN_SUCCESS;
 }/* end AddHost */
 
 static int AddPeer(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
-    uint32 SpacecraftId, uint8 QoS, uint8 NetNum, void **InterfacePvtPtr)
+    uint32 SpacecraftId, uint8 QoS, uint8 NetNum, void **ModulePvtPtr)
 {
     if(SBN.Hk.PeerCount >= SBN_MAX_NETWORK_PEERS)
     {
@@ -86,29 +86,29 @@ static int AddPeer(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
     PeerInterface->Status->QoS = QoS;
     PeerInterface->Status->NetNum = NetNum;
 
-    *InterfacePvtPtr = PeerInterface->InterfacePvt;
+    *ModulePvtPtr = PeerInterface->ModulePvt;
     SBN.Hk.PeerCount++;
 
     return SBN_SUCCESS;
 }/* end AddPeer */
 
 static int AddEntry(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
-    uint32 SpacecraftId, uint8 QoS, uint8 NetNum, void **InterfacePvtPtr)
+    uint32 SpacecraftId, uint8 QoS, uint8 NetNum, void **ModulePvtPtr)
 {
     if(SpacecraftId != CFE_PSP_GetSpacecraftId())
     {
-        *InterfacePvtPtr = NULL;
+        *ModulePvtPtr = NULL;
         return SBN_ERROR; /* ignore other spacecraft entries */
     }/* end if */
 
     if(ProcessorId == CFE_PSP_GetProcessorId())
     {
-        return AddHost(ProtocolId, NetNum, InterfacePvtPtr);
+        return AddHost(ProtocolId, NetNum, ModulePvtPtr);
     }
     else
     {
         return AddPeer(Name, ProcessorId, ProtocolId, SpacecraftId,
-            QoS, NetNum, InterfacePvtPtr);
+            QoS, NetNum, ModulePvtPtr);
     }/* end if */
 
 }/* end AddPeer */
@@ -129,7 +129,7 @@ static int AddEntry(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
 static int PeerFileRowCallback(const char *Filename, int LineNum,
     const char *Header, const char *Row[], int FieldCount, void *Opaque)
 {
-    void *InterfacePvt = NULL;
+    void *ModulePvt = NULL;
     int Status = 0;
 
     if(FieldCount < 4)
@@ -174,10 +174,10 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     uint8 NetNum = atoi(Row[5]); /* TODO: validate */
 
     if((Status = AddEntry(Name, ProcessorId, ProtocolId, SpacecraftId, QoS,
-        NetNum, &InterfacePvt)) == SBN_SUCCESS)
+        NetNum, &ModulePvt)) == SBN_SUCCESS)
     {
         Status = SBN.IfOps[ProtocolId]->Load(Row + 6, FieldCount - 6,
-            InterfacePvt);
+            ModulePvt);
     }
 
     return Status;
@@ -280,7 +280,7 @@ static int ParseFileEntry(char *FileEntry)
 {
     char Name[SBN_MAX_PEERNAME_LENGTH];
     char *AppData = NULL;
-    void *InterfacePvt = NULL;
+    void *ModulePvt = NULL;
     int ScanfStatus = 0, Status = 0, NumFields = 6, ProcessorId = 0,
         ProtocolId = 0, SpacecraftId = 0, QoS = 0, NetNum = 0;
 
@@ -306,10 +306,10 @@ static int ParseFileEntry(char *FileEntry)
     }/* end if */
 
     if((Status = AddEntry(Name, ProcessorId, ProtocolId, SpacecraftId,
-        QoS, NetNum, &InterfacePvt)) == SBN_SUCCESS)
+        QoS, NetNum, &ModulePvt)) == SBN_SUCCESS)
     {
         Status = SBN.IfOps[ProtocolId]->Parse(AppData, ParseLineNum,
-            InterfacePvt);
+            ModulePvt);
     }/* end if */
 
     return Status;
@@ -552,6 +552,80 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     }/* end if */
 }/* end SBN_UnpackMsg */
 
+/* Use a struct for all local variables in the task so we can specify exactly
+ * how large of a stack we need for the task.
+ */
+typedef struct
+{
+    int PeerIdx, RecvPeerIdx, Status;
+    uint32 TaskID;
+    SBN_PeerInterface_t *Interface;
+    SBN_CpuId_t CpuId;
+    SBN_MsgType_t MsgType;
+    SBN_MsgSize_t MsgSize;
+    SBN_Payload_t Msg;
+} PeerTaskData_t;
+
+void PeerTask(void)
+{
+    PeerTaskData_t D;
+    memset(&D, 0, sizeof(D));
+    if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
+            "unable to register child task (%d)", D.Status);
+        return;
+    }/* end if */
+
+    D.TaskID = OS_TaskGetId();
+
+    for(D.PeerIdx = 0; D.PeerIdx < SBN.Hk.PeerCount; D.PeerIdx++)
+    {
+        if(SBN.Peers[D.PeerIdx].TaskID == D.TaskID)
+        {
+            break;
+        }/* end if */
+    }/* end for */
+
+    if(D.PeerIdx == SBN.Hk.PeerCount)
+    {
+        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
+            "unable to connect task to peer struct");
+        return;
+    }/* end if */
+
+    D.Interface = &SBN.Peers[D.PeerIdx];
+
+    while(1)
+    {
+        D.Status = SBN.IfOps[SBN.Hk.PeerStatus[D.PeerIdx].ProtocolId]->Recv(
+                D.Interface, &D.MsgType, &D.MsgSize, &D.CpuId, &D.Msg);
+
+        if(D.Status == SBN_IF_EMPTY)
+        {
+            continue; /* no (more) messages */
+        }/* end if */
+
+        /* for UDP, the message received may not be from the peer
+         * expected.
+         */
+        D.RecvPeerIdx = SBN_GetPeerIndex(D.CpuId);
+
+        if(D.Status == SBN_SUCCESS)
+        {
+            OS_GetLocalTime(&SBN.Hk.PeerStatus[D.RecvPeerIdx].LastReceived);
+
+            SBN_ProcessNetMsg(D.MsgType, D.CpuId, D.MsgSize, &D.Msg);
+        }
+        else
+        {
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+                "error received from peer recv (%d)", D.Status);
+            SBN.Hk.PeerStatus[D.RecvPeerIdx].RecvErrCount++;
+        }/* end if */
+    }/* end while */
+}/* end PeerTask */
+
 /**
  * Loops through all hosts and peers, initializing all.
  *
@@ -561,6 +635,7 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
 int SBN_InitInterfaces(void)
 {
     int EntryIdx = 0;
+    char TaskName[OS_MAX_API_NAME];
 
     DEBUG_START();
 
@@ -573,32 +648,12 @@ int SBN_InitInterfaces(void)
     for(EntryIdx = 0; EntryIdx < SBN.Hk.PeerCount; EntryIdx++)
     {
         SBN_PeerInterface_t *PeerInterface = &SBN.Peers[EntryIdx];
-        int HostIdx = 0;
-
-        for(HostIdx = 0; HostIdx < SBN.Hk.HostCount; HostIdx++)
-        {
-            if(SBN.Hosts[HostIdx].Status->NetNum
-                == PeerInterface->Status->NetNum)
-            {
-                break;
-            }/* end if */
-        }/* end if */
-
-        if(HostIdx == SBN.Hk.HostCount)
-        {
-            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                "No matching host for this peer net number %d",
-                PeerInterface->Status->NetNum);
-
-            return SBN_ERROR;
-        }/* end if */
 
         int Status = SBN_CreatePipe4Peer(PeerInterface);
         if(Status != SBN_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                 "error creating pipe for %s", PeerInterface->Status->Name);
-
             return Status;
         }/* end if */
 
@@ -606,6 +661,17 @@ int SBN_InitInterfaces(void)
         SBN.Hk.PeerStatus[SBN.Hk.PeerCount].State = SBN_ANNOUNCING;
 
         SBN.IfOps[PeerInterface->Status->ProtocolId]->InitPeer(PeerInterface);
+
+        snprintf(TaskName, OS_MAX_API_NAME, "sbn_peer_%d", EntryIdx);
+        Status = CFE_ES_CreateChildTask(&PeerInterface->TaskID, TaskName,
+            (CFE_ES_ChildTaskMainFuncPtr_t)&PeerTask, NULL,
+            CFE_ES_DEFAULT_STACK_SIZE + sizeof(PeerTaskData_t), 0, 0);
+        if(Status != CFE_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+                "error creating task for %s", PeerInterface->Status->Name);
+            return Status;
+        }/* end if */
     }/* end for */
 
     CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
@@ -648,54 +714,3 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     return Status;
 }/* end SBN_SendNetMsg */
-
-/**
- * Checks all interfaces for messages from peers.
- * Receive (up to a hundred) messages from the specified peer, injecting them
- * onto the local software bus.
- */
-void SBN_RecvNetMsgs(void)
-{
-    int PeerIdx = 0, i = 0, Status = 0, RealPeerIdx;
-
-    /* DEBUG_START(); chatty */
-
-    for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
-    {
-        /* Process up to 100 received messages
-         * TODO: make configurable
-         */
-        for(i = 0; i < 100; i++)
-        {
-            SBN_CpuId_t CpuId = 0;
-            SBN_MsgType_t MsgType = 0;
-            SBN_MsgSize_t MsgSize = 0;
-            SBN_Payload_t Msg;
-
-            Status = SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->Recv(
-                &SBN.Peers[PeerIdx], &MsgType, &MsgSize, &CpuId, &Msg);
-
-            if(Status == SBN_IF_EMPTY)
-            {
-                break; /* no (more) messages */
-            }/* end if */
-
-            /* for UDP, the message received may not be from the peer
-             * expected.
-             */
-            RealPeerIdx = SBN_GetPeerIndex(CpuId);
-
-            if(Status == SBN_SUCCESS)
-            {
-                OS_GetLocalTime(&SBN.Hk.PeerStatus[RealPeerIdx].LastReceived);
-
-                SBN_ProcessNetMsg(MsgType, CpuId, MsgSize, &Msg);
-            }
-            else if(Status == SBN_ERROR)
-            {
-                // TODO error message
-                SBN.Hk.PeerStatus[RealPeerIdx].RecvErrCount++;
-            }/* end if */
-        }/* end for */
-    }/* end for */
-}/* end SBN_CheckForNetAppMsgs */

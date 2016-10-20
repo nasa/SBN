@@ -69,7 +69,7 @@ int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryBuffer)
 int SBN_TCP_InitHost(SBN_HostInterface_t *HostPtr)
 {
     SBN_TCP_Entry_t *Entry
-        = (SBN_TCP_Entry_t *)HostPtr->InterfacePvt;
+        = (SBN_TCP_Entry_t *)HostPtr->ModulePvt;
     SBN_TCP_Network_t *Network = NULL;
 
     if(!SBN_TCP_ModuleDataInitialized)
@@ -180,7 +180,7 @@ int SBN_TCP_InitHost(SBN_HostInterface_t *HostPtr)
 int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
 {
     SBN_TCP_Entry_t *Entry
-        = (SBN_TCP_Entry_t *)Peer->InterfacePvt;
+        = (SBN_TCP_Entry_t *)Peer->ModulePvt;
     SBN_TCP_Network_t *Network = NULL;
 
     if(!SBN_TCP_ModuleDataInitialized)
@@ -285,7 +285,7 @@ static int GetPeerNetID(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
 int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
-    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
         = &SBN_TCP_ModuleData.Networks[PeerEntry->NetworkNumber];
     SBN_TCP_Peer_t *Peer = &Network->Peers[PeerEntry->PeerNumber];
@@ -313,7 +313,7 @@ int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
 int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
-    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
         = &SBN_TCP_ModuleData.Networks[PeerEntry->NetworkNumber];
     SBN_TCP_Peer_t *Peer = &Network->Peers[PeerEntry->PeerNumber];
@@ -487,7 +487,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
 int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
-    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
         = &SBN_TCP_ModuleData.Networks[PeerEntry->NetworkNumber];
     int Socket = GetPeerSocket(Network, PeerEntry);
@@ -507,7 +507,7 @@ int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
 int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
-    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
         = &SBN_TCP_ModuleData.Networks[PeerEntry->NetworkNumber];
     SBN_TCP_Peer_t *Peer = &Network->Peers[PeerEntry->PeerNumber];
@@ -520,24 +520,6 @@ int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     }/* end if */
 
     ssize_t Received = 0;
-    fd_set ReadFDs;
-    struct timeval timeout;
-
-    CFE_PSP_MemSet(&timeout, 0, sizeof(timeout));
-    timeout.tv_usec = 100;
-
-    FD_ZERO(&ReadFDs);
-    FD_SET(PeerSocket, &ReadFDs);
-
-    if(select(PeerSocket + 1, &ReadFDs, 0, 0, &timeout) < 0)
-    {
-        return SBN_ERROR;
-    }/* end if */
-
-    if(!FD_ISSET(PeerSocket, &ReadFDs))
-    {
-        return SBN_IF_EMPTY;
-    }/* end if */
 
     int ToRead = 0;
 

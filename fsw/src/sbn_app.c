@@ -257,7 +257,6 @@ static int32 WaitForWakeup(int32 iTimeOut)
     CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
 
     RunProtocol();
-    SBN_RecvNetMsgs();
     SBN_CheckSubscriptionPipe();
     CheckPeerPipes();
 

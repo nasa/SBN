@@ -12,14 +12,9 @@ static void ClearSocket(int32 NetID)
 static void ClearSocket(int SockId)
 #endif /* OS_NET_IMPL */
 {
-    struct sockaddr_in  s_addr;
-    socklen_t           addr_len = 0;
     int                 i = 0;
     int                 status = 0;
     char                DiscardData[SBN_MAX_MSG_SIZE];
-
-    addr_len = sizeof(s_addr);
-    CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
 
 #ifdef OS_NET_IMPL
 
@@ -47,8 +42,7 @@ static void ClearSocket(int SockId)
 
 #else /* !OS_NET_IMPL */
 
-        status = recvfrom(SockId, DiscardData, sizeof(DiscardData),
-            MSG_DONTWAIT,(struct sockaddr *) &s_addr, &addr_len);
+        status = recv(SockId, DiscardData, sizeof(DiscardData), MSG_DONTWAIT);
         if((status < 0) && (errno == EWOULDBLOCK)) // TODO: add EAGAIN?
         {
             break; /* no (more) messages */
@@ -117,7 +111,7 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
  */
 int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)HostInterface->InterfacePvt;
+    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)HostInterface->ModulePvt;
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
 
@@ -182,17 +176,7 @@ int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
         return SBN_ERROR;
     }/* end if */
 
-    #ifdef _HAVE_FCNTL_
-        /*
-        ** Set the socket to non-blocking
-        ** This is not available to vxWorks, so it has to be
-        ** Conditionally compiled in
-        */
-        fcntl(Network->Host.Socket, F_SETFL, O_NONBLOCK);
-    #endif
-
     ClearSocket(Network->Host.Socket);
-
 #endif /* OS_NET_IMPL */
 
     return SBN_SUCCESS;
@@ -207,7 +191,7 @@ int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
  */
 int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
 
@@ -220,7 +204,7 @@ int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface)
 int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
 
@@ -262,7 +246,7 @@ int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
 int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->InterfacePvt;
+    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
     SBN_UDP_Network_t *Network
         = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
 
@@ -284,23 +268,10 @@ int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 #else /* !OS_NET_IMPL */
 
     int Received = recv(Network->Host.Socket, (char *)&Network->RecvBuf,
-        SBN_MAX_MSG_SIZE, MSG_DONTWAIT);
-
-    if(Received == 0)
-    {
-        return SBN_IF_EMPTY;
-    }/* end if */
+        SBN_MAX_MSG_SIZE, 0);
 
     if(Received < 0)
     {
-        if (errno == EWOULDBLOCK || errno == EAGAIN)
-        {
-            /* the socket is set to O_NONBLOCK, so these are valid return
-             *  values when there are no packets to recv.
-             */
-            return SBN_IF_EMPTY;
-        }/* end if */
-
         return SBN_ERROR;
     }/* end if */
 

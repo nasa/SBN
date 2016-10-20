@@ -96,19 +96,21 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
 typedef struct {
     SBN_HostStatus_t *Status;
 
-    /** \brief generic blob of bytes, interface-specific */
-    uint8  InterfacePvt[128];
+    /** \brief generic blob of bytes, module-specific */
+    uint8  ModulePvt[128];
 } SBN_HostInterface_t;
 
 typedef struct {
+    uint32 TaskID;
+
     SBN_PeerStatus_t *Status;
 
     CFE_SB_PipeId_t Pipe;
     char PipeName[OS_MAX_API_NAME];
     SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
 
-    /** \brief generic blob of bytes, interface-specific */
-    uint8 InterfacePvt[128];
+    /** \brief generic blob of bytes, module-specific */
+    uint8 ModulePvt[128];
 } SBN_PeerInterface_t;
 
 /**
