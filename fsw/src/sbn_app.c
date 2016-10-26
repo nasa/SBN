@@ -464,14 +464,19 @@ static int Init(void)
 #endif /* SOFTWARE_BIG_BIT_ORDER */
         (int)SBN.AppId);
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X)",
+        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X conf=%s)",
         SBN_IDENT,
 #ifdef SBN_DEBUG_MSGS
         "TRUE",
 #else /* !SBN_DEBUG_MSGS */
         "FALSE",
 #endif /* SBN_DEBUG_MSGS */
-        SBN_CMD_MID
+        SBN_CMD_MID,
+#ifdef CFE_ES_CONFLOADER
+        "cfe_es_conf"
+#else /* !CFE_ES_CONFLOADER */
+        "scanf"
+#endif /* CFE_ES_CONFLOADER */
         );
 
     SBN_InitializeCounters();
