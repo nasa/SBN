@@ -53,7 +53,7 @@ static void ClearSocket(int SockId)
     }/* end for */
 }/* end ClearSocket */
 
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
 
 int SBN_UDP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
 {
@@ -69,7 +69,7 @@ int SBN_UDP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
     return SBN_SUCCESS;
 }/* end SBN_UDP_LoadEntry */
 
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
 
 int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
 {
@@ -101,7 +101,7 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
     return SBN_SUCCESS;
 }/* end SBN_UDP_ParseFileEntry */
 
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
 
 /**
  * Initializes an UDP host.

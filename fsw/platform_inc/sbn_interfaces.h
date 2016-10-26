@@ -119,9 +119,9 @@ typedef struct {
  * structure that points to the approprate functions for that interface.
  */
 typedef struct {
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
     int (*Load)(const char **, int, void *);
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
     /**
      * Parses a peer data file line into an interface-specific entry structure.
      * Information that is common to all interface types is captured in the SBN
@@ -134,7 +134,7 @@ typedef struct {
      * @return SBN_SUCCESS if entry is parsed correctly, SBN_ERROR otherwise
      */
     int (*Parse)(char *Line, uint32 LineNum, void *EntryBuffer);
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
 
     /**
      * Initializes the host interface.

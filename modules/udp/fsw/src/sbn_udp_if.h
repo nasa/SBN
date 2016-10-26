@@ -5,15 +5,15 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
 
 int SBN_UDP_LoadEntry(const char **Row, int RowCount, void *EntryBuffer);
 
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
 
 int SBN_UDP_ParseFileEntry(char *Line, uint32 LineNum, void *EntryBuffer);
 
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
 
 int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface);
 
@@ -31,11 +31,11 @@ int SBN_UDP_ResetPeer(SBN_PeerInterface_t *PeerInterface);
 
 SBN_InterfaceOperations_t SBN_UDP_Ops =
 {
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
     SBN_UDP_LoadEntry,
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
     SBN_UDP_ParseFileEntry,
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
     SBN_UDP_InitHost,
     SBN_UDP_InitPeer,
     SBN_UDP_Send,

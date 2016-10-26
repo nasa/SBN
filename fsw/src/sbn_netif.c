@@ -113,7 +113,8 @@ static int AddEntry(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
 
 }/* end AddPeer */
 
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
+
 /**
  * Handles a row's worth of fields from a configuration file.
  * @param[in] FileName The FileName of the configuration file currently being
@@ -200,41 +201,24 @@ static int PeerFileErrCallback(const char *FileName, int LineNum,
 }/* end PeerFileErrCallback */
 
 /**
- * Function to read in, using the OS_ConfLoader API, the configuration file
+ * Function to read in, using the CFE_ES_Conf API, the configuration file
  * entries.
  *
  * @return OS_SUCCESS on successful completion.
  */
 int32 SBN_GetPeerFileData(void)
 {
-    int32 Status = 0, Id = 0;
+    int32 Status = 0, ID = 0;
 
-    Status = OS_ConfLoaderAPIInit();
+    Status = CFE_ES_ConfInit(&ID, "sbn_peer", NULL, PeerFileRowCallback,
+        PeerFileErrCallback, NULL);
     if(Status != OS_SUCCESS)
     {   
         return Status;
     }/* end if */
 
-    Status = OS_ConfLoaderInit(&Id, "sbn_peer");
-    if(Status != OS_SUCCESS)
-    {   
-        return Status;
-    }/* end if */
-
-    Status = OS_ConfLoaderSetRowCallback(Id, PeerFileRowCallback, NULL);
-    if(Status != OS_SUCCESS)
-    {
-        return Status;
-    }/* end if */
-
-    Status = OS_ConfLoaderSetErrorCallback(Id, PeerFileErrCallback, NULL);
-    if(Status != OS_SUCCESS)
-    {
-        return Status;
-    }/* end if */
-
-    OS_ConfLoaderLoad(Id, SBN_VOL_PEER_FILENAME);
-    OS_ConfLoaderLoad(Id, SBN_NONVOL_PEER_FILENAME);
+    CFE_ES_ConfLoad(ID, SBN_VOL_PEER_FILENAME);
+    CFE_ES_ConfLoad(ID, SBN_NONVOL_PEER_FILENAME);
 
     return SBN_SUCCESS;
 }/* end SBN_GetPeerFileData */

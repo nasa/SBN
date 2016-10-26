@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <sys/select.h>
 
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
 
 int SBN_TCP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
 {
@@ -24,7 +24,7 @@ int SBN_TCP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
     return SBN_SUCCESS;
 }/* end SBN_TCP_LoadEntry */
 
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
 
 int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryBuffer)
 {
@@ -57,7 +57,7 @@ int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryBuffer)
     return SBN_SUCCESS;
 }/* end SBN_TCP_ParseFileEntry */
 
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
 
 /**
  * Initializes an TCP host or peer data struct depending on the

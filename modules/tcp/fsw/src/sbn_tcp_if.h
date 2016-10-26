@@ -5,15 +5,15 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
 
 int SBN_TCP_LoadEntry(const char **Row, int RowCount, void *EntryBuffer);
 
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
 
 int SBN_TCP_ParseFileEntry(char *Line, uint32 LineNum, void *EntryBuffer);
 
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
 
 int SBN_TCP_InitHost(SBN_HostInterface_t *Host);
 
@@ -31,11 +31,11 @@ int SBN_TCP_ResetPeer(SBN_PeerInterface_t *Peer);
 
 SBN_InterfaceOperations_t SBN_TCP_Ops =
 {
-#ifdef _osapi_confloader_
+#ifdef CFE_ES_CONFLOADER
     SBN_TCP_LoadEntry,
-#else /* ! _osapi_confloader_ */
+#else /* ! CFE_ES_CONFLOADER */
     SBN_TCP_ParseFileEntry,
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
     SBN_TCP_InitHost,
     SBN_TCP_InitPeer,
     SBN_TCP_Send,
