@@ -131,6 +131,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     const char *Header, const char *Row[], int FieldCount, void *Opaque)
 {
     void *ModulePvt = NULL;
+    char *ValidatePtr = NULL;
     int Status = 0;
 
     if(FieldCount < 4)
@@ -153,26 +154,50 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "Processor name too long: %s (%d)", Name,
             strlen(Name));
-        return OS_ERROR;;
+        return OS_ERROR;
     }/* end if */
 
-    uint32 ProcessorId = atoi(Row[1]); /* TODO: validate */
+    uint32 ProcessorId = strtol(Row[1], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[1])
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid processor id");
+        return OS_ERROR;
+    }/* end if */
 
-    uint8 ProtocolId = atoi(Row[2]);
-    if(ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
+    uint8 ProtocolId = strtol(Row[2], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[2]
+        || ProtocolId < 0 || ProtocolId > SBN_MAX_INTERFACE_TYPES
         || !SBN.IfOps[ProtocolId])
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "invalid protocol id (ProtocolId=%d)",
-            ProtocolId);
-        return OS_SUCCESS;
+            "invalid protocol id");
+        return OS_ERROR;
     }/* end if */
 
-    uint32 SpacecraftId = atoi(Row[3]); /* TODO: validate */
+    uint32 SpacecraftId = strtol(Row[3], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[3])
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid spacecraft id");
+        return OS_ERROR;
+    }/* end if */
 
-    uint8 QoS = atoi(Row[4]); /* TODO: validate */
+    uint8 QoS = strtol(Row[4], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[4])
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid quality of service");
+        return OS_ERROR;
+    }/* end if */
 
-    uint8 NetNum = atoi(Row[5]); /* TODO: validate */
+    uint8 NetNum = strtol(Row[5], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[5])
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid network number");
+        return OS_ERROR;
+    }/* end if */
 
     if((Status = AddEntry(Name, ProcessorId, ProtocolId, SpacecraftId, QoS,
         NetNum, &ModulePvt)) == SBN_SUCCESS)
@@ -223,34 +248,7 @@ int32 SBN_GetPeerFileData(void)
     return SBN_SUCCESS;
 }/* end SBN_GetPeerFileData */
 
-#else /* ! _osapi_confloader_ */
-
-/**
- * Finds the protocol-specific fields in the configuration file.
- *
- * @param[in] entry Peer configuration line from the config file.
- * @param[in] num_fields The number of fields to skip.
-
- * @return Pointer to the first entry after the num_fields entries.
- */
-static char *FindFileEntryAppData(char *entry, int num_fields)
-{
-    char *char_ptr = entry;
-    int num_found_fields = 0;
-
-    DEBUG_START();
-
-    while(*char_ptr != '\0' && num_found_fields < num_fields)
-    {
-        while(*char_ptr != ' ')
-        {
-            ++char_ptr;
-        }/* end while */
-        ++char_ptr;
-        ++num_found_fields;
-    }/* end while */
-    return char_ptr;
-}/* end FindFileEntryAppData */
+#else /* ! CFE_ES_CONFLOADER */
 
 /**
  * Parses a peer configuration file entry to obtain the peer configuration.
@@ -262,8 +260,8 @@ static char *FindFileEntryAppData(char *entry, int num_fields)
 static int ParseLineNum = 0;
 static int ParseFileEntry(char *FileEntry)
 {
-    char Name[SBN_MAX_PEERNAME_LENGTH];
-    char *AppData = NULL;
+    char Name[SBN_MAX_PEERNAME_LENGTH + 1], *NamePtr = Name,
+        *ParameterEnd = NULL;
     void *ModulePvt = NULL;
     int ScanfStatus = 0, Status = 0, NumFields = 6, ProcessorId = 0,
         ProtocolId = 0, SpacecraftId = 0, QoS = 0, NetNum = 0;
@@ -272,27 +270,82 @@ static int ParseFileEntry(char *FileEntry)
 
     ParseLineNum++;
 
-    AppData = FindFileEntryAppData(FileEntry, NumFields);
-
-    /* switch on protocol ID */
-    ScanfStatus = sscanf(FileEntry, "%32s %d %d %d %d %d",
-        Name, &ProcessorId, &ProtocolId, &SpacecraftId, &QoS, &NetNum);
-
-    /*
-    ** Check to see if the correct number of items were parsed
-    */
-    if(ScanfStatus != NumFields)
+    while(isspace(*FileEntry))
     {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "invalid peer file line (expected %d, found %d)",
-            NumFields, ScanfStatus);
+        FileEntry++;
+    }/* end while */
+
+    ParameterEnd = FileEntry;
+    while(ParameterEnd < FileEntry + SBN_MAX_PEERNAME_LENGTH
+        && *ParameterEnd && !isspace(*ParameterEnd))
+    {
+        *NamePtr++ = *ParameterEnd++;
+    }/* end if */
+
+    *NamePtr = '\0';
+
+    if(ParameterEnd - FileEntry > SBN_MAX_PEERNAME_LENGTH)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "peer name too long");
         return SBN_ERROR;
     }/* end if */
+
+    FileEntry = ParameterEnd;
+    ProcessorId = strtol(FileEntry, &ParameterEnd, 0);
+    if(!ParameterEnd || ParameterEnd == FileEntry)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid processor id");
+        return SBN_ERROR;
+    }/* end if */
+
+    FileEntry = ParameterEnd;
+    ProtocolId = strtol(FileEntry, &ParameterEnd, 0);
+    if(!ParameterEnd || ParameterEnd == FileEntry)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid protocol id");
+        return SBN_ERROR;
+    }/* end if */
+
+    FileEntry = ParameterEnd;
+    SpacecraftId = strtol(FileEntry, &ParameterEnd, 0);
+    if(!ParameterEnd || ParameterEnd == FileEntry)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid spacecraft id");
+        return SBN_ERROR;
+    }/* end if */
+
+    FileEntry = ParameterEnd;
+    QoS = strtol(FileEntry, &ParameterEnd, 0);
+    if(!ParameterEnd || ParameterEnd == FileEntry)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid quality of service");
+        return SBN_ERROR;
+    }/* end if */
+
+    FileEntry = ParameterEnd;
+    NetNum = strtol(FileEntry, &ParameterEnd, 0);
+    if(!ParameterEnd || ParameterEnd == FileEntry)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid network number");
+        return SBN_ERROR;
+    }/* end if */
+
+    FileEntry = ParameterEnd;
+    while(isspace(*FileEntry))
+    {
+        FileEntry++;
+    }/* end while */
 
     if((Status = AddEntry(Name, ProcessorId, ProtocolId, SpacecraftId,
         QoS, NetNum, &ModulePvt)) == SBN_SUCCESS)
     {
-        Status = SBN.IfOps[ProtocolId]->Parse(AppData, ParseLineNum,
+        Status = SBN.IfOps[ProtocolId]->Parse(FileEntry, ParseLineNum,
             ModulePvt);
     }/* end if */
 
@@ -421,7 +474,7 @@ int32 SBN_GetPeerFileData(void)
     return SBN_SUCCESS;
 }/* end SBN_GetPeerFileData */
 
-#endif /* _osapi_confloader_ */
+#endif /* CFE_ES_CONFLOADER */
 
 #ifdef SOFTWARE_BIG_BIT_ORDER
   #define CFE_MAKE_BIG32(n) (n)

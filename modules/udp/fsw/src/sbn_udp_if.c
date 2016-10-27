@@ -58,13 +58,23 @@ static void ClearSocket(int SockId)
 int SBN_UDP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryBuffer;
+    char *ValidatePtr = NULL;
+
     if(FieldCount < SBN_UDP_ITEMS_PER_FILE_LINE)
     {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+                "invalid peer file line (expected %d items, found %d)",
+                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCount);
         return SBN_ERROR;
     }/* end if */
 
     strncpy(Entry->Host, Row[0], sizeof(Entry->Host));
-    Entry->Port = atoi(Row[1]);
+    Entry->Port = strtol(Row[1], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[1])
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+                "invalid port");
+    }/* end if */
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_LoadEntry */
@@ -75,28 +85,40 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryPtr;
 
-    char Host[16];
-    int ScanfStatus = 0, Port = 0;
+    char *EndPtr = Entry->Host;
 
-    /*
-     * Using sscanf to parse the string.
-     * Currently no error handling
-     */
-    ScanfStatus = sscanf(FileEntry, "%16s %d", Host, &Port);
-
-    /*
-     * Check to see if the correct number of items were parsed
-     */
-    if(ScanfStatus != SBN_UDP_ITEMS_PER_FILE_LINE)
+    while(isspace(*FileEntry))
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID,CFE_EVS_ERROR,
-                "invalid peer file line (expected %d items, found %d)",
-                SBN_UDP_ITEMS_PER_FILE_LINE, ScanfStatus);
+        FileEntry++;
+    }/* end while */
+
+    while(EndPtr < Entry->Host + 16 && *FileEntry && !isspace(*FileEntry))
+    {
+        *EndPtr++ = *FileEntry++;
+    }/* end while */
+
+    if(EndPtr == Entry->Host + 16)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+            "invalid host");
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(Entry->Host, Host, sizeof(Entry->Host));
-    Entry->Port = Port;
+    *EndPtr = '\0';
+
+    while(isspace(*FileEntry))
+    {
+        FileEntry++;
+    }/* end while */
+
+    EndPtr = NULL;
+    Entry->Port = strtol(FileEntry, &EndPtr, 0);
+    if(!EndPtr || EndPtr == FileEntry)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+            "invalid port");
+        return SBN_ERROR;
+    }/* end if */
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_ParseFileEntry */
