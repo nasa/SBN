@@ -15,7 +15,7 @@ CPU3, 3, 1, 42, 0, 0, 172.16.196.231, 15822;
 !           4 = Spacewire packet, 5 = Shared Memory, 6 = Serial. Only UDP and
 !           TCP are currently implemented.)
 !
-! Column 4: Spacecraft ID (must match CFE_SPACECRAFT_ID [in build])
+! Column 4: Spacecraft ID (must match return value of CFE_PSP_GetSpacecraftID())
 !
 ! Column 5: QoS (need to describe)
 !
