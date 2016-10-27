@@ -14,7 +14,7 @@ static void ClearSocket(int SockId)
 {
     int                 i = 0;
     int                 status = 0;
-    char                DiscardData[SBN_MAX_MSG_SIZE];
+    char                DiscardData[10];
 
 #ifdef OS_NET_IMPL
 
@@ -252,7 +252,7 @@ int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 
 #ifdef OS_NET_IMPL
 
-    size_t Received = SBN_MAX_MSG_SIZE;
+    size_t Received = CFE_SB_MAX_SB_MSG_SIZE;
     int32 Status = OS_NetRecv(Network->Host.NetID,
         (char *)&Network->RecvBuf, &Received);
     if(Status < 0)
@@ -268,7 +268,7 @@ int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 #else /* !OS_NET_IMPL */
 
     int Received = recv(Network->Host.Socket, (char *)&Network->RecvBuf,
-        SBN_MAX_MSG_SIZE, 0);
+        CFE_SB_MAX_SB_MSG_SIZE, 0);
 
     if(Received < 0)
     {

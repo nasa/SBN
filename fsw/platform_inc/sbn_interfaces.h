@@ -178,7 +178,7 @@ typedef struct {
      * @param MsgSizePtr Payload size received.
      * @param CpuIdPtr CpuId of the sender.
      * @param PayloadBuffer Payload buffer
-     *                      (pass in a buffer of SBN_MAX_MSG_SIZE)
+     *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
     int (*Recv)(SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr,
