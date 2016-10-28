@@ -81,6 +81,8 @@ int SBN_UDP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
 
 #else /* ! CFE_ES_CONFLOADER */
 
+#include <ctype.h> /* isspace() */
+
 int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryPtr;

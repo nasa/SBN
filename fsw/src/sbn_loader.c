@@ -4,6 +4,9 @@
 #include "sbn_loader.h"
 
 #ifdef CFE_ES_CONFLOADER
+
+#include "cfe_es_conf.h"
+
 /**
  * Handles a row's worth of fields from a configuration file.
  * @param[in] Filename The filename of the configuration file currently being
@@ -85,15 +88,8 @@ static int ModuleErrCallback(const char *Filename, int LineNum,
  */
 int32 SBN_ReadModuleFile(void)
 {
-    int32 Status = 0, ID = 0;
-
-    Status = CFE_ES_ConfInit(&ID, "sbn_module", NULL, ModuleRowCallback, ModuleErrCallback, NULL);
-    if (Status != OS_SUCCESS)
-    {
-        return Status;
-    }
-
-    return CFE_ES_ConfLoad(ID, SBN_NONVOL_MODULE_FILENAME);
+    return CFE_ES_ConfLoad(SBN_NONVOL_MODULE_FILENAME, NULL, ModuleRowCallback,
+        ModuleErrCallback, NULL);
 }
 
 #else /* ! CFE_ES_CONFLOADER */

@@ -35,6 +35,8 @@ int SBN_TCP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
 
 #else /* ! CFE_ES_CONFLOADER */
 
+#include <ctype.h> /* isspace() */
+
 int SBN_TCP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
 {
     SBN_TCP_Entry_t *Entry = (SBN_TCP_Entry_t *)EntryPtr;
