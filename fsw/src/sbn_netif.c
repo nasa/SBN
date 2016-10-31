@@ -47,10 +47,10 @@ static int AddHost(uint8 ProtocolId, uint8 NetNum, void **ModulePvtPtr)
 
     SBN_HostInterface_t *HostInterface = &SBN.Hosts[SBN.Hk.HostCount];
 
-    CFE_PSP_MemSet(HostInterface, 0, sizeof(*HostInterface));
+    memset(HostInterface, 0, sizeof(*HostInterface));
 
     HostInterface->Status = &SBN.Hk.HostStatus[SBN.Hk.HostCount];
-    CFE_PSP_MemSet(HostInterface->Status, 0, sizeof(*HostInterface->Status));
+    memset(HostInterface->Status, 0, sizeof(*HostInterface->Status));
     HostInterface->Status->NetNum = NetNum;
     HostInterface->Status->ProtocolId = ProtocolId;
 
@@ -75,10 +75,10 @@ static int AddPeer(const char *Name, uint32 ProcessorId, uint8 ProtocolId,
 
     SBN_PeerInterface_t *PeerInterface = &SBN.Peers[SBN.Hk.PeerCount];
 
-    CFE_PSP_MemSet(PeerInterface, 0, sizeof(*PeerInterface));
+    memset(PeerInterface, 0, sizeof(*PeerInterface));
 
     PeerInterface->Status = &SBN.Hk.PeerStatus[SBN.Hk.PeerCount];
-    CFE_PSP_MemSet(PeerInterface->Status, 0, sizeof(*PeerInterface->Status));
+    memset(PeerInterface->Status, 0, sizeof(*PeerInterface->Status));
     strncpy(PeerInterface->Status->Name, Name, SBN_MAX_PEERNAME_LENGTH);
     PeerInterface->Status->ProcessorId = ProcessorId;
     PeerInterface->Status->ProtocolId = ProtocolId;
@@ -409,7 +409,7 @@ int32 SBN_GetPeerFileData(void)
         return SBN_ERROR;
     }/* end if */
 
-    CFE_PSP_MemSet(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+    memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
     BuffLen = 0;
 
     /*
@@ -461,7 +461,7 @@ int32 SBN_GetPeerFileData(void)
                 return SBN_ERROR;
             }/* end if */
             LineNum++;
-            CFE_PSP_MemSet(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+            memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
             BuffLen = 0;
         }/* end if */
     }/* end while */
@@ -533,13 +533,13 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
     SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t Msg)
 {
     MsgSize = CFE_MAKE_BIG16(MsgSize);
-    CFE_PSP_MemCpy(SBNBuf->Hdr.MsgSizeBuf, &MsgSize, sizeof(MsgSize));
+    memcpy(SBNBuf->Hdr.MsgSizeBuf, &MsgSize, sizeof(MsgSize));
     MsgSize = CFE_MAKE_BIG16(MsgSize); /* swap back */
 
-    CFE_PSP_MemCpy(SBNBuf->Hdr.MsgTypeBuf, &MsgType, sizeof(MsgType));
+    memcpy(SBNBuf->Hdr.MsgTypeBuf, &MsgType, sizeof(MsgType));
 
     CpuId = CFE_MAKE_BIG32(CpuId);
-    CFE_PSP_MemCpy(SBNBuf->Hdr.CpuIdBuf, &CpuId, sizeof(CpuId));
+    memcpy(SBNBuf->Hdr.CpuIdBuf, &CpuId, sizeof(CpuId));
     CpuId = CFE_MAKE_BIG32(CpuId); /* swap back */
 
     if(!Msg || !MsgSize)
@@ -547,7 +547,7 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
         return;
     }/* end if */
 
-    CFE_PSP_MemCpy(SBNBuf->Payload, Msg, MsgSize);
+    memcpy(SBNBuf->Payload, Msg, MsgSize);
 
     if(MsgType == SBN_APP_MSG)
     {
@@ -578,7 +578,7 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
         return;
     }/* end if */
 
-    CFE_PSP_MemCpy(Msg, SBNBuf->Payload, *MsgSizePtr);
+    memcpy(Msg, SBNBuf->Payload, *MsgSizePtr);
 
     if(*MsgTypePtr == SBN_APP_MSG)
     {

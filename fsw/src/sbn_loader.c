@@ -119,7 +119,7 @@ int32 SBN_ReadModuleFile(void)
         return SBN_ERROR;
     }/* end if */
 
-    CFE_PSP_MemSet(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
+    memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
     BuffLen = 0;
 
     /* Parse the lines from the file */
@@ -156,7 +156,7 @@ int32 SBN_ReadModuleFile(void)
                 if (SBN_ParseModuleEntry(SBN_ModuleData, LineNum) == -1)
                     return SBN_ERROR;
                 LineNum++;
-                CFE_PSP_MemSet(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
+                memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
                 BuffLen = 0;
                 break;
             default:

@@ -95,7 +95,7 @@ int SBN_TCP_InitHost(SBN_HostInterface_t *HostPtr)
 
     if(!SBN_TCP_ModuleDataInitialized)
     {
-        CFE_PSP_MemSet(&SBN_TCP_ModuleData, 0, sizeof(SBN_TCP_ModuleData));
+        memset(&SBN_TCP_ModuleData, 0, sizeof(SBN_TCP_ModuleData));
         SBN_TCP_ModuleDataInitialized = 1;
     }/* end if */
 
@@ -206,7 +206,7 @@ int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
 
     if(!SBN_TCP_ModuleDataInitialized)
     {
-        CFE_PSP_MemSet(&SBN_TCP_ModuleData, 0, sizeof(SBN_TCP_ModuleData));
+        memset(&SBN_TCP_ModuleData, 0, sizeof(SBN_TCP_ModuleData));
         SBN_TCP_ModuleDataInitialized = 1;
     }/* end if */
 
@@ -416,7 +416,7 @@ static void CheckServer(SBN_TCP_Network_t *Network)
     struct sockaddr_in ClientAddr;
     socklen_t ClientLen = sizeof(ClientAddr);
 
-    CFE_PSP_MemSet(&timeout, 0, sizeof(timeout));
+    memset(&timeout, 0, sizeof(timeout));
     timeout.tv_usec = 100;
 
     FD_ZERO(&ReadFDs);
@@ -481,7 +481,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
                 }/* end if */
 
                 struct sockaddr_in ServerAddr;
-                CFE_PSP_MemSet(&ServerAddr, 0, sizeof(ServerAddr));
+                memset(&ServerAddr, 0, sizeof(ServerAddr));
                 ServerAddr.sin_family = AF_INET;
                 ServerAddr.sin_addr.s_addr = inet_addr(PeerEntry->Host);
                 ServerAddr.sin_port = htons(PeerEntry->Port);

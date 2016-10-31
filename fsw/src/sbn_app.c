@@ -375,7 +375,7 @@ static int Init(void)
 
     DEBUG_START();
 
-    CFE_PSP_MemSet(&SBN, 0, sizeof(SBN));
+    memset(&SBN, 0, sizeof(SBN));
     CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
 
     /* load the App_FullName so I can ignore messages I send out to SB */

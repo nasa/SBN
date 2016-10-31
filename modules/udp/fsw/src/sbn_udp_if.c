@@ -249,7 +249,7 @@ int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
 
     static struct sockaddr_in s_addr;
 
-    CFE_PSP_MemSet(&s_addr, 0, sizeof(s_addr));
+    memset(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = inet_addr(Peer->EntryPtr->Host);
     s_addr.sin_port = htons(Peer->EntryPtr->Port);
