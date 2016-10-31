@@ -190,13 +190,14 @@ static void RunProtocol(void)
 
         if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING)
         {
-            if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
+            if(current_time.seconds
+                - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                SBN_Payload_t AnnMsgPayload;
-                strncpy(AnnMsgPayload.AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
+                char AnnounceMsg[SBN_IDENT_LEN];
+                strncpy(AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
                 SBN_SendNetMsg(SBN_ANNOUNCE_MSG, SBN_IDENT_LEN,
-                    &AnnMsgPayload, PeerIdx);
+                    (SBN_Payload_t *)&AnnounceMsg, PeerIdx);
             }/* end if */
             continue;
         }/* end if */

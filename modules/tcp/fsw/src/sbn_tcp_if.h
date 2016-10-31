@@ -20,10 +20,10 @@ int SBN_TCP_InitHost(SBN_HostInterface_t *Host);
 int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer);
 
 int SBN_TCP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg);
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Msg);
 
 int SBN_TCP_Recv(SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr, 
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf);
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t MsgBuf);
 
 int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 

@@ -52,22 +52,14 @@ SBN_PackedSub_t;
  * SBN subscription messages are MsgId + Qos
  */
 #define SBN_PACKED_HDR_SIZE (sizeof(SBN_PackedHdr_t))
-#define SBN_PACKED_SUB_SIZE (sizeof(SBN_PackedSub_t))
 #define SBN_MAX_PACKED_MSG_SIZE (SBN_PACKED_HDR_SIZE + CFE_SB_MAX_SB_MSG_SIZE)
 
-typedef union
-{
-    SBN_PackedSub_t SBNSub;
-    char AnnounceMsg[CFE_SB_MAX_SB_MSG_SIZE];
-    uint8 CCSDSMsgBuf[CFE_SB_MAX_SB_MSG_SIZE]; /* ensures enough allocation */
-    CFE_SB_Msg_t CCSDSMsg; /* convenience for CCSDS header fields. */
-}
-SBN_Payload_t;
+typedef void *SBN_Payload_t;
 
 typedef struct
 {
     SBN_PackedHdr_t Hdr;
-    SBN_Payload_t Payload;
+    uint8 Payload[CFE_SB_MAX_SB_MSG_SIZE];
 }
 SBN_PackedMsg_t;
 
@@ -80,7 +72,7 @@ SBN_PackedMsg_t;
  * \param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
  */
 void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
-    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t *Msg);
+    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t Msg);
 
 /**
  * \brief Used by modules to unpack messages received.
@@ -88,10 +80,10 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
  * \param MsgSizePtr[out] The size of the Msg parameter.
  * \param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
  * \param CpuId[out] The CPU ID of the sender (should be CFE_CPU_ID)
- * \param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least sizeof(SBN_Payload_t) in size.)
+ * \param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_SB_MAX_SB_MSG_SIZE)
  */
 void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *Msg);
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t Msg);
 
 typedef struct {
     SBN_HostStatus_t *Status;
@@ -168,7 +160,7 @@ typedef struct {
      * @return Number of bytes sent on success, -1 on error
      */
     int (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-        SBN_MsgSize_t MsgSize, SBN_Payload_t *Payload);
+        SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
 
     /**
      * Receives a data message from the specified interface.
@@ -183,7 +175,7 @@ typedef struct {
      */
     int (*Recv)(SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr,
         SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr,
-        SBN_Payload_t *PayloadBuffer);
+        SBN_Payload_t PayloadBuffer);
 
     /**
      * Reports the status of the module.  The status can be in a module-specific

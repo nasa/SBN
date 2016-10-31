@@ -304,7 +304,7 @@ static int GetPeerNetID(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
 }/* end GetPeerNetID */
 
 int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
@@ -332,7 +332,7 @@ int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
 }/* end SBN_TCP_Send */
 
 int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
@@ -506,7 +506,7 @@ static int GetPeerSocket(SBN_TCP_Network_t *Network, SBN_TCP_Entry_t *PeerEntry)
 }/* end GetPeerSocket */
 
 int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network
@@ -526,7 +526,7 @@ int SBN_TCP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
 }/* end SBN_TCP_Send */
 
 int SBN_TCP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t MsgBuf)
 {
     SBN_TCP_Entry_t *PeerEntry = (SBN_TCP_Entry_t *)PeerInterface->ModulePvt;
     SBN_TCP_Network_t *Network

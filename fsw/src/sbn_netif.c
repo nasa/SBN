@@ -530,7 +530,7 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
  * \param Msg[in] The payload (CCSDS message or SBN sub/unsub.)
  */
 void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
-    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t *Msg)
+    SBN_MsgType_t MsgType, SBN_CpuId_t CpuId, SBN_Payload_t Msg)
 {
     MsgSize = CFE_MAKE_BIG16(MsgSize);
     CFE_PSP_MemCpy(SBNBuf->Hdr.MsgSizeBuf, &MsgSize, sizeof(MsgSize));
@@ -547,11 +547,11 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
         return;
     }/* end if */
 
-    CFE_PSP_MemCpy(SBNBuf->Payload.CCSDSMsgBuf, (char *)Msg, MsgSize);
+    CFE_PSP_MemCpy(SBNBuf->Payload, Msg, MsgSize);
 
     if(MsgType == SBN_APP_MSG)
     {
-        SwapCCSDS(&SBNBuf->Payload.CCSDSMsg);
+        SwapCCSDS((CFE_SB_Msg_t *)SBNBuf->Payload);
     }/* end if */
 }/* end SBN_PackMsg */
 
@@ -567,7 +567,7 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
  * \todo Use a type for SBNBuf.
  */
 void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *Msg)
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t Msg)
 {
     *MsgSizePtr = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)SBNBuf->Hdr.MsgSizeBuf));
     *MsgTypePtr = *((SBN_MsgType_t *)SBNBuf->Hdr.MsgTypeBuf);
@@ -578,11 +578,11 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
         return;
     }/* end if */
 
-    CFE_PSP_MemCpy(Msg, SBNBuf->Payload.CCSDSMsgBuf, *MsgSizePtr);
+    CFE_PSP_MemCpy(Msg, SBNBuf->Payload, *MsgSizePtr);
 
     if(*MsgTypePtr == SBN_APP_MSG)
     {
-        SwapCCSDS(&Msg->CCSDSMsg);
+        SwapCCSDS((CFE_SB_Msg_t *)Msg);
     }/* end if */
 }/* end SBN_UnpackMsg */
 
@@ -597,7 +597,7 @@ typedef struct
     SBN_CpuId_t CpuId;
     SBN_MsgType_t MsgType;
     SBN_MsgSize_t MsgSize;
-    SBN_Payload_t Msg;
+    uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
 } PeerTaskData_t;
 
 void PeerTask(void)

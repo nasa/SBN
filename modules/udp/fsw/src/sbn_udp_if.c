@@ -226,7 +226,7 @@ int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface)
 }/* end SBN_UDP_InitPeer */
 
 int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t *Msg)
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
     SBN_UDP_Network_t *Network
@@ -268,7 +268,7 @@ int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
  * good!
  */
 int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t *MsgBuf)
+    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t MsgBuf)
 {
     SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
     SBN_UDP_Network_t *Network
