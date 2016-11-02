@@ -261,8 +261,8 @@ static int ParseFileEntry(char *FileEntry)
     char Name[SBN_MAX_PEERNAME_LENGTH + 1], *NamePtr = Name,
         *ParameterEnd = NULL;
     void *ModulePvt = NULL;
-    int Status = 0, NumFields = 6, ProcessorId = 0,
-        ProtocolId = 0, SpacecraftId = 0, QoS = 0, NetNum = 0;
+    int Status = 0, ProcessorId = 0, ProtocolId = 0, SpacecraftId = 0,
+        QoS = 0, NetNum = 0;
 
     DEBUG_START();
 
