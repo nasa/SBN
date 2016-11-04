@@ -699,7 +699,9 @@ int SBN_InitInterfaces(void)
         snprintf(TaskName, OS_MAX_API_NAME, "sbn_peer_%d", EntryIdx);
         Status = CFE_ES_CreateChildTask(&PeerInterface->TaskID, TaskName,
             (CFE_ES_ChildTaskMainFuncPtr_t)&PeerTask, NULL,
-            CFE_ES_DEFAULT_STACK_SIZE + sizeof(PeerTaskData_t), 0, 0);
+            CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(PeerTaskData_t), 0, 0);
+        /* TODO: more accurate stack size required */
+
         if(Status != CFE_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
