@@ -333,19 +333,15 @@ static int WaitForSBStartup(void)
                 /* If it's an event message from SB, make sure it's the init
                  * message
                  */
-#ifdef SBN_PAYLOAD
-                if(strcmp(EvsPacket->Payload.PacketID.AppName, "CFE_SB") == 0
-                    && EvsPacket->Payload.PacketID.EventID == CFE_SB_INIT_EID)
+                if(strcmp(EvsPacket->
+SBN_PAYLOAD
+AppName, "CFE_SB") == 0
+                    && EvsPacket->
+SBN_PAYLOAD
+EventID == CFE_SB_INIT_EID)
                 {
                     break;
                 }/* end if */
-#else /* !SBN_PAYLOAD */
-                if(strcmp(EvsPacket->PacketID.AppName, "CFE_SB") == 0
-                    && EvsPacket->PacketID.EventID == CFE_SB_INIT_EID)
-                {
-                    break;
-                }/* end if */
-#endif /* SBN_PAYLOAD */
             }/* end if */
         }/* end if */
 

@@ -25,9 +25,8 @@ OBJS = sbn_app.o
 OBJS += sbn_netif.o
 OBJS += sbn_loader.o
 OBJS += sbn_cmds.o
-OBJS += sbn_buf.o
+OBJS += sbn_lib_utils.o
 OBJS += sbn_subs.o
-
 #
 # Source files required to build subsystem; used to generate dependencies.
 # As long as there are no assembly files this can be automated.
@@ -37,8 +36,10 @@ SOURCES = $(OBJS:.o=.c)
 
 ##
 ## Specify extra C Flags needed to build this subsystem
+## The CFE_EVS_Packet_t struct in cfe_evs_msg.h changes between cFS revisions,
+## this should define how to get from that packet to the SpacecraftID.
 ##
-LOCAL_COPTS =
+LOCAL_COPTS = -DSBN_PAYLOAD=Payload.PacketID.
 
 
 ##
@@ -94,6 +95,7 @@ include $(CFE_PSP_SRC)/$(PSP)/make/compiler-opts.mak
 INCLUDE_PATH = \
 -I$(OSAL_SRC)/inc \
 -I$(CFE_CORE_SRC)/inc \
+-I$(CFE_CORE_SRC)/sb \
 -I$(CFE_PSP_SRC)/inc \
 -I$(CFE_PSP_SRC)/$(PSP)/inc \
 -I$(CFS_APP_SRC)/inc \
