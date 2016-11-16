@@ -20,6 +20,4 @@
 
 #define SBN_MOD_STATUS_MSG_SIZE       128 /* bytes */
 
-#define SBN_MAX_MSG_RETRANSMISSIONS   3
-
 #endif /* _sbn_platform_cfg_h_ */
