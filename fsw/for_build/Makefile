@@ -25,7 +25,6 @@ OBJS = sbn_app.o
 OBJS += sbn_netif.o
 OBJS += sbn_loader.o
 OBJS += sbn_cmds.o
-OBJS += sbn_lib_utils.o
 OBJS += sbn_subs.o
 #
 # Source files required to build subsystem; used to generate dependencies.
