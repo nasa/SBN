@@ -190,13 +190,14 @@ static void RunProtocol(void)
 
         if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING)
         {
-            if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
+            if(current_time.seconds
+                - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
                     > SBN_ANNOUNCE_TIMEOUT)
             {
-                SBN_Payload_t AnnMsgPayload;
-                strncpy(AnnMsgPayload.AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
+                char AnnounceMsg[SBN_IDENT_LEN];
+                strncpy(AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
                 SBN_SendNetMsg(SBN_ANNOUNCE_MSG, SBN_IDENT_LEN,
-                    &AnnMsgPayload, PeerIdx);
+                    (SBN_Payload_t *)&AnnounceMsg, PeerIdx);
             }/* end if */
             continue;
         }/* end if */
@@ -257,8 +258,13 @@ static int32 WaitForWakeup(int32 iTimeOut)
     CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
 
     RunProtocol();
+
+#ifndef SBN_RECV_TASK
     SBN_RecvNetMsgs();
+#endif /* !SBN_RECV_TASK */
+
     SBN_CheckSubscriptionPipe();
+
     CheckPeerPipes();
 
     if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;
@@ -371,7 +377,7 @@ static int Init(void)
 
     DEBUG_START();
 
-    CFE_PSP_MemSet(&SBN, 0, sizeof(SBN));
+    memset(&SBN, 0, sizeof(SBN));
     CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
 
     /* load the App_FullName so I can ignore messages I send out to SB */
@@ -461,14 +467,19 @@ static int Init(void)
 #endif /* SOFTWARE_BIG_BIT_ORDER */
         (int)SBN.AppId);
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X)",
+        "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X conf=%s)",
         SBN_IDENT,
 #ifdef SBN_DEBUG_MSGS
         "TRUE",
 #else /* !SBN_DEBUG_MSGS */
         "FALSE",
 #endif /* SBN_DEBUG_MSGS */
-        SBN_CMD_MID
+        SBN_CMD_MID,
+#ifdef CFE_ES_CONFLOADER
+        "cfe_es_conf"
+#else /* !CFE_ES_CONFLOADER */
+        "scanf"
+#endif /* CFE_ES_CONFLOADER */
         );
 
     SBN_InitializeCounters();

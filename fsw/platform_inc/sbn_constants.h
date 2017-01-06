@@ -28,7 +28,6 @@
 #define SBN_IF_EMPTY                  (-2)
 #define SBN_NOT_IMPLEMENTED           (-3)
 
-#define SBN_MAX_MSG_SIZE              1400
 #define SBN_MAX_SUBS_PER_PEER         256 
 #define SBN_MAX_PEERNAME_LENGTH       32
 #define SBN_DONT_CARE                 0
@@ -38,7 +37,7 @@
 #define SBN_MAX_MSG_PER_WAKEUP        32
 
 #define SBN_UDP                       1
-#define SBN_TCP                       2  /* not implemented */
+#define SBN_TCP                       2
 #define SBN_SPACEWIRE_RMAP            3  /* not implemented */
 #define SBN_SPACEWIRE_PKT             4  /* not implemented */
 #define SBN_SHMEM                     5

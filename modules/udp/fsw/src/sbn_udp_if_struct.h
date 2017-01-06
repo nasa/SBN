@@ -23,11 +23,7 @@ typedef struct
 
 typedef struct
 {
-#ifdef OS_NET_IMPL
-    int32 NetID;
-#else /* OS_NET_IMPL */
     int Socket;
-#endif /* OS_NET_IMPL */
     SBN_UDP_Entry_t *EntryPtr;
 } SBN_UDP_Host_t;
 

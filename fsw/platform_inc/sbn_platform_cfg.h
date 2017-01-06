@@ -20,4 +20,15 @@
 
 #define SBN_MOD_STATUS_MSG_SIZE       128 /* bytes */
 
+/** \brief define this to use one task per peer pipe to send messages (each
+ * task blocks on read). Otherwise, pipes will be polled periodically.
+ */
+#define SBN_SEND_TASK
+
+/** \brief define this to use one task per peer to receive messages (each
+ * task blocks on read). Otherwise, another method (e.g. select) must be used
+ * to prevent blocking.
+ */
+#define SBN_RECV_TASK
+
 #endif /* _sbn_platform_cfg_h_ */

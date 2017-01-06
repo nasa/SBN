@@ -58,7 +58,7 @@ void SBN_SendSubsRequests(void)
 static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 {
     MsgId = CFE_MAKE_BIG16(MsgId);
-    CFE_PSP_MemCpy(SubMsg, &MsgId, sizeof(MsgId));
+    memcpy(SubMsg, &MsgId, sizeof(MsgId));
 }
 
 /**
@@ -72,9 +72,9 @@ static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgId, CFE_SB_Qos_t Qos)
 static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIdPtr,
     CFE_SB_Qos_t *QosPtr)
 {
-    CFE_PSP_MemCpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
+    memcpy(MsgIdPtr, SubMsg, sizeof(*MsgIdPtr));
     *MsgIdPtr = CFE_MAKE_BIG16(*MsgIdPtr);
-    CFE_PSP_MemCpy(QosPtr, SubMsg + sizeof(*MsgIdPtr), sizeof(*QosPtr));
+    memcpy(QosPtr, SubMsg + sizeof(*MsgIdPtr), sizeof(*QosPtr));
 }
 
 /**
@@ -89,7 +89,7 @@ static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgId,
     CFE_SB_Qos_t Qos, int PeerIdx)
 {
     SBN_PackedSub_t SubMsg;
-    CFE_PSP_MemSet(&SubMsg, 0, sizeof(SubMsg));
+    memset(&SubMsg, 0, sizeof(SubMsg));
     PackSub(&SubMsg, MsgId, Qos);
     SBN_SendNetMsg(SubFlag, sizeof(SubMsg), (SBN_Payload_t *)&SubMsg, PeerIdx);
 }/* end SendLocalSubToPeer */
@@ -256,7 +256,7 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgId)
     */
     for(i = SubIdx; i < SBN.Hk.SubCount; i++)
     {
-        CFE_PSP_MemCpy(&SBN.LocalSubs[i], &SBN.LocalSubs[i + 1],
+        memcpy(&SBN.LocalSubs[i], &SBN.LocalSubs[i + 1],
             sizeof(SBN_Subs_t));
     }/* end for */
 
@@ -467,7 +467,7 @@ static void ProcessUnsubFromPeer(int PeerIdx, CFE_SB_MsgId_t MsgId)
     */
     for(i = idx; i < SBN.Hk.PeerStatus[PeerIdx].SubCount; i++)
     {
-        CFE_PSP_MemCpy(&SBN.Peers[PeerIdx].Subs[i],
+        memcpy(&SBN.Peers[PeerIdx].Subs[i],
             &SBN.Peers[PeerIdx].Subs[i + 1],
             sizeof(SBN_Subs_t));
     }/* end for */

@@ -20,21 +20,13 @@ typedef struct
 {
     SBN_TCP_Entry_t *EntryPtr;
     uint8 ConnectedFlag;
-#ifdef OS_NET_IMPL
-    int NetID;
-#else /* !OS_NET_IMPL */
     int Socket;
-#endif /* OS_NET_IMPL */
 } SBN_TCP_Host_t;
 
 typedef struct
 {
     SBN_TCP_Entry_t *EntryPtr;
-#ifdef OS_NET_IMPL
-    int NetID;
-#else /* !OS_NET_IMPL */
     int Socket;
-#endif /* OS_NET_IMPL */
     uint8 /** flags */
             /** \brief recv the header first */
             ReceivingBody,
