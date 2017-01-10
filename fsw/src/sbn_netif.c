@@ -34,6 +34,56 @@
 #include <string.h>
 #include <errno.h>
 
+
+/* Remap table from fields are sorted and unique, use a binary search. */
+static CFE_SB_MsgId_t RemapMID(uint32 ProcessorId, CFE_SB_MsgId_t from)
+{
+    SBN_RemapTable_t *RemapTable = SBN.RemapTable;
+    int start = 0, end = RemapTable->Entries - 1, midpoint = 0;
+
+    while(end > start)
+    {   
+        midpoint = (end + start) / 2;
+        if(RemapTable->Entry[midpoint].ProcessorId == ProcessorId
+            && RemapTable->Entry[midpoint].from == from)
+        {   
+            break;  
+        }/* end if */
+
+        if(RemapTable->Entry[midpoint].ProcessorId < ProcessorId
+            || (RemapTable->Entry[midpoint].ProcessorId == ProcessorId
+            && RemapTable->Entry[midpoint].from < from))
+        {   
+            if(midpoint == start) /* degenerate case where end = start + 1 */
+            {   
+                return 0;
+            }  
+            else
+            {   
+                start = midpoint;
+            }/* end if */
+        }  
+        else
+        {   
+            end = midpoint;
+        }/* end if */
+    }
+
+    if(end > start)
+    {
+        return RemapTable->Entry[midpoint].to;
+    }/* end if */
+
+    /* not found... */
+
+    if(RemapTable->RemapDefaultFlag == SBN_REMAP_DEFAULT_SEND)
+    {
+        return from;
+    }/* end if */
+
+    return 0;
+}/* end RemapMID */
+
 static int AddHost(uint8 ProtocolId, uint8 NetNum, void **ModulePvtPtr)
 {
     if(SBN.Hk.HostCount >= SBN_MAX_NETWORK_PEERS)
@@ -586,23 +636,25 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     }/* end if */
 }/* end SBN_UnpackMsg */
 
+#ifdef SBN_RECV_TASK
+
 /* Use a struct for all local variables in the task so we can specify exactly
  * how large of a stack we need for the task.
  */
 typedef struct
 {
     int PeerIdx, RecvPeerIdx, Status;
-    uint32 TaskID;
+    uint32 RecvTaskID;
     SBN_PeerInterface_t *Interface;
     SBN_CpuId_t CpuId;
     SBN_MsgType_t MsgType;
     SBN_MsgSize_t MsgSize;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
-} PeerTaskData_t;
+} RecvTaskData_t;
 
-void PeerTask(void)
+void RecvTask(void)
 {
-    PeerTaskData_t D;
+    RecvTaskData_t D;
     memset(&D, 0, sizeof(D));
     if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
     {
@@ -611,11 +663,11 @@ void PeerTask(void)
         return;
     }/* end if */
 
-    D.TaskID = OS_TaskGetId();
+    D.RecvTaskID = OS_TaskGetId();
 
     for(D.PeerIdx = 0; D.PeerIdx < SBN.Hk.PeerCount; D.PeerIdx++)
     {
-        if(SBN.Peers[D.PeerIdx].TaskID == D.TaskID)
+        if(SBN.Peers[D.PeerIdx].RecvTaskID == D.RecvTaskID)
         {
             break;
         }/* end if */
@@ -658,103 +710,9 @@ void PeerTask(void)
             SBN.Hk.PeerStatus[D.RecvPeerIdx].RecvErrCount++;
         }/* end if */
     }/* end while */
-}/* end PeerTask */
+}/* end RecvTask */
 
-/**
- * Loops through all hosts and peers, initializing all.
- *
- * @return SBN_SUCCESS if interface is initialized successfully
- *         SBN_ERROR otherwise
- */
-int SBN_InitInterfaces(void)
-{
-    int EntryIdx = 0;
-
-#ifdef SBN_RECV_TASK
-    char TaskName[OS_MAX_API_NAME];
-#endif /* SBN_RECV_TASK */
-
-    DEBUG_START();
-
-    for(EntryIdx = 0; EntryIdx < SBN.Hk.HostCount; EntryIdx++)
-    {
-        SBN.IfOps[SBN.Hosts[EntryIdx].Status->ProtocolId]->InitHost(
-            &SBN.Hosts[EntryIdx]);
-    }/* end  for */
-
-    for(EntryIdx = 0; EntryIdx < SBN.Hk.PeerCount; EntryIdx++)
-    {
-        SBN_PeerInterface_t *PeerInterface = &SBN.Peers[EntryIdx];
-
-        int Status = SBN_CreatePipe4Peer(PeerInterface);
-        if(Status != SBN_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                "error creating pipe for %s", PeerInterface->Status->Name);
-            return Status;
-        }/* end if */
-
-        /* Reset counters, flags and timers */
-        SBN.Hk.PeerStatus[SBN.Hk.PeerCount].State = SBN_ANNOUNCING;
-
-        SBN.IfOps[PeerInterface->Status->ProtocolId]->InitPeer(PeerInterface);
-
-#ifdef SBN_RECV_TASK
-        snprintf(TaskName, OS_MAX_API_NAME, "sbn_peer_%d", EntryIdx);
-        Status = CFE_ES_CreateChildTask(&PeerInterface->TaskID, TaskName,
-            (CFE_ES_ChildTaskMainFuncPtr_t)&PeerTask, NULL,
-            CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(PeerTaskData_t), 0, 0);
-        /* TODO: more accurate stack size required */
-
-        if(Status != CFE_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                "error creating task for %s", PeerInterface->Status->Name);
-            return Status;
-        }/* end if */
-#endif /* SBN_RECV_TASK */
-    }/* end for */
-
-    CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-        "configured, %d hosts and %d peers",
-        SBN.Hk.HostCount, SBN.Hk.PeerCount);
-
-    return SBN_SUCCESS;
-}/* end SBN_InitInterfaces */
-
-/**
- * Sends a message to a peer using the module's SendNetMsg.
- *
- * @param MsgType       SBN type of the message
- * @param MsgSize       Size of the message
- * @param Msg           Message to send
- * @param PeerIdx       Index of peer data in peer array
- * @return Number of characters sent on success, -1 on error.
- *
- */
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
-    SBN_Payload_t *Msg, int PeerIdx)
-{
-    int Status = 0;
-
-    DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
-        MsgSize);
-
-    Status = SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->Send(
-        &SBN.Peers[PeerIdx], MsgType, MsgSize, Msg);
-
-    if(Status != -1)
-    {
-        SBN.Hk.PeerStatus[PeerIdx].SentCount++;
-        OS_GetLocalTime(&SBN.Hk.PeerStatus[PeerIdx].LastSent);
-    }
-    else
-    {
-        SBN.Hk.PeerStatus[PeerIdx].SentErrCount++;
-    }/* end if */
-
-    return Status;
-}/* end SBN_SendNetMsg */
+#else /* !SBN_RECV_TASK */
 
 /**
  * Checks all interfaces for messages from peers.
@@ -808,3 +766,332 @@ void SBN_RecvNetMsgs(void)
         }/* end for */
     }/* end for */
 }/* end SBN_RecvNetMsgs */
+
+#endif /* SBN_RECV_TASK */
+
+/**
+ * Sends a message to a peer using the module's SendNetMsg.
+ *
+ * @param MsgType       SBN type of the message
+ * @param MsgSize       Size of the message
+ * @param Msg           Message to send
+ * @param PeerIdx       Index of peer data in peer array
+ * @return Number of characters sent on success, -1 on error.
+ *
+ */
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
+    SBN_Payload_t *Msg, int PeerIdx)
+{
+    int Status = 0;
+
+    DEBUG_MSG("%s type=%04x size=%d", __FUNCTION__, MsgType,
+        MsgSize);
+
+    #ifdef SBN_SEND_TASK
+
+    if(OS_MutSemTake(SBN.Peers[PeerIdx].SendMutex) != OS_SUCCESS)
+    {   
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "unable to take mutex");
+        return SBN_ERROR;
+    }/* end if */
+
+    #endif /* SBN_SEND_TASK */
+
+    Status = SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->Send(
+        &SBN.Peers[PeerIdx], MsgType, MsgSize, Msg);
+
+    if(Status != -1)
+    {
+        SBN.Hk.PeerStatus[PeerIdx].SentCount++;
+        OS_GetLocalTime(&SBN.Hk.PeerStatus[PeerIdx].LastSent);
+    }
+    else
+    {
+        SBN.Hk.PeerStatus[PeerIdx].SentErrCount++;
+    }/* end if */
+
+    #ifdef SBN_SEND_TASK
+
+    if(OS_MutSemGive(SBN.Peers[PeerIdx].SendMutex) != OS_SUCCESS)
+    {   
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "unable to give mutex");
+        return SBN_ERROR;
+    }/* end if */
+
+    #endif /* SBN_SEND_TASK */
+
+    return Status;
+}/* end SBN_SendNetMsg */
+
+#ifdef SBN_SEND_TASK
+
+typedef struct
+{
+    int PeerIdx, Status;
+    uint32 SendTaskID;
+    CFE_SB_MsgPtr_t SBMsgPtr;
+    CFE_SB_MsgId_t MID;
+    CFE_SB_SenderId_t *LastSenderPtr;
+} SendTaskData_t;
+
+/**
+ * \brief When a peer is connected, a task is created to listen to the relevant
+ * pipe for messages to send to that peer.
+ */
+static void SendTask(void)
+{
+    SendTaskData_t D;
+
+    memset(&D, 0, sizeof(D));
+
+    if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
+            "unable to register child task (%d)", D.Status);
+        return;
+    }/* end if */
+
+    D.SendTaskID = OS_TaskGetId();
+
+    for(D.PeerIdx = 0; D.PeerIdx < SBN.Hk.PeerCount; D.PeerIdx++)
+    {
+        if(SBN.Peers[D.PeerIdx].SendTaskID == D.SendTaskID)
+        {
+            break;
+        }/* end if */
+    }/* end for */
+
+    if(D.PeerIdx == SBN.Hk.PeerCount)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "error connecting task\n");
+        return;
+    }/* end if */
+
+    while(1)
+    {
+        if(SBN.Hk.PeerStatus[D.PeerIdx].State != SBN_HEARTBEATING)
+        {
+            OS_TaskDelay(1000);
+            continue;
+        }/* end if */
+
+        /** as long as it's connected, process messages for the peer **/
+        while(SBN.Hk.PeerStatus[D.PeerIdx].State == SBN_HEARTBEATING)
+        {
+            if(CFE_SB_RcvMsg(&D.SBMsgPtr, SBN.Peers[D.PeerIdx].Pipe,
+                    CFE_SB_PEND_FOREVER)
+                != CFE_SUCCESS)
+            {   
+                break;
+            }/* end if */
+
+            /* don't re-send what SBN sent */
+            CFE_SB_GetLastSenderId(&D.LastSenderPtr, SBN.Peers[D.PeerIdx].Pipe);
+
+            if(!strncmp(SBN.App_FullName, D.LastSenderPtr->AppName,
+                strlen(SBN.App_FullName)))
+            {
+                continue;
+            }/* end if */
+
+            if(SBN.RemapTable)
+            {   
+                D.MID = RemapMID(SBN.Hk.PeerStatus[D.PeerIdx].ProcessorId,
+                    CFE_SB_GetMsgId(D.SBMsgPtr));
+                if(!D.MID)
+                {   
+                    break; /* don't send message, filtered out */
+                }/* end if */
+                CFE_SB_SetMsgId(D.SBMsgPtr, D.MID);
+            }/* end if */
+
+            SBN_SendNetMsg(SBN_APP_MSG,
+                CFE_SB_GetTotalMsgLength(D.SBMsgPtr),
+                (SBN_Payload_t *)D.SBMsgPtr, D.PeerIdx);
+        }/* end while */
+    }/* end while */
+}/* end SendTask */
+
+uint32 CreateSendTask(int EntryIdx, SBN_PeerInterface_t *PeerInterface)
+{
+    uint32 Status = OS_SUCCESS;
+    char MutexName[OS_MAX_API_NAME], SendTaskName[32];
+
+    snprintf(MutexName, OS_MAX_API_NAME, "send_task_%d", EntryIdx);
+
+    Status = OS_MutSemCreate(&(PeerInterface->SendMutex), MutexName, 0);
+
+    if(Status != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "error creating mutex for %s", PeerInterface->Status->Name);
+        return Status;
+    }
+
+    snprintf(SendTaskName, 32, "sbn_send_%d", EntryIdx);
+    Status = CFE_ES_CreateChildTask(&(PeerInterface->SendTaskID),
+        SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
+        CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
+
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "error creating send task for %s", PeerInterface->Status->Name);
+        return Status;
+    }/* end if */
+
+    return Status;
+}/* end CreateSendTask */
+
+#else /* !SBN_SEND_TASK */
+
+/**
+ * Iterate through all peers, examining the pipe to see if there are messages
+ * I need to send to that peer.
+ */
+void SBN_CheckPeerPipes(void)
+{
+    int PeerIdx = 0, ReceivedFlag = 0, iter = 0;
+    CFE_SB_MsgPtr_t SBMsgPtr = 0;
+    CFE_SB_SenderId_t *LastSenderPtr = NULL;
+
+    /* DEBUG_START(); chatty */
+
+    /**
+     * \note This processes one message per peer, then start again until no
+     * peers have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
+     * per peer per wakeup otherwise I will starve other processing.
+     */
+    for(iter = 0; iter < SBN_MAX_MSG_PER_WAKEUP; iter++)
+    {   
+        ReceivedFlag = 0;
+
+        for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
+        {   
+            /* if peer data is not in use, go to next peer */
+            if(SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
+            {   
+                continue;
+            }
+
+            if(CFE_SB_RcvMsg(&SBMsgPtr, SBN.Peers[PeerIdx].Pipe, CFE_SB_POLL)
+                != CFE_SUCCESS)
+            {   
+                continue;
+            }/* end if */
+
+            ReceivedFlag = 1;
+
+            /* don't re-send what SBN sent */
+            CFE_SB_GetLastSenderId(&LastSenderPtr, SBN.Peers[PeerIdx].Pipe);
+
+            if(!strncmp(SBN.App_FullName, LastSenderPtr->AppName,
+                strlen(SBN.App_FullName)))
+            {   
+                continue;
+            }/* end if */
+
+            if(SBN.RemapTable)
+            {   
+                CFE_SB_MsgId_t MID =
+                    RemapMID(SBN.Hk.PeerStatus[PeerIdx].ProcessorId,
+                    CFE_SB_GetMsgId(SBMsgPtr));
+                if(!MID)
+                {   
+                    break; /* don't send message, filtered out */
+                }/* end if */
+                CFE_SB_SetMsgId(SBMsgPtr, MID);
+            }/* end if */
+
+            SBN_SendNetMsg(SBN_APP_MSG,
+                CFE_SB_GetTotalMsgLength(SBMsgPtr),
+                (SBN_Payload_t *)SBMsgPtr, PeerIdx);
+
+        }/* end for */
+
+        if(!ReceivedFlag)
+        {
+            break;
+        }/* end if */
+    } /* end for */
+}/* end SBN_CheckPeerPipes */
+
+#endif /* SBN_SEND_TASK */
+
+/**
+ * Loops through all hosts and peers, initializing all.
+ *
+ * @return SBN_SUCCESS if interface is initialized successfully
+ *         SBN_ERROR otherwise
+ */
+int SBN_InitInterfaces(void)
+{
+    int EntryIdx = 0, Status;
+
+    DEBUG_START();
+
+    for(EntryIdx = 0; EntryIdx < SBN.Hk.HostCount; EntryIdx++)
+    {
+        SBN.IfOps[SBN.Hosts[EntryIdx].Status->ProtocolId]->InitHost(
+            &SBN.Hosts[EntryIdx]);
+    }/* end  for */
+
+    for(EntryIdx = 0; EntryIdx < SBN.Hk.PeerCount; EntryIdx++)
+    {
+        SBN_PeerInterface_t *PeerInterface = &SBN.Peers[EntryIdx];
+
+        char PipeName[OS_MAX_API_NAME];
+
+        /* create a pipe name string similar to SBN_CPU2_Pipe */
+        snprintf(PipeName, OS_MAX_API_NAME, "SBN_%s_Pipe",
+            PeerInterface->Status->Name);
+        Status = CFE_SB_CreatePipe(&(PeerInterface->Pipe), SBN_PEER_PIPE_DEPTH,
+                PipeName);
+
+        if(Status != CFE_SUCCESS)
+        {   
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+                "failed to create pipe '%s'", PipeName);
+
+            return Status;
+        }/* end if */
+
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+            "pipe created '%s'", PipeName);
+
+        /* Reset counters, flags and timers */
+        SBN.Hk.PeerStatus[SBN.Hk.PeerCount].State = SBN_ANNOUNCING;
+
+        SBN.IfOps[PeerInterface->Status->ProtocolId]->InitPeer(PeerInterface);
+
+        #ifdef SBN_RECV_TASK
+        char RecvTaskName[32];
+        snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recv_%d", EntryIdx);
+        Status = CFE_ES_CreateChildTask(&(PeerInterface->RecvTaskID),
+            RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&RecvTask, NULL,
+            CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvTaskData_t), 0, 0);
+        /* TODO: more accurate stack size required */
+
+        #ifdef SBN_SEND_TASK
+        CreateSendTask(EntryIdx, PeerInterface);
+        #endif /* SBN_SEND_TASK */
+
+        if(Status != CFE_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+                "error creating task for %s", PeerInterface->Status->Name);
+            return Status;
+        }/* end if */
+        #endif /* SBN_RECV_TASK */
+    }/* end for */
+
+    CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+        "configured, %d hosts and %d peers",
+        SBN.Hk.HostCount, SBN.Hk.PeerCount);
+
+    return SBN_SUCCESS;
+}/* end SBN_InitInterfaces */
+

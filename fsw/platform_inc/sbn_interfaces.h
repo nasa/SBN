@@ -93,7 +93,17 @@ typedef struct {
 } SBN_HostInterface_t;
 
 typedef struct {
-    uint32 TaskID;
+    #ifdef SBN_SEND_TASK
+
+    uint32 SendTaskID, SendMutex;
+
+    #endif /* SBN_SEND_TASK */
+
+    #ifdef SBN_RECV_TASK
+
+    uint32 RecvTaskID;
+
+    #endif /* SBN_RECV_TASK */
 
     SBN_PeerStatus_t *Status;
 

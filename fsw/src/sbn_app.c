@@ -47,124 +47,8 @@
 #define SBN_TLM_MID SBN_HK_TLM_MID
 #endif /* SBN_TLM_MID */
 
-/* Remap table from fields are sorted and unique, use a binary search. */
-static CFE_SB_MsgId_t RemapMID(uint32 ProcessorId, CFE_SB_MsgId_t from)
-{
-    SBN_RemapTable_t *RemapTable = SBN.RemapTable;
-    int start = 0, end = RemapTable->Entries - 1, midpoint = 0;
-
-    while(end > start)
-    {
-        midpoint = (end + start) / 2;
-        if(RemapTable->Entry[midpoint].ProcessorId == ProcessorId
-            && RemapTable->Entry[midpoint].from == from)
-        {
-            break;
-        }/* end if */
-
-        if(RemapTable->Entry[midpoint].ProcessorId < ProcessorId
-            || (RemapTable->Entry[midpoint].ProcessorId == ProcessorId
-            && RemapTable->Entry[midpoint].from < from))
-        {
-            if(midpoint == start) /* degenerate case where end = start + 1 */
-            {
-                return 0;
-            }
-            else
-            {
-                start = midpoint;
-            }/* end if */
-        }
-        else
-        {
-            end = midpoint;
-        }/* end if */
-    }
-
-    if(end > start)
-    {
-        return RemapTable->Entry[midpoint].to;
-    }/* end if */
-
-    /* not found... */
-
-    if(RemapTable->RemapDefaultFlag == SBN_REMAP_DEFAULT_SEND)
-    {
-        return from;
-    }/* end if */
-
-    return 0;
-}/* end RemapMID */
-
 /** \brief SBN global application data. */
 SBN_App_t SBN;
-
-/**
- * Iterate through all peers, examining the pipe to see if there are messages
- * I need to send to that peer.
- */
-static void CheckPeerPipes(void)
-{
-    int PeerIdx = 0, ReceivedFlag = 0, iter = 0;
-    CFE_SB_MsgPtr_t SBMsgPtr = 0;
-    CFE_SB_SenderId_t * lastSenderPtr = NULL;
-
-    /* DEBUG_START(); chatty */
-
-    /**
-     * \note This processes one message per peer, then start again until no
-     * peers have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
-     * per peer per wakeup otherwise I will starve other processing.
-     */
-    for(iter = 0; iter < SBN_MAX_MSG_PER_WAKEUP; iter++)
-    {
-        ReceivedFlag = 0;
-
-        for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
-        {
-            /* if peer data is not in use, go to next peer */
-            if(SBN.Hk.PeerStatus[PeerIdx].State != SBN_HEARTBEATING)
-            {
-                continue;
-            }
-
-            if(CFE_SB_RcvMsg(&SBMsgPtr, SBN.Peers[PeerIdx].Pipe, CFE_SB_POLL)
-                != CFE_SUCCESS)
-            {
-                continue;
-            }/* end if */
-
-            ReceivedFlag = 1;
-
-            /* don't re-send what SBN sent */
-            CFE_SB_GetLastSenderId(&lastSenderPtr, SBN.Peers[PeerIdx].Pipe);
-
-            if(strncmp(SBN.App_FullName, lastSenderPtr->AppName,
-                OS_MAX_API_NAME))
-            {
-                if(SBN.RemapTable)
-                {
-                    CFE_SB_MsgId_t mid =
-                        RemapMID(SBN.Hk.PeerStatus[PeerIdx].ProcessorId,
-                        CFE_SB_GetMsgId(SBMsgPtr));
-                    if(!mid)
-                    {
-                        break; /* don't send message, filtered out */
-                    }/* end if */
-                    CFE_SB_SetMsgId(SBMsgPtr, mid);
-                }/* end if */
-                SBN_SendNetMsg(SBN_APP_MSG,
-                    CFE_SB_GetTotalMsgLength(SBMsgPtr),
-                    (SBN_Payload_t *)SBMsgPtr, PeerIdx);
-            }/* end if */
-        }/* end for */
-
-        if(!ReceivedFlag)
-        {
-            break;
-        }/* end if */
-    } /* end for */
-}/* end CheckPeerPipes */
 
 /**
  * SBN uses an inline protocol for maintaining the peer connections. Before a
@@ -265,7 +149,9 @@ static int32 WaitForWakeup(int32 iTimeOut)
 
     SBN_CheckSubscriptionPipe();
 
-    CheckPeerPipes();
+#ifndef SBN_SEND_TASK
+    SBN_CheckPeerPipes();
+#endif /* !SBN_SEND_TASK */
 
     if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;
 
@@ -508,40 +394,6 @@ void SBN_AppMain(void)
 }/* end SBN_AppMain */
 
 /**
- * Creates a local pipe to receive messages from the software bus that this
- * application will send to the peer.
- *
- * @param[in] PeerIdx The index of the peer.
- * @return SBN_SUCCESS on success, otherwise error code.
- */
-int SBN_CreatePipe4Peer(SBN_PeerInterface_t *PeerInterface)
-{
-    int32   Status = 0;
-    char    PipeName[OS_MAX_API_NAME];
-
-    DEBUG_START();
-
-    /* create a pipe name string similar to SBN_CPU2_Pipe */
-    snprintf(PipeName, OS_MAX_API_NAME, "SBN_%s_Pipe",
-        PeerInterface->Status->Name);
-    Status = CFE_SB_CreatePipe(&PeerInterface->Pipe, SBN_PEER_PIPE_DEPTH,
-            PipeName);
-
-    if(Status != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "failed to create pipe '%s'", PipeName);
-
-        return Status;
-    }/* end if */
-
-    CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-        "pipe created '%s'", PipeName);
-
-    return SBN_SUCCESS;
-}/* end SBN_CreatePipe4Peer */
-
-/**
  * Sends a message to a peer.
  * @param[in] MsgType The type of the message (application data, SBN protocol)
  * @param[in] CpuId The CpuId to send this message to.
@@ -592,6 +444,7 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
             "peer #%d alive", PeerIdx);
         SBN.Hk.PeerStatus[PeerIdx].State = SBN_HEARTBEATING;
+
         SBN_SendLocalSubsToPeer(PeerIdx);
     }/* end if */
 

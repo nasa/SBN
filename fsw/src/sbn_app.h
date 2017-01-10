@@ -101,7 +101,6 @@ extern SBN_App_t SBN;
 ** Prototypes
 */
 void SBN_AppMain(void);
-int SBN_CreatePipe4Peer(SBN_PeerInterface_t *PeerInterface);
 void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
     SBN_MsgSize_t MsgSize, void *Msg);
 int SBN_GetPeerIndex(uint32 ProcessorId);

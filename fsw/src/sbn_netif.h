@@ -35,6 +35,10 @@ int SBN_InitInterfaces(void);
 void SBN_RecvNetMsgs(void);
 #endif /* !SBN_RECV_TASK */
 
+#ifndef SBN_SEND_TASK
+void SBN_CheckPeerPipes(void);
+#endif /* !SBN_SEND_TASK */
+
 int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
     SBN_Payload_t *Msg, int PeerIdx);
 
