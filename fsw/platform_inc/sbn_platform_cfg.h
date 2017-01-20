@@ -8,7 +8,6 @@
 #define SBN_VOL_PEER_FILENAME         "/ram/SbnPeerData.dat"
 #define SBN_NONVOL_PEER_FILENAME      "/cf/SbnPeerData.dat"
 #define SBN_PEER_FILE_LINE_SIZE       128
-#define SBN_MAX_NETWORK_PEERS         4
 #define SBN_NETWORK_MSG_MARGIN        SBN_MAX_NETWORK_PEERS * 2  /* Double it to handle clock skews where a peer */
                                                              /* can send two messages in my single cycle */
 #define SBN_VOL_MODULE_FILENAME       "/ram/SbnModuleData.dat"

@@ -59,7 +59,7 @@ static int ModuleRowCallback(const char *Filename, int LineNum,
 
     OS_printf("SBN: Module initialized: %s in %s (%s)\n",
         Row[3], Row[1], Row[2]);
-    SBN.IfOps[ProtocolID] = (SBN_InterfaceOperations_t *)StructAddr;
+    SBN.IfOps[ProtocolID] = (SBN_IfOps_t *)StructAddr;
 
     return OS_SUCCESS;
 }
@@ -234,7 +234,7 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     OS_printf("SBN found symbol %s in %s (%s)\n", StructName, ModuleName,
         ModuleFile);
-    SBN.IfOps[ProtocolID] = (SBN_InterfaceOperations_t *)StructAddr;
+    SBN.IfOps[ProtocolID] = (SBN_IfOps_t *)StructAddr;
 
     return SBN_SUCCESS;
 }/* end SBN_ParseModuleEntry */

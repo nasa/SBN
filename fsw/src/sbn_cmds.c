@@ -18,19 +18,24 @@
 /*******************************************************************/
 void SBN_InitializeCounters(void)
 {
-    int32 i = 0;
-
     DEBUG_START();
 
     SBN.Hk.CmdCount = 0;
     SBN.Hk.CmdErrCount = 0;
 
-    for(i = 0; i < SBN_MAX_NETWORK_PEERS; i++)
+    int NetIdx = 0;
+    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
-        SBN.Hk.PeerStatus[i].SentCount = 0;
-        SBN.Hk.PeerStatus[i].RecvCount = 0;
-        SBN.Hk.PeerStatus[i].SentErrCount = 0;
-        SBN.Hk.PeerStatus[i].RecvErrCount = 0;
+        SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+        int PeerIdx = 0;
+        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        {
+            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+            Peer->Status->SendCount = 0;
+            Peer->Status->RecvCount = 0;
+            Peer->Status->SendErrCount = 0;
+            Peer->Status->RecvErrCount = 0;
+        }/* end for */
     }/* end for */
 }/* end SBN_InitializeCounters */
 
@@ -225,44 +230,45 @@ static void ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 *************************************************************************/
 static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    int PeerIdx = 0;
     SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
-
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "invalid reset peer command");
-    }/* end if */
-
-    PeerIdx = Command->PeerIdx;
-
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-        "reset peer command (PeerIdx=%d)", PeerIdx);
-
-    if(PeerIdx < 0 || PeerIdx >= SBN.Hk.PeerCount)
-    {
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid peer");
         return;
     }/* end if */
 
+    if(Command->NetIdx < 0 || Command->NetIdx >= SBN.Hk.NetCount)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid net idx %d (max=%d)", Command->NetIdx, SBN.Hk.NetCount);
+        return;
+    }/* end if */
+
+    SBN_NetInterface_t *Net = &SBN.Nets[Command->NetIdx];
+
+    if(Command->PeerIdx < 0 || Command->PeerIdx >= Net->Status->PeerCount)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid peer idx %d (max=%d)", Command->PeerIdx,
+            Net->Status->PeerCount);
+        return;
+    }/* end if */
+
+    SBN_PeerInterface_t *Peer = &Net->Peers[Command->PeerIdx];
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
+        "reset peer command (NetIdx=%d, PeerIdx=%d)",
+        Command->NetIdx, Command->PeerIdx);
     SBN.Hk.CmdCount++;
     
-    if(SBN.IfOps[SBN.Hk.PeerStatus[PeerIdx].ProtocolId]->ResetPeer(
-        &SBN.Peers[PeerIdx]) == SBN_NOT_IMPLEMENTED)
+    if(Net->IfOps->ResetPeer(Peer) == SBN_NOT_IMPLEMENTED)
     {
-        CFE_EVS_SendEvent(SBN_CMD_EID,
-            CFE_EVS_INFORMATION,
-            "reset peer not implemented for peer %d of type %d",
-            PeerIdx, SBN.Hk.PeerStatus[PeerIdx].ProtocolId);
-    }
-    else
-    {
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
-            "reset peer %d", PeerIdx);
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
+            "reset peer not implemented for net");
     }/* end if */
 }/* end ResetPeerCmd */
+
 /************************************************************************/
 /** \brief Send My Subscriptions
 **
@@ -295,7 +301,7 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
     Pkt.SubCount = SBN.Hk.SubCount;
     for(SubNum = 0; SubNum < SBN.Hk.SubCount; SubNum++)
     {
-        Pkt.Subs[SubNum] = SBN.LocalSubs[SubNum].MsgId;
+        Pkt.Subs[SubNum] = SBN.LocalSubs[SubNum].MsgID;
     }/* end for */
 
     /* 
@@ -320,7 +326,6 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     SBN_HkSubsPkt_t Pkt;
-    int PeerIdx = 0;
     int SubNum = 0;
     SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
 
@@ -332,16 +337,34 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
             "invalid reset peer command");
     }/* end if */
 
-    PeerIdx = Command->PeerIdx;
+    if(Command->NetIdx < 0 || Command->NetIdx >= SBN.Hk.NetCount)
+    {   
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid net idx %d (max=%d)", Command->NetIdx, SBN.Hk.NetCount);
+        return;
+    }/* end if */
+
+    SBN_NetInterface_t *Net = &SBN.Nets[Command->NetIdx];
+
+    if(Command->PeerIdx < 0 || Command->PeerIdx >= Net->Status->PeerCount)
+    {   
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "invalid peer idx %d (max=%d)", Command->PeerIdx,
+            Net->Status->PeerCount);
+        return;
+    }/* end if */
+
+    SBN_PeerInterface_t *Peer = &Net->Peers[Command->PeerIdx];
 
     CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
     Pkt.CC = SBN_PEERSUBS_CC;
-    Pkt.PeerIdx = PeerIdx;
+    Pkt.NetIdx = Command->NetIdx;
+    Pkt.PeerIdx = Command->PeerIdx;
 
-    Pkt.SubCount = SBN.Hk.PeerStatus[PeerIdx].SubCount;
+    Pkt.SubCount = Peer->Status->SubCount;
     for(SubNum = 0; SubNum < Pkt.SubCount; SubNum++)
     {
-        Pkt.Subs[SubNum] = SBN.Peers[PeerIdx].Subs[SubNum].MsgId;
+        Pkt.Subs[SubNum] = Peer->Subs[SubNum].MsgID;
     }/* end for */
 
     /* 

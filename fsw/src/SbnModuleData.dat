@@ -4,8 +4,7 @@
 !
 ! Format: ProtocolId, ModuleLocation, IFStructName
 !
-! Protocol id 1 = UDP, 2 = TCP, 3 = SpacewireRMAP, 4 = Spacewire packet, 5 = Shared Memory, 6 = Serial
-! Only UDP and TCP are currently implemented
+! Protocol id 1 = UDP, 2 = TCP, 3 = SpacewireRMAP, 4 = Spacewire packet, 5 = Shared Memory, 6 = Serial, 7 = 1553, 8 = DTN
 !
 ! IFStructName is the name of the SBN_InterfaceOperations struct defined for the
 ! module. 

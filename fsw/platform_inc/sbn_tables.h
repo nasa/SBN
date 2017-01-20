@@ -4,7 +4,7 @@
 #include "cfe.h"
 
 /****
- * The RemapTable must be sorted and unique for ProcessorId + from
+ * The RemapTable must be sorted and unique for ProcessorID + from
  * Logic is as follows:
  * for each message->
  *      if there's an entry->
@@ -18,7 +18,7 @@
  */
 typedef struct
 {
-    uint32 ProcessorId;
+    uint32 ProcessorID;
     CFE_SB_MsgId_t from;
     CFE_SB_MsgId_t to;
 }
