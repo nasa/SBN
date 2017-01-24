@@ -16,16 +16,31 @@ typedef struct {
 } SBN_NoArgsCmd_t;
 
 /**
- * \brief Reset Peer Command
- * For command details see #SBN_RESET_PEER_CC
+ * \brief Net Command
+ */
+typedef struct {
+    uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
+    uint8 NetIdx;
+} SBN_NetCmd_t;
+
+/**
+ * \brief Peer Command
  */
 typedef struct {
     uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
     uint8 NetIdx;
     uint8 PeerIdx;
-} SBN_PeerIdxArgsCmd_t;
+} SBN_PeerCmd_t;
 
 typedef struct {
+    uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
+
+    /** SBN sends all HK responses with the same MID, the CC of the request
+     * is copied to the struct of the response to disambiguate what type
+     * of response it is.
+     */
+    uint8 CC; // 1 byte
+
     uint8 QoS, State, Padding[2]; // 4 bytes
     char Name[SBN_MAX_PEERNAME_LENGTH]; // 4 + 32 = 36 bytes
     uint32 ProcessorID; // 36 + 4 = 40 bytes
@@ -36,9 +51,16 @@ typedef struct {
 } SBN_PeerStatus_t;
 
 typedef struct {
-    char Name[SBN_MAX_NET_NAME_LENGTH];
-    uint8 Idx, ProtocolID, PeerCount; // 4 bytes
-    SBN_PeerStatus_t PeerStatus[SBN_MAX_PEERS_PER_NET];
+    uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
+
+    /** SBN sends all HK responses with the same MID, the CC of the request
+     * is copied to the struct of the response to disambiguate what type
+     * of response it is.
+     */
+    uint8 CC, Padding[3]; // 4 byte
+
+    char Name[SBN_MAX_NET_NAME_LENGTH]; // 16 + 4 = 20 bytes
+    uint8 ProtocolID, PeerCount, Padding2[2]; // 20 + 4 = 24 bytes
     uint8 IFData[32]; /* opaque, dependent on the interface module */
 } SBN_NetStatus_t;
 
@@ -48,6 +70,10 @@ typedef struct {
 typedef struct {
     uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
+    /** SBN sends all HK responses with the same MID, the CC of the request
+     * is copied to the struct of the response to disambiguate what type
+     * of response it is.
+     */
     uint8 CC; // 1 byte
 
     uint8 CmdCount; // 1 + 1 = 2 bytes
@@ -58,18 +84,18 @@ typedef struct {
     uint16 SubCount; // 4 + 2 = 6 bytes
 
     uint16 NetCount; // 6 + 2 = 8 bytes
-
-    /* SBN Module Stats */
-    SBN_NetStatus_t NetStatus[SBN_MAX_NETS];
 } SBN_HkPacket_t;
 
 typedef struct {
     uint8  TlmHeader[CFE_SB_TLM_HDR_SIZE];
 
-    uint8 CC;
-    uint8 NetIdx;
-    uint8 PeerIdx;
-    uint16 SubCount;
+    /** SBN sends all HK responses with the same MID, the CC of the request
+     * is copied to the struct of the response to disambiguate what type
+     * of response it is.
+     */
+    uint8 CC, NetIdx, PeerIdx, Padding; // 4 bytes
+
+    uint16 SubCount, Padding[2]; // 4 + 4 = 8 bytes
 
     CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER];
 } SBN_HkSubsPkt_t;

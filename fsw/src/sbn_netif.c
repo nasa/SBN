@@ -27,6 +27,7 @@
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
 #include "sbn_app.h"
+#include "sbn_msgids.h"
 #include "sbn_netif.h"
 #include "sbn_main_events.h"
 
@@ -168,7 +169,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
 
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
-        if(!strcmp(Row[5], SBN.Nets[NetIdx].Status->Name))
+        if(!strcmp(Row[5], SBN.Nets[NetIdx].Status.Name))
         {
             break;
         }/* end if */
@@ -187,9 +188,9 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         NetIdx = SBN.Hk.NetCount++;
         Net = &SBN.Nets[NetIdx];
         memset(Net, 0, sizeof(*Net));
-        Net->Status = &SBN.Hk.NetStatus[NetIdx];
-        memset(Net->Status, 0, sizeof(*Net->Status));
-        strncpy(Net->Status->Name, Row[5], sizeof(Net->Status->Name));
+        memset(&Net->Status, 0, sizeof(Net->Status));
+        CFE_SB_InitMsg(&Net->Status, SBN_TLM_MID, sizeof(Net->Status), TRUE);
+        strncpy(Net->Status.Name, Row[5], sizeof(Net->Status.Name));
     }
     else
     {
@@ -198,14 +199,14 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
 
     if(ProcessorID == CFE_PSP_GetProcessorId())
     {
-        strncpy(Net->Status->Name, Row[5], sizeof(Net->Status->Name));
-        Net->Status->ProtocolID = ProtocolID;
+        strncpy(Net->Status.Name, Row[5], sizeof(Net->Status.Name));
+        Net->Status.ProtocolID = ProtocolID;
         Net->IfOps = SBN.IfOps[ProtocolID];
         Net->IfOps->LoadNet(Row + 6, FieldCount - 6, Net);
     }
     else
     {
-        int PeerIdx = Net->Status->PeerCount++;
+        int PeerIdx = Net->Status.PeerCount++;
         if(PeerIdx >= SBN_MAX_PEERS_PER_NET)
         {   
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
@@ -220,11 +221,11 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         memset(Peer, 0, sizeof(*Peer));
 
         Peer->Net = Net;
-        Peer->Status = &Net->Status->PeerStatus[PeerIdx];
-        memset(Peer->Status, 0, sizeof(*Peer->Status));
-        strncpy(Peer->Status->Name, Name, SBN_MAX_PEERNAME_LENGTH);
-        Peer->Status->ProcessorID = ProcessorID;
-        Peer->Status->QoS = QoS;
+        memset(&Peer->Status, 0, sizeof(Peer->Status));
+        CFE_SB_InitMsg(&Peer->Status, SBN_TLM_MID, sizeof(Peer->Status), TRUE);
+        strncpy(Peer->Status.Name, Name, SBN_MAX_PEERNAME_LENGTH);
+        Peer->Status.ProcessorID = ProcessorID;
+        Peer->Status.QoS = QoS;
         SBN.IfOps[ProtocolID]->LoadPeer(Row + 6, FieldCount - 6, Peer);
     }/* end if */
 
@@ -583,7 +584,7 @@ static void RecvPeerTask(void)
     for(D.NetIdx = 0; D.NetIdx < SBN.Hk.NetCount; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
-        for(D.PeerIdx = 0; D.PeerIdx < D.Net->Status->PeerCount; D.PeerIdx++)
+        for(D.PeerIdx = 0; D.PeerIdx < D.Net->Status.PeerCount; D.PeerIdx++)
         {
             D.Peer = &D.Net->Peers[D.PeerIdx];
             if(D.Peer->RecvTaskID == D.RecvTaskID)
@@ -592,7 +593,7 @@ static void RecvPeerTask(void)
             }/* end if */
         }/* end for */
 
-        if(D.PeerIdx < D.Net->Status->PeerCount)
+        if(D.PeerIdx < D.Net->Status.PeerCount)
         {
             break;
         }/* end if */
@@ -617,7 +618,7 @@ static void RecvPeerTask(void)
 
         if(D.Status == SBN_SUCCESS)
         {
-            OS_GetLocalTime(&D.Peer->Status->LastRecv);
+            OS_GetLocalTime(&D.Peer->Status.LastRecv);
 
             SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSize, &D.Msg);
         }
@@ -625,7 +626,7 @@ static void RecvPeerTask(void)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                 "recv error (%d)", D.Status);
-            D.Peer->Status->RecvErrCount++;
+            D.Peer->Status.RecvErrCount++;
         }/* end if */
     }/* end while */
 }/* end RecvPeerTask */
@@ -693,7 +694,7 @@ static void RecvNetTask(void)
             return;
         }/* end if */
 
-        OS_GetLocalTime(&D.Peer->Status->LastRecv);
+        OS_GetLocalTime(&D.Peer->Status.LastRecv);
 
         SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSize, &D.Msg);
     }/* end while */
@@ -726,7 +727,7 @@ void SBN_RecvNetMsgs(void)
         if(Net->IfOps->RecvFromPeer)
         {
             int PeerIdx = 0;
-            for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+            for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
@@ -757,7 +758,7 @@ void SBN_RecvNetMsgs(void)
 
                     if(RealPeer)
                     {
-                        OS_GetLocalTime(&RealPeer->Status->LastRecv);
+                        OS_GetLocalTime(&RealPeer->Status.LastRecv);
 
                         SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSize, Msg);
                     }/* end if */
@@ -802,12 +803,12 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     if(Status != -1)
     {
-        Peer->Status->SendCount++;
-        OS_GetLocalTime(&Peer->Status->LastSend);
+        Peer->Status.SendCount++;
+        OS_GetLocalTime(&Peer->Status.LastSend);
     }
     else
     {
-        Peer->Status->SendErrCount++;
+        Peer->Status.SendErrCount++;
     }/* end if */
 
     #ifdef SBN_SEND_TASK
@@ -858,7 +859,7 @@ static void SendTask(void)
     for(D.NetIdx = 0; D.NetIdx < SBN.Hk.NetCount; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
-        for(D.PeerIdx = 0; D.PeerIdx < D.Net->Status->PeerCount; D.PeerIdx++)
+        for(D.PeerIdx = 0; D.PeerIdx < D.Net->Status.PeerCount; D.PeerIdx++)
         {
             D.Peer = &D.Net->Peers[D.PeerIdx];
             if(D.Peer->SendTaskID == D.SendTaskID)
@@ -867,7 +868,7 @@ static void SendTask(void)
             }/* end if */
         }/* end for */
         
-        if(D.PeerIdx < D.Net->Status->PeerCount)
+        if(D.PeerIdx < D.Net->Status.PeerCount)
         {
             break; /* found a ringer */
         }/* end if */
@@ -882,14 +883,14 @@ static void SendTask(void)
 
     while(1)
     {
-        if(D.Peer->Status->State != SBN_HEARTBEATING)
+        if(D.Peer->Status.State != SBN_HEARTBEATING)
         {
             OS_TaskDelay(1000);
             continue;
         }/* end if */
 
         /** as long as it's connected, process messages for the peer **/
-        while(D.Peer->Status->State == SBN_HEARTBEATING)
+        while(D.Peer->Status.State == SBN_HEARTBEATING)
         {
             if(CFE_SB_RcvMsg(&D.SBMsgPtr, D.Peer->Pipe, CFE_SB_PEND_FOREVER)
                 != CFE_SUCCESS)
@@ -908,7 +909,7 @@ static void SendTask(void)
 
             if(SBN.RemapTable)
             {   
-                D.MsgID = RemapMsgID(D.Peer->Status->ProcessorID,
+                D.MsgID = RemapMsgID(D.Peer->Status.ProcessorID,
                     CFE_SB_GetMsgId(D.SBMsgPtr));
                 if(!D.MsgID)
                 {   
@@ -929,20 +930,20 @@ static uint32 CreateSendTask(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer)
     uint32 Status = OS_SUCCESS;
     char MutexName[OS_MAX_API_NAME], SendTaskName[32];
 
-    snprintf(MutexName, OS_MAX_API_NAME, "sendM_%s_%s", Net->Status->Name,
-        Peer->Status->Name);
+    snprintf(MutexName, OS_MAX_API_NAME, "sendM_%s_%s", Net->Status.Name,
+        Peer->Status.Name);
 
     Status = OS_MutSemCreate(&(Peer->SendMutex), MutexName, 0);
 
     if(Status != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "error creating mutex for %s", Peer->Status->Name);
+            "error creating mutex for %s", Peer->Status.Name);
         return Status;
     }
 
-    snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Status->Name,
-        Peer->Status->Name);
+    snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Status.Name,
+        Peer->Status.Name);
     Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
         SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
         CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
@@ -950,7 +951,7 @@ static uint32 CreateSendTask(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer)
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "error creating send task for %s", Peer->Status->Name);
+            "error creating send task for %s", Peer->Status.Name);
         return Status;
     }/* end if */
 
@@ -986,11 +987,11 @@ void SBN_CheckPeerPipes(void)
             SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
             int PeerIdx = 0;
-            for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+            for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = Net->Peers[PeerIdx];
                 /* if peer data is not in use, go to next peer */
-                if(Peer->Status->State != SBN_HEARTBEATING)
+                if(Peer->Status.State != SBN_HEARTBEATING)
                 {   
                     continue;
                 }
@@ -1015,7 +1016,7 @@ void SBN_CheckPeerPipes(void)
                 if(SBN.RemapTable)
                 {   
                     CFE_SB_MsgId_t MsgID =
-                        RemapMsgID(Peer->Status->ProcessorID,
+                        RemapMsgID(Peer->Status.ProcessorID,
                         CFE_SB_GetMsgId(SBMsgPtr));
                     if(!MsgID)
                     {   
@@ -1069,7 +1070,7 @@ int SBN_InitInterfaces(void)
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "error creating task for %s", Net->Status->Name);
+                    "error creating task for %s", Net->Status.Name);
                 return Status;
             }/* end if */
         }/* end if */
@@ -1077,7 +1078,7 @@ int SBN_InitInterfaces(void)
 #endif /* SBN_RECV_TASK */
 
         int PeerIdx = 0;
-        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
@@ -1085,7 +1086,7 @@ int SBN_InitInterfaces(void)
 
             /* create a pipe name string similar to SBN_CPU2_Pipe */
             snprintf(PipeName, OS_MAX_API_NAME, "SBN_%s_%s_Pipe",
-                Net->Status->Name, Peer->Status->Name);
+                Net->Status.Name, Peer->Status.Name);
             int Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH,
                 PipeName);
 
@@ -1101,7 +1102,7 @@ int SBN_InitInterfaces(void)
                 "pipe created '%s'", PipeName);
 
             /* Reset counters, flags and timers */
-            Peer->Status->State = SBN_ANNOUNCING;
+            Peer->Status.State = SBN_ANNOUNCING;
 
             Net->IfOps->InitPeer(Peer);
 
@@ -1121,7 +1122,7 @@ int SBN_InitInterfaces(void)
                 if(Status != CFE_SUCCESS)
                 {
                     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                        "error creating task for %s", Peer->Status->Name);
+                        "error creating task for %s", Peer->Status.Name);
                     return Status;
                 }/* end if */
             }/* end if */
@@ -1145,7 +1146,7 @@ int SBN_InitInterfaces(void)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
             "net #%d has %d peers", NetIdx,
-            SBN.Nets[NetIdx].Status->PeerCount);
+            SBN.Nets[NetIdx].Status.PeerCount);
     }/* end for */
 
     return SBN_SUCCESS;

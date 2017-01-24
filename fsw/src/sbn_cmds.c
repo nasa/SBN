@@ -28,13 +28,13 @@ void SBN_InitializeCounters(void)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
         int PeerIdx = 0;
-        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            Peer->Status->SendCount = 0;
-            Peer->Status->RecvCount = 0;
-            Peer->Status->SendErrCount = 0;
-            Peer->Status->RecvErrCount = 0;
+            Peer->Status.SendCount = 0;
+            Peer->Status.RecvCount = 0;
+            Peer->Status.SendErrCount = 0;
+            Peer->Status.RecvErrCount = 0;
         }/* end for */
     }/* end for */
 }/* end SBN_InitializeCounters */
@@ -79,7 +79,7 @@ static boolean VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
         MsgId = CFE_SB_GetMsgId(msg);
         CommandCode = CFE_SB_GetCmdCode(msg);
 
-        if(CommandCode == SBN_SEND_HK_CC)
+        if(CommandCode == SBN_HK_CC)
         {
             /*
             ** For a bad HK request, just send the event.  We only increment
@@ -108,40 +108,6 @@ static boolean VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
 
     return TRUE;
 }/* end VerifyMsgLength */
-
-/************************************************************************/
-/** \brief Housekeeping request command
-**
-**  \par Description
-**       Processes an on-board housekeeping request message.
-**
-**  \par Assumptions, External Events, and Notes:
-**       This message does not affect the command execution counter
-
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-*************************************************************************/
-static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
-{
-    DEBUG_START();
-
-    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
-    {
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
-        return;
-    }/* end if */
-
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
-
-    SBN.Hk.CC = SBN_SEND_HK_CC;
-
-    /* 
-    ** Timestamp and send packet
-    */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.Hk);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.Hk);
-}/* end HKCmd */
 
 /************************************************************************/
 /** \brief Noop command
@@ -230,8 +196,8 @@ static void ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 *************************************************************************/
 static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
-    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
+    SBN_PeerCmd_t *Command = (SBN_PeerCmd_t *)MessagePtr;
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "invalid reset peer command");
@@ -247,11 +213,11 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
 
     SBN_NetInterface_t *Net = &SBN.Nets[Command->NetIdx];
 
-    if(Command->PeerIdx < 0 || Command->PeerIdx >= Net->Status->PeerCount)
+    if(Command->PeerIdx < 0 || Command->PeerIdx >= Net->Status.PeerCount)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "invalid peer idx %d (max=%d)", Command->PeerIdx,
-            Net->Status->PeerCount);
+            Net->Status.PeerCount);
         return;
     }/* end if */
 
@@ -269,18 +235,145 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
     }/* end if */
 }/* end ResetPeerCmd */
 
-/************************************************************************/
+/** \brief Housekeeping request command
+ *
+ *  \par Description
+ *       Processes an on-board housekeeping request message.
+ *
+ *  \par Assumptions, External Events, and Notes:
+ *       This message does not affect the command execution counter
+ *
+ *  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+ *                             references the software bus message
+ *
+ */
+static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
+        return;
+    }/* end if */
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
+
+    SBN.Hk.CC = SBN_HK_CC;
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.Hk);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.Hk);
+}/* end HKCmd */
+
+/** \brief Request for housekeeping for one network.
+ *
+ *  \par Description
+ *       Processes an on-board housekeeping request message.
+ *
+ *  \par Assumptions, External Events, and Notes:
+ *       This message does not affect the command execution counter
+ *
+ *  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+ *                             references the software bus message
+ */
+static void HKNetCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NetCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
+        return;
+    }/* end if */
+
+    SBN_NetCmd_t *NetCmd = (SBN_NetCmd_t *)MessagePtr;
+
+    if(NetCmd->NetIdx > SBN.Hk.NetCount)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "Invalid NetIdx (%d, max is %d)",
+            NetCmd->NetIdx, SBN.Hk.NetCount);
+        return;
+    }/* end if */
+
+    SBN_NetStatus_t *NetStatus = &(SBN.Nets[NetCmd->NetIdx].Status);
+    NetStatus->CC = SBN_HK_NET_CC;
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk net command");
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)NetStatus);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *)NetStatus);
+}/* end HKNetCmd */
+
+/** \brief Request for housekeeping for one peer.
+ *
+ *  \par Description
+ *       Processes an on-board housekeeping request message.
+ *
+ *  \par Assumptions, External Events, and Notes:
+ *       This message does not affect the command execution counter
+ *
+ *  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+ *                             references the software bus message
+ */
+static void HKPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
+{
+    DEBUG_START();
+
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerCmd_t)))
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
+        return;
+    }/* end if */
+
+    SBN_PeerCmd_t *PeerCmd = (SBN_PeerCmd_t *)MessagePtr;
+
+    if(PeerCmd->NetIdx > SBN.Hk.NetCount)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "Invalid NetIdx (%d, max is %d)",
+            PeerCmd->NetIdx, SBN.Hk.NetCount);
+        return;
+    }/* end if */
+
+    if(PeerCmd->PeerIdx > SBN.Nets[PeerCmd->NetIdx].Status.PeerCount)
+    {
+        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
+            "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
+            PeerCmd->NetIdx, PeerCmd->PeerIdx,
+            SBN.Nets[PeerCmd->NetIdx].Status.PeerCount);
+        return;
+    }/* end if */
+
+    SBN_PeerStatus_t *PeerStatus =
+        &(SBN.Nets[PeerCmd->NetIdx].Peers[PeerCmd->PeerIdx].Status);
+    PeerStatus->CC = SBN_HK_PEER_CC;
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk peer command");
+
+    /* 
+    ** Timestamp and send packet
+    */
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)PeerStatus);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *)PeerStatus);
+}/* end HKCmd */
+
 /** \brief Send My Subscriptions
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
-**                             references the software bus message
-**
-**  \sa #SBN_MYSUBS_CC
-**
-*************************************************************************/
+ *
+ *  \par Assumptions, External Events, and Notes:
+ *       None
+ *
+ *  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that
+ *                             references the software bus message
+ *
+ *  \sa #SBN_MYSUBS_CC
+ */
 static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     SBN_HkSubsPkt_t Pkt;
@@ -295,7 +388,7 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
     }/* end if */
 
     CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
-    Pkt.CC = SBN_MYSUBS_CC;
+    Pkt.CC = SBN_HK_MYSUBS_CC;
     Pkt.PeerIdx = 0;
 
     Pkt.SubCount = SBN.Hk.SubCount;
@@ -325,43 +418,47 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 *************************************************************************/
 static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    SBN_HkSubsPkt_t Pkt;
     int SubNum = 0;
-    SBN_PeerIdxArgsCmd_t *Command = (SBN_PeerIdxArgsCmd_t *)MessagePtr;
+    SBN_PeerCmd_t *Command = (SBN_PeerCmd_t *)MessagePtr;
 
     DEBUG_START();
 
-    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerIdxArgsCmd_t)))
+    if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "invalid reset peer command");
     }/* end if */
 
-    if(Command->NetIdx < 0 || Command->NetIdx >= SBN.Hk.NetCount)
-    {   
+    SBN_PeerCmd_t *PeerCmd = (SBN_PeerCmd_t *)MessagePtr;
+
+    if(PeerCmd->NetIdx >= SBN.Hk.NetCount)
+    {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "invalid net idx %d (max=%d)", Command->NetIdx, SBN.Hk.NetCount);
+            "Invalid NetIdx (%d, max is %d)",
+            PeerCmd->NetIdx, SBN.Hk.NetCount);
         return;
     }/* end if */
 
-    SBN_NetInterface_t *Net = &SBN.Nets[Command->NetIdx];
-
-    if(Command->PeerIdx < 0 || Command->PeerIdx >= Net->Status->PeerCount)
-    {   
+    if(PeerCmd->PeerIdx >= SBN.Nets[PeerCmd->NetIdx].Status.PeerCount)
+    {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "invalid peer idx %d (max=%d)", Command->PeerIdx,
-            Net->Status->PeerCount);
+            "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
+            PeerCmd->NetIdx, PeerCmd->PeerIdx,
+            SBN.Nets[PeerCmd->NetIdx].Status.PeerCount);
         return;
     }/* end if */
 
-    SBN_PeerInterface_t *Peer = &Net->Peers[Command->PeerIdx];
+    SBN_HkSubsPkt_t Pkt;
 
     CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
-    Pkt.CC = SBN_PEERSUBS_CC;
+    Pkt.CC = SBN_HK_PEERSUBS_CC;
     Pkt.NetIdx = Command->NetIdx;
     Pkt.PeerIdx = Command->PeerIdx;
 
-    Pkt.SubCount = Peer->Status->SubCount;
+    SBN_PeerInterface_t *Peer =
+        &(SBN.Nets[PeerCmd->NetIdx].Peers[PeerCmd->PeerIdx]);
+
+    Pkt.SubCount = Peer->Status.SubCount;
     for(SubNum = 0; SubNum < Pkt.SubCount; SubNum++)
     {
         Pkt.Subs[SubNum] = Peer->Subs[SubNum].MsgID;
@@ -406,15 +503,23 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr)
         case SBN_RESET_PEER_CC:
             ResetPeerCmd(MessagePtr);
             break;
-        case SBN_SEND_HK_CC:
+
+        case SBN_HK_CC:
             HKCmd(MessagePtr);
             break;
-        case SBN_MYSUBS_CC:
-            MySubsCmd(MessagePtr);
+        case SBN_HK_NET_CC:
+            HKNetCmd(MessagePtr);
             break;
-        case SBN_PEERSUBS_CC:
+        case SBN_HK_PEER_CC:
+            HKPeerCmd(MessagePtr);
+            break;
+        case SBN_HK_PEERSUBS_CC:
             PeerSubsCmd(MessagePtr);
             break;
+        case SBN_HK_MYSUBS_CC:
+            MySubsCmd(MessagePtr);
+            break;
+
         case SBN_SCH_WAKEUP_CC:
             /* TODO: debug message? */
             break;

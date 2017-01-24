@@ -89,7 +89,7 @@ typedef struct SBN_IfOps_s SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
 
 typedef struct {
-    SBN_PeerStatus_t *Status;
+    SBN_PeerStatus_t Status;
     SBN_NetInterface_t *Net;
 
     #ifdef SBN_SEND_TASK
@@ -104,8 +104,8 @@ typedef struct {
 
     #endif /* SBN_RECV_TASK */
 
-    CFE_SB_PipeId_t Pipe;
-    char PipeName[OS_MAX_API_NAME];
+    CFE_SB_PipeId_t Pipe; /* PipeID */
+    char PipeName[OS_MAX_API_NAME]; /* necessary to save? */
     SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
 
     /** \brief generic blob of bytes, module-specific */
@@ -125,7 +125,7 @@ struct SBN_NetInterface_s {
 
     #endif /* SBN_RECV_TASK */
 
-    SBN_NetStatus_t *Status;
+    SBN_NetStatus_t Status;
 
     SBN_IfOps_t *IfOps; /* convenience */
 

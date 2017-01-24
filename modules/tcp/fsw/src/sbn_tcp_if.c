@@ -135,7 +135,7 @@ int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
         = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
     PeerData->ConnectOut =
-        (Peer->Status->ProcessorID > CFE_PSP_GetProcessorId());
+        (Peer->Status.ProcessorID > CFE_PSP_GetProcessorId());
     PeerData->Connected = FALSE;
 
     return SBN_SUCCESS;
@@ -172,7 +172,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
             return;
         }/* end if */
         
-        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
             SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
@@ -189,7 +189,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
         close(ClientFd);
     }/* end if */
 
-    for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
     {
         SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
         SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;

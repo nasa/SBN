@@ -159,7 +159,7 @@ static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID,
 
     DEBUG_START();
 
-    for(i = 0; i < Peer->Status->SubCount; i++)
+    for(i = 0; i < Peer->Status.SubCount; i++)
     {
         if(Peer->Subs[i].MsgID == MsgID)
         {
@@ -214,10 +214,10 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            if(Peer->Status->State != SBN_HEARTBEATING)
+            if(Peer->Status.State != SBN_HEARTBEATING)
             {
                 continue;
             }/* end if */
@@ -273,10 +273,10 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            if(Peer->Status->State != SBN_HEARTBEATING)
+            if(Peer->Status.State != SBN_HEARTBEATING)
             {
                 continue;
             }/* end if */
@@ -365,7 +365,7 @@ int32 SBN_CheckSubscriptionPipe(void)
 static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     CFE_SB_Qos_t Qos)
 {   
-    int idx = 0, FirstOpenSlot = Peer->Status->SubCount;
+    int idx = 0, FirstOpenSlot = Peer->Status.SubCount;
     uint32 Status = CFE_SUCCESS;
     
     /* if msg id already in the list, ignore */
@@ -374,11 +374,11 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
         return;
     }/* end if */
 
-    if(Peer->Status->SubCount >= SBN_MAX_SUBS_PER_PEER)
+    if(Peer->Status.SubCount >= SBN_MAX_SUBS_PER_PEER)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "cannot process subscription from '%s', max (%d) met",
-            Peer->Status->Name, SBN_MAX_SUBS_PER_PEER);
+            Peer->Status.Name, SBN_MAX_SUBS_PER_PEER);
         return;
     }/* end if */
     
@@ -395,7 +395,7 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     Peer->Subs[FirstOpenSlot].MsgID = MsgID;
     Peer->Subs[FirstOpenSlot].Qos = Qos;
     
-    Peer->Status->SubCount++;
+    Peer->Status.SubCount++;
 }/* end ProcessSubFromPeer */
 
 /**
@@ -417,8 +417,7 @@ void SBN_ProcessSubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     /** If there's a filter, ignore the sub request.  */
     for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {
-        if(SBN.RemapTable->Entry[idx].ProcessorID
-                == Peer->Status->ProcessorID
+        if(SBN.RemapTable->Entry[idx].ProcessorID == Peer->Status.ProcessorID
             && SBN.RemapTable->Entry[idx].from == MsgID
             && SBN.RemapTable->Entry[idx].to == 0x0000)
         {
@@ -435,7 +434,7 @@ void SBN_ProcessSubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {
         if(SBN.RemapTable->Entry[idx].ProcessorID
-                == Peer->Status->ProcessorID
+                == Peer->Status.ProcessorID
             && SBN.RemapTable->Entry[idx].to == MsgID)
         {
             ProcessSubFromPeer(Peer, SBN.RemapTable->Entry[idx].from, Qos);
@@ -460,7 +459,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
-            CFE_CPU_NAME, Peer->Status->Name, htons(MsgID));
+            CFE_CPU_NAME, Peer->Status.Name, htons(MsgID));
         return;
     }/* end if */
 
@@ -469,7 +468,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     ** note that the Subs[] array has one extra element to allow for an
     ** unsub from a full table.
     */
-    for(i = idx; i < Peer->Status->SubCount; i++)
+    for(i = idx; i < Peer->Status.SubCount; i++)
     {
         memcpy(&Peer->Subs[i],
             &Peer->Subs[i + 1],
@@ -477,7 +476,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     }/* end for */
 
     /* decrement sub cnt */
-    Peer->Status->SubCount--;
+    Peer->Status.SubCount--;
 
     /* unsubscribe to the msg id on the peer pipe */
     Status = CFE_SB_UnsubscribeLocal(MsgID, Peer->Pipe);
@@ -509,7 +508,7 @@ void SBN_ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {   
         if(SBN.RemapTable->Entry[idx].ProcessorID
-                == Peer->Status->ProcessorID
+                == Peer->Status.ProcessorID
             && SBN.RemapTable->Entry[idx].from == MsgID
             && SBN.RemapTable->Entry[idx].to == 0x0000)
         {   
@@ -526,7 +525,7 @@ void SBN_ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {   
         if(SBN.RemapTable->Entry[idx].ProcessorID
-                == Peer->Status->ProcessorID
+                == Peer->Status.ProcessorID
             && SBN.RemapTable->Entry[idx].to == MsgID)
         {   
             ProcessUnsubFromPeer(Peer, SBN.RemapTable->Entry[idx].from);
@@ -597,7 +596,7 @@ void SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
 
     DEBUG_START();
 
-    for(i = 0; i < Peer->Status->SubCount; i++)
+    for(i = 0; i < Peer->Status.SubCount; i++)
     {
         Status = CFE_SB_UnsubscribeLocal(Peer->Subs[i].MsgID,
             Peer->Pipe);
@@ -611,8 +610,8 @@ void SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
 
     CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
         "unsubscribed %d message id's from %s",
-        (int)Peer->Status->SubCount,
-        Peer->Status->Name);
+        (int)Peer->Status.SubCount,
+        Peer->Status.Name);
 
-    Peer->Status->SubCount = 0;
+    Peer->Status.SubCount = 0;
 }/* end SBN_RemoveAllSubsFromPeer */

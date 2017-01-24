@@ -71,15 +71,15 @@ static void RunProtocol(void)
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-        for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
             OS_GetLocalTime(&current_time);
 
-            if(Peer->Status->State == SBN_ANNOUNCING)
+            if(Peer->Status.State == SBN_ANNOUNCING)
             {
                 if(current_time.seconds
-                    - Peer->Status->LastSend.seconds
+                    - Peer->Status.LastSend.seconds
                         > SBN_ANNOUNCE_TIMEOUT)
                 {
                     char AnnounceMsg[SBN_IDENT_LEN];
@@ -89,17 +89,17 @@ static void RunProtocol(void)
                 }/* end if */
                 continue;
             }/* end if */
-            if(current_time.seconds - Peer->Status->LastRecv.seconds
+            if(current_time.seconds - Peer->Status.LastRecv.seconds
                     > SBN_HEARTBEAT_TIMEOUT)
             {
                 /* lost connection, reset */
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
                     "peer %d lost connection", PeerIdx);
                 SBN_RemoveAllSubsFromPeer(Peer);
-                Peer->Status->State = SBN_ANNOUNCING;
+                Peer->Status.State = SBN_ANNOUNCING;
                 continue;
             }/* end if */
-            if(current_time.seconds - Peer->Status->LastSend.seconds
+            if(current_time.seconds - Peer->Status.LastSend.seconds
                     > SBN_HEARTBEAT_SENDTIME)
             {
                 SBN_SendNetMsg(SBN_HEARTBEAT_MSG, 0, NULL, Peer);
@@ -269,7 +269,7 @@ static int Init(void)
     DEBUG_START();
 
     memset(&SBN, 0, sizeof(SBN));
-    CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
+    CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN.Hk), TRUE);
 
     /* load the App_FullName so I can ignore messages I send out to SB */
     TskId = OS_TaskGetId();
@@ -330,7 +330,12 @@ static int Init(void)
     }/* end if */
 
     Status = CFE_SB_Subscribe(SBN_CMD_MID, SBN.CmdPipe);
-    if(Status != CFE_SUCCESS)
+    if(Status == CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
+            "Subscribed to command MID 0x%04X", SBN_CMD_MID);
+    }
+    else
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
             "failed to subscribe to command pipe (%d)", (int)Status);
@@ -432,22 +437,22 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
                     "%s version mismatch (me=%s, him=%s)",
-                    Peer->Status->Name, SBN_IDENT, (char *)Msg);
+                    Peer->Status.Name, SBN_IDENT, (char *)Msg);
             }
             else
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
                     "%s running same version of SBN (%s)",
-                    Peer->Status->Name, SBN_IDENT);
+                    Peer->Status.Name, SBN_IDENT);
             }/* end if */
         }/* end if */
     }/* end if */
 
-    if(Peer->Status->State == SBN_ANNOUNCING || MsgType == SBN_ANNOUNCE_MSG)
+    if(Peer->Status.State == SBN_ANNOUNCING || MsgType == SBN_ANNOUNCE_MSG)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-            "peer %s alive", Peer->Status->Name);
-        Peer->Status->State = SBN_HEARTBEATING;
+            "peer %s alive", Peer->Status.Name);
+        Peer->Status.State = SBN_HEARTBEATING;
 
         SBN_SendLocalSubsToPeer(Peer);
     }/* end if */
@@ -502,9 +507,9 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID)
 
     /* DEBUG_START(); chatty */
 
-    for(PeerIdx = 0; PeerIdx < Net->Status->PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
     {
-        if(Net->Peers[PeerIdx].Status->ProcessorID == ProcessorID)
+        if(Net->Peers[PeerIdx].Status.ProcessorID == ProcessorID)
         {
             return &Net->Peers[PeerIdx];
         }/* end if */
