@@ -69,7 +69,7 @@
 #define SBN_VOL_MODULE_FILENAME       "/ram/SbnModuleData.dat"
 #define SBN_NONVOL_MODULE_FILENAME    "/cf/SbnModuleData.dat"
 #define SBN_MODULE_FILE_LINE_SIZE     128
-#define SBN_MAX_INTERFACE_TYPES       6
+#define SBN_MAX_INTERFACE_TYPES       8
 
 #define SBN_SCH_PIPE_DEPTH            10
 

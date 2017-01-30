@@ -95,7 +95,7 @@ typedef struct {
      */
     uint8 CC, NetIdx, PeerIdx, Padding; // 4 bytes
 
-    uint16 SubCount, Padding[2]; // 4 + 4 = 8 bytes
+    uint16 SubCount, Padding2[2]; // 4 + 4 = 8 bytes
 
     CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER];
 } SBN_HkSubsPkt_t;
