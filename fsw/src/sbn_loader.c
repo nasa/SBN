@@ -1,7 +1,5 @@
 #include <string.h>
 #include "sbn_app.h"
-#include "sbn_main_events.h"
-#include "sbn_loader.h"
 
 #ifdef CFE_ES_CONFLOADER
 

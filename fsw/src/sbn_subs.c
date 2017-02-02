@@ -19,9 +19,8 @@
  **            C. Knight/ARC Code TI
  */
 
+#include "sbn_app.h"
 #include <string.h>
-#include "sbn_subs.h"
-#include "sbn_main_events.h"
 #include <arpa/inet.h>
 
 // TODO: instead of using void * for the buffer for SBN messages, use

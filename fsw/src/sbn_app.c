@@ -25,27 +25,11 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include "cfe.h"
-#include "cfe_sb_msg.h"
-#include "cfe_sb.h"
-#include "sbn_version.h"
 #include "sbn_app.h"
-#include "sbn_netif.h"
-#include "sbn_msgids.h"
-#include "sbn_loader.h"
-#include "sbn_cmds.h"
-#include "sbn_subs.h"
-#include "sbn_main_events.h"
-#include "sbn_perfids.h"
-#include "sbn_tables.h"
+
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
-
-#ifndef SBN_TLM_MID
-/* backwards compatability in case you're using a MID generator */
-#define SBN_TLM_MID SBN_HK_TLM_MID
-#endif /* SBN_TLM_MID */
 
 /** \brief SBN global application data. */
 SBN_App_t SBN;

@@ -23,13 +23,7 @@
 /*
 ** Include Files
 */
-#include "cfe.h"
-#include "cfe_sb_msg.h"
-#include "cfe_sb.h"
 #include "sbn_app.h"
-#include "sbn_msgids.h"
-#include "sbn_netif.h"
-#include "sbn_main_events.h"
 
 #include <network_includes.h>
 #include <string.h>

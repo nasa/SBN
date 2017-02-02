@@ -1,4 +1,4 @@
-#include "sbn_tables.h"
+#include "sbn_app.h"
 
 int32 SBN_RemapTableValidation(void *TblPtr)
 {

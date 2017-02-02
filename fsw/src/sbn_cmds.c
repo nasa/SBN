@@ -1,15 +1,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "sbn_msgids.h"
-#include "sbn_main_events.h"
-#include "sbn_cmds.h"
-#include "sbn_app.h"
-#include "cfe.h"
 
-#ifndef SBN_TLM_MID
-#define SBN_TLM_MID SBN_HK_TLM_MID
-#endif /* SBN_TLM_MID */
+#include "sbn_app.h"
 
 /*******************************************************************/
 /*                                                                 */
