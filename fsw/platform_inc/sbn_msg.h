@@ -41,7 +41,7 @@ typedef struct {
      */
     uint8 CC; // 1 byte
 
-    uint8 QoS, State, Padding[2]; // 4 bytes
+    uint8 QoS, State, Padding[1]; // 1 + 3 = 4 bytes
     char Name[SBN_MAX_PEERNAME_LENGTH]; // 4 + 32 = 36 bytes
     uint32 ProcessorID; // 36 + 4 = 40 bytes
     OS_time_t LastSend, LastRecv; // 40 + 8 = 48 bytes
