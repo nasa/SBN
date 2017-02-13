@@ -718,8 +718,27 @@ void SBN_RecvNetMsgs(void)
 
         if(Net->IfOps->RecvFromNet)
         {
-                Status = Net->IfOps->RecvFromNet(
-                    Net, &MsgType, &MsgSize, &CpuID, Msg);
+            memset(Msg, 0, sizeof(Msg));
+
+            Status = Net->IfOps->RecvFromNet(
+                Net, &MsgType, &MsgSize, &CpuID, Msg);
+
+            if(Status == SBN_IF_EMPTY)
+            {
+                break; /* no (more) messages */
+            }/* end if */
+
+            /* for UDP, the message received may not be from the peer
+             * expected.
+             */
+            SBN_PeerInterface_t *RealPeer = SBN_GetPeer(Net, CpuID);
+
+            if(RealPeer)
+            {
+                OS_GetLocalTime(&RealPeer->Status.LastRecv);
+            }/* end if */
+
+            SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSize, Msg);
         }/* end if */
 
         if(Net->IfOps->RecvFromPeer)
@@ -749,20 +768,12 @@ void SBN_RecvNetMsgs(void)
                         break; /* no (more) messages */
                     }/* end if */
 
-                    /* for UDP, the message received may not be from the peer
-                     * expected.
-                     */
-                    SBN_PeerInterface_t *RealPeer = SBN_GetPeer(Net, CpuID);
+                    OS_GetLocalTime(&Peer->Status.LastRecv);
 
-                    if(RealPeer)
-                    {
-                        OS_GetLocalTime(&RealPeer->Status.LastRecv);
-
-                        SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSize, Msg);
-                    }/* end if */
+                    SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSize, Msg);
                 }/* end for */
-        }/* end for */
-        }
+            }/* end for */
+        }/* end if */
     }/* end for */
 }/* end SBN_RecvNetMsgs */
 
