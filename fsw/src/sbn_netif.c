@@ -712,6 +712,10 @@ void SBN_RecvNetMsgs(void)
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+        SBN_MsgType_t MsgType;
+        SBN_MsgSize_t MsgSize;
+        SBN_CpuID_t CpuID;
+
         if(Net->IfOps->RecvFromNet)
         {
                 Status = Net->IfOps->RecvFromNet(
@@ -960,7 +964,7 @@ static uint32 CreateSendTask(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer)
  */
 void SBN_CheckPeerPipes(void)
 {
-    int PeerIdx = 0, ReceivedFlag = 0, iter = 0;
+    int ReceivedFlag = 0, iter = 0;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     CFE_SB_SenderId_t *LastSenderPtr = NULL;
 
@@ -983,7 +987,7 @@ void SBN_CheckPeerPipes(void)
             int PeerIdx = 0;
             for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
             {
-                SBN_PeerInterface_t *Peer = Net->Peers[PeerIdx];
+                SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
                 /* if peer data is not in use, go to next peer */
                 if(Peer->Status.State != SBN_HEARTBEATING)
                 {   
