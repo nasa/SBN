@@ -273,7 +273,12 @@ static int Init(void)
         return SBN_ERROR;
     }/* end if */
 
-    SBN_InitInterfaces();
+    if(SBN_InitInterfaces() == SBN_ERROR)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+            "unable to initialize interfaces");
+        return SBN_ERROR;
+    }/* end if */
 
     CFE_ES_GetAppID(&SBN.AppID);
 

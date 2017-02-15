@@ -182,7 +182,6 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         NetIdx = SBN.Hk.NetCount++;
         Net = &SBN.Nets[NetIdx];
         memset(Net, 0, sizeof(*Net));
-        memset(&Net->Status, 0, sizeof(Net->Status));
         CFE_SB_InitMsg(&Net->Status, SBN_TLM_MID, sizeof(Net->Status), TRUE);
         strncpy(Net->Status.Name, Row[5], sizeof(Net->Status.Name));
     }
@@ -194,6 +193,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     if(ProcessorID == CFE_PSP_GetProcessorId())
     {
         strncpy(Net->Status.Name, Row[5], sizeof(Net->Status.Name));
+        Net->Configured = TRUE;
         Net->Status.ProtocolID = ProtocolID;
         Net->IfOps = SBN.IfOps[ProtocolID];
         Net->IfOps->LoadNet(Row + 6, FieldCount - 6, Net);
@@ -1059,10 +1059,27 @@ int SBN_InitInterfaces(void)
 {
     DEBUG_START();
 
+    if(SBN.Hk.NetCount < 1)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "no networks configured");
+
+        return SBN_ERROR;
+    }/* end if */
+
     int NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+
+        if(!Net->Configured)
+        {
+            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+                "network %s (#%d) not configured", Net->Status.Name, NetIdx);
+
+            return SBN_ERROR;
+        }/* end if */
+
         Net->IfOps->InitNet(Net);
 
 #ifdef SBN_RECV_TASK

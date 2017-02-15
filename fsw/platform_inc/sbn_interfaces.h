@@ -113,6 +113,8 @@ typedef struct {
 } SBN_PeerInterface_t;
 
 struct SBN_NetInterface_s {
+    boolean Configured;
+
     #ifdef SBN_SEND_TASK
 
     uint32 SendTaskID, SendMutex; /* for star nets */
