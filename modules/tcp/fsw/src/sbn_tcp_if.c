@@ -5,7 +5,13 @@
 #include <network_includes.h>
 #include <string.h>
 #include <errno.h>
+
+/* at some point this will be replaced by the OSAL network interface */
+#ifdef _VXWORKS_OS_
+#include "selectLib.h"
+#else
 #include <sys/select.h>
+#endif
 
 static SBN_PackedMsg_t SendBufs[SBN_MAX_NETS];
 static int SendBufCount = 0;
