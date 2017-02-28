@@ -789,7 +789,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     #ifdef SBN_SEND_TASK
 
-    if(OS_MutSemTake(SBN.Peers[PeerIdx].SendMutex) != OS_SUCCESS)
+    if(OS_MutSemTake(SBN.SendMutex) != OS_SUCCESS)
     {   
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "unable to take mutex");
@@ -813,7 +813,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     #ifdef SBN_SEND_TASK
 
-    if(OS_MutSemGive(SBN.Peers[PeerIdx].SendMutex) != OS_SUCCESS)
+    if(OS_MutSemGive(SBN.SendMutex) != OS_SUCCESS)
     {   
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "unable to give mutex");
@@ -918,18 +918,7 @@ static void SendTask(void)
 uint32 CreateSendTask(int EntryIdx, SBN_PeerInterface_t *PeerInterface)
 {
     uint32 Status = OS_SUCCESS;
-    char MutexName[OS_MAX_API_NAME], SendTaskName[32];
-
-    snprintf(MutexName, OS_MAX_API_NAME, "send_task_%d", EntryIdx);
-
-    Status = OS_MutSemCreate(&(PeerInterface->SendMutex), MutexName, 0);
-
-    if(Status != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "error creating mutex for %s", PeerInterface->Status->Name);
-        return Status;
-    }
+    char SendTaskName[32];
 
     snprintf(SendTaskName, 32, "sbn_send_%d", EntryIdx);
     Status = CFE_ES_CreateChildTask(&(PeerInterface->SendTaskID),

@@ -90,12 +90,13 @@ typedef struct {
 
     /** \brief generic blob of bytes, module-specific */
     uint8  ModulePvt[128];
+
 } SBN_HostInterface_t;
 
 typedef struct {
     #ifdef SBN_SEND_TASK
 
-    uint32 SendTaskID, SendMutex;
+    uint32 SendTaskID;
 
     #endif /* SBN_SEND_TASK */
 
