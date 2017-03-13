@@ -5,40 +5,35 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
-#ifdef CFE_ES_CONFLOADER
+int SBN_UDP_LoadNet(const char **Row, int FieldCount,
+    SBN_NetInterface_t *Net);
 
-int SBN_UDP_LoadEntry(const char **Row, int RowCount, void *EntryBuffer);
+int SBN_UDP_LoadPeer(const char **Row, int FieldCount,
+    SBN_PeerInterface_t *Peer);
 
-#else /* ! CFE_ES_CONFLOADER */
-
-int SBN_UDP_ParseFileEntry(char *Line, uint32 LineNum, void *EntryBuffer);
-
-#endif /* CFE_ES_CONFLOADER */
-
-int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface);
+int SBN_UDP_InitNet(SBN_NetInterface_t *NetInterface);
 
 int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface);
 
-int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t Msg);
+int SBN_UDP_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
+        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
 
-int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t MsgBuf);
+int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
+        SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,
+        SBN_Payload_t PayloadBuffer);
 
 int SBN_UDP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
 int SBN_UDP_ResetPeer(SBN_PeerInterface_t *PeerInterface);
 
-SBN_InterfaceOperations_t SBN_UDP_Ops =
+SBN_IfOps_t SBN_UDP_Ops =
 {
-#ifdef CFE_ES_CONFLOADER
-    SBN_UDP_LoadEntry,
-#else /* ! CFE_ES_CONFLOADER */
-    SBN_UDP_ParseFileEntry,
-#endif /* CFE_ES_CONFLOADER */
-    SBN_UDP_InitHost,
+    SBN_UDP_LoadNet,
+    SBN_UDP_LoadPeer,
+    SBN_UDP_InitNet,
     SBN_UDP_InitPeer,
     SBN_UDP_Send,
+    NULL,
     SBN_UDP_Recv,
     SBN_UDP_ReportModuleStatus,
     SBN_UDP_ResetPeer

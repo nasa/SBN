@@ -25,12 +25,25 @@
 
 #include "osconfig.h"
 #include "cfe.h"
+#include "sbn_version.h"
 #include "sbn_interfaces.h"
 #include "sbn_msg.h"
 #include "sbn_platform_cfg.h"
 #include "sbn_tables.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
+#include "sbn_netif.h"
+#include "sbn_msgids.h"
+#include "sbn_loader.h"
+#include "sbn_cmds.h"
+#include "sbn_subs.h"
+#include "sbn_main_events.h"
+#include "sbn_perfids.h"
+
+#ifndef SBN_TLM_MID
+/* backwards compatability in case you're using a MID generator */
+#define SBN_TLM_MID SBN_HK_TLM_MID
+#endif /* SBN_TLM_MID */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
@@ -44,13 +57,10 @@
 typedef struct
 {
     /** \brief Data only on host definitions. */
-    SBN_HostInterface_t Hosts[SBN_MAX_NETWORK_PEERS];
-
-    /** \brief Data only no devices that are not the host */
-    SBN_PeerInterface_t Peers[SBN_MAX_NETWORK_PEERS];
+    SBN_NetInterface_t Nets[SBN_MAX_NETS];
 
     /** \brief The application ID provided by ES */
-    uint32 AppId;
+    uint32 AppID;
 
     /** \brief The application full name provided by SB */
     char App_FullName[(OS_MAX_API_NAME * 2)];
@@ -73,17 +83,15 @@ typedef struct
      * subscribed to by the peer are sent over, and vice-versa.
      */
     SBN_Subs_t LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
-    /** \brief The number of entries in the LocalSubs array. */
-    int LocalSubCnt;
 
     /** \brief CFE scheduling pipe */
-    CFE_SB_PipeId_t SchPipeId;
+    CFE_SB_PipeId_t SchPipe;
 
     /**
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_InterfaceOperations_t *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
+    SBN_IfOps_t *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
 
     /** \brief Housekeeping information. */
     SBN_HkPacket_t Hk;
@@ -109,9 +117,9 @@ extern SBN_App_t SBN;
 ** Prototypes
 */
 void SBN_AppMain(void);
-void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
-    SBN_MsgSize_t MsgSize, void *Msg);
-int SBN_GetPeerIndex(uint32 ProcessorId);
+void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
+    SBN_CpuID_t CpuID, SBN_MsgSize_t MsgSize, void *Msg);
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
 #ifdef SBN_DEBUG_MSGS
 #define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)

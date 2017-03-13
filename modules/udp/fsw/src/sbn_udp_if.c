@@ -5,25 +5,30 @@
 #include <network_includes.h>
 #include <string.h>
 #include <errno.h>
+
+/* at some point this will be replaced by the OSAL network interface */
+#ifdef _VXWORKS_OS_
+#include "selectLib.h"
+#else
 #include <sys/select.h>
+#endif
 
-#ifdef CFE_ES_CONFLOADER
-
-int SBN_UDP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
+int SBN_UDP_LoadNet(const char **Row, int FieldCount,
+    SBN_NetInterface_t *Net)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryBuffer;
     char *ValidatePtr = NULL;
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
     if(FieldCount < SBN_UDP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid peer file line (expected %d items, found %d)",
+                "invalid host entry (expected %d items, found %d)",
                 SBN_UDP_ITEMS_PER_FILE_LINE, FieldCount);
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(Entry->Host, Row[0], sizeof(Entry->Host));
-    Entry->Port = strtol(Row[1], &ValidatePtr, 0);
+    strncpy(NetData->Host, Row[0], sizeof(NetData->Host));
+    NetData->Port = strtol(Row[1], &ValidatePtr, 0);
     if(!ValidatePtr || ValidatePtr == Row[1])
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
@@ -31,55 +36,32 @@ int SBN_UDP_LoadEntry(const char **Row, int FieldCount, void *EntryBuffer)
     }/* end if */
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_LoadEntry */
+}/* end SBN_UDP_LoadNet */
 
-#else /* ! CFE_ES_CONFLOADER */
-
-#include <ctype.h> /* isspace() */
-
-int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
+int SBN_UDP_LoadPeer(const char **Row, int FieldCount,
+    SBN_PeerInterface_t *Peer)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)EntryPtr;
+    char *ValidatePtr = NULL;
+    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
-    char *EndPtr = Entry->Host;
-
-    while(isspace(*FileEntry))
-    {
-        FileEntry++;
-    }/* end while */
-
-    while(EndPtr < Entry->Host + 16 && *FileEntry && !isspace(*FileEntry))
-    {
-        *EndPtr++ = *FileEntry++;
-    }/* end while */
-
-    if(EndPtr == Entry->Host + 16)
+    if(FieldCount < SBN_UDP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-            "invalid host");
+                "invalid peer entry (expected %d items, found %d)",
+                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCount);
         return SBN_ERROR;
     }/* end if */
 
-    *EndPtr = '\0';
-
-    while(isspace(*FileEntry))
-    {
-        FileEntry++;
-    }/* end while */
-
-    EndPtr = NULL;
-    Entry->Port = strtol(FileEntry, &EndPtr, 0);
-    if(!EndPtr || EndPtr == FileEntry)
+    strncpy(PeerData->Host, Row[0], sizeof(PeerData->Host));
+    PeerData->Port = strtol(Row[1], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[1])
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-            "invalid port");
-        return SBN_ERROR;
+                "invalid port");
     }/* end if */
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_ParseFileEntry */
-
-#endif /* CFE_ES_CONFLOADER */
+}/* end SBN_UDP_LoadHost */
 
 /**
  * Initializes an UDP host.
@@ -87,23 +69,14 @@ int SBN_UDP_ParseFileEntry(char *FileEntry, uint32 LineNum, void *EntryPtr)
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
  */
-int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
+int SBN_UDP_InitNet(SBN_NetInterface_t *Net)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)HostInterface->ModulePvt;
-    SBN_UDP_Network_t *Network
-        = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
-
-    /**
-     * Create msg interface when we find entry matching its own name
-     * because the self entry has port info needed to bind this interface.
-     */
-
-    Network->Host.EntryPtr = Entry;
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
     CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-        "creating socket (%s:%d)", Entry->Host, Entry->Port);
+        "creating socket (%s:%d)", NetData->Host, NetData->Port);
 
-    if((Network->Host.Socket
+    if((NetData->Socket
         = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
@@ -113,21 +86,21 @@ int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
 
     static struct sockaddr_in my_addr;
 
-    my_addr.sin_addr.s_addr = inet_addr(Entry->Host);
+    my_addr.sin_addr.s_addr = inet_addr(NetData->Host);
     my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(Entry->Port);
+    my_addr.sin_port = htons(NetData->Port);
 
-    if(bind(Network->Host.Socket, (struct sockaddr *) &my_addr,
+    if(bind(NetData->Socket, (struct sockaddr *) &my_addr,
         sizeof(my_addr)) < 0)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
             "bind call failed (%s:%d Socket=%d errno=%d)",
-            Entry->Host, Entry->Port, Network->Host.Socket, errno);
+            NetData->Host, NetData->Port, NetData->Socket, errno);
         return SBN_ERROR;
     }/* end if */
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_InitHost */
+}/* end SBN_UDP_InitNet */
 
 /**
  * Initializes an UDP host or peer data struct depending on the
@@ -136,37 +109,29 @@ int SBN_UDP_InitHost(SBN_HostInterface_t *HostInterface)
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
  */
-int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface)
+int SBN_UDP_InitPeer(SBN_PeerInterface_t *Peer)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
-    SBN_UDP_Network_t *Network
-        = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
-
-    Entry->PeerNumber = Network->PeerCount++;
-    Network->Peers[Entry->PeerNumber].EntryPtr = Entry;
-
     return SBN_SUCCESS;
 }/* end SBN_UDP_InitPeer */
 
-int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
+int SBN_UDP_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
+        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
-    SBN_UDP_Network_t *Network
-        = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
+    SBN_PackedMsg_t SendBuf;
 
-    SBN_PackMsg(&Network->SendBuf, MsgSize, MsgType, CFE_CPU_ID, Msg);
+    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN_UDP_Peer_t *Peer = &Network->Peers[Entry->PeerNumber];
+    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_CPU_ID, Payload);
 
     static struct sockaddr_in s_addr;
 
     memset(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = inet_addr(Peer->EntryPtr->Host);
-    s_addr.sin_port = htons(Peer->EntryPtr->Port);
+    s_addr.sin_addr.s_addr = inet_addr(PeerData->Host);
+    s_addr.sin_port = htons(PeerData->Port);
 
-    sendto(Network->Host.Socket, &Network->SendBuf,
+    sendto(NetData->Socket, &SendBuf,
         MsgSize + SBN_PACKED_HDR_SIZE, 0,
         (struct sockaddr *) &s_addr, sizeof(s_addr));
 
@@ -177,12 +142,13 @@ int SBN_UDP_Send(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t MsgType,
  * from all peers but that's ok, I just inject them into the SB and all is
  * good!
  */
-int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
-    SBN_MsgSize_t *MsgSizePtr, SBN_CpuId_t *CpuIdPtr, SBN_Payload_t MsgBuf)
+int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
+        SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,
+        SBN_Payload_t Payload)
 {
-    SBN_UDP_Entry_t *Entry = (SBN_UDP_Entry_t *)PeerInterface->ModulePvt;
-    SBN_UDP_Network_t *Network
-        = &SBN_UDP_ModuleData.Networks[Entry->NetworkNumber];
+    SBN_PackedMsg_t RecvBuf;
+
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
 #ifndef SBN_RECV_TASK
 
@@ -192,7 +158,7 @@ int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
     struct timeval Timeout;
 
     FD_ZERO(&ReadFDs);
-    FD_SET(Network->Host.Socket, &ReadFDs);
+    FD_SET(NetData->Socket, &ReadFDs);
 
     memset(&Timeout, 0, sizeof(Timeout));
 
@@ -204,7 +170,7 @@ int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 
 #endif /* !SBN_RECV_TASK */
 
-    int Received = recv(Network->Host.Socket, (char *)&Network->RecvBuf,
+    int Received = recv(NetData->Socket, (char *)&RecvBuf,
         CFE_SB_MAX_SB_MSG_SIZE, 0);
 
     if(Received < 0)
@@ -214,7 +180,7 @@ int SBN_UDP_Recv(SBN_PeerInterface_t *PeerInterface, SBN_MsgType_t *MsgTypePtr,
 
     /* each UDP packet is a full SBN message */
 
-    SBN_UnpackMsg(&Network->RecvBuf, MsgSizePtr, MsgTypePtr, CpuIdPtr, MsgBuf);
+    SBN_UnpackMsg(&RecvBuf, MsgSizePtr, MsgTypePtr, CpuIDPtr, Payload);
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_Recv */

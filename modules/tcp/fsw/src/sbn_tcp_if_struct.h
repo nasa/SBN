@@ -8,52 +8,30 @@
 
 #define SBN_TCP_ITEMS_PER_FILE_LINE 2
 
-typedef struct /* stashed in the SBN InterfacePvt buffer */
+typedef struct
 {
-    int NetworkNumber;
-    int PeerNumber;
+    char Host[16];
+    int Port;
+    uint8 BufNum;
+    int Socket;
+} SBN_TCP_Net_t;
+
+typedef struct
+{
     char Host[16];
     int  Port;
-} SBN_TCP_Entry_t;
-
-typedef struct
-{
-    SBN_TCP_Entry_t *EntryPtr;
-    uint8 ConnectedFlag;
     int Socket;
-} SBN_TCP_Host_t;
-
-typedef struct
-{
-    SBN_TCP_Entry_t *EntryPtr;
-    int Socket;
+    /* 0 = this peer connects to me, 1 = I connect to this peer */
     uint8 /** flags */
             /** \brief recv the header first */
             ReceivingBody,
             /** \brief Do I connect to this peer or do they connect to me? */
             ConnectOut,
             /** \brief Is this peer currently connected? */
-            Connected;
-    SBN_PackedMsg_t RecvBuf;
-    int RecvSize;
+            Connected,
+            BufNum;
     OS_time_t LastConnectTry;
+    int RecvSize;
 } SBN_TCP_Peer_t;
-
-typedef struct
-{
-    SBN_TCP_Host_t Host;
-    SBN_TCP_Peer_t Peers[SBN_MAX_NETWORK_PEERS];
-    SBN_PackedMsg_t SendBuf;
-    int PeerCount;
-} SBN_TCP_Network_t;
-
-typedef struct
-{
-    SBN_TCP_Network_t Networks[SBN_MAX_NETWORK_PEERS];
-    int NetworkCount;
-} SBN_TCP_ModuleData_t;
-
-SBN_TCP_ModuleData_t SBN_TCP_ModuleData;
-int SBN_TCP_ModuleDataInitialized = 0;
 
 #endif /* _sbn_tcp_if_struct_h_ */

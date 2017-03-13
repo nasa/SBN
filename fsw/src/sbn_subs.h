@@ -27,12 +27,12 @@
 #include "sbn_app.h"
 #include "sbn_netif.h"
 
-void  SBN_SendLocalSubsToPeer(int PeerIdx); 
+void  SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 int32 SBN_CheckSubscriptionPipe(void); 
-void  SBN_ProcessSubFromPeer(int PeerIdx, void *submsg);
-void  SBN_ProcessUnsubFromPeer(int PeerIdx, void *submsg);
+void  SBN_ProcessSubFromPeer(SBN_PeerInterface_t *Peer, void *submsg);
+void  SBN_ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, void *submsg);
 void  SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr); 
-void  SBN_RemoveAllSubsFromPeer(int PeerIdx); 
+void  SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer); 
 void  SBN_SendSubsRequests(void); 
 
 #endif /* _sbn_subs_h_ */

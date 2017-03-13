@@ -25,27 +25,11 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include "cfe.h"
-#include "cfe_sb_msg.h"
-#include "cfe_sb.h"
-#include "sbn_version.h"
 #include "sbn_app.h"
-#include "sbn_netif.h"
-#include "sbn_msgids.h"
-#include "sbn_loader.h"
-#include "sbn_cmds.h"
-#include "sbn_subs.h"
-#include "sbn_main_events.h"
-#include "sbn_perfids.h"
-#include "sbn_tables.h"
+
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
-
-#ifndef SBN_TLM_MID
-/* backwards compatability in case you're using a MID generator */
-#define SBN_TLM_MID SBN_HK_TLM_MID
-#endif /* SBN_TLM_MID */
 
 /** \brief SBN global application data. */
 SBN_App_t SBN;
@@ -61,45 +45,50 @@ SBN_App_t SBN;
  */
 static void RunProtocol(void)
 {
-    int         PeerIdx = 0;
-    OS_time_t   current_time;
+    int PeerIdx = 0, NetIdx = 0;
+    OS_time_t current_time;
 
     /* DEBUG_START(); chatty */
 
     CFE_ES_PerfLogEntry(SBN_PERF_SEND_ID);
 
-    for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
+    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
-        OS_GetLocalTime(&current_time);
+        SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        {
+            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+            OS_GetLocalTime(&current_time);
 
-        if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING)
-        {
-            if(current_time.seconds
-                - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
-                    > SBN_ANNOUNCE_TIMEOUT)
+            if(Peer->Status.State == SBN_ANNOUNCING)
             {
-                char AnnounceMsg[SBN_IDENT_LEN];
-                strncpy(AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
-                SBN_SendNetMsg(SBN_ANNOUNCE_MSG, SBN_IDENT_LEN,
-                    (SBN_Payload_t *)&AnnounceMsg, PeerIdx);
+                if(current_time.seconds
+                    - Peer->Status.LastSend.seconds
+                        > SBN_ANNOUNCE_TIMEOUT)
+                {
+                    char AnnounceMsg[SBN_IDENT_LEN];
+                    strncpy(AnnounceMsg, SBN_IDENT, SBN_IDENT_LEN);
+                    SBN_SendNetMsg(SBN_ANNOUNCE_MSG, SBN_IDENT_LEN,
+                        (SBN_Payload_t *)&AnnounceMsg, Peer);
+                }/* end if */
+                continue;
             }/* end if */
-            continue;
-        }/* end if */
-        if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastReceived.seconds
-                > SBN_HEARTBEAT_TIMEOUT)
-        {
-            /* lost connection, reset */
-            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                "peer %d lost connection", PeerIdx);
-            SBN_RemoveAllSubsFromPeer(PeerIdx);
-            SBN.Hk.PeerStatus[PeerIdx].State = SBN_ANNOUNCING;
-            continue;
-        }/* end if */
-        if(current_time.seconds - SBN.Hk.PeerStatus[PeerIdx].LastSent.seconds
-                > SBN_HEARTBEAT_SENDTIME)
-        {
-            SBN_SendNetMsg(SBN_HEARTBEAT_MSG, 0, NULL, PeerIdx);
-	}/* end if */
+            if(current_time.seconds - Peer->Status.LastRecv.seconds
+                    > SBN_HEARTBEAT_TIMEOUT)
+            {
+                /* lost connection, reset */
+                CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+                    "peer %d lost connection", PeerIdx);
+                SBN_RemoveAllSubsFromPeer(Peer);
+                Peer->Status.State = SBN_ANNOUNCING;
+                continue;
+            }/* end if */
+            if(current_time.seconds - Peer->Status.LastSend.seconds
+                    > SBN_HEARTBEAT_SENDTIME)
+            {
+                SBN_SendNetMsg(SBN_HEARTBEAT_MSG, 0, NULL, Peer);
+            }/* end if */
+        }/* end for */
     }/* end for */
 
     CFE_ES_PerfLogExit(SBN_PERF_SEND_ID);
@@ -114,7 +103,7 @@ static void RunProtocol(void)
  */
 static int32 WaitForWakeup(int32 iTimeOut)
 {
-    int32           Status = CFE_SUCCESS;
+    int32 Status = CFE_SUCCESS;
     CFE_SB_MsgPtr_t Msg = 0;
 
     /* DEBUG_START(); chatty */
@@ -264,7 +253,7 @@ static int Init(void)
     DEBUG_START();
 
     memset(&SBN, 0, sizeof(SBN));
-    CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN_HkPacket_t), TRUE);
+    CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN.Hk), TRUE);
 
     /* load the App_FullName so I can ignore messages I send out to SB */
     TskId = OS_TaskGetId();
@@ -294,9 +283,14 @@ static int Init(void)
         return Status;
     }
 
-    SBN_InitInterfaces();
+    if(SBN_InitInterfaces() == SBN_ERROR)
+    {
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+            "unable to initialize interfaces");
+        return SBN_ERROR;
+    }/* end if */
 
-    CFE_ES_GetAppID(&SBN.AppId);
+    CFE_ES_GetAppID(&SBN.AppID);
 
     /* Create pipe for subscribes and unsubscribes from SB */
     Status = CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");
@@ -335,7 +329,12 @@ static int Init(void)
     }/* end if */
 
     Status = CFE_SB_Subscribe(SBN_CMD_MID, SBN.CmdPipe);
-    if(Status != CFE_SUCCESS)
+    if(Status == CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
+            "Subscribed to command MID 0x%04X", SBN_CMD_MID);
+    }
+    else
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
             "failed to subscribe to command pipe (%d)", (int)Status);
@@ -353,15 +352,15 @@ static int Init(void)
     CFE_TBL_GetAddress((void **)&SBN.RemapTable, SBN.TableHandle);
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "initialized (CFE_CPU_NAME='%s' ProcessorId=%d SpacecraftId=%d %s "
-        "SBN.AppId=%d...",
+        "initialized (CFE_CPU_NAME='%s' ProcessorID=%d SpacecraftId=%d %s "
+        "SBN.AppID=%d...",
         CFE_CPU_NAME, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(),
 #ifdef SOFTWARE_BIG_BIT_ORDER
         "big-endian",
 #else /* !SOFTWARE_BIG_BIT_ORDER */
         "little-endian",
 #endif /* SOFTWARE_BIG_BIT_ORDER */
-        (int)SBN.AppId);
+        (int)SBN.AppID);
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "...SBN_IDENT=%s SBN_DEBUG_MSGS=%s CMD_MID=0x%04X conf=%s)",
         SBN_IDENT,
@@ -406,20 +405,20 @@ void SBN_AppMain(void)
 /**
  * Sends a message to a peer.
  * @param[in] MsgType The type of the message (application data, SBN protocol)
- * @param[in] CpuId The CpuId to send this message to.
+ * @param[in] CpuID The CpuID to send this message to.
  * @param[in] MsgSize The size of the message (in bytes).
  * @param[in] Msg The message contents.
  */
-void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
-    SBN_MsgSize_t MsgSize, void *Msg)
+void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
+    SBN_CpuID_t CpuID, SBN_MsgSize_t MsgSize, void *Msg)
 {
-    int PeerIdx = 0, Status = 0;
+    int Status = 0;
 
     DEBUG_START();
 
-    PeerIdx = SBN_GetPeerIndex(CpuId);
+    SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, CpuID);
 
-    if(PeerIdx == SBN_ERROR)
+    if(!Peer)
     {
         return;
     }/* end if */
@@ -436,26 +435,25 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
             if(strncmp(SBN_IDENT, (char *)Msg, SBN_IDENT_LEN))
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                    "peer #%d version mismatch (me=%s, him=%s)",
-                    PeerIdx, SBN_IDENT, (char *)Msg);
+                    "%s version mismatch (me=%s, him=%s)",
+                    Peer->Status.Name, SBN_IDENT, (char *)Msg);
             }
             else
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                    "peer #%d running same version of SBN (%s)",
-                    PeerIdx, SBN_IDENT);
+                    "%s running same version of SBN (%s)",
+                    Peer->Status.Name, SBN_IDENT);
             }/* end if */
         }/* end if */
     }/* end if */
 
-    if(SBN.Hk.PeerStatus[PeerIdx].State == SBN_ANNOUNCING
-        || MsgType == SBN_ANNOUNCE_MSG)
+    if(Peer->Status.State == SBN_ANNOUNCING || MsgType == SBN_ANNOUNCE_MSG)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-            "peer #%d alive", PeerIdx);
-        SBN.Hk.PeerStatus[PeerIdx].State = SBN_HEARTBEATING;
+            "peer %s alive", Peer->Status.Name);
+        Peer->Status.State = SBN_HEARTBEATING;
 
-        SBN_SendLocalSubsToPeer(PeerIdx);
+        SBN_SendLocalSubsToPeer(Peer);
     }/* end if */
 
     switch(MsgType)
@@ -478,13 +476,13 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
 
         case SBN_SUBSCRIBE_MSG:
         {
-            SBN_ProcessSubFromPeer(PeerIdx, Msg);
+            SBN_ProcessSubFromPeer(Peer, Msg);
             break;
         }
 
         case SBN_UN_SUBSCRIBE_MSG:
         {
-            SBN_ProcessUnsubFromPeer(PeerIdx, Msg);
+            SBN_ProcessUnsubFromPeer(Peer, Msg);
             break;
         }
 
@@ -497,23 +495,24 @@ void SBN_ProcessNetMsg(SBN_MsgType_t MsgType, SBN_CpuId_t CpuId,
 }/* end SBN_ProcessNetMsg */
 
 /**
- * Find the PeerIndex for a given CpuId.
- * @param[in] ProcessorId The CpuId of the peer being sought.
- * @return The Peer index (index into the SBN.Peer array, or SBN_ERROR.
+ * Find the PeerIndex for a given CpuID and net.
+ * @param[in] Net The network interface to search.
+ * @param[in] ProcessorID The CpuID of the peer being sought.
+ * @return The Peer interface pointer, or NULL if not found.
  */
-int SBN_GetPeerIndex(uint32 ProcessorId)
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID)
 {
     int PeerIdx = 0;
 
     /* DEBUG_START(); chatty */
 
-    for(PeerIdx = 0; PeerIdx < SBN.Hk.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
     {
-        if(SBN.Hk.PeerStatus[PeerIdx].ProcessorId == ProcessorId)
+        if(Net->Peers[PeerIdx].Status.ProcessorID == ProcessorID)
         {
-            return PeerIdx;
+            return &Net->Peers[PeerIdx];
         }/* end if */
     }/* end for */
 
-    return SBN_ERROR;
-}/* end SBN_GetPeerIndex */
+    return NULL;
+}/* end SBN_GetPeer */

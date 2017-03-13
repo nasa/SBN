@@ -16,6 +16,8 @@
 ** References:
 **
 ** Notes:
+**   Version 1.3.0 adds Task-based concurrency (polling is configurable).
+**
 **   Version 1.2.0 of the SBN is a prototype version and has not completed 
 **   GSFC 582 Flight Software Systems Branch CMMI procedures and processes.  
 **   This version of the SBN has been beta tested on Linux but not VxWorks
@@ -29,7 +31,7 @@
 #define _sbn_version_
 
 #define SBN_MAJOR_VERSION   1
-#define SBN_MINOR_VERSION   2
+#define SBN_MINOR_VERSION   3
 #define SBN_REVISION        0
 
 #endif /*_sbn_version_*/

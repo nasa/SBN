@@ -1,0 +1,25 @@
+#ifndef _sbn_dtn_if_struct_h_
+#define _sbn_dtn_if_struct_h_
+
+#include "sbn_constants.h"
+#include "sbn_interfaces.h"
+#include "sbn_platform_cfg.h"
+#include "cfe.h"
+#include <bp.h>
+
+#define SBN_DTN_ITEMS_PER_FILE_LINE 1
+
+typedef struct
+{
+    char EIN[32];
+} SBN_DTN_Peer_t;
+
+typedef struct
+{
+    char EIN[32];
+    BpSAP SAP;
+    Sdr SendSDR, RecvSDR;
+    ReqAttendant Attendant;
+} SBN_DTN_Net_t;
+
+#endif /* _sbn_dtn_if_struct_h_ */

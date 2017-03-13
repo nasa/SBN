@@ -40,7 +40,7 @@ void SBN_CheckPeerPipes(void);
 #endif /* !SBN_SEND_TASK */
 
 int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
-    SBN_Payload_t *Msg, int PeerIdx);
+    SBN_Payload_t *Msg, SBN_PeerInterface_t *Peer);
 
 #endif /* _sbn_netif_ */
 /*****************************************************************************/

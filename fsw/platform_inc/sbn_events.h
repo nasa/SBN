@@ -31,5 +31,6 @@
 #define SBN_SHMEM_FIRST_EID             0x0500
 #define SBN_SERIAL_FIRST_EID            0x0600
 #define SBN_1553_FIRST_EID              0x0700
+#define SBN_DTN_FIRST_EID               0x0800
 
 #endif /* _sbn_events_h_ */

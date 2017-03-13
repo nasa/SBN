@@ -1,6 +1,6 @@
-CPU1, 1, 1, 42, 0, 0, 172.16.196.231, 15820;
-CPU2, 2, 1, 42, 0, 0, 172.16.196.231, 15821;
-CPU3, 3, 1, 42, 0, 0, 172.16.196.231, 15822;
+CPU1, 1, 1, 0x42, 0, 0, 127.0.0.1, 15820;
+CPU2, 2, 1, 0x42, 0, 0, 127.0.0.1, 15821;
+CPU3, 3, 1, 0x42, 0, 0, 127.0.0.1, 15822;
 !
 ! The '!' is inserted after the last valid peer line,
 ! it is not a comment character.
@@ -12,8 +12,8 @@ CPU3, 3, 1, 42, 0, 0, 172.16.196.231, 15822;
 ! Column 2: CPU ID (must match CFE_CPU_ID [in cfe_platform_cfg.h])
 !
 ! Column 3: Protocol ID (1 = UDP, 2 = TCP, 3 = SpacewireRMAP,
-!           4 = Spacewire packet, 5 = Shared Memory, 6 = Serial. Only UDP and
-!           TCP are currently implemented.)
+!           4 = Spacewire packet, 5 = Shared Memory, 6 = Serial, 7 = 1553,
+!           8 = DTN
 !
 ! Column 4: Spacecraft ID (must match return value of CFE_PSP_GetSpacecraftID())
 !
