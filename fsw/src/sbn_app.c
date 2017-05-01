@@ -273,6 +273,16 @@ static int Init(void)
         return SBN_ERROR;
     }/* end if */
 
+    /** Create mutex for send tasks */
+    Status = OS_MutSemCreate(&(SBN.SendMutex), "sbn_send_mutex", 0);
+
+    if(Status != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "error creating mutex for send tasks");
+        return Status;
+    }
+
     if(SBN_InitInterfaces() == SBN_ERROR)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,

@@ -98,6 +98,14 @@ typedef struct
 
     CFE_TBL_Handle_t TableHandle;
     SBN_RemapTable_t *RemapTable;
+
+#ifdef SBN_SEND_TASK
+
+    /** Global mutex for Send Tasks. */
+    uint32 SendMutex;
+
+#endif
+
 } SBN_App_t;
 
 /**

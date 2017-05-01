@@ -94,7 +94,7 @@ typedef struct {
 
     #ifdef SBN_SEND_TASK
 
-    uint32 SendTaskID, SendMutex; /* for mesh nets */
+    uint32 SendTaskID;
 
     #endif /* SBN_SEND_TASK */
 
