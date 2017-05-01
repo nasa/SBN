@@ -15,8 +15,8 @@ int SBN_UDP_InitNet(SBN_NetInterface_t *NetInterface);
 
 int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface);
 
-int SBN_UDP_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
+int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
 
 int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
         SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,

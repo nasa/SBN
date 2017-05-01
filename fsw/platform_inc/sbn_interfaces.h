@@ -182,8 +182,8 @@ struct SBN_IfOps_s {
      * @param Payload The SBN message payload.
      * @return Number of bytes sent on success, -1 on error.
      */
-    int (*Send)(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
+    int (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+        SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
 
     /**
      * Receives an individual message from the specified peer. Note, only

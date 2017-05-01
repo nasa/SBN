@@ -238,10 +238,11 @@ static void CheckNet(SBN_NetInterface_t *Net)
     }/* end if */
 }/* end CheckNet */
 
-int SBN_TCP_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
+int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
     SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+    SBN_NetInterface_t *Net = Peer->Net;
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
     CheckNet(Net);

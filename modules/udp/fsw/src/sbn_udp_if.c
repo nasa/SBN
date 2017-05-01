@@ -108,12 +108,13 @@ int SBN_UDP_InitPeer(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end SBN_UDP_InitPeer */
 
-int SBN_UDP_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
+int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
 {
     SBN_PackedMsg_t SendBuf;
 
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
+    SBN_NetInterface_t *Net = Peer->Net;
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
     SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_CPU_ID, Payload);

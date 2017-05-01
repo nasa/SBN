@@ -808,7 +808,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     #endif /* SBN_SEND_TASK */
 
-    Status = Net->IfOps->Send(Net, Peer, MsgType, MsgSize, Msg);
+    Status = Net->IfOps->Send(Peer, MsgType, MsgSize, Msg);
 
     if(Status != -1)
     {
