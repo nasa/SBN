@@ -5,6 +5,12 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
+/**
+ * UDP-specific message types.
+ */
+#define SBN_UDP_HEARTBEAT_MSG 0xA0
+#define SBN_UDP_ANNOUNCE_MSG 0xA1
+
 int SBN_UDP_LoadNet(const char **Row, int FieldCount,
     SBN_NetInterface_t *Net);
 
@@ -14,6 +20,8 @@ int SBN_UDP_LoadPeer(const char **Row, int FieldCount,
 int SBN_UDP_InitNet(SBN_NetInterface_t *NetInterface);
 
 int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface);
+
+int SBN_UDP_PollPeer(SBN_PeerInterface_t *PeerInterface);
 
 int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
@@ -32,6 +40,7 @@ SBN_IfOps_t SBN_UDP_Ops =
     SBN_UDP_LoadPeer,
     SBN_UDP_InitNet,
     SBN_UDP_InitPeer,
+    SBN_UDP_PollPeer,
     SBN_UDP_Send,
     NULL,
     SBN_UDP_Recv,

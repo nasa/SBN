@@ -86,9 +86,4 @@
  */
 #undef SBN_RECV_TASK
 
-/** \brief Define to get a ton of debug events.
- */
-
-#undef SBN_DEBUG_MSGS
-
 #endif /* _sbn_platform_cfg_h_ */

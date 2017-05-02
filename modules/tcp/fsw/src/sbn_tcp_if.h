@@ -15,6 +15,8 @@ int SBN_TCP_InitNet(SBN_NetInterface_t *Net);
 
 int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer);
 
+int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer);
+
 int SBN_TCP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
 
@@ -32,6 +34,7 @@ SBN_IfOps_t SBN_TCP_Ops =
     SBN_TCP_LoadPeer,
     SBN_TCP_InitNet,
     SBN_TCP_InitPeer,
+    SBN_TCP_PollPeer,
     SBN_TCP_Send,
     SBN_TCP_Recv,
     NULL,

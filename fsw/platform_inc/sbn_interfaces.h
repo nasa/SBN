@@ -46,8 +46,9 @@ typedef struct
 }
 SBN_PackedSub_t;
 
-/* note that the packed size is likely smaller than an in-memory's struct
- * size, as the CPU will align objects.
+/**
+ * \note The packed size is likely smaller than an in-memory's struct
+ * size, as the compiler will align objects.
  * SBN headers are MsgSize + MsgType + CpuID
  * SBN subscription messages are MsgID + Qos
  */
@@ -65,6 +66,7 @@ SBN_PackedMsg_t;
 
 /**
  * \brief Used by modules to pack messages to send.
+ *
  * \param SBNMsgBuf[out] The buffer pointer to receive the packed message.
  * \param MsgSize[in] The size of the Msg parameter.
  * \param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
@@ -76,6 +78,7 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
 
 /**
  * \brief Used by modules to unpack messages received.
+ *
  * \param SBNMsgBuf[in] The buffer pointer containing the SBN message.
  * \param MsgSizePtr[out] The size of the Msg parameter.
  * \param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
@@ -111,6 +114,24 @@ typedef struct {
     /** \brief generic blob of bytes, module-specific */
     uint8 ModulePvt[128];
 } SBN_PeerInterface_t;
+
+/**
+ * \brief When a module detects a (re)connection, a full subscription update
+ * should be sent.
+ *
+ * \param Peer[in] The peer to which to send the subs.
+ */
+void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
+
+/**
+ * \brief For a given network and processor ID, get the peer interface.
+ *
+ * \param Net[in] The network to check.
+ * \param ProcessorID[in] The processor of the peer.
+ *
+ * \return A pointer to the peer interface structure.
+ */
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
 struct SBN_NetInterface_s {
     boolean Configured;
@@ -167,6 +188,13 @@ struct SBN_IfOps_s {
      *         SBN_ERROR otherwise
      */
     int (*InitPeer)(SBN_PeerInterface_t *Peer);
+
+    /**
+     * SBN will poll any peer that does not have any messages to be sent
+     * after a timeout period. This is for (re)establishing connections
+     * and handshaking subscriptions.
+     */
+    int (*PollPeer)(SBN_PeerInterface_t *Peer);
 
     /**
      * Sends a message to a peer over the specified interface.

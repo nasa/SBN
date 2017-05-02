@@ -185,8 +185,14 @@ static void CheckNet(SBN_NetInterface_t *Net)
             if(ClientAddr.sin_addr.s_addr
                 == inet_addr(PeerData->Host))
             {
+                CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+                    "CPU %d connected", Peer->Status.ProcessorID);
+
                 PeerData->Socket = ClientFd;
                 PeerData->Connected = TRUE;
+ 
+                SBN_SendLocalSubsToPeer(Peer);
+
                 return;
             }/* end if */
         }/* end for */
@@ -225,8 +231,13 @@ static void CheckNet(SBN_NetInterface_t *Net)
                         sizeof(ServerAddr)))
                     >= 0)
                 {
+                    CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+                        "CPU %d connected", Peer->Status.ProcessorID);
+
                     PeerData->Socket = Socket;
                     PeerData->Connected = TRUE;
+
+                    SBN_SendLocalSubsToPeer(Peer);
                 }
                 else
                 {
@@ -237,6 +248,11 @@ static void CheckNet(SBN_NetInterface_t *Net)
         }/* end if */
     }/* end if */
 }/* end CheckNet */
+
+int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
+{
+    CheckNet(Peer->Net);
+}
 
 int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
     SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
@@ -258,6 +274,9 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
         MsgSize + SBN_PACKED_HDR_SIZE, 0);
     if(sent_size < MsgSize + SBN_PACKED_HDR_SIZE)
     {
+        CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+            "CPU %d disconnected", Peer->Status.ProcessorID);
+
         close(PeerData->Socket);
         PeerData->Connected = FALSE;
     }/* end if */
@@ -314,6 +333,9 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
 
         if(Received < 0)
         {
+            CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+                "CPU %d disconnected", Peer->Status.ProcessorID);
+
             close(PeerData->Socket);
             PeerData->Connected = FALSE;
             return SBN_IF_EMPTY;

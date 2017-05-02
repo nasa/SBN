@@ -25,7 +25,6 @@
 #define _sbn_subs_h_
 
 #include "sbn_app.h"
-#include "sbn_netif.h"
 
 void  SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 int32 SBN_CheckSubscriptionPipe(void); 

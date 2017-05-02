@@ -114,6 +114,47 @@ int SBN_UDP_InitPeer(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end SBN_UDP_InitPeer */
 
+#define SBN_UDP_HEARTBEAT_MSG 0xA0
+#define SBN_UDP_ANNOUNCE_MSG 0xA1
+
+int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
+{
+    int Payload = 0; /**< \brief Dummy payload. */
+
+    OS_time_t current_time;
+    OS_GetLocalTime(&current_time);
+
+    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
+    
+    if(PeerData->ConnectedFlag)
+    {
+        if(current_time.seconds - Peer->Status.LastRecv.seconds
+            > SBN_HEARTBEAT_TIMEOUT)
+        {
+            CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
+                "CPU %d disconnected", Peer->Status.ProcessorID);
+            PeerData->ConnectedFlag = FALSE;
+            return 0;
+        }
+        if(current_time.seconds - Peer->Status.LastSend.seconds
+            > SBN_UDP_PEER_HEARTBEAT)
+        {
+            return SBN_UDP_Send(Peer, SBN_UDP_HEARTBEAT_MSG, sizeof(Payload),
+                &Payload);
+        }
+    }
+    else
+    {
+        if(current_time.seconds - Peer->Status.LastSend.seconds
+            > SBN_UDP_ANNOUNCE_TIMEOUT)
+        {
+            return SBN_UDP_Send(Peer, SBN_UDP_ANNOUNCE_MSG, sizeof(Payload),
+                &Payload);
+        }
+    }
+    return SBN_SUCCESS;
+}/* end SBN_UDP_PollPeer */
+
 int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
 {
@@ -182,6 +223,19 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
     /* each UDP packet is a full SBN message */
 
     SBN_UnpackMsg(&RecvBuf, MsgSizePtr, MsgTypePtr, CpuIDPtr, Payload);
+
+    SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, *CpuIDPtr);
+    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
+
+    if(!PeerData->ConnectedFlag)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
+            "CPU %d connected", *CpuIDPtr);
+
+        PeerData->ConnectedFlag = TRUE;
+
+        SBN_SendLocalSubsToPeer(Peer);
+    }
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_Recv */

@@ -23,6 +23,10 @@
 #ifndef _sbn_app_
 #define _sbn_app_
 
+#include <network_includes.h>
+#include <string.h>
+#include <errno.h>
+
 #include "osconfig.h"
 #include "cfe.h"
 #include "sbn_version.h"
@@ -32,7 +36,6 @@
 #include "sbn_tables.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
-#include "sbn_netif.h"
 #include "sbn_msgids.h"
 #include "sbn_loader.h"
 #include "sbn_cmds.h"
@@ -51,6 +54,21 @@
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+void SBN_ShowPeerData(void);
+int32 SBN_GetPeerFileData(void);
+
+int SBN_InitInterfaces(void);
+
+#ifndef SBN_RECV_TASK
+void SBN_RecvNetMsgs(void);
+#endif /* !SBN_RECV_TASK */
+
+#ifndef SBN_SEND_TASK
+void SBN_CheckPeerPipes(void);
+#endif /* !SBN_SEND_TASK */
+
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
+    SBN_Payload_t *Msg, SBN_PeerInterface_t *Peer);
 /**
  * \brief SBN global data structure definition
  */
@@ -120,14 +138,6 @@ void SBN_AppMain(void);
 void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     SBN_CpuID_t CpuID, SBN_MsgSize_t MsgSize, void *Msg);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
-
-#ifdef SBN_DEBUG_MSGS
-#define DEBUG_MSG(...) CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, __VA_ARGS__)
-#define DEBUG_START() CFE_EVS_SendEvent(SBN_DEBUG_EID, CFE_EVS_DEBUG, "%s starting", __FUNCTION__)
-#else /* !SBN_DEBUG_MSGS */
-#define DEBUG_START() ;
-#define DEBUG_MSG(...) ;
-#endif /* SBN_DEBUG_MSGS */
 
 #endif /* _sbn_app_ */
 /*****************************************************************************/

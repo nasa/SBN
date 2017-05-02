@@ -25,8 +25,6 @@ static int ModuleRowCallback(const char *Filename, int LineNum,
     cpuaddr StructAddr = 0;
     int ProtocolID = 0;
 
-    DEBUG_START();
-
     if (FieldCount != 4)
     {
         OS_printf("SBN invalid field count %d (expected 4)\n", FieldCount); /* TODO: event */
@@ -107,8 +105,6 @@ int32 SBN_ReadModuleFile(void)
                     ModuleFile = 0;
     char            CurrentChar = '\0';
     uint32          LineNum = 0;
-
-    DEBUG_START();
 
     ModuleFile = OS_open(SBN_NONVOL_MODULE_FILENAME, OS_READ_ONLY, 0);
 
@@ -192,8 +188,6 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
     int32   ReturnCode = 0;
     uint32  ModuleID = 0;
     cpuaddr StructAddr = 0;
-
-    DEBUG_START();
 
     /* switch on protocol ID */
     ScanfStatus = sscanf(FileEntry, "%d %49s %49s %49s",

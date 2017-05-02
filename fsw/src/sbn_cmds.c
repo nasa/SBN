@@ -11,8 +11,6 @@
 /*******************************************************************/
 void SBN_InitializeCounters(void)
 {
-    DEBUG_START();
-
     SBN.Hk.CmdCount = 0;
     SBN.Hk.CmdErrCount = 0;
 
@@ -62,8 +60,6 @@ static boolean VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
     uint16 CommandCode = 0;
     uint16 ActualLength = 0;
     CFE_SB_MsgId_t MsgId = 0;
-
-    DEBUG_START();
 
     ActualLength = CFE_SB_GetTotalMsgLength(msg);
 
@@ -119,8 +115,6 @@ static boolean VerifyMsgLength(CFE_SB_MsgPtr_t msg, uint16 ExpectedLength)
 *************************************************************************/
 static void NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid no-op command");
@@ -156,8 +150,6 @@ static void NoopCmd(CFE_SB_MsgPtr_t MessagePtr)
 *************************************************************************/
 static void ResetCountersCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid reset command");
@@ -242,8 +234,6 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
  */
 static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
@@ -274,8 +264,6 @@ static void HKCmd(CFE_SB_MsgPtr_t MessagePtr)
  */
 static void HKNetCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NetCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
@@ -317,8 +305,6 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MessagePtr)
  */
 static void HKPeerCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerCmd_t)))
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR, "invalid hk command");
@@ -372,8 +358,6 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MessagePtr)
     SBN_HkSubsPkt_t Pkt;
     int SubNum = 0;
 
-    DEBUG_START();
-
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_NoArgsCmd_t)))
     {   
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
@@ -413,8 +397,6 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MessagePtr)
 {
     int SubNum = 0;
     SBN_PeerCmd_t *Command = (SBN_PeerCmd_t *)MessagePtr;
-
-    DEBUG_START();
 
     if(!VerifyMsgLength(MessagePtr, sizeof(SBN_PeerCmd_t)))
     {
@@ -473,8 +455,6 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr)
 {
     CFE_SB_MsgId_t MsgId = 0;
     uint16 CommandCode = 0;
-
-    DEBUG_START();
 
     if((MsgId = CFE_SB_GetMsgId(MessagePtr)) != SBN_CMD_MID)
     {
