@@ -114,44 +114,38 @@ int SBN_UDP_InitPeer(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end SBN_UDP_InitPeer */
 
-#define SBN_UDP_HEARTBEAT_MSG 0xA0
-#define SBN_UDP_ANNOUNCE_MSG 0xA1
-
 int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
 {
-    int Payload = 0; /**< \brief Dummy payload. */
-
-    OS_time_t current_time;
-    OS_GetLocalTime(&current_time);
+    OS_time_t CurrentTime;
+    OS_GetLocalTime(&CurrentTime);
 
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
     
     if(PeerData->ConnectedFlag)
     {
-        if(current_time.seconds - Peer->Status.LastRecv.seconds
+        if(CurrentTime.seconds - Peer->Status.LastRecv.seconds
             > SBN_HEARTBEAT_TIMEOUT)
         {
             CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
                 "CPU %d disconnected", Peer->Status.ProcessorID);
             PeerData->ConnectedFlag = FALSE;
             return 0;
-        }
-        if(current_time.seconds - Peer->Status.LastSend.seconds
+        }/* end if */
+
+        if(CurrentTime.seconds - Peer->Status.LastSend.seconds
             > SBN_UDP_PEER_HEARTBEAT)
         {
-            return SBN_UDP_Send(Peer, SBN_UDP_HEARTBEAT_MSG, sizeof(Payload),
-                &Payload);
-        }
+            return SBN_UDP_Send(Peer, SBN_UDP_HEARTBEAT_MSG, 0, NULL);
+        }/* end if */
     }
     else
     {
-        if(current_time.seconds - Peer->Status.LastSend.seconds
+        if(CurrentTime.seconds - Peer->Status.LastSend.seconds
             > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
-            return SBN_UDP_Send(Peer, SBN_UDP_ANNOUNCE_MSG, sizeof(Payload),
-                &Payload);
-        }
-    }
+            return SBN_UDP_Send(Peer, SBN_UDP_ANNOUNCE_MSG, 0, NULL);
+        }/* end if */
+    }/* end if */
     return SBN_SUCCESS;
 }/* end SBN_UDP_PollPeer */
 

@@ -499,6 +499,7 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
 
     if(!Msg || !MsgSize)
     {
+        /* valid to have a NULL pointer/empty size payload */
         return;
     }/* end if */
 

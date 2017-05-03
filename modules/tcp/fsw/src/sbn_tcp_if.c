@@ -156,6 +156,9 @@ static void CheckNet(SBN_NetInterface_t *Net)
     socklen_t ClientLen = sizeof(ClientAddr);
     int PeerIdx = 0;
 
+    /**
+     * Check for new connections.
+     */
     memset(&timeout, 0, sizeof(timeout));
     timeout.tv_usec = 100;
 
@@ -201,6 +204,10 @@ static void CheckNet(SBN_NetInterface_t *Net)
         close(ClientFd);
     }/* end if */
 
+    /**
+     * For peers I connect out to, and which are not currently connected,
+     * try connecting now.
+     */
     for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
     {
         SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -246,12 +253,40 @@ static void CheckNet(SBN_NetInterface_t *Net)
                 }/* end if */
             }/* end if */
         }/* end if */
-    }/* end if */
+    }/* end for */
 }/* end CheckNet */
 
 int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
 {
     CheckNet(Peer->Net);
+
+    SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+
+    if(!PeerData->Connected)
+    {
+        return 0;
+    }/* end if */
+
+    OS_time_t CurrentTime;
+    OS_GetLocalTime(&CurrentTime);
+
+    if(CurrentTime.seconds - Peer->Status.LastSend.seconds
+        > SBN_HEARTBEAT_SENDTIME)
+    {
+        SBN_TCP_Send(Peer, SBN_TCP_HEARTBEAT_MSG, 0, NULL);
+    }/* end if */
+
+    if(CurrentTime.seconds - Peer->Status.LastRecv.seconds
+        > SBN_HEARTBEAT_TIMEOUT)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+            "CPU %d disconnected", Peer->Status.ProcessorID);
+
+        close(PeerData->Socket);
+        PeerData->Connected = FALSE;
+    }/* end if */
+
+    return 0;
 }
 
 int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
@@ -271,7 +306,7 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
 
     SBN_PackMsg(&SendBufs[NetData->BufNum], MsgSize, MsgType, CFE_CPU_ID, Msg);
     size_t sent_size = send(PeerData->Socket, &SendBufs[NetData->BufNum],
-        MsgSize + SBN_PACKED_HDR_SIZE, 0);
+        MsgSize + SBN_PACKED_HDR_SIZE, MSG_NOSIGNAL);
     if(sent_size < MsgSize + SBN_PACKED_HDR_SIZE)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,

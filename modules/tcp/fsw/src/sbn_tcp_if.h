@@ -42,4 +42,6 @@ SBN_IfOps_t SBN_TCP_Ops =
     SBN_TCP_ResetPeer
 };
 
+#define SBN_TCP_HEARTBEAT_MSG 0xA0
+
 #endif /* _sbn_tcp_if_h_ */
