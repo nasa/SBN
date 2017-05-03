@@ -124,7 +124,7 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
     if(PeerData->ConnectedFlag)
     {
         if(CurrentTime.seconds - Peer->Status.LastRecv.seconds
-            > SBN_HEARTBEAT_TIMEOUT)
+            > SBN_UDP_PEER_TIMEOUT)
         {
             CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
                 "CPU %d disconnected", Peer->Status.ProcessorID);

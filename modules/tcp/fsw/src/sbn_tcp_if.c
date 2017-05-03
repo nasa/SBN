@@ -271,13 +271,13 @@ int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
     OS_GetLocalTime(&CurrentTime);
 
     if(CurrentTime.seconds - Peer->Status.LastSend.seconds
-        > SBN_HEARTBEAT_SENDTIME)
+        > SBN_TCP_PEER_HEARTBEAT)
     {
         SBN_TCP_Send(Peer, SBN_TCP_HEARTBEAT_MSG, 0, NULL);
     }/* end if */
 
     if(CurrentTime.seconds - Peer->Status.LastRecv.seconds
-        > SBN_HEARTBEAT_TIMEOUT)
+        > SBN_TCP_PEER_TIMEOUT)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
             "CPU %d disconnected", Peer->Status.ProcessorID);

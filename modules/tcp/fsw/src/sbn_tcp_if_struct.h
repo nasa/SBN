@@ -6,6 +6,22 @@
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
 
+/**
+ * If I haven't sent a message in SBN_TCP_PEER_HEARTBEAT seconds, send an empty
+ * one just to maintain the connection.
+ */
+#define SBN_TCP_PEER_HEARTBEAT 5
+
+/**
+ * If I haven't received a message from a peer in SBN_TCP_PEER_TIMEOUT seconds,
+ * consider the peer lost and disconnect.
+ */
+#define SBN_TCP_PEER_TIMEOUT 10
+
+/**
+ * TCP module specific fields in the SbnPeerData.dat file are the IP address
+ * and port number of the peer.
+ */
 #define SBN_TCP_ITEMS_PER_FILE_LINE 2
 
 typedef struct

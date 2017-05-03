@@ -1027,7 +1027,7 @@ static void CheckPeerPipes(void)
 
 /**
  * Iterate through all peers, calling the poll interface if no messages have
- * been sent in the last SBN_HEARTBEAT_SENDTIME seconds.
+ * been sent in the last SBN_POLL_TIME seconds.
  */
 static void PeerPoll(void)
 {
@@ -1045,7 +1045,7 @@ static void PeerPoll(void)
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             if(current_time.seconds - Peer->Status.LastSend.seconds
-                > SBN_HEARTBEAT_SENDTIME)
+                > SBN_POLL_TIME)
             {
                 Net->IfOps->PollPeer(Peer);
                 OS_GetLocalTime(&Peer->Status.LastSend);
