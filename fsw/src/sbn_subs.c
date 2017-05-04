@@ -51,11 +51,16 @@ void SBN_SendSubsRequests(void)
  * @param[out] SubMsg Destination SBN msg buffer for subscription information.
  * @param[in] MsgID The CCSDS message ID for the subscription.
  * @param[in] Qos The CCSDS quality of service for the subscription.
+ *
+ * @return The pointer into the buffer after the packed sub.
  */
-static void PackSub(void *SubMsg, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
+static void *PackSub(void *SubMsg, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
 {
     MsgID = CFE_MAKE_BIG16(MsgID);
     memcpy(SubMsg, &MsgID, sizeof(MsgID));
+    SubMsg += sizeof(MsgID);
+    memcpy(SubMsg, &Qos, sizeof(Qos));
+    return SubMsg + sizeof(Qos);
 }
 
 /**
@@ -77,18 +82,20 @@ static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIDPtr,
 /**
  * \brief Sends a local subscription over the wire to a peer.
  *
- * @param[in] SubFlag Whether this is a subscription or unsubscription.
+ * @param[in] SubType Whether this is a subscription or unsubscription.
  * @param[in] MsgID The CCSDS message ID being (un)subscribed.
  * @param[in] Qos The CCSDS quality of service being (un)subscribed.
  * @param[in] Peer The Peer interface
  */
-static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgID,
+static void SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
     CFE_SB_Qos_t Qos, SBN_PeerInterface_t *Peer)
 {
-    SBN_PackedSub_t SubMsg;
+    SBN_PackedSubs_t SubMsg;
     memset(&SubMsg, 0, sizeof(SubMsg));
-    PackSub(&SubMsg, MsgID, Qos);
-    SBN_SendNetMsg(SubFlag, sizeof(SubMsg), (SBN_Payload_t *)&SubMsg, Peer);
+    SubMsg.SubCnt = CFE_MAKE_BIG16(1);
+    PackSub(&SubMsg.Subs[0], MsgID, Qos);
+    size_t MsgSize = 2 + SBN_PACKED_HDR_SIZE;
+    SBN_SendNetMsg(SubType, MsgSize, (SBN_Payload_t *)&SubMsg, Peer);
 }/* end SendLocalSubToPeer */
 
 /**
@@ -98,13 +105,19 @@ static void SendLocalSubToPeer(int SubFlag, CFE_SB_MsgId_t MsgID,
  */
 void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
 {
-    int i = 0;
+    SBN_PackedSubs_t SubMsg;
+    memset(&SubMsg, 0, sizeof(SubMsg));
+    SubMsg.SubCnt = CFE_MAKE_BIG16(SBN.Hk.SubCount);
 
+    int i = 0;
     for(i = 0; i < SBN.Hk.SubCount; i++)
     {
-        SendLocalSubToPeer(SBN_SUBSCRIBE_MSG, SBN.LocalSubs[i].MsgID,
-            SBN.LocalSubs[i].Qos, Peer);
+        PackSub(&SubMsg.Subs[i], SBN.LocalSubs[i].MsgID, SBN.LocalSubs[i].Qos);
     }/* end for */
+
+    size_t MsgSize = 2 + SBN_PACKED_HDR_SIZE * SBN.Hk.SubCount;
+
+    SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, MsgSize, (SBN_Payload_t *)&SubMsg, Peer);
 }/* end SBN_SendLocalSubsToPeer */
 
 /**
@@ -341,7 +354,7 @@ int32 SBN_CheckSubscriptionPipe(void)
     return RecvSub;
 }/* end SBN_CheckSubscriptionPipe */
 
-static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
+static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     CFE_SB_Qos_t Qos)
 {   
     int idx = 0, FirstOpenSlot = Peer->Status.SubCount;
@@ -375,23 +388,13 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     Peer->Subs[FirstOpenSlot].Qos = Qos;
     
     Peer->Status.SubCount++;
-}/* end ProcessSubFromPeer */
+}/* end AddSub */
 
-/**
- * \brief Process a subscription message from a peer.
- *
- * @param[in] PeerIdx The peer index (in SBN.Peer)
- * @param[in] Msg The subscription SBN message.
- */
-void SBN_ProcessSubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
+static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
+    CFE_SB_Qos_t Qos)
 {
-    int idx = 0, RemappedFlag = 0;
-    CFE_SB_MsgId_t MsgID;
-    CFE_SB_Qos_t Qos;
-
-    UnPackSub(Msg, &MsgID, &Qos);
-
     /** If there's a filter, ignore the sub request.  */
+    int idx = 0;
     for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {
         if(SBN.RemapTable->Entry[idx].ProcessorID == Peer->Status.ProcessorID
@@ -408,23 +411,47 @@ void SBN_ProcessSubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
      * only be one "from" but it's possible that multiple "from"s map to
      * the same "to".
      */
+    boolean RemappedFlag = FALSE;
     for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
     {
         if(SBN.RemapTable->Entry[idx].ProcessorID
                 == Peer->Status.ProcessorID
             && SBN.RemapTable->Entry[idx].to == MsgID)
         {
-            ProcessSubFromPeer(Peer, SBN.RemapTable->Entry[idx].from, Qos);
-            RemappedFlag = 1;
+            AddSub(Peer, SBN.RemapTable->Entry[idx].from, Qos);
+            RemappedFlag = TRUE;
         }/* end if */
     }/* end for */
 
     /* if there's no remap ID's, subscribe to the original MID. */
     if(!RemappedFlag)
     {
-        ProcessSubFromPeer(Peer, MsgID, Qos);
+        AddSub(Peer, MsgID, Qos);
     }/* end if */
-}/* SBN_ProcessSubFromPeer */
+}/* ProcessSubFromPeer */
+
+/**
+ * \brief Process a subscription message from a peer.
+ *
+ * @param[in] PeerIdx The peer index (in SBN.Peer)
+ * @param[in] Msg The subscription SBN message.
+ */
+void SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
+{
+    SBN_PackedSubs_t *SubMsg = Msg;
+    int SubCnt = CFE_MAKE_BIG16(SubMsg->SubCnt);
+
+    int SubIdx = 0;
+    for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
+    {
+        CFE_SB_MsgId_t MsgID;
+        CFE_SB_Qos_t Qos;
+
+        UnPackSub((void *)&SubMsg->Subs[SubIdx], &MsgID, &Qos);
+
+        ProcessSubFromPeer(Peer, MsgID, Qos);
+    }/* end for */
+}/* SBN_ProcessSubsFromPeer */
 
 static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     CFE_SB_MsgId_t MsgID)
@@ -471,48 +498,56 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
  * @param[in] PeerIdx The peer index (in SBN.Peer)
  * @param[in] Msg The unsubscription SBN message.
  */
-void SBN_ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
+void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    int idx = 0, RemappedFlag = 0;
-    CFE_SB_MsgId_t MsgID = 0x0000;
-    CFE_SB_Qos_t Qos;
+    SBN_PackedSubs_t *SubMsg = Msg;
 
-    UnPackSub(Msg, &MsgID, &Qos);
+    int SubCnt = CFE_MAKE_BIG16(SubMsg->SubCnt);
 
-    /** If there's a filter, ignore this unsub. */
-    for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
-    {   
-        if(SBN.RemapTable->Entry[idx].ProcessorID
-                == Peer->Status.ProcessorID
-            && SBN.RemapTable->Entry[idx].from == MsgID
-            && SBN.RemapTable->Entry[idx].to == 0x0000)
+    int SubIdx = 0;
+    for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
+    {
+        int idx = 0, RemappedFlag = 0;
+        CFE_SB_MsgId_t MsgID = 0x0000;
+        CFE_SB_Qos_t Qos;
+
+        UnPackSub((void *)&SubMsg->Subs[SubIdx], &MsgID, &Qos);
+
+        /** If there's a filter, ignore this unsub. */
+        for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
         {   
-            return;
+            if(SBN.RemapTable->Entry[idx].ProcessorID
+                    == Peer->Status.ProcessorID
+                && SBN.RemapTable->Entry[idx].from == MsgID
+                && SBN.RemapTable->Entry[idx].to == 0x0000)
+            {   
+                return;
+            }/* end if */
+        }/* end for */
+          
+        /*****
+         * If there's a remap that would generate that
+         * MID, I need to unsubscribe locally to the "from". Usually this will
+         * only be one "from" but it's possible that multiple "from"s map to
+         * the same "to".
+         */
+        for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
+        {   
+            if(SBN.RemapTable->Entry[idx].ProcessorID
+                    == Peer->Status.ProcessorID
+                && SBN.RemapTable->Entry[idx].to == MsgID)
+            {   
+                ProcessUnsubFromPeer(Peer, SBN.RemapTable->Entry[idx].from);
+                RemappedFlag = 1;
+            }/* end if */
+        }/* end for */
+          
+        /* if there's no remap ID's, subscribe to the original MID. */
+        if(!RemappedFlag)
+        {   
+            ProcessUnsubFromPeer(Peer, MsgID);
         }/* end if */
     }/* end for */
-      
-    /*****
-     * If there's a remap that would generate that
-     * MID, I need to unsubscribe locally to the "from". Usually this will
-     * only be one "from" but it's possible that multiple "from"s map to
-     * the same "to".
-     */
-    for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
-    {   
-        if(SBN.RemapTable->Entry[idx].ProcessorID
-                == Peer->Status.ProcessorID
-            && SBN.RemapTable->Entry[idx].to == MsgID)
-        {   
-            ProcessUnsubFromPeer(Peer, SBN.RemapTable->Entry[idx].from);
-            RemappedFlag = 1;
-        }/* end if */
-    }/* end for */
-      
-    /* if there's no remap ID's, subscribe to the original MID. */
-    if(!RemappedFlag)
-    {   
-        ProcessUnsubFromPeer(Peer, MsgID);
-    }/* end if */
 }/* end SBN_ProcessUnsubFromPeer */
 
 /**

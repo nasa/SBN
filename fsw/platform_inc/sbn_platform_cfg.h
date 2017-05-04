@@ -35,7 +35,8 @@
 
 #define SBN_MAIN_LOOP_DELAY           200 /* milli-seconds */
 
-/* If I don't send out traffic for a period of time, call the module's poll
+/**
+ * If I don't send out traffic for a period of time, call the module's poll
  * just so it can handle protocol matters.
  */
 #define SBN_POLL_TIME        5

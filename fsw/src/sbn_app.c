@@ -1510,11 +1510,11 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
             break;
 
         case SBN_SUBSCRIBE_MSG:
-            SBN_ProcessSubFromPeer(Peer, Msg);
+            SBN_ProcessSubsFromPeer(Peer, Msg);
             break;
 
         case SBN_UN_SUBSCRIBE_MSG:
-            SBN_ProcessUnsubFromPeer(Peer, Msg);
+            SBN_ProcessUnsubsFromPeer(Peer, Msg);
             break;
 
         /**

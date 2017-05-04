@@ -46,6 +46,13 @@ typedef struct
 }
 SBN_PackedSub_t;
 
+typedef struct
+{
+    uint16 SubCnt;
+    SBN_PackedSub_t Subs[SBN_MAX_SUBS_PER_PEER];
+}
+SBN_PackedSubs_t;
+
 /**
  * \note The packed size is likely smaller than an in-memory's struct
  * size, as the compiler will align objects.
