@@ -48,6 +48,7 @@ SBN_PackedSub_t;
 
 typedef struct
 {
+    char VersionHash[SBN_IDENT_LEN];
     uint16 SubCnt;
     SBN_PackedSub_t Subs[SBN_MAX_SUBS_PER_PEER];
 }

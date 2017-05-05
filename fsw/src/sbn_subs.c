@@ -92,10 +92,14 @@ static void SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
 {
     SBN_PackedSubs_t SubMsg;
     memset(&SubMsg, 0, sizeof(SubMsg));
+    memcpy(SubMsg.VersionHash, SBN_IDENT, SBN_IDENT_LEN);
     SubMsg.SubCnt = CFE_MAKE_BIG16(1);
+
     PackSub(&SubMsg.Subs[0], MsgID, Qos);
-    size_t MsgSize = 2 + SBN_PACKED_HDR_SIZE;
-    SBN_SendNetMsg(SubType, MsgSize, (SBN_Payload_t *)&SubMsg, Peer);
+
+    SBN_SendNetMsg(SubType,
+        SBN_IDENT_LEN + sizeof(SubMsg.SubCnt) + SBN_PACKED_HDR_SIZE,
+        (SBN_Payload_t *)&SubMsg, Peer);
 }/* end SendLocalSubToPeer */
 
 /**
@@ -107,6 +111,7 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
 {
     SBN_PackedSubs_t SubMsg;
     memset(&SubMsg, 0, sizeof(SubMsg));
+    memcpy(SubMsg.VersionHash, SBN_IDENT, SBN_IDENT_LEN);
     SubMsg.SubCnt = CFE_MAKE_BIG16(SBN.Hk.SubCount);
 
     int i = 0;
@@ -115,9 +120,10 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
         PackSub(&SubMsg.Subs[i], SBN.LocalSubs[i].MsgID, SBN.LocalSubs[i].Qos);
     }/* end for */
 
-    size_t MsgSize = 2 + SBN_PACKED_HDR_SIZE * SBN.Hk.SubCount;
-
-    SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, MsgSize, (SBN_Payload_t *)&SubMsg, Peer);
+    SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, 
+        SBN_IDENT_LEN + sizeof(SubMsg.Subs)
+            + SBN_PACKED_HDR_SIZE * SBN.Hk.SubCount,
+        (SBN_Payload_t *)&SubMsg, Peer);
 }/* end SBN_SendLocalSubsToPeer */
 
 /**
@@ -439,6 +445,14 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
 void SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
     SBN_PackedSubs_t *SubMsg = Msg;
+
+    if(strncmp(SubMsg->VersionHash, SBN_IDENT, SBN_IDENT_LEN))
+    {
+        CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
+            "version number mismatch with peer CpuID %d",
+            Peer->Status.ProcessorID);
+    }
+
     int SubCnt = CFE_MAKE_BIG16(SubMsg->SubCnt);
 
     int SubIdx = 0;
@@ -501,6 +515,13 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
 void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
     SBN_PackedSubs_t *SubMsg = Msg;
+
+    if(strncmp(SubMsg->VersionHash, SBN_IDENT, SBN_IDENT_LEN))
+    {
+        CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
+            "version number mismatch with peer CpuID %d",
+            Peer->Status.ProcessorID);
+    }
 
     int SubCnt = CFE_MAKE_BIG16(SubMsg->SubCnt);
 
