@@ -88,16 +88,25 @@ int SBN_DTN_InitNet(SBN_NetInterface_t *Net)
  */
 int SBN_DTN_InitPeer(SBN_PeerInterface_t *Peer)
 {
+    SBN_DTN_Send(Peer, SBN_DTN_SUBREQ_MSG, 0, NULL);
+
     return SBN_SUCCESS;
 }/* end SBN_DTN_InitPeer */
 
-int SBN_DTN_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
+/**
+ */
+int SBN_DTN_PollPeer(SBN_PeerInterface_t *Peer)
+{
+    return SBN_SUCCESS;
+}/* end SBN_DTN_InitPeer */
+
+int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
 {
     SBN_PackedMsg_t SendBuf;
 
     SBN_DTN_Peer_t *PeerData = (SBN_DTN_Peer_t *)Peer->ModulePvt;
-    SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Net->ModulePvt;
+    SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Peer->Net->ModulePvt;
 
     SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_CPU_ID, Payload);
 

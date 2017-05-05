@@ -12,6 +12,7 @@
 typedef struct
 {
     char EIN[32];
+    boolean SubsSent;
 } SBN_DTN_Peer_t;
 
 typedef struct

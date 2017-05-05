@@ -5,6 +5,9 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
+/* sent to all peers, requesting they send their subscriptions */
+#define SBN_DTN_SUBREQ_MSG 0xA0
+
 int SBN_DTN_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net);
 
 int SBN_DTN_LoadPeer(const char **Row, int FieldCount,
@@ -14,8 +17,10 @@ int SBN_DTN_InitNet(SBN_NetInterface_t *NetInterface);
 
 int SBN_DTN_InitPeer(SBN_PeerInterface_t *PeerInterface);
 
-int SBN_DTN_Send(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
+int SBN_DTN_PollPeer(SBN_PeerInterface_t *PeerInterface);
+
+int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
 
 int SBN_DTN_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
         SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,
@@ -31,6 +36,7 @@ SBN_IfOps_t SBN_DTN_Ops =
     SBN_DTN_LoadPeer,
     SBN_DTN_InitNet,
     SBN_DTN_InitPeer,
+    SBN_DTN_PollPeer,
     SBN_DTN_Send,
     NULL,
     SBN_DTN_Recv,
