@@ -243,3 +243,23 @@ int SBN_UDP_ResetPeer(SBN_PeerInterface_t *Peer)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_UDP_ResetPeer */
+
+int SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
+{
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
+
+    close(NetData->Socket);
+
+    int PeerIdx = 0;
+    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    {
+        SBN_UDP_UnloadPeer(&Net->Peers[PeerIdx]);
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end SBN_UDP_UnloadNet */
+
+int SBN_UDP_UnloadPeer(SBN_PeerInterface_t *Peer)
+{
+    return SBN_SUCCESS;
+}/* end SBN_UDP_UnloadPeer */

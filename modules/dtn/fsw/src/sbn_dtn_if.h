@@ -30,6 +30,10 @@ int SBN_DTN_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
 int SBN_DTN_ResetPeer(SBN_PeerInterface_t *PeerInterface);
 
+int SBN_DTN_UnloadNet(SBN_NetInterface_t *NetInterface);
+
+int SBN_DTN_UnloadPeer(SBN_PeerInterface_t *PeerInterface);
+
 SBN_IfOps_t SBN_DTN_Ops =
 {
     SBN_DTN_LoadNet,
@@ -41,7 +45,9 @@ SBN_IfOps_t SBN_DTN_Ops =
     NULL,
     SBN_DTN_Recv,
     SBN_DTN_ReportModuleStatus,
-    SBN_DTN_ResetPeer
+    SBN_DTN_ResetPeer,
+    SBN_DTN_UnloadNet,
+    SBN_DTN_UnloadPeer
 };
 
 #endif /* _sbn_dtn_if_h_ */

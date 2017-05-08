@@ -430,3 +430,33 @@ int SBN_TCP_ResetPeer(SBN_PeerInterface_t *Peer)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ResetPeer */
+
+int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
+{
+    SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+
+    if(NetData->Socket)
+    {
+        close(NetData->Socket);
+    }/* end if */
+
+    int PeerIdx = 0;
+    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    {
+        SBN_TCP_UnloadPeer(&Net->Peers[PeerIdx]);
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end SBN_TCP_ResetPeer */
+
+int SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer)
+{
+    SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+
+    if(PeerData->Socket)
+    {
+        close(PeerData->Socket);
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end SBN_TCP_ResetPeer */

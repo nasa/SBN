@@ -274,13 +274,37 @@ struct SBN_IfOps_s {
      * This function must be present, but can simply return SBN_NOT_IMPLEMENTED
      * if it is not used by or not applicable to a module.
      *
-     * @param Peer Peer to report status
-     * @return  SBN_SUCCESS when the peer is reset correcly
-     *          SBN_ERROR if the peer cannot be reset
+     * @param Peer Peer to reset
+     * @return  SBN_SUCCESS when the peer is reset correctly.
+     *          SBN_ERROR if the peer cannot be reset.
      *          SBN_NOT_IMPLEMENTED if the module does not implement this
-     *          function
+     *          function.
      */
     int (*ResetPeer)(SBN_PeerInterface_t *Peer);
+
+    /**
+     * Unload a network. This will unload all associated peers as well.
+     *
+     * @param Net Network to unload.
+     * @return  SBN_SUCCESS when the net is unloaded.
+     *          SBN_ERROR if the net cannot be unloaded.
+     *          SBN_NOT_IMPLEMENTED if the module does not implement this
+     *          function.
+     * @sa LoadNet, LoadPeer, UnloadPeer
+     */
+    int (*UnloadNet)(SBN_NetInterface_t *Net);
+
+    /**
+     * Unload a peer.
+     *
+     * @param Peer Peer to unload.
+     * @return  SBN_SUCCESS when the peer is unloaded.
+     *          SBN_ERROR if the peer cannot be unloaded.
+     *          SBN_NOT_IMPLEMENTED if the module does not implement this
+     *          function.
+     * @sa LoadNet, LoadPeer, UnloadNet
+     */
+    int (*UnloadPeer)(SBN_PeerInterface_t *Peer);
 };
 
 #endif /* _sbn_interfaces_h_ */

@@ -229,3 +229,24 @@ int SBN_DTN_ResetPeer(SBN_PeerInterface_t *Peer)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_DTN_ResetPeer */
+
+int SBN_DTN_UnloadNet(SBN_NetInterface_t *Net)
+{
+    SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Net->ModulePvt;
+
+    ionStopAttendant(&NetData->Attendant);
+    bp_detach();
+
+    int PeerIdx = 0;
+    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    {
+        SBN_DTN_UnloadPeer(&Net->Peers[PeerIdx]);
+    }/* end for */
+
+    return SBN_SUCCESS;
+}/* end SBN_DTN_ResetPeer */
+
+int SBN_DTN_UnloadPeer(SBN_PeerInterface_t *Peer)
+{
+    return SBN_SUCCESS;
+}/* end SBN_DTN_ResetPeer */

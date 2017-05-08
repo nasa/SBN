@@ -1473,6 +1473,15 @@ void SBN_AppMain(void)
     /* Loop Forever */
     while(CFE_ES_RunLoop(&RunStatus)) WaitForWakeup(SBN_MAIN_LOOP_DELAY);
 
+    int NetIdx = 0;
+    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    {
+        SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+        Net->IfOps->UnloadNet(Net);
+    }/* end for */
+
+    SBN_UnloadModules();
+
     CFE_ES_ExitApp(RunStatus);
 }/* end SBN_AppMain */
 

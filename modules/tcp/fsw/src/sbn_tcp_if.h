@@ -28,6 +28,10 @@ int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
 int SBN_TCP_ResetPeer(SBN_PeerInterface_t *Peer);
 
+int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net);
+
+int SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer);
+
 SBN_IfOps_t SBN_TCP_Ops =
 {
     SBN_TCP_LoadNet,
@@ -39,7 +43,9 @@ SBN_IfOps_t SBN_TCP_Ops =
     SBN_TCP_Recv,
     NULL,
     SBN_TCP_ReportModuleStatus,
-    SBN_TCP_ResetPeer
+    SBN_TCP_ResetPeer,
+    SBN_TCP_UnloadNet,
+    SBN_TCP_UnloadPeer
 };
 
 #define SBN_TCP_HEARTBEAT_MSG 0xA0

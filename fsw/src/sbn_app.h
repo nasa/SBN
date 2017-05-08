@@ -109,7 +109,12 @@ typedef struct
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_IfOps_t *IfOps[SBN_MAX_INTERFACE_TYPES + 1];
+    SBN_IfOps_t *IfOps[SBN_MAX_INTERFACE_TYPES];
+
+    /**
+     * Retain the module ID's for each interface.
+     */
+    uint32 ModuleIDs[SBN_MAX_INTERFACE_TYPES];
 
     /** \brief Housekeeping information. */
     SBN_HkPacket_t Hk;
