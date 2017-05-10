@@ -88,8 +88,6 @@ int SBN_DTN_InitNet(SBN_NetInterface_t *Net)
  */
 int SBN_DTN_InitPeer(SBN_PeerInterface_t *Peer)
 {
-    SBN_DTN_Send(Peer, SBN_DTN_SUBREQ_MSG, 0, NULL);
-
     return SBN_SUCCESS;
 }/* end SBN_DTN_InitPeer */
 
@@ -160,37 +158,43 @@ int SBN_DTN_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 {
     SBN_PackedMsg_t RecvBuf;
     BpDelivery Delivery;
+    int TimeoutSecs = 0;
+
+    #ifdef SBN_RECV_TASK
+    /* task-based peer connections block on reads, otherwise use select */
+    TimeoutSecs = BP_BLOCKING;
+    #endif /* SBN_RECV_TASK */
 
     SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Net->ModulePvt;
 
-#ifdef SBN_RECV_TASK
-#else /* !SBN_RECV_TASK */
-#endif /* SBN_RECV_TASK */
-
-    /* task-based peer connections block on reads, otherwise use select */
-
-    if(bp_receive(NetData->SAP, &Delivery, BP_BLOCKING) < 0)
+    if(bp_receive(NetData->SAP, &Delivery, TimeoutSecs) < 0)
     {
         CFE_EVS_SendEvent(SBN_DTN_SOCK_EID, CFE_EVS_ERROR,
             "BP receive returned an error");
         return SBN_ERROR;
     }/* end if */
 
-    if(Delivery.result == BpReceptionInterrupted)
+    switch(Delivery.result)
     {
-        return SBN_IF_EMPTY;
-    }/* end if */
+        case BpReceptionTimedOut:
+            /* fall through */
 
-    if(Delivery.result == BpEndpointStopped)
-    {
-        /* should return something to indicate the connection lost */
-        return SBN_IF_EMPTY;
-    }/* end if */
+        case BpReceptionInterrupted:
+            /* fall through */
 
-    if(Delivery.result != BpPayloadPresent)
-    {
-        return SBN_SUCCESS; /* ? */
-    }/* end if */
+        case BpEndpointStopped:
+            /* should return something to indicate the connection lost */
+            return SBN_IF_EMPTY;
+
+        case BpPayloadPresent:
+            /* got a payload, break and continue processing */
+            break;
+
+        default:
+            return SBN_SUCCESS; /* ? */
+    }
+
+    /* got a payload, process */
 
     CHKZERO(sdr_begin_xn(NetData->RecvSDR));
     int ContentLength = zco_source_data_length(NetData->RecvSDR, Delivery.adu);

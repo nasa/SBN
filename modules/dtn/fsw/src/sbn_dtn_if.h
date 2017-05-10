@@ -5,9 +5,6 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
-/* sent to all peers, requesting they send their subscriptions */
-#define SBN_DTN_SUBREQ_MSG 0xA0
-
 int SBN_DTN_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net);
 
 int SBN_DTN_LoadPeer(const char **Row, int FieldCount,
