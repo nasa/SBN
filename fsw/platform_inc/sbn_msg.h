@@ -59,12 +59,6 @@ typedef struct {
      */
     OS_time_t LastRecv; // 44 + 4 = 48 bytes
 
-    /**
-     * \brief Last time the protocol module noted a (re)connection, when
-     * subscription information would have been exchanged.
-     */
-    OS_time_t LastConnect; // 48 + 4 = 52 bytes
-
     uint16 SendCount; // 52 + 2 = 54 bytes
 
     uint16 RecvCount; // 54 + 2 = 56 bytes
