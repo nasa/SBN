@@ -21,7 +21,8 @@
 /**
   \page cfssbnrevhist CFS Software Bus Network User's Guide Revision History
 
-  \verbatim  
+  \verbatim
+  May 30, 2017 - Updated to SBN 1.6.
   \endverbatim
   
   Next: \ref cfssbnovr
@@ -30,7 +31,7 @@
 /**
   \page cfssbnovr CFS Software Bus Network Overview
 
-  The CFS SBN application provides inter-processor communication by routing protocol and data messages across different interfaces via custom interface modules.  The SBN application is transparent to other CFS applications and requires no changes to existing applications.
+  The CFS SBN application provides inter-processor communication by routing software bus messages over a variety of network infrastructures. The SBN application is transparent to other CFS applications and requires no changes to existing applications. SBN requires little compile-time or start-time configuration, subscriptions are automatically discovered and communicated to peer processors.
   
   Next: \ref cfssbnopr <BR>
   Prev: \ref cfssbnrevhist
@@ -41,7 +42,17 @@
 
   <H1>Initialization </H1>
 
-  During initialization, the Command and Command Error counters are set to zero, as well as all other numerical data within the packet.  In addition to initializing telemetry, SBN registers for cFE event services, creates its software bus message pipe, and subscribes to SBN SB housekeeping requests and commands.
+  On initialization, SBN:
+  <ol>
+  <li>loads the module configuration file(s) from non-volatile memory and/or the filesystem</li>
+  <li>dynamically loads the protocol module(s) and calls their initialization function(s)</li>
+  <li>loads the peer configuration file(s) from non-volatile memory and/or the filesystem</li>
+  <li>creates a message pipe for messages relevant to each peer</li>
+  <li>clears the housekeeping telemetry</li>
+  <li>registers for cFE event services</li>
+  <li>creates a pipe to receive subscription messages</li>
+  <li>creates its software bus command message pipe</li>
+  <li>and subscribes to command messages</li>
 
   <H1>Resets</H1>
 
