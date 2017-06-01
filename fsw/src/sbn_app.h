@@ -132,9 +132,9 @@ typedef struct
 } SBN_App_t;
 
 /**
- * \brief SBN glocal data structure reference.
+ * \brief SBN glocal data structure references, indexed by AppId.
  */
-extern SBN_App_t SBN;
+extern SBN_App_t *SBNs[CFE_PLATFORM_ES_MAX_APPLICATIONS];
 
 /*
 ** Prototypes
