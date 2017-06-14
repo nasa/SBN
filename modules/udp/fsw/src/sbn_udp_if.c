@@ -158,7 +158,7 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_NetInterface_t *Net = Peer->Net;
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_CPU_ID, Payload);
+    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
     static struct sockaddr_in s_addr;
 

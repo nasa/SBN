@@ -106,7 +106,7 @@ int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_DTN_Peer_t *PeerData = (SBN_DTN_Peer_t *)Peer->ModulePvt;
     SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Peer->Net->ModulePvt;
 
-    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_CPU_ID, Payload);
+    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
     CHKZERO(sdr_begin_xn(NetData->SendSDR));
 
