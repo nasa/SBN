@@ -47,37 +47,13 @@ how SBN allocates and limits resources as well as controlling the behavior
 of SBN. Most "max" definitions relate to in-memory static arrays, so increasing
 the value increases the memory footprint of SBN (in some cases, non-linearly.)
 
-Name|Default|Description
----|---|---
-`SBN_MAX_NETS`|16|Maximum number of networks allowed.
-`SBN_MAX_PEERS_PER_NET`|32|Maximum number of peers per network allowed.
-`SBN_MAX_SUBS_PER_PEER`|256|Maximum number of subscriptions allowed per peer allowed.
-`SBN_MAX_PEERNAME_LENGTH`|32|Maximum length of the name field in the `SbnPeerData.dat` file.
-`SBN_MAX_NET_NAME_LENGTH`|16|Maximum length of the network field in the `SbnPeerData.dat` file.
-`SBN_MAX_MSG_PER_WAKEUP`|32|In the polling configuration, the maximum number of messages we'll process from a peer. (To prevent starvation by a babbling peer.)
-`SBN_MAIN_LOOP_DELAY`|200|In the polling configuration, how long (in milliseconds) to wait for a SCH wakeup message before SBN times out and processes. (Note, should really be significantly longer than the expected time between SCH wakeup messages.)
-`SBN_POLL_TIME`|5|If I haven't sent a message to a peer in this amount of time (in seconds), call the poll function of the API in case it needs to perform some connection maintenance.
-`SBN_PEER_PIPE_DEPTH`|64|For each peer, a pipe is created to receive messages that the peer has subscribed to. The pipe should be deep enough to handle all messages that will queue between wakeups.
-`SBN_DEFAULT_MSG_LIM`|8|The maximum number of messages that will be queued for a particular message ID for a particular peer.
-`SBN_SUB_PIPE_DEPTH`|256|The maximum number of subscription messages that will be queued between wakeups.
-`SBN_MAX_ONESUB_PKTS_ON_PIPE`|256|The maximum number of subscription messages for a single message ID that will be queued between wakeups. (These are received when updates occur after SBN starts up.)
-`SBN_MAX_ALLSUBS_PKTS_ON_PIPE`|256|The maximum number of subscription messages for all message IDs that will be queued between wakeups. (These are received on SBN startup.)
-`SBN_VOL_PEER_FILENAME`|"/ram/SbnPeerData.dat"|The volatile memory location for the peer data file.
-`SBN_NONVOL_PEER_FILENAME`|"/cf/SbnPeerData.dat"|The non-volatile memory location for the peer data file.
-`SBN_PEER_FILE_LINE_SIZE`|128|The maximum length of a line of configuration data in the peer data file.
-`SBN_VOL_MODULE_FILENAME`|"/ram/SbnModuleData.dat"|The volatile memory location for the module data file.
-`SBN_NONVOL_MODULE_FILENAME`|"/cf/SbnModuleData.dat"|The non-volatile memory location for the module data file.
-`SBN_MODULE_FILE_LINE_SIZE`|128|The maximum length of a line of configuration data in the module data file.
-`SBN_MAX_INTERFACE_TYPES`|8|Maximum number of protocol modules.
-`SBN_MOD_STATUS_MSG_SIZE`|128|SBN modules can provide status messages for housekeeping requests, this is the maximum length those messages can be.
-`SBN_TASK_SEND`|(undef)|If defined, a task is created for each peer and that task pends on the data pipe for that peer, sending messages to the peer as soon as they are received on the pipe. Otherwise, peer pipes are read when SCH wakes up SBN.
-`SBN_TASK_RECV`|(undef)|If defined, a task is created for each peer and that task pends on the network connection for that peer, receiving messages from that peer and publishing on the local bus as soon as they are received. Otherwise, peer network connections are read when SCH wakes up SBN.
-
 ### SBN Remapping Table
 
 The SBN remapping table is a standard cFS table defining, on a peer-by-peer
 basis, which message ID's should be remapped to other ID's, or which
 message ID's should be filtered (where the "To" field is 0).
+
+See `sbn_tables.h` and `sbn_remap_tbl.c`.
 
 ### SbnModuleData.dat File Format
 

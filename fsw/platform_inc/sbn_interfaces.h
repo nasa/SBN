@@ -25,23 +25,23 @@ typedef uint32 SBN_CpuID_t;
  */
 typedef struct
 {
-    /** \brief Size of payload not including SBN header */
+    /** @brief Size of payload not including SBN header */
     uint8 MsgSizeBuf[sizeof(SBN_MsgSize_t)];
 
-    /** \brief Type of SBN message */
+    /** @brief Type of SBN message */
     uint8 MsgTypeBuf[sizeof(SBN_MsgType_t)];
 
-    /** \brief CpuID of sender */
+    /** @brief CpuID of sender */
     uint8 CpuIDBuf[sizeof(SBN_CpuID_t)];
 }
 SBN_PackedHdr_t;
 
 typedef struct
 {
-    /** \brief CCSDS MsgID of sub */
+    /** @brief CCSDS MsgID of sub */
     uint8 MsgID[sizeof(CFE_SB_MsgId_t)];
 
-    /** \brief CCSDS Qos of sub */
+    /** @brief CCSDS Qos of sub */
     uint8 Qos[sizeof(CFE_SB_Qos_t)];
 }
 SBN_PackedSub_t;
@@ -55,7 +55,7 @@ typedef struct
 SBN_PackedSubs_t;
 
 /**
- * \note The packed size is likely smaller than an in-memory's struct
+ * @note The packed size is likely smaller than an in-memory's struct
  * size, as the compiler will align objects.
  * SBN headers are MsgSize + MsgType + CpuID
  * SBN subscription messages are MsgID + Qos
@@ -73,25 +73,29 @@ typedef struct
 SBN_PackedMsg_t;
 
 /**
- * \brief Used by modules to pack messages to send.
+ * @brief Used by modules to pack messages to send.
  *
- * \param SBNMsgBuf[out] The buffer pointer to receive the packed message.
- * \param MsgSize[in] The size of the Msg parameter.
- * \param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
- * \param CpuID[in] The CPU ID of the sender (should be CFE_CPU_ID)
- * \param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
+ * @param SBNMsgBuf[out] The buffer pointer to receive the packed message.
+ * @param MsgSize[in] The size of the Msg parameter.
+ * @param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
+ * @param CpuID[in] The CPU ID of the sender (should be CFE_CPU_ID)
+ * @param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
+ *
+ * @sa SBN_UnpackMsg
  */
 void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
     SBN_MsgType_t MsgType, SBN_CpuID_t CpuID, SBN_Payload_t Msg);
 
 /**
- * \brief Used by modules to unpack messages received.
+ * @brief Used by modules to unpack messages received.
  *
- * \param SBNMsgBuf[in] The buffer pointer containing the SBN message.
- * \param MsgSizePtr[out] The size of the Msg parameter.
- * \param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
- * \param CpuID[out] The CPU ID of the sender (should be CFE_CPU_ID)
- * \param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_SB_MAX_SB_MSG_SIZE)
+ * @param SBNMsgBuf[in] The buffer pointer containing the SBN message.
+ * @param MsgSizePtr[out] The size of the Msg parameter.
+ * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
+ * @param CpuID[out] The CPU ID of the sender (should be CFE_CPU_ID)
+ * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_SB_MAX_SB_MSG_SIZE)
+ *
+ * @sa SBN_PackMsg
  */
 void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, SBN_Payload_t Msg);
@@ -100,44 +104,65 @@ typedef struct SBN_IfOps_s SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
 
 typedef struct {
+    /** @brief The peer status details. */
     SBN_PeerStatus_t Status;
+
+    /** @brief A convenience pointer to the net that this peer belongs to. */
     SBN_NetInterface_t *Net;
 
     #ifdef SBN_SEND_TASK
 
+    /**
+     * @brief The ID of the task created to pend on the pipe and send messages
+     * to the net as soon as they are read.
+     */
     uint32 SendTaskID;
 
     #endif /* SBN_SEND_TASK */
 
     #ifdef SBN_RECV_TASK
 
+    /**
+     * @brief The ID of the task created to pend on the net and send messages
+     * to the software bus as soon as they are read.
+     */
     uint32 RecvTaskID; /* for mesh nets */
 
     #endif /* SBN_RECV_TASK */
 
-    CFE_SB_PipeId_t Pipe; /* PipeID */
-    char PipeName[OS_MAX_API_NAME]; /* necessary to save? */
-    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1]; /* trailing empty */
+    /** @brief The pipe ID used to read messages destined for the peer. */
+    CFE_SB_PipeId_t Pipe;
 
-    /** \brief generic blob of bytes, module-specific */
+    /** @brief The name of the pipe. */
+    /* TODO: do I need this? */
+    char PipeName[OS_MAX_API_NAME];
+
+    /**
+     * @brief A local table of subscriptions the peer has requested.
+     * Includes one extra byte for a null termination.
+     */
+    /* TODO: do I need this? */
+    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
+
+    /** @brief generic blob of bytes for the module-specific data. */
     uint8 ModulePvt[128];
 } SBN_PeerInterface_t;
 
 /**
- * \brief When a module detects a (re)connection, a full subscription update
+ * @brief When a module detects a (re)connection, a full subscription update
  * should be sent.
  *
- * \param Peer[in] The peer to which to send the subs.
+ * @param Peer[in] The peer to which to send the subs.
  */
 void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 
 /**
- * \brief For a given network and processor ID, get the peer interface.
+ * @brief For a given network and processor ID, get the peer interface.
  *
- * \param Net[in] The network to check.
- * \param ProcessorID[in] The processor of the peer.
+ * @param Net[in] The network to check.
+ * @param ProcessorID[in] The processor of the peer.
  *
- * \return A pointer to the peer interface structure.
+ * @return A pointer to the peer interface structure.
  */
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
@@ -162,7 +187,7 @@ struct SBN_NetInterface_s {
 
     SBN_PeerInterface_t Peers[SBN_MAX_PEERS_PER_NET];
 
-    /** \brief generic blob of bytes, module-specific */
+    /** @brief generic blob of bytes, module-specific */
     uint8  ModulePvt[128];
 };
 
@@ -182,7 +207,7 @@ struct SBN_IfOps_s {
     /**
      * Initializes the host interface.
      *
-     * @param Net Struct pointer describing a single interface
+     * @param Net[in,out] Struct pointer describing a single interface
      * @return SBN_SUCCESS on successful initialization
      *         SBN_ERROR otherwise
      */
@@ -191,7 +216,7 @@ struct SBN_IfOps_s {
     /**
      * Initializes the peer interface.
      *
-     * @param Peer The peer interface to initialize
+     * @param Peer[in,out] The peer interface to initialize
      * @return SBN_SUCCESS on successful initialization
      *         SBN_ERROR otherwise
      */
@@ -201,6 +226,10 @@ struct SBN_IfOps_s {
      * SBN will poll any peer that does not have any messages to be sent
      * after a timeout period. This is for (re)establishing connections
      * and handshaking subscriptions.
+     *
+     * @param Peer[in] The peer to poll.
+     *
+     * @return SBN_SUCCESS on successful polling, SBN_ERROR otherwise.
      */
     int (*PollPeer)(SBN_PeerInterface_t *Peer);
 
@@ -211,11 +240,12 @@ struct SBN_IfOps_s {
      * un/subscriptions and app messages.  The protocol message buffer is used
      * for announce and heartbeat messages/acks.
      *
-     * @param Net Interface data for the network where this peer lives.
-     * @param Peer Interface data describing the intended peer recipient.
-     * @param MsgType The SBN message type.
-     * @param MsgSize The size of the SBN message payload.
-     * @param Payload The SBN message payload.
+     * @param Net[in] Interface data for the network where this peer lives.
+     * @param Peer[in] Interface data describing the intended peer recipient.
+     * @param MsgType[in] The SBN message type.
+     * @param MsgSize[in] The size of the SBN message payload.
+     * @param Payload[in] The SBN message payload.
+     *
      * @return Number of bytes sent on success, -1 on error.
      */
     int (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
@@ -225,13 +255,14 @@ struct SBN_IfOps_s {
      * Receives an individual message from the specified peer. Note, only
      * define this or the RecvFromNet method, not both!
      *
-     * @param Net Interface data for the network where this peer lives.
-     * @param Peer Interface data describing the intended peer recipient.
-     * @param MsgTypePtr SBN message type received.
-     * @param MsgSizePtr Payload size received.
-     * @param CpuIDPtr CpuID of the sender.
-     * @param PayloadBuffer Payload buffer
+     * @param Net[in] Interface data for the network where this peer lives.
+     * @param Peer[in] Interface data describing the intended peer recipient.
+     * @param MsgTypePtr[out] SBN message type received.
+     * @param MsgSizePtr[out] Payload size received.
+     * @param CpuIDPtr[out] CpuID of the sender.
+     * @param PayloadBuffer[out] Payload buffer
      *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
+     *
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
     int (*RecvFromPeer)(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
@@ -241,12 +272,13 @@ struct SBN_IfOps_s {
     /**
      * Receives an individual message from the network.
      *
-     * @param Net Interface data for the network where this peer lives.
-     * @param MsgTypePtr SBN message type received.
-     * @param MsgSizePtr Payload size received.
-     * @param CpuIDPtr CpuID of the sender.
-     * @param PayloadBuffer Payload buffer
+     * @param Net[in] Interface data for the network where this peer lives.
+     * @param MsgTypePtr[out] SBN message type received.
+     * @param MsgSizePtr[out] Payload size received.
+     * @param CpuIDPtr[out] CpuID of the sender.
+     * @param PayloadBuffer[out] Payload buffer
      *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
+     *
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
     int (*RecvFromNet)(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
@@ -260,8 +292,8 @@ struct SBN_IfOps_s {
      * initialized (with message ID and size), the module fills it, and upon
      * return the SBN application sends the message over the software bus.
      *
-     * @param Buffer Status packet to fill
-     * @param Peer Peer to report status
+     * @param Buffer[out] Status packet to fill
+     * @param Peer[in] Peer to report status
      *
      * @return SBN_NOT_IMPLEMENTED if the module does not implement this
      *         function
@@ -274,7 +306,8 @@ struct SBN_IfOps_s {
      * This function must be present, but can simply return SBN_NOT_IMPLEMENTED
      * if it is not used by or not applicable to a module.
      *
-     * @param Peer Peer to reset
+     * @param Peer[in] Peer to reset
+     *
      * @return  SBN_SUCCESS when the peer is reset correctly.
      *          SBN_ERROR if the peer cannot be reset.
      *          SBN_NOT_IMPLEMENTED if the module does not implement this
@@ -285,11 +318,13 @@ struct SBN_IfOps_s {
     /**
      * Unload a network. This will unload all associated peers as well.
      *
-     * @param Net Network to unload.
+     * @param Net[in] Network to unload.
+     *
      * @return  SBN_SUCCESS when the net is unloaded.
      *          SBN_ERROR if the net cannot be unloaded.
      *          SBN_NOT_IMPLEMENTED if the module does not implement this
      *          function.
+     *
      * @sa LoadNet, LoadPeer, UnloadPeer
      */
     int (*UnloadNet)(SBN_NetInterface_t *Net);
@@ -297,11 +332,13 @@ struct SBN_IfOps_s {
     /**
      * Unload a peer.
      *
-     * @param Peer Peer to unload.
+     * @param Peer[in] Peer to unload.
+     *
      * @return  SBN_SUCCESS when the peer is unloaded.
      *          SBN_ERROR if the peer cannot be unloaded.
      *          SBN_NOT_IMPLEMENTED if the module does not implement this
      *          function.
+     *
      * @sa LoadNet, LoadPeer, UnloadNet
      */
     int (*UnloadPeer)(SBN_PeerInterface_t *Peer);
