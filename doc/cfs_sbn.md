@@ -1,13 +1,30 @@
 Core Flight Software (cFS) Software Bus Networking (SBN)
 ========================================================
 
-Version History
----------------
+Documentation Version History
+------------------------------
 This document details the design and use of the SBN application. This is current
 as of SBN version 1.6.
 
 This document is maintained by [Chris Knight, NASA Ames Research Center]
 (Christopher.D.Knight@nasa.gov).
+
+SBN Version History
+-------------------
+- SBN 1.0 – UDP-only monolithic application.
+- SBN 1.1 – Added a modular network layer for Spacewire, Serial.
+- SBN 1.2 @ce1b3ca – TCP module. Merged protocol and data traffic into
+  the same connections/sockets. Heartbeats only sent if no other traffic
+  sent in the last number of seconds. Bug-fix to ensure SBN ignores messages it
+  publishes on the SB, ensures all network messages are big-endian and aligned,
+  removes windowing/retransmit logic.
+- SBN 1.3 @15f3754 – Removed sync word. Simplified module API, added MID
+  remapping/filtering. Added the (compile-time) option of per-peer tasks for
+  watching pipes and net.
+- SBN 1.4 @2b6556a – DTN module. Pushed protocol handling (announce/heartbeat)
+  down into the modules that need it (UDP.)
+- SBN 1.5 @b5cb3d7 – When sending all subs, send them in one message.
+- SBN 1.6 @b0d0027 – Added “unload” method to modules.
 
 Overview
 --------
@@ -18,6 +35,8 @@ has a modular *network* architecture (TCP, UDP, Serial, SpaceWire, etc.) to
 connect *peers* and supports multiple peer networks with a local *host*
 connection affiliated with each. SBN also remaps and filters messages (cFS
 table-configured.)
+
+![SBN Context](SBN_Context.png)
 
 SBN Build and Configuration
 ---------------------------
@@ -111,18 +130,22 @@ For example:
     CPU5, 2, 1, 0xCC, 0, SBN1, 127.0.0.1, 15821;
     CPU6, 3, 1, 0xCC, 0, SBN1, 127.0.0.1, 15822;
 
-SBN Interactions With Other Apps and the Software Bus (SB)
-----------------------------------------------------------
+SBN Interactions With the Software Bus (SB)
+-------------------------------------------
 
 SBN treats all nodes as peers and (by default) all subscriptions of local
 applications should receive messages sent by publishers on other peers, and
 all messages published on the local bus should be transmitted to any peers
 who have applications subscribed to that message ID.
 
+![SBN Data Message Processing](SBN_DataMsgProc.png)
+
 The Software Bus (SB), when an application subscribes to a message ID or
 unsubscribes from a message ID, sends a message that SBN receives. Upon
 receipt of these messages, SBN updates its internal state tables and sends
 a message to the peers with the information on the update.
+
+![SBN-SB Interface](SBN_SB_Interface.png)
 
 SBN Scheduling and Tasks
 ------------------------
@@ -180,3 +203,14 @@ Currently SBN provides the following modules:
 - DTN - Integrating the ION-DTN 3.6.0 libraries, the DTN module provides
   high reliability, multi-path transmission, and queueing. Effectively,
   DTN peers are always connected.
+
+SBN Datastructures
+------------------
+
+SBN utilizes a complex set of data structures in memory to track
+the state of the local system and its state knowledge of the peers on
+the network. Much of the current state is stored in "housekeeping"
+structures (structures that can be sent to the SB upon request
+via SBN commanding) to reduce redundancy.
+
+![SBN Data Structures](SBN.png)
