@@ -22,6 +22,7 @@
 #include "sbn_app.h"
 #include <string.h>
 #include <arpa/inet.h>
+#include "cfe_msgids.h"
 
 // TODO: instead of using void * for the buffer for SBN messages, use
 // a struct that has the SBN header in packed bytes.

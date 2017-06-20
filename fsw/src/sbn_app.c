@@ -28,6 +28,8 @@
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
+#include "cfe_platform_cfg.h"
+#include "cfe_msgids.h"
 
 #ifdef CFE_ES_CONFLOADER
 #include "cfe_es_conf.h"
