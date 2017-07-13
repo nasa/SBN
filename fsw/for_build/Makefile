@@ -90,6 +90,7 @@ include $(CFE_PSP_SRC)/$(PSP)/make/compiler-opts.mak
 INCLUDE_PATH = \
 -I$(OSAL_SRC)/inc \
 -I$(CFE_CORE_SRC)/inc \
+-I$(CFE_CORE_SRC)/sb \
 -I$(CFE_PSP_SRC)/inc \
 -I$(CFE_PSP_SRC)/$(PSP)/inc \
 -I$(CFS_APP_SRC)/inc \

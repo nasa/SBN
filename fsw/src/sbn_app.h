@@ -308,7 +308,7 @@ char  *SBN_GetMsgName(uint32 MsgType);
 void  SBN_SendWakeUpDebugMsg(void);
 void  SBN_DebugOn(void);
 void  SBN_DebugOff(void);
-int32  CFE_SB_SendMsgFull(CFE_SB_Msg_t   *MsgPtr, uint32 TlmCntIncrements, uint32 CopyMode, CFE_SB_SenderId_t *SenderPtr);
+/*int32  CFE_SB_SendMsgFull(CFE_SB_Msg_t   *MsgPtr, uint32 TlmCntIncrements, uint32 CopyMode, CFE_SB_SenderId_t *SenderPtr);*/
 
 
 #endif /* _sbn_app_ */
