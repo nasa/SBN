@@ -40,12 +40,28 @@
 /** \brief SBN global application data, indexed by AppID. */
 SBN_App_t *SBNs[CFE_PLATFORM_ES_MAX_APPLICATIONS];
 
+static SBN_App_t *GetSBN(void)
+{
+    uint32 AppID = 0;
+    if(CFE_ES_GetAppID(&AppID) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_CRITICAL,
+            "unable to get AppID");
+        return NULL;
+    }/* end if */
+
+    return SBNs[AppID];
+} /* end GetSBN() */
+
 /* Remap table from fields are sorted and unique, use a binary search. */
 static CFE_SB_MsgId_t RemapMsgID(uint32 ProcessorID, CFE_SB_MsgId_t from)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
+    if(SBN == NULL)
+    {
+        /* unable to get app id, just pass on, error already reported */
+        return from;
+    }/* end if */
 
     SBN_RemapTable_t *RemapTable = SBN->RemapTable;
     int start = 0, end = RemapTable->Entries - 1, midpoint = 0;
@@ -108,18 +124,20 @@ static CFE_SB_MsgId_t RemapMsgID(uint32 ProcessorID, CFE_SB_MsgId_t from)
 static int PeerFileRowCallback(const char *Filename, int LineNum,
     const char *Header, const char *Row[], int FieldCount, void *Opaque)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
+    if(!SBN)
+    {
+        return OS_ERROR;
+    }/* end if */
 
     char *ValidatePtr = NULL;
-    int Status = 0;
+    int Status = OS_SUCCESS;
 
     if(FieldCount < 4)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "too few fields (FieldCount=%d)", FieldCount);
-        return OS_SUCCESS;
+        return OS_ERROR;
     }/* end if */
 
     const char *Name = Row[0];
@@ -162,7 +180,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "Invalid spacecraft ID (got '%d', expected '%d')", SpacecraftID,
             CFE_PSP_GetSpacecraftId());
-        return SBN_ERROR; /* ignore other spacecraft entries */
+        return OS_ERROR; /* ignore other spacecraft entries */
     }/* end if */
 
     uint8 QoS = strtol(Row[4], &ValidatePtr, 0);
@@ -190,7 +208,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
                 "Too many nets. (Max=%d)", SBN_MAX_NETS);
-            return SBN_ERROR;
+            return OS_ERROR;
         }/* end if */
 
         NetIdx = SBN->Hk.NetCount++;
@@ -221,7 +239,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
                 "too many peer entries (%d, max = %d)",
                 PeerIdx, SBN_MAX_PEERS_PER_NET);
 
-            return SBN_ERROR;
+            return OS_ERROR;
         }/* end if */
 
         SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -573,9 +591,7 @@ typedef struct
 
 static void RecvPeerTask(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     RecvPeerTaskData_t D;
     memset(&D, 0, sizeof(D));
@@ -653,9 +669,7 @@ typedef struct
 
 static void RecvNetTask(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     RecvNetTaskData_t D;
     memset(&D, 0, sizeof(D));
@@ -720,9 +734,7 @@ static void RecvNetTask(void)
  */
 void SBN_RecvNetMsgs(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     int Status = 0;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
@@ -878,9 +890,7 @@ typedef struct
  */
 static void SendTask(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     SendTaskData_t D;
 
@@ -983,9 +993,7 @@ static uint32 CreateSendTask(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer)
  */
 static void CheckPeerPipes(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     int ReceivedFlag = 0, iter = 0;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
@@ -1061,9 +1069,7 @@ static void CheckPeerPipes(void)
  */
 static void PeerPoll(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     OS_time_t current_time;
     OS_GetLocalTime(&current_time);
@@ -1096,9 +1102,7 @@ static void PeerPoll(void)
  */
 int SBN_InitInterfaces(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     if(SBN->Hk.NetCount < 1)
     {
@@ -1223,9 +1227,7 @@ int SBN_InitInterfaces(void)
  */
 static int32 WaitForWakeup(int32 iTimeOut)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
+    SBN_App_t *SBN = GetSBN();
 
     int32 Status = CFE_SUCCESS;
     CFE_SB_MsgPtr_t Msg = 0;
@@ -1350,9 +1352,17 @@ EventID == CFE_SB_INIT_EID)
     }/* end while */
 
     /* Unsubscribe from event messages */
-    CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, EventPipe);
+    if(CFE_SB_Unsubscribe(CFE_EVS_EVENT_MSG_MID, EventPipe) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "unable to unsubscribe from event messages");
+    }/* end if */
 
-    CFE_SB_DeletePipe(EventPipe);
+    if(CFE_SB_DeletePipe(EventPipe) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "unable to delete event pipe");
+    }/* end if */
 
     /* SBN needs to re-send request messages */
     return TRUE;
@@ -1370,7 +1380,15 @@ void SBN_AppMain(void)
 
     if(CFE_EVS_Register(NULL, 0, CFE_EVS_BINARY_FILTER != CFE_SUCCESS)) return;
 
-    CFE_ES_GetAppID(&AppID);
+    if(CFE_ES_GetAppID(&AppID) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_CRITICAL,
+            "unable to get AppID");
+        return;
+    }
+
+    SBN.AppID = AppID;
+
     SBNs[AppID] = &SBN;
 
     CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN.Hk), TRUE);
@@ -1411,8 +1429,6 @@ void SBN_AppMain(void)
             "unable to initialize interfaces");
         return;
     }/* end if */
-
-    CFE_ES_GetAppID(&SBN.AppID);
 
     /* Create pipe for subscribes and unsubscribes from SB */
     Status = CFE_SB_CreatePipe(&SBN.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");
