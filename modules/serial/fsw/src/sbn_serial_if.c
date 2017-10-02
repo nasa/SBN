@@ -159,7 +159,6 @@ int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
     SBN_SERIAL_Peer_t *PeerData = (SBN_SERIAL_Peer_t *)Peer->ModulePvt;
 
     SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Msg);
-    printf("FOO: SENDING %d\n", MsgSize);
     size_t sent_size = write(PeerData->FD, &SendBuf,
         MsgSize + SBN_PACKED_HDR_SIZE);
     if(sent_size < MsgSize + SBN_PACKED_HDR_SIZE)
@@ -229,7 +228,6 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
         Received = read(PeerData->FD,
             (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSize,
             ToRead);
-        printf("FOO: RECV %d\n", Received);
 
         if(Received < 0)
         {
@@ -246,7 +244,8 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
 
         if(PeerData->Connected == FALSE)
         {
-            printf("FOO: connected!\n");
+            CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
+                "CPU=%d connected", Peer->Status.ProcessorID);
             PeerData->Connected = TRUE;
         }
 
