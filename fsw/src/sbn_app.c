@@ -546,11 +546,13 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
  * \param MsgSizePtr[out] The payload size.
  * \param CpuID[out] The CpuID of the sender.
  * \param Msg[out] The payload (a CCSDS message, or SBN sub/unsub).
+ * \return TRUE if we were able to unpack the message.
+ *
  * \note Ensures the SBN fields (CPU ID, MsgSize) and CCSDS message headers
  *       are in platform byte order.
  * \todo Use a type for SBNBuf.
  */
-void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
+boolean SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, SBN_Payload_t Msg)
 {
     *MsgSizePtr = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)SBNBuf->Hdr.MsgSizeBuf));
@@ -559,7 +561,12 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
 
     if(!*MsgSizePtr)
     {
-        return;
+        return FALSE;
+    }/* end if */
+
+    if(*MsgSizePtr > CFE_SB_MAX_SB_MSG_SIZE)
+    {
+        return FALSE;
     }/* end if */
 
     memcpy(Msg, SBNBuf->Payload, *MsgSizePtr);
@@ -568,6 +575,7 @@ void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     {
         SwapCCSDS((CFE_SB_Msg_t *)Msg);
     }/* end if */
+    return TRUE;
 }/* end SBN_UnpackMsg */
 
 #ifdef SBN_RECV_TASK
@@ -591,8 +599,6 @@ typedef struct
 
 static void RecvPeerTask(void)
 {
-    SBN_App_t *SBN = GetSBN();
-
     RecvPeerTaskData_t D;
     memset(&D, 0, sizeof(D));
     if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
@@ -603,6 +609,8 @@ static void RecvPeerTask(void)
     }/* end if */
 
     D.RecvTaskID = OS_TaskGetId();
+
+    SBN_App_t *SBN = GetSBN();
 
     for(D.NetIdx = 0; D.NetIdx < SBN->Hk.NetCount; D.NetIdx++)
     {
@@ -669,8 +677,6 @@ typedef struct
 
 static void RecvNetTask(void)
 {
-    SBN_App_t *SBN = GetSBN();
-
     RecvNetTaskData_t D;
     memset(&D, 0, sizeof(D));
     if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
@@ -681,6 +687,8 @@ static void RecvNetTask(void)
     }/* end if */
 
     D.RecvTaskID = OS_TaskGetId();
+
+    SBN_App_t *SBN = GetSBN();
 
     for(D.NetIdx = 0; D.NetIdx < SBN->Hk.NetCount; D.NetIdx++)
     {
@@ -838,6 +846,8 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     #ifdef SBN_SEND_TASK
 
+    SBN_App_t *SBN = GetSBN();
+
     if(OS_MutSemTake(SBN->SendMutex) != OS_SUCCESS)
     {   
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to take mutex");
@@ -890,8 +900,6 @@ typedef struct
  */
 static void SendTask(void)
 {
-    SBN_App_t *SBN = GetSBN();
-
     SendTaskData_t D;
 
     memset(&D, 0, sizeof(D));
@@ -902,6 +910,8 @@ static void SendTask(void)
             "unable to register child task (%d)", D.Status);
         return;
     }/* end if */
+
+    SBN_App_t *SBN = GetSBN();
 
     D.SendTaskID = OS_TaskGetId();
 
@@ -963,27 +973,6 @@ static void SendTask(void)
             (SBN_Payload_t *)D.SBMsgPtr, D.Peer);
     }/* end while */
 }/* end SendTask */
-
-static uint32 CreateSendTask(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer)
-{
-    uint32 Status = OS_SUCCESS;
-    char SendTaskName[32];
-
-    snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Status.Name,
-        Peer->Status.Name);
-    Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
-        SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
-        CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
-
-    if(Status != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-            "error creating send task for %s", Peer->Status.Name);
-        return Status;
-    }/* end if */
-
-    return Status;
-}/* end CreateSendTask */
 
 #else /* !SBN_SEND_TASK */
 
@@ -1198,7 +1187,21 @@ int SBN_InitInterfaces(void)
 
 #ifdef SBN_SEND_TASK
 
-            CreateSendTask(Net, Peer);
+            char SendTaskName[32];
+            SBN_App_t *SBN = GetSBN();
+
+            snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Status.Name,
+                Peer->Status.Name);
+            Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
+                SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
+                CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
+
+            if(Status != CFE_SUCCESS)
+            {
+                CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+                    "error creating send task for %s", Peer->Status.Name);
+                return Status;
+            }/* end if */
 
 #endif /* SBN_SEND_TASK */
 

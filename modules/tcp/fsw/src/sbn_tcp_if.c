@@ -39,7 +39,7 @@ int SBN_TCP_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net)
     NetData->BufNum = SendBufCount++;
 
     return SBN_SUCCESS;
-}/* end SBN_TCP_LoadHost */
+}/* end SBN_TCP_LoadNet */
 
 static SBN_PackedMsg_t RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
 static int RecvBufCount = 0;
@@ -270,14 +270,16 @@ int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
     OS_time_t CurrentTime;
     OS_GetLocalTime(&CurrentTime);
 
-    if(CurrentTime.seconds - Peer->Status.LastSend.seconds
-        > SBN_TCP_PEER_HEARTBEAT)
+    if(SBN_TCP_PEER_HEARTBEAT > 0 &&
+        CurrentTime.seconds - Peer->Status.LastSend.seconds
+            > SBN_TCP_PEER_HEARTBEAT)
     {
         SBN_TCP_Send(Peer, SBN_TCP_HEARTBEAT_MSG, 0, NULL);
     }/* end if */
 
-    if(CurrentTime.seconds - Peer->Status.LastRecv.seconds
-        > SBN_TCP_PEER_TIMEOUT)
+    if(SBN_TCP_PEER_TIMEOUT > 0 &&
+        CurrentTime.seconds - Peer->Status.LastRecv.seconds
+            > SBN_TCP_PEER_TIMEOUT)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
             "CPU %d disconnected", Peer->Status.ProcessorID);
@@ -412,8 +414,11 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     }/* end if */
 
     /* we have the complete body, decode! */
-    SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSizePtr, MsgTypePtr, CpuIDPtr,
-        MsgBuf);
+    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSizePtr, MsgTypePtr,
+        CpuIDPtr, MsgBuf) == FALSE)
+    {
+        return SBN_ERROR;
+    }/* end if */
 
     PeerData->ReceivingBody = FALSE;
     PeerData->RecvSize = 0;

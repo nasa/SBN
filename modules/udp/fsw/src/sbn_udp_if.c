@@ -216,7 +216,11 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 
     /* each UDP packet is a full SBN message */
 
-    SBN_UnpackMsg(&RecvBuf, MsgSizePtr, MsgTypePtr, CpuIDPtr, Payload);
+    if(SBN_UnpackMsg(&RecvBuf, MsgSizePtr, MsgTypePtr, CpuIDPtr, Payload)
+        == FALSE)
+    {
+        return SBN_ERROR;
+    }/* end if */
 
     SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, *CpuIDPtr);
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;

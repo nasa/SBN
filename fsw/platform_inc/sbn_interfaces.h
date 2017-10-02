@@ -94,10 +94,11 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
  * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
  * @param CpuID[out] The CPU ID of the sender (should be CFE_CPU_ID)
  * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_SB_MAX_SB_MSG_SIZE)
+ * @return TRUE if we were unable to unpack/verify the message.
  *
  * @sa SBN_PackMsg
  */
-void SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
+boolean SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, SBN_Payload_t Msg);
 
 typedef struct SBN_IfOps_s SBN_IfOps_t;
