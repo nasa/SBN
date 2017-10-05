@@ -158,6 +158,11 @@ int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
 {
     SBN_SERIAL_Peer_t *PeerData = (SBN_SERIAL_Peer_t *)Peer->ModulePvt;
 
+    if(!PeerData->SerialConn)
+    {
+        return SBN_SUCCESS;
+    }/* end if */
+
     SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Msg);
     size_t sent_size = write(PeerData->FD, &SendBuf,
         MsgSize + SBN_PACKED_HDR_SIZE);
