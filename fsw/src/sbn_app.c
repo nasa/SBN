@@ -1287,7 +1287,7 @@ static int32 WaitForWakeup(int32 iTimeOut)
  */
 static int WaitForSBStartup(void)
 {
-    CFE_EVS_Packet_t *EvsPacket = NULL;
+    CFE_EVS_EventTlm_t *EvsTlm = NULL;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     uint8 counter = 0;
     CFE_SB_PipeId_t EventPipe = 0;
@@ -1334,17 +1334,13 @@ static int WaitForSBStartup(void)
         {
             if(CFE_SB_GetMsgId(SBMsgPtr) == CFE_EVS_EVENT_MSG_MID)
             {
-                EvsPacket = (CFE_EVS_Packet_t *)SBMsgPtr;
+                EvsTlm = (CFE_EVS_EventTlm_t *)SBMsgPtr;
 
                 /* If it's an event message from SB, make sure it's the init
                  * message
                  */
-                if(strcmp(EvsPacket->
-SBN_PAYLOAD
-AppName, "CFE_SB") == 0
-                    && EvsPacket->
-SBN_PAYLOAD
-EventID == CFE_SB_INIT_EID)
+                if(strcmp(EvsTlm->Payload.PacketID.AppName, "CFE_SB") == 0
+                    && EvsTlm->Payload.PacketID.EventID == CFE_SB_INIT_EID)
                 {
                     break;
                 }/* end if */
