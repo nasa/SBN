@@ -22,7 +22,6 @@ static int ModuleRowCallback(const char *Filename, int LineNum,
 {
     uint32 AppID = 0;
     CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
 
     int32   Status = 0;
     uint32  ModuleID = 0;
@@ -59,8 +58,8 @@ static int ModuleRowCallback(const char *Filename, int LineNum,
 
     OS_printf("SBN: Module initialized: %s in %s (%s)\n",
         Row[3], Row[1], Row[2]);
-    SBN->IfOps[ProtocolID] = (SBN_IfOps_t *)StructAddr;
-    SBN->ModuleIDs[ProtocolID] = ModuleID;
+    SBN.IfOps[ProtocolID] = (SBN_IfOps_t *)StructAddr;
+    SBN.ModuleIDs[ProtocolID] = ModuleID;
 
     return OS_SUCCESS;
 }
@@ -186,7 +185,6 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 {
     uint32 AppID = 0;
     CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
 
     int  ProtocolID = 0;
     char    ModuleName[50];
@@ -235,8 +233,8 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
     OS_printf("SBN found symbol %s in %s (%s)\n", StructName, ModuleName,
         ModuleFile);
-    SBN->IfOps[ProtocolID] = (SBN_IfOps_t *)StructAddr;
-    SBN->ModuleIDs[ProtocolID] = ModuleID;
+    SBN.IfOps[ProtocolID] = (SBN_IfOps_t *)StructAddr;
+    SBN.ModuleIDs[ProtocolID] = ModuleID;
 
     return SBN_SUCCESS;
 }/* end SBN_ParseModuleEntry */
@@ -245,19 +243,18 @@ void SBN_UnloadModules(void)
 {
     uint32 AppID = 0;
     CFE_ES_GetAppID(&AppID);
-    SBN_App_t *SBN = SBNs[AppID];
 
     int ProtocolID = 0;
 
     for(ProtocolID = 0; ProtocolID < SBN_MAX_INTERFACE_TYPES; ProtocolID++)
     {
-        if(SBN->ModuleIDs[ProtocolID])
+        if(SBN.ModuleIDs[ProtocolID])
         {
-            if(OS_ModuleUnload(SBN->ModuleIDs[ProtocolID]) != OS_SUCCESS)
+            if(OS_ModuleUnload(SBN.ModuleIDs[ProtocolID]) != OS_SUCCESS)
             {
                 /* TODO: send event? */
                 OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
-                    SBN->ModuleIDs[ProtocolID], ProtocolID);
+                    SBN.ModuleIDs[ProtocolID], ProtocolID);
             }/* end if */
         }/* end if */
     }/* end for */
