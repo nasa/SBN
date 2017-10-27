@@ -20,9 +20,6 @@
 static int ModuleRowCallback(const char *Filename, int LineNum,
     const char *Header, const char *Row[], int FieldCount, void *Opaque)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     int32   Status = 0;
     uint32  ModuleID = 0;
     cpuaddr StructAddr = 0;
@@ -183,9 +180,6 @@ int32 SBN_ReadModuleFile(void)
  */
 int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     int  ProtocolID = 0;
     char    ModuleName[50];
     char    ModuleFile[50];
@@ -241,9 +235,6 @@ int32 SBN_ParseModuleEntry(char *FileEntry, uint32 LineNum)
 
 void SBN_UnloadModules(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     int ProtocolID = 0;
 
     for(ProtocolID = 0; ProtocolID < SBN_MAX_INTERFACE_TYPES; ProtocolID++)
