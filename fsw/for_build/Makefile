@@ -32,15 +32,6 @@ OBJS += sbn_subs.o
 #
 SOURCES = $(OBJS:.o=.c)
 
-
-##
-## Specify extra C Flags needed to build this subsystem
-## The CFE_EVS_Packet_t struct in cfe_evs_msg.h changes between cFS revisions,
-## this should define how to get from that packet to the SpacecraftID.
-##
-LOCAL_COPTS = -DSBN_PAYLOAD=Payload.PacketID.
-
-
 ##
 ## EXEDIR is defined here, just in case it needs to be different for a custom
 ## build

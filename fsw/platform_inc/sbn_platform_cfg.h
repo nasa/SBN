@@ -137,4 +137,9 @@
  */
 #undef SBN_RECV_TASK
 
+/**
+ * @brief If defined, remapping is enabled at boot time.
+ */
+#define SBN_REMAP_ENABLED
+
 #endif /* _sbn_platform_cfg_h_ */

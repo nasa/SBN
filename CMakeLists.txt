@@ -6,17 +6,6 @@ include_directories(${CFECORE_SOURCE_DIR}/src/sb)
 
 include_directories(fsw/platform_inc)
 
-execute_process(
-    COMMAND grep CFE_SB_SubRprtMsg_Payload_t ${CFECORE_SOURCE_DIR}/src/inc/cfe_sb_msg.h
-    RESULT_VARIABLE subrprtpayload
-)
-
-if(NOT(${subrprtpayload}))
-    add_definitions(-DSBN_PAYLOAD=Payload.PacketID.)
-else()
-    add_definitions(-DSBN_PAYLOAD=PacketID.)
-endif()
-
 aux_source_directory(fsw/src APP_SRC_FILES)
 aux_source_directory(fsw/tables APP_SRC_FILES)
 

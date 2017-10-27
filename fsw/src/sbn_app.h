@@ -33,7 +33,7 @@
 #include "sbn_interfaces.h"
 #include "sbn_msg.h"
 #include "sbn_platform_cfg.h"
-#include "sbn_tables.h"
+#include "sbn_tbl.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
 #include "sbn_msgids.h"
@@ -121,8 +121,10 @@ typedef struct
     /** \brief Housekeeping information. */
     SBN_HkPacket_t Hk;
 
-    CFE_TBL_Handle_t TableHandle;
-    SBN_RemapTable_t *RemapTable;
+    CFE_TBL_Handle_t TblHandle;
+    SBN_RemapTbl_t *RemapTbl;
+    uint8 RemapEnabled; /* !0 == enabled */
+    uint32 RemapMutex;
 
 #ifdef SBN_SEND_TASK
 

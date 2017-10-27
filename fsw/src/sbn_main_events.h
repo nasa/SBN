@@ -20,7 +20,8 @@
 #define SBN_PROTO_EID       SBN_FIRST_EID + 5
 #define SBN_CMD_EID         SBN_FIRST_EID + 6
 #define SBN_SUB_EID         SBN_FIRST_EID + 7
-#define SBN_PEERTASK_EID    SBN_FIRST_EID + 8
-#define SBN_DEBUG_EID       SBN_FIRST_EID + 9
+#define SBN_REMAP_EID       SBN_FIRST_EID + 8
+#define SBN_PEERTASK_EID    SBN_FIRST_EID + 9
+#define SBN_DEBUG_EID       SBN_FIRST_EID + 10
 
 #endif /* _sbn_main_events_h_ */

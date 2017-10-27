@@ -6,31 +6,20 @@
 #include "sbn_constants.h"
 #include "cfe.h"
 
-/**
- * @brief No Arguments Command
- * For command details see #SBN_NOOP_CC, #SBN_RESET_CC
- * Also see #SBN_SEND_HK_CC
- */
-typedef struct {
-    uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
-} SBN_NoArgsCmd_t;
+/** @brief uint8 NetIdx */
+#define SBN_CMD_NET_LEN CFE_SB_CMD_HDR_SIZE + 1
 
-/**
- * @brief Net Command
- */
-typedef struct {
-    uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
-    uint8 NetIdx;
-} SBN_NetCmd_t;
+/** @brief uint8 NetIdx, uint8 PeerIdx */
+#define SBN_CMD_PEER_LEN CFE_SB_CMD_HDR_SIZE + 2
 
-/**
- * @brief Peer Command
- */
-typedef struct {
-    uint8 CmdHeader[CFE_SB_CMD_HDR_SIZE];
-    uint8 NetIdx;
-    uint8 PeerIdx;
-} SBN_PeerCmd_t;
+/** @brief uint8 Enabled, uint8 DefaultFlag */
+#define SBN_CMD_REMAPCFG_LEN CFE_SB_CMD_HDR_SIZE + 2
+
+/** @brief uint32 ProcessorID, CFE_SB_MsgId_t FromMID, CFE_SB_MsgId_t ToMID */
+#define SBN_CMD_REMAPADD_LEN CFE_SB_CMD_HDR_SIZE + 8
+
+/** @brief uint32 ProcessorID, CFE_SB_MsgId_t FromMID */
+#define SBN_CMD_REMAPDEL_LEN CFE_SB_CMD_HDR_SIZE + 6
 
 typedef struct {
     /**

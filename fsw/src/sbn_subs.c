@@ -110,9 +110,6 @@ static void SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
  */
 void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     SBN_PackedSubs_t SubMsg;
     memset(&SubMsg, 0, sizeof(SubMsg));
     memcpy(SubMsg.VersionHash, SBN_IDENT, SBN_IDENT_LEN);
@@ -141,9 +138,6 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
  */
 static int IsMsgIDSub(int *IdxPtr, CFE_SB_MsgId_t MsgID)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     int     i = 0;
 
     for(i = 0; i < SBN.Hk.SubCount; i++)
@@ -199,9 +193,6 @@ static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID,
  */
 static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     /* don't subscribe to event messages */
     if(MsgID == CFE_EVS_EVENT_MSG_MID) return;
 
@@ -251,9 +242,6 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
  */
 static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     int SubIdx;
     /* find idx of matching subscription */
     if(!IsMsgIDSub(&SubIdx, MsgID))
@@ -308,9 +296,6 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
  */
 int32 SBN_CheckSubscriptionPipe(void)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     int32 RecvSub = FALSE;
     CFE_SB_MsgPtr_t SBMsgPtr;
     CFE_SB_SubRprtMsg_t *SubRprtMsgPtr;
@@ -322,7 +307,6 @@ int32 SBN_CheckSubscriptionPipe(void)
         switch(CFE_SB_GetMsgId(SBMsgPtr))
         {
             case CFE_SB_ONESUB_TLM_MID:
-#ifdef SBN_PAYLOAD
                 switch(SubRprtMsgPtr->Payload.SubType)
                 {
                     case CFE_SB_SUBSCRIPTION:
@@ -341,26 +325,6 @@ int32 SBN_CheckSubscriptionPipe(void)
                             SubRprtMsgPtr->Payload.SubType);
                 }/* end switch */
                 break;
-#else /* !SBN_PAYLOAD */
-                switch(SubRprtMsgPtr->SubType)
-                {
-                    case CFE_SB_SUBSCRIPTION:
-                        ProcessLocalSub(SubRprtMsgPtr->MsgId,
-                            SubRprtMsgPtr->Qos);
-                        RecvSub = TRUE;
-                        break;
-                    case CFE_SB_UNSUBSCRIPTION:
-                        ProcessLocalUnsub(SubRprtMsgPtr->MsgId);
-                        RecvSub = TRUE;
-                        break;
-                    default:
-                        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
-                            "unexpected subscription type (%d) in "
-                            "SBN_CheckSubscriptionPipe",
-                            SubRprtMsgPtr->SubType);
-                }/* end switch */
-                break;
-#endif /* SBN_PAYLOAD */
 
             case CFE_SB_ALLSUBS_TLM_MID:
                 SBN_ProcessAllSubscriptions((CFE_SB_PrevSubMsg_t *) SBMsgPtr);
@@ -416,18 +380,23 @@ static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
 static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     CFE_SB_Qos_t Qos)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
+    if(OS_MutSemTake(SBN.RemapMutex) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR, "unable to take mutex");
+        return;
+    }/* end if */
+
+    boolean RemappedFlag = FALSE;
 
     /** If there's a filter, ignore the sub request.  */
     int idx = 0;
-    for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
+    for(idx = 0; !RemappedFlag && idx < SBN.RemapTbl->EntryCnt; idx++)
     {
-        if(SBN.RemapTable->Entry[idx].ProcessorID == Peer->Status.ProcessorID
-            && SBN.RemapTable->Entry[idx].from == MsgID
-            && SBN.RemapTable->Entry[idx].to == 0x0000)
+        if(SBN.RemapTbl->Entries[idx].ProcessorID == Peer->Status.ProcessorID
+            && SBN.RemapTbl->Entries[idx].FromMID == MsgID
+            && SBN.RemapTbl->Entries[idx].ToMID == 0x0000)
         {
-            return;
+            RemappedFlag = TRUE;
         }/* end if */
     }/* end for */
 
@@ -437,14 +406,13 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
      * only be one "from" but it's possible that multiple "from"s map to
      * the same "to".
      */
-    boolean RemappedFlag = FALSE;
-    for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
+    for(idx = 0; idx < SBN.RemapTbl->EntryCnt; idx++)
     {
-        if(SBN.RemapTable->Entry[idx].ProcessorID
+        if(SBN.RemapTbl->Entries[idx].ProcessorID
                 == Peer->Status.ProcessorID
-            && SBN.RemapTable->Entry[idx].to == MsgID)
+            && SBN.RemapTbl->Entries[idx].ToMID == MsgID)
         {
-            AddSub(Peer, SBN.RemapTable->Entry[idx].from, Qos);
+            AddSub(Peer, SBN.RemapTbl->Entries[idx].FromMID, Qos);
             RemappedFlag = TRUE;
         }/* end if */
     }/* end for */
@@ -453,6 +421,12 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     if(!RemappedFlag)
     {
         AddSub(Peer, MsgID, Qos);
+    }/* end if */
+
+    if(OS_MutSemGive(SBN.RemapMutex) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR,
+            "unable to give mutex");
     }/* end if */
 }/* ProcessSubFromPeer */
 
@@ -534,9 +508,6 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
  */
 void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    uint32 AppID = 0;
-    CFE_ES_GetAppID(&AppID);
-
     SBN_PackedSubs_t *SubMsg = Msg;
 
     if(strncmp(SubMsg->VersionHash, SBN_IDENT, SBN_IDENT_LEN))
@@ -551,45 +522,62 @@ void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     int SubIdx = 0;
     for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
-        int idx = 0, RemappedFlag = 0;
         CFE_SB_MsgId_t MsgID = 0x0000;
         CFE_SB_Qos_t Qos;
 
         UnPackSub((void *)&SubMsg->Subs[SubIdx], &MsgID, &Qos);
 
+        int idx, RemappedFlag = 0;
+
+        if(OS_MutSemTake(SBN.RemapMutex) != OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR,
+                "unable to take mutex");
+            continue;
+        }/* end if */
+
         /** If there's a filter, ignore this unsub. */
-        for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
+        for(idx = 0; RemappedFlag == 0 && idx < SBN.RemapTbl->EntryCnt; idx++)
         {   
-            if(SBN.RemapTable->Entry[idx].ProcessorID
+            if(SBN.RemapTbl->Entries[idx].ProcessorID
                     == Peer->Status.ProcessorID
-                && SBN.RemapTable->Entry[idx].from == MsgID
-                && SBN.RemapTable->Entry[idx].to == 0x0000)
+                && SBN.RemapTbl->Entries[idx].FromMID == MsgID
+                && SBN.RemapTbl->Entries[idx].ToMID == 0x0000)
             {   
-                return;
+                RemappedFlag = 1;
             }/* end if */
         }/* end for */
-          
+
         /*****
          * If there's a remap that would generate that
          * MID, I need to unsubscribe locally to the "from". Usually this will
          * only be one "from" but it's possible that multiple "from"s map to
          * the same "to".
          */
-        for(idx = 0; SBN.RemapTable && idx < SBN.RemapTable->Entries; idx++)
+        for(idx = 0; idx < SBN.RemapTbl->EntryCnt; idx++)
         {   
-            if(SBN.RemapTable->Entry[idx].ProcessorID
+            if(SBN.RemapTbl->Entries[idx].ProcessorID
                     == Peer->Status.ProcessorID
-                && SBN.RemapTable->Entry[idx].to == MsgID)
+                && SBN.RemapTbl->Entries[idx].ToMID == MsgID)
             {   
-                ProcessUnsubFromPeer(Peer, SBN.RemapTable->Entry[idx].from);
+                /* Unsubscribe from each "ToMID" match. */
+                ProcessUnsubFromPeer(Peer,
+                    SBN.RemapTbl->Entries[idx].FromMID);
+
                 RemappedFlag = 1;
             }/* end if */
         }/* end for */
-          
-        /* if there's no remap ID's, subscribe to the original MID. */
+
+        /* if there's no remap ID's, unsubscribe from the original MID. */
         if(!RemappedFlag)
-        {   
+        {
             ProcessUnsubFromPeer(Peer, MsgID);
+        }/* end if */
+
+        if(OS_MutSemGive(SBN.RemapMutex) != OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR,
+                "unable to give mutex");
         }/* end if */
     }/* end for */
 }/* end SBN_ProcessUnsubFromPeer */
@@ -600,12 +588,10 @@ void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
  *
  * @param[in] Ptr SB message pointer.
  */
-// TODO: make static, also do we need the PAYLOAD ifdef still?
 void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
 {
-    int                     i = 0;
+    int i = 0;
 
-#ifdef SBN_PAYLOAD
     if(Ptr->Payload.Entries > CFE_SB_SUB_ENTRIES_PER_PKT)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
@@ -619,20 +605,6 @@ void SBN_ProcessAllSubscriptions(CFE_SB_PrevSubMsg_t *Ptr)
     {
         ProcessLocalSub(Ptr->Payload.Entry[i].MsgId, Ptr->Payload.Entry[i].Qos);
     }/* end for */
-#else /* !SBN_PAYLOAD */
-    if(Ptr->Entries > CFE_SB_SUB_ENTRIES_PER_PKT)
-    {
-        CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
-            "entries value %d in SB PrevSubMsg exceeds max %d, aborting",
-            Ptr->Entries, CFE_SB_SUB_ENTRIES_PER_PKT);
-        return;
-    }/* end if */
-
-    for(i = 0; i < Ptr->Entries; i++)
-    {
-        ProcessLocalSub(Ptr->Entry[i].MsgID, Ptr->Entry[i].Qos);
-    }/* end for */
-#endif /* SBN_PAYLOAD */
 }/* end SBN_ProcessAllSubscriptions */
 
 /**

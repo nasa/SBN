@@ -25,6 +25,7 @@
 #include <fcntl.h>
 
 #include "sbn_app.h"
+#include "sbn_remap.h"
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
@@ -39,55 +40,6 @@
 
 /** \brief SBN global application data, indexed by AppID. */
 SBN_App_t SBN;
-
-/* Remap table from fields are sorted and unique, use a binary search. */
-static CFE_SB_MsgId_t RemapMsgID(uint32 ProcessorID, CFE_SB_MsgId_t from)
-{
-    SBN_RemapTable_t *RemapTable = SBN.RemapTable;
-    int start = 0, end = RemapTable->Entries - 1, midpoint = 0;
-
-    while(end > start)
-    {   
-        midpoint = (end + start) / 2;
-        if(RemapTable->Entry[midpoint].ProcessorID == ProcessorID
-            && RemapTable->Entry[midpoint].from == from)
-        {   
-            break;  
-        }/* end if */
-
-        if(RemapTable->Entry[midpoint].ProcessorID < ProcessorID
-            || (RemapTable->Entry[midpoint].ProcessorID == ProcessorID
-            && RemapTable->Entry[midpoint].from < from))
-        {   
-            if(midpoint == start) /* degenerate case where end = start + 1 */
-            {   
-                return 0;
-            }  
-            else
-            {   
-                start = midpoint;
-            }/* end if */
-        }  
-        else
-        {   
-            end = midpoint;
-        }/* end if */
-    }
-
-    if(end > start)
-    {
-        return RemapTable->Entry[midpoint].to;
-    }/* end if */
-
-    /* not found... */
-
-    if(RemapTable->RemapDefaultFlag == SBN_REMAP_DEFAULT_SEND)
-    {
-        return from;
-    }/* end if */
-
-    return 0;
-}/* end RemapMsgID */
 
 /**
  * Handles a row's worth of fields from a configuration file.
@@ -206,17 +158,16 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     }
     else
     {
-        int PeerIdx = Net->Status.PeerCount++;
-        if(PeerIdx >= SBN_MAX_PEERS_PER_NET)
+        if(Net->Status.PeerCount >= SBN_MAX_PEERS_PER_NET)
         {   
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
                 "too many peer entries (%d, max = %d)",
-                PeerIdx, SBN_MAX_PEERS_PER_NET);
+                Net->Status.PeerCount, SBN_MAX_PEERS_PER_NET);
 
             return OS_ERROR;
         }/* end if */
 
-        SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+        SBN_PeerInterface_t *Peer = &Net->Peers[Net->Status.PeerCount++];
 
         memset(Peer, 0, sizeof(*Peer));
 
@@ -921,13 +872,13 @@ static void SendTask(void)
             continue;
         }/* end if */
 
-        if(SBN.RemapTable)
+        if(SBN.RemapEnabled)
         {   
-            D.MsgID = RemapMsgID(D.Peer->Status.ProcessorID,
+            D.MsgID = SBN_RemapMsgID(D.Peer->Status.ProcessorID,
                 CFE_SB_GetMsgId(D.SBMsgPtr));
-            if(!D.MsgID)
+            if(D.MsgID == 0x0000)
             {   
-                break; /* don't send message, filtered out */
+                continue; /* don't send message, filtered out */
             }/* end if */
             CFE_SB_SetMsgId(D.SBMsgPtr, D.MsgID);
         }/* end if */
@@ -987,15 +938,16 @@ static void CheckPeerPipes(void)
                     continue;
                 }/* end if */
 
-                if(SBN.RemapTable)
-                {   
+                if(SBN.RemapEnabled)
+                {
                     CFE_SB_MsgId_t MsgID =
-                        RemapMsgID(Peer->Status.ProcessorID,
+                        SBN_RemapMsgID(Peer->Status.ProcessorID,
                         CFE_SB_GetMsgId(SBMsgPtr));
                     if(!MsgID)
                     {   
-                        break; /* don't send message, filtered out */
+                        continue; /* don't send message, filtered out */
                     }/* end if */
+
                     CFE_SB_SetMsgId(SBMsgPtr, MsgID);
                 }/* end if */
 
@@ -1430,15 +1382,21 @@ void SBN_AppMain(void)
         return;
     }/* end if */
 
-    Status = SBN_LoadTables(&SBN.TableHandle);
+    Status = SBN_LoadTbl(&SBN.TblHandle);
     if (Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
-            "SBN failed to load SBN.RemapTable (%d)", Status);
+            "SBN failed to load SBN.RemapTbl (%d)", Status);
         return;
     }/* end if */
 
-    CFE_TBL_GetAddress((void **)&SBN.RemapTable, SBN.TableHandle);
+    CFE_TBL_GetAddress((void **)&SBN.RemapTbl, SBN.TblHandle);
+
+    #ifdef SBN_REMAP_ENABLED
+    SBN.RemapEnabled = 1;
+    #endif /* SBN_REMAP_ENABLED */
+
+    Status = OS_MutSemCreate(&(SBN.RemapMutex), "sbn_remap_mutex", 0);
 
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "initialized (CFE_CPU_NAME='%s' ProcessorID=%d SpacecraftId=%d %s "

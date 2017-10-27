@@ -5,6 +5,10 @@
 #define SBN_RESET_CC            1
 #define SBN_RESET_PEER_CC       2
 
+#define SBN_REMAPCFG_CC         5
+#define SBN_REMAPADD_CC         6
+#define SBN_REMAPDEL_CC         7
+
 #define SBN_HK_CC               10
 #define SBN_HK_NET_CC           11
 #define SBN_HK_PEER_CC          12

@@ -1,15 +1,15 @@
-#ifndef _sbn_tables_h_
-#define _sbn_tables_h_
+#ifndef _sbn_tbl_h_
+#define _sbn_tbl_h_
 
 #include "cfe.h"
 
 /****
- * @brief The RemapTable defines, for a peer, which MID's should be remapped
+ * @brief The RemapTbl defines, for a peer, which MID's should be remapped
  * (listing a "from" MID and a "to" MID, determining when a message is
  * published locally with the "from" MID, it is sent to the peer with the "to"
  * MID.)
  *
- * The RemapTable must be sorted and unique for ProcessorID + from
+ * The RemapTbl must be sorted and unique for ProcessorID + from
  * Logic is as follows:
  * for each message->
  *      if there's an entry->
@@ -27,14 +27,14 @@ typedef struct
     uint32 ProcessorID;
 
     /** @brief The local MID I'll receive from the pipe. */
-    CFE_SB_MsgId_t from;
+    CFE_SB_MsgId_t FromMID;
 
     /** @brief The MID to send to the peer. If 0x0000, filter the from MID. */
-    CFE_SB_MsgId_t to;
+    CFE_SB_MsgId_t ToMID;
 }
-SBN_RemapTableEntry_t;
+SBN_RemapTblEntry_t;
 
-#define SBN_REMAP_TABLE_SHARENAME "SBN.RemapTable"
+#define SBN_REMAP_TABLE_SHARENAME "SBN.RemapTbl"
 
 /** @brief If the default flag is set to "IGNORE", SBN will ONLY send messages
  * defined in this table.
@@ -56,12 +56,12 @@ typedef struct
     uint32 RemapDefaultFlag;
 
     /** @brief The number of entries in the table (determined at runtime.) */
-    uint32 Entries;
+    uint32 EntryCnt;
 
     /** @brief The remapping entries. */
-    SBN_RemapTableEntry_t Entry[SBN_REMAP_TABLE_SIZE];
+    SBN_RemapTblEntry_t Entries[SBN_REMAP_TABLE_SIZE];
 }
-SBN_RemapTable_t;
+SBN_RemapTbl_t;
 
 /**
  * This function loads SBN tables (only one, the remap table, currently)
@@ -70,8 +70,8 @@ SBN_RemapTable_t;
  * @param HandlePtr[in] The table handle to attach the table to.
  * @return SBN_SUCCESS upon successful loading.
  */
-int32 SBN_LoadTables(CFE_TBL_Handle_t *HandlePtr);
+int32 SBN_LoadTbl(CFE_TBL_Handle_t *HandlePtr);
 
-extern SBN_RemapTable_t SBN_RemapTable;
+extern SBN_RemapTbl_t SBN_RemapTbl;
 
-#endif /* _sbn_tables_h_ */
+#endif /* _sbn_tbl_h_ */
