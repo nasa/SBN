@@ -65,7 +65,7 @@ static int BinarySearch(void *Entries, void *SearchEntry,
 
     if(found == 0)
     {
-        return Entries;
+        return EntryCnt;
     }
 
     return midpoint;
