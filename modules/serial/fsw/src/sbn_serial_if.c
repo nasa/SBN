@@ -62,6 +62,13 @@ int SBN_SERIAL_InitNet(SBN_NetInterface_t *Net)
 /** returns 1 on successful connection */
 static int TrySerial(SBN_SERIAL_Peer_t *PeerData)
 {
+    OS_time_t CurrentTime;
+    OS_GetLocalTime(&CurrentTime);
+    if(CurrentTime.seconds < PeerData->LastConnTry.seconds + SBN_SERIAL_CONNTRY_TIME)
+    {
+        return FALSE;
+    }
+
     int FD = open(PeerData->Filename, OS_READ_WRITE);
     if(FD < 0)
     {
@@ -120,9 +127,7 @@ int SBN_SERIAL_PollPeer(SBN_PeerInterface_t *Peer)
 
     if(!PeerData->SerialConn)
     {
-        TrySerial(PeerData);
-
-        if(!PeerData->SerialConn)
+        if(!TrySerial(PeerData))
         {
             /* no luck */
             return 0;
@@ -186,8 +191,7 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
 
     if(!PeerData->SerialConn)
     {
-        TrySerial(PeerData);
-        if(!PeerData->SerialConn)
+        if(!TrySerial(PeerData))
         {
             return SBN_IF_EMPTY;
         }/* end if */

@@ -972,9 +972,6 @@ static void CheckPeerPipes(void)
  */
 static void PeerPoll(void)
 {
-    OS_time_t current_time;
-    OS_GetLocalTime(&current_time);
-
     int NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
     {
@@ -985,12 +982,7 @@ static void PeerPoll(void)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            if(current_time.seconds - Peer->Status.LastSend.seconds
-                > SBN_POLL_TIME)
-            {
-                Net->IfOps->PollPeer(Peer);
-                OS_GetLocalTime(&Peer->Status.LastSend);
-            }
+            Net->IfOps->PollPeer(Peer);
         }/* end for */
     }/* end for */
 }/* end PeerPoll */

@@ -48,6 +48,15 @@ SBN_IfOps_t SBN_SERIAL_Ops =
     SBN_SERIAL_UnloadPeer
 };
 
+/**
+ * SBN message type for heartbeat messages.
+ */
 #define SBN_SERIAL_HEARTBEAT_MSG 0xA0
+
+/**
+ * If unable to connect to the serial device, try again in
+ * SBN_SERIAL_CONNTRY_TIME seconds.
+ */
+#define SBN_SERIAL_CONNTRY_TIME 10
 
 #endif /* _sbn_serial_if_h_ */

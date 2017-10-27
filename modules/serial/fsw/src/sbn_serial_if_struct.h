@@ -21,6 +21,9 @@ typedef struct
             Connected,
             BufNum;
     int RecvSize;
+
+    /** See SBN_SERIAL_CONNTRY_TIME. */
+    OS_time_t LastConnTry;
 } SBN_SERIAL_Peer_t;
 
 #endif /* _sbn_serial_if_struct_h_ */
