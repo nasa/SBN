@@ -223,6 +223,11 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
     }/* end if */
 
     SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, *CpuIDPtr);
+    if(Peer == NULL)
+    {
+        return SBN_ERROR;
+    }
+
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
     if(!PeerData->ConnectedFlag)
