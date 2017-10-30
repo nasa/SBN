@@ -117,40 +117,20 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         return OS_ERROR;
     }/* end if */
 
-    int NetIdx = 0;
-
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    uint8 NetIdx = strtol(Row[5], &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Row[5] || NetIdx >= SBN_MAX_NETS)
     {
-        if(!strcmp(Row[5], SBN.Nets[NetIdx].Status.Name))
-        {
-            break;
-        }/* end if */
-    }/* end for */
-
-    SBN_NetInterface_t *Net = NULL;
-    if(NetIdx == SBN.Hk.NetCount)
-    {
-        if(SBN.Hk.NetCount >= SBN_MAX_NETS)
-        {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-                "Too many nets. (Max=%d)", SBN_MAX_NETS);
-            return OS_ERROR;
-        }/* end if */
-
-        NetIdx = SBN.Hk.NetCount++;
-        Net = &SBN.Nets[NetIdx];
-        memset(Net, 0, sizeof(*Net));
-        CFE_SB_InitMsg(&Net->Status, SBN_TLM_MID, sizeof(Net->Status), TRUE);
-        strncpy(Net->Status.Name, Row[5], sizeof(Net->Status.Name));
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+            "invalid network ID (must be a number < %d)", SBN_MAX_NETS);
+        return OS_ERROR;
     }
-    else
-    {
-        Net = &SBN.Nets[NetIdx];
-    }/* end if */
+
+    SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+    memset(Net, 0, sizeof(*Net));
+    CFE_SB_InitMsg(&Net->Status, SBN_TLM_MID, sizeof(Net->Status), TRUE);
 
     if(ProcessorID == CFE_PSP_GetProcessorId())
     {
-        strncpy(Net->Status.Name, Row[5], sizeof(Net->Status.Name));
         Net->Configured = TRUE;
         Net->Status.ProtocolID = ProtocolID;
         Net->IfOps = SBN.IfOps[ProtocolID];
@@ -1011,7 +991,7 @@ int SBN_InitInterfaces(void)
         if(!Net->Configured)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                "network %s (#%d) not configured", Net->Status.Name, NetIdx);
+                "network #%d not configured", NetIdx);
 
             return SBN_ERROR;
         }/* end if */
@@ -1046,9 +1026,9 @@ int SBN_InitInterfaces(void)
 
             char PipeName[OS_MAX_API_NAME];
 
-            /* create a pipe name string similar to SBN_CPU2_Pipe */
-            snprintf(PipeName, OS_MAX_API_NAME, "SBN_%s_%s_Pipe",
-                Net->Status.Name, Peer->Status.Name);
+            /* create a pipe name string similar to SBN_0_CPU2_Pipe */
+            snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%s_Pipe",
+                NetIdx, Peer->Status.Name);
             int Status = CFE_SB_CreatePipe(&(Peer->Pipe), 2, PipeName);
 
             if(Status != CFE_SUCCESS)

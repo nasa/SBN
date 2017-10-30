@@ -99,17 +99,14 @@ typedef struct {
     /** @brief Padding to align the struct to 32-bits.  */
     uint8 Padding[3]; // 1 + 3 = 4 bytes
 
-    /** @brief Name of the network interface. */
-    char Name[SBN_MAX_NET_NAME_LENGTH]; // 16 + 4 = 20 bytes
-
     /** @brief Protocol ID of the protocol used by this network. */
-    uint8 ProtocolID; // 20 + 1 = 21 bytes
+    uint8 ProtocolID; // 4 + 1 = 5 bytes
 
     /** @brief Number of peers configured for this network. */
-    uint8 PeerCount; // 21 + 1 = 22 bytes
+    uint8 PeerCount; // 5 + 1 = 6 bytes
 
     /** @brief More alignment to 32-bits. */
-    uint8 Padding2[2]; // 22 + 2 = 24 bytes
+    uint8 Padding2[2]; // 6 + 2 = 8 bytes
 
     /**
      * @brief Opaque data block for the interface module to use.
