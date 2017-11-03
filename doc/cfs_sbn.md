@@ -13,19 +13,20 @@ SBN Version History
 -------------------
 - SBN 1.0 – UDP-only monolithic application.
 - SBN 1.1 – Added a modular network layer for Spacewire, Serial.
-- SBN 1.2 @ce1b3ca – TCP module. Merged protocol and data traffic into
+- SBN 1.2 \@ce1b3ca – TCP module. Merged protocol and data traffic into
   the same connections/sockets. Heartbeats only sent if no other traffic
   sent in the last number of seconds. Bug-fix to ensure SBN ignores messages it
   publishes on the SB, ensures all network messages are big-endian and aligned,
   removes windowing/retransmit logic.
-- SBN 1.3 @15f3754 – Removed sync word. Simplified module API, added MID
+- SBN 1.3 \@15f3754 – Removed sync word. Simplified module API, added MID
   remapping/filtering. Added the (compile-time) option of per-peer tasks for
   watching pipes and net.
-- SBN 1.4 @2b6556a – DTN module. Pushed protocol handling (announce/heartbeat)
+- SBN 1.4 \@2b6556a – DTN module. Pushed protocol handling (announce/heartbeat)
   down into the modules that need it (UDP.)
-- SBN 1.5 @b5cb3d7 – When sending all subs, send them in one message.
-- SBN 1.6 @b0d0027 – Added “unload” method to modules.
-- SBN 1.7 @eff7047 – Polling occurs each cycle (modules are responsible for managing timeouts), re-added serial backend, SbnPeerData.dat uses a numeric network ID, not name.
+- SBN 1.5 \@b5cb3d7 – When sending all subs, send them in one message.
+- SBN 1.6 \@b0d0027 – Added “unload” method to modules.
+- SBN 1.7 \@eff7047 – Polling occurs each cycle (modules are responsible for managing timeouts), re-added serial backend, SbnPeerData.dat uses a numeric network ID, not name.
+- SBN 1.8 \@ae9a1f5 - Removed separate housekeeping status structs (moved housekeeping-related values to the main structs (`SBN_App_t`, `SBN_NetInterface_s` (`SBN_NetInterface_t`), `SBN_PeerInterface_t`). standardized on housekeeping being hand-packed big-endian.
 
 Overview
 --------
@@ -123,13 +124,13 @@ The fields in the peer data file are:
 
 For example:
 
-    CPU1, 1, 8, 42, 0, 0, ipn:1.1;
-    CPU2, 2, 8, 42, 0, 0, ipn:1.2;
-    CPU3, 3, 8, 42, 0, 0, ipn:1.3;
+    CPU1, 1, 8, 42, 0, NET0, ipn:1.1;
+    CPU2, 2, 8, 42, 0, NET0, ipn:1.2;
+    CPU3, 3, 8, 42, 0, NET0, ipn:1.3;
 
-    CPU1, 1, 1, 0xCC, 0, 1, 127.0.0.1, 15820;
-    CPU5, 2, 1, 0xCC, 0, 1, 127.0.0.1, 15821;
-    CPU6, 3, 1, 0xCC, 0, 1, 127.0.0.1, 15822;
+    CPU1, 1, 1, 0xCC, 0, NET1, 127.0.0.1, 15820;
+    CPU5, 2, 1, 0xCC, 0, NET1, 127.0.0.1, 15821;
+    CPU6, 3, 1, 0xCC, 0, NET1, 127.0.0.1, 15822;
 
 SBN Remapping and Filtering
 ---------------------------
@@ -173,10 +174,14 @@ Macro               |CC    |Command Description                      |Parameters
 
 SBN Housekeeping Telemetry
 --------------------------
-Housekeeping command codes are used to request housekeeping telemetry messages.
+Housekeeping command codes are used to request housekeeping telemetry messages. As all housekeeping is requested with command codes to the main (and only)
+command MID, the command code used to request the housekeeping is returned
+in the housekeeping payload so that they can be differentiated. All numeric
+values are transmitted in big-endian order and no padding is used.
+
 The following commands generate payloads in the following format:
 
-`SBN_HK_CC`
+*SBN_HK_CC*
 
 Field      |Type    |Description
 -----------|--------|-----------
@@ -186,20 +191,24 @@ Field      |Type    |Description
 `SubCnt`   |`uint16`|Number of local subscriptions.
 `NetCnt`   |`uint16`|Number of networks configured.
 
-`SBN_HK_NET_CC`
+*SBN_HK_NET_CC*
 
-Field      |Type   |Description
------------|-------|-----------
-`CC`       |`uint8`|Command code of HK request.
+Field       |Type                        |Description
+------------|----------------------------|-----------
+`CC`        |`uint8`                     |Command code of HK request.
+`Len`       |`uint8`                     |Length of name (always `SBN_MAX_NET_NAME_LEN`.)
+`Name`      |`char[SBN_MAX_NET_NAME_LEN]`|Name of this network interface (column 5 in the `SbnPeerData.dat` file.)
+`ProtocolID`|`uint8`                     |The ID of the protocol of this network.
+`PeerCnt`   |`uint16`                    |The number of peers associated with this network.
 
-`SBN_HK_PEER_CC`
+*SBN_HK_PEER_CC*
 
 Field        |Type                         |Description
 -------------|-----------------------------|-----------
 `CC`         |`uint8`                      |Command code of HK request.
-`QoS`        |`uint8`                      |QoS flags for this peer.
-`Len`        |`uint8`                      |Length of the name. (Always `SBN_MAX_NET_NAME_LEN`)
+`QoS`        |`CFE_SB_Qos_t`               |QoS flags for this peer.
 `SubCnt`     |`uint16`                     |Number of errors generated in trying to receive from this peer.
+`Len`        |`uint8`                      |Length of the name. (Always `SBN_MAX_NET_NAME_LEN`)
 `Name`       |`char[SBN_MAX_PEER_NAME_LEN]`|Name of the peer. (From SbnPeerData.dat, not necessarily the CPUNAME.)
 `ProcessorID`|`uint32`                     |The ProcessorID of the peer.
 `LastSend`   |`OS_time_t`                  |The last time I sent a message to this peer.
@@ -209,7 +218,7 @@ Field        |Type                         |Description
 `SendErrCnt` |`uint16`                     |Number of errors generated in trying to send to this peer.
 `RecvErrCnt` |`uint16`                     |Number of errors generated in trying to receive from this peer.
 
-`SBN_HK_PEERSUBS_CC`
+*SBN_HK_PEERSUBS_CC*
 
 Field      |Type                    |Description
 -----------|------------------------|-----------
@@ -218,7 +227,7 @@ Field      |Type                    |Description
 `SubCnt`   |`uint16`                |Number of local subscriptions.
 `Subs`     |`CFE_SB_MsgId_t[SubCnt]`|Subscriptions.
 
-`SBN_HK_MYSUBS_CC`
+*SBN_HK_MYSUBS_CC*
 
 Field      |Type                    |Description
 -----------|------------------------|-----------
@@ -307,8 +316,6 @@ SBN Datastructures
 
 SBN utilizes a complex set of data structures in memory to track
 the state of the local system and its state knowledge of the peers on
-the network. Much of the current state is stored in "housekeeping"
-structures (structures that can be sent to the SB upon request
-via SBN commanding) to reduce redundancy.
+the network.
 
 ![SBN Data Structures](SBN.png)
