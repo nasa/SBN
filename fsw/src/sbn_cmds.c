@@ -352,7 +352,7 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
 
     CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HK_LEN, TRUE);
 
-    Pack_UInt16(&Pack, SBN_HK_CC);
+    Pack_UInt8(&Pack, SBN_HK_CC);
     Pack_UInt16(&Pack, SBN.CmdCnt);
     Pack_UInt16(&Pack, SBN.CmdErrCnt);
     Pack_UInt16(&Pack, SBN.SubCnt);
@@ -389,11 +389,12 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
     if(NetIdx > SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt);
+            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt - 1);
         return;
     }/* end if */
 
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command, net=%d",
+        NetIdx);
 
     uint8 HKBuf[SBN_HKNET_LEN];
     Pack_t Pack;
@@ -441,7 +442,7 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     if(NetIdx > SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt);
+            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt - 1);
         return;
     }/* end if */
 
@@ -449,13 +450,13 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
-            NetIdx, PeerIdx, SBN.Nets[NetIdx].PeerCnt);
+            NetIdx, PeerIdx, SBN.Nets[NetIdx].PeerCnt - 1);
         return;
     }/* end if */
 
     SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
 
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk peer command");
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command, net=%d, peer=%d", NetIdx, PeerIdx);
 
     uint8 HKBuf[SBN_HKPEER_LEN];
     Pack_t Pack;
@@ -502,7 +503,7 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
         return;
     }/* end if */
 
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk mysubs command");
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk subs command");
 
     uint8 HKBuf[SBN_HKMYSUBS_LEN];
     Pack_t Pack;
@@ -554,7 +555,7 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "Invalid NetIdx (%d, max is %d)",
-            NetIdx, SBN.NetCnt);
+            NetIdx, SBN.NetCnt - 1);
         return;
     }/* end if */
 
@@ -563,11 +564,11 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
             NetIdx, PeerIdx,
-            SBN.Nets[NetIdx].PeerCnt);
+            SBN.Nets[NetIdx].PeerCnt - 1);
         return;
     }/* end if */
 
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk peersubs command");
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk subs command, net=%d peer=%d", NetIdx, PeerIdx);
 
     SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
 
