@@ -31,7 +31,7 @@ int32 SBN_CheckForSPWNetProtoMsg(SBN_InterfaceData *Peer, SBN_NetProtoMsg_t *Pro
 int   SBN_SPWRcvMsg(SBN_InterfaceData *Host, NetDataUnion *DataMsgBuf);
 int32 SBN_ParseSPWFileEntry(char *FileEntry, uint32 LineNum, void** EntryAddr);
 int32 SBN_InitSPWIF(SBN_InterfaceData* data);
-int32 SBN_SendSPWNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf);
+int32 SBN_SendSPWNetMsg(uint32 MsgType, uint32 MsgSz, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf);
 int32 SPW_VerifyPeerInterface(SBN_InterfaceData *Peer, SBN_InterfaceData *HostList[], int32 NumHosts);
 int32 SPW_VerifyHostInterface(SBN_InterfaceData *Host, SBN_PeerData_t *PeerList, int32 NumPeers);
 

@@ -18,11 +18,11 @@ int SBN_SERIAL_InitPeer(SBN_PeerInterface_t *Peer);
 int SBN_SERIAL_PollPeer(SBN_PeerInterface_t *Peer);
 
 int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
+    SBN_MsgSz_t MsgSz, void *Payload);
 
 int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t *MsgTypePtr, SBN_MsgSize_t *MsgSizePtr,
-        SBN_CpuID_t *CpuIDPtr, SBN_Payload_t PayloadBuffer);
+        SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
+        SBN_CpuID_t *CpuIDPtr, void *PayloadBuffer);
 
 int SBN_SERIAL_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 

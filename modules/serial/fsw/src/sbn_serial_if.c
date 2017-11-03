@@ -16,32 +16,33 @@
 #include <sys/select.h>
 #endif
 
-int SBN_SERIAL_LoadNet(const char **Row, int FieldCount,
+int SBN_SERIAL_LoadNet(const char **Row, int FieldCnt,
     SBN_NetInterface_t *Net)
 {
     /* this space intentionally left blank */
     return SBN_SUCCESS;
 }/* end SBN_SERIAL_LoadNet */
 
-static SBN_PackedMsg_t SendBuf, RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
-static int BufCount = 0;
+static uint8 SendBuf[SBN_MAX_PACKED_MSG_SZ],
+    RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
+static int BufCnt = 0;
 
-int SBN_SERIAL_LoadPeer(const char **Row, int FieldCount,
+int SBN_SERIAL_LoadPeer(const char **Row, int FieldCnt,
     SBN_PeerInterface_t *Peer)
 {
     SBN_SERIAL_Peer_t *PeerData = (SBN_SERIAL_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCount < SBN_SERIAL_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_SERIAL_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid peer file line (expected %d items, found %d)",
-                SBN_SERIAL_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_SERIAL_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
     strncpy(PeerData->Filename, Row[0], sizeof(PeerData->Filename));
 
-    PeerData->BufNum = BufCount++;
+    PeerData->BufNum = BufCnt++;
 
     return SBN_SUCCESS;
 }/* end SBN_SERIAL_LoadEntry */
@@ -138,18 +139,18 @@ int SBN_SERIAL_PollPeer(SBN_PeerInterface_t *Peer)
     OS_GetLocalTime(&CurrentTime);
 
     if(SBN_SERIAL_PEER_HEARTBEAT > 0 &&
-        CurrentTime.seconds - Peer->Status.LastSend.seconds
+        CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_SERIAL_PEER_HEARTBEAT)
     {
         SBN_SERIAL_Send(Peer, SBN_SERIAL_HEARTBEAT_MSG, 0, NULL);
     }/* end if */
 
     if(SBN_SERIAL_PEER_TIMEOUT > 0 &&
-        CurrentTime.seconds - Peer->Status.LastRecv.seconds
+        CurrentTime.seconds - Peer->LastRecv.seconds
             > SBN_SERIAL_PEER_TIMEOUT)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
-            "CPU %d disconnected", Peer->Status.ProcessorID);
+            "CPU %d disconnected", Peer->ProcessorID);
 
         close(PeerData->FD);
         PeerData->Connected = FALSE;
@@ -159,7 +160,7 @@ int SBN_SERIAL_PollPeer(SBN_PeerInterface_t *Peer)
 } /* end SBN_SERIAL_PollPeer */
 
 int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
-    SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
+    SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
 {
     SBN_SERIAL_Peer_t *PeerData = (SBN_SERIAL_Peer_t *)Peer->ModulePvt;
 
@@ -168,13 +169,13 @@ int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
         return SBN_SUCCESS;
     }/* end if */
 
-    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Msg);
+    SBN_PackMsg(&SendBuf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
     size_t sent_size = write(PeerData->FD, &SendBuf,
-        MsgSize + SBN_PACKED_HDR_SIZE);
-    if(sent_size < MsgSize + SBN_PACKED_HDR_SIZE)
+        MsgSz + SBN_PACKED_HDR_SZ);
+    if(sent_size < MsgSz + SBN_PACKED_HDR_SZ)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
-            "CPU %d disconnected", Peer->Status.ProcessorID);
+            "CPU %d disconnected", Peer->ProcessorID);
 
         close(PeerData->FD);
         PeerData->Connected = FALSE;
@@ -184,8 +185,8 @@ int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
 }/* end SBN_SERIAL_Send */
 
 int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-    SBN_MsgType_t *MsgTypePtr, SBN_MsgSize_t *MsgSizePtr,
-    SBN_CpuID_t *CpuIDPtr, SBN_Payload_t MsgBuf)
+    SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
+    SBN_CpuID_t *CpuIDPtr, void *MsgBuf)
 {
     SBN_SERIAL_Peer_t *PeerData = (SBN_SERIAL_Peer_t *)Peer->ModulePvt;
 
@@ -215,7 +216,7 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
         {
             CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
                 "Read error TaskID=%d, FD=%d, errno=%d, CPU=%d disconnected",
-                OS_TaskGetId(), PeerData->FD, errno, Peer->Status.ProcessorID);
+                OS_TaskGetId(), PeerData->FD, errno, Peer->ProcessorID);
 
             close(PeerData->FD);
             PeerData->Connected = FALSE;
@@ -232,17 +233,17 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     if(!PeerData->ReceivingBody)
     {
         /* read the header first */
-        ToRead = SBN_PACKED_HDR_SIZE - PeerData->RecvSize;
+        ToRead = SBN_PACKED_HDR_SZ - PeerData->RecvSz;
 
         Received = read(PeerData->FD,
-            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSize,
+            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSz,
             ToRead);
 
         if(Received < 0)
         {
             CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
                 "Read error FD=%d, errno=%d, CPU=%d disconnected",
-                PeerData->FD, errno, Peer->Status.ProcessorID);
+                PeerData->FD, errno, Peer->ProcessorID);
 
             close(PeerData->FD);
             PeerData->Connected = FALSE;
@@ -254,11 +255,11 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
         if(PeerData->Connected == FALSE)
         {
             CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
-                "CPU=%d connected", Peer->Status.ProcessorID);
+                "CPU=%d connected", Peer->ProcessorID);
             PeerData->Connected = TRUE;
         }
 
-        PeerData->RecvSize += Received;
+        PeerData->RecvSz += Received;
 
         if(Received >= ToRead)
         {
@@ -272,20 +273,19 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
 
     /* only get here if we're read'd the header and ready for the body */
 
-    ToRead = CFE_MAKE_BIG16(
-            *((SBN_MsgSize_t *)&RecvBufs[PeerData->BufNum].Hdr.MsgSizeBuf)
-        ) + SBN_PACKED_HDR_SIZE - PeerData->RecvSize;
+    ToRead = CFE_MAKE_BIG16(*((SBN_MsgSz_t *)&RecvBufs[PeerData->BufNum]))
+        + SBN_PACKED_HDR_SZ - PeerData->RecvSz;
     if(ToRead)
     {
         Received = read(PeerData->FD,
-            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSize,
+            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSz,
             ToRead);
         if(Received < 0)
         {
             return SBN_ERROR;
         }/* end if */
 
-        PeerData->RecvSize += Received;
+        PeerData->RecvSz += Received;
 
         if(Received < ToRead)
         {
@@ -294,7 +294,7 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     }/* end if */
 
     /* we have the complete body, decode! */
-    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSizePtr, MsgTypePtr, CpuIDPtr,
+    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSzPtr, MsgTypePtr, CpuIDPtr,
         MsgBuf))
     {
         PeerData->Connected = TRUE;
@@ -305,7 +305,7 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     }/* end if */
 
     PeerData->ReceivingBody = FALSE;
-    PeerData->RecvSize = 0;
+    PeerData->RecvSz = 0;
 
     return SBN_SUCCESS;
 }/* end SBN_SERIAL_Recv */
@@ -323,7 +323,7 @@ int SBN_SERIAL_ResetPeer(SBN_PeerInterface_t *Peer)
 int SBN_SERIAL_UnloadNet(SBN_NetInterface_t *Net)
 {
     int PeerIdx = 0;
-    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_SERIAL_UnloadPeer(&Net->Peers[PeerIdx]);
     }/* end if */

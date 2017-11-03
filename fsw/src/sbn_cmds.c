@@ -4,6 +4,7 @@
 
 #include "sbn_app.h"
 #include "sbn_remap.h"
+#include "sbn_pack.h"
 
 /*******************************************************************/
 /*                                                                 */
@@ -12,21 +13,21 @@
 /*******************************************************************/
 void SBN_InitializeCounters(void)
 {
-    SBN.Hk.CmdCount = 0;
-    SBN.Hk.CmdErrCount = 0;
+    SBN.CmdCnt = 0;
+    SBN.CmdErrCnt = 0;
 
     int NetIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
         int PeerIdx = 0;
-        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            Peer->Status.SendCount = 0;
-            Peer->Status.RecvCount = 0;
-            Peer->Status.SendErrCount = 0;
-            Peer->Status.RecvErrCount = 0;
+            Peer->SendCnt = 0;
+            Peer->RecvCnt = 0;
+            Peer->SendErrCnt = 0;
+            Peer->RecvErrCnt = 0;
         }/* end for */
     }/* end for */
 }/* end SBN_InitializeCounters */
@@ -93,7 +94,7 @@ static boolean VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen,
                 "CC=%d Len=%d Expected=%d)",
                 MsgName, MsgId, CommandCode, ActualLen, ExpectedLen);
 
-            SBN.Hk.CmdErrCount++;
+            SBN.CmdErrCnt++;
         }/* end if */
 
         return FALSE;
@@ -127,7 +128,7 @@ static void NoopCmd(CFE_SB_MsgPtr_t MsgPtr)
 
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "no-op command");
 
-    SBN.Hk.CmdCount++;
+    SBN.CmdCnt++;
 }/* end NoopCmd */
 
 /************************************************************************/
@@ -193,19 +194,19 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     uint8 NetIdx = *Ptr++;
     uint8 PeerIdx = *Ptr;
 
-    if(NetIdx < 0 || NetIdx >= SBN.Hk.NetCount)
+    if(NetIdx < 0 || NetIdx >= SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "invalid net idx %d (max=%d)", NetIdx, SBN.Hk.NetCount);
+            "invalid net idx %d (max=%d)", NetIdx, SBN.NetCnt);
         return;
     }/* end if */
 
     SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
-    if(PeerIdx < 0 || PeerIdx >= Net->Status.PeerCount)
+    if(PeerIdx < 0 || PeerIdx >= Net->PeerCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "invalid peer idx %d (max=%d)", PeerIdx, Net->Status.PeerCount);
+            "invalid peer idx %d (max=%d)", PeerIdx, Net->PeerCnt);
         return;
     }/* end if */
 
@@ -214,7 +215,7 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
         "reset peer command (NetIdx=%d, PeerIdx=%d)",
         NetIdx, PeerIdx);
-    SBN.Hk.CmdCount++;
+    SBN.CmdCnt++;
     
     if(Net->IfOps->ResetPeer(Peer) == SBN_NOT_IMPLEMENTED)
     {
@@ -341,15 +342,27 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
         return;
     }/* end if */
 
+    uint8 HKBuf[SBN_HK_LEN];
+    Pack_t Pack;
+    
+    Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE,
+        SBN_HK_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
 
-    SBN.Hk.CC = SBN_HK_CC;
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HK_LEN, TRUE);
+
+    Pack_UInt16(&Pack, SBN_HK_CC);
+    Pack_UInt16(&Pack, SBN.CmdCnt);
+    Pack_UInt16(&Pack, SBN.CmdErrCnt);
+    Pack_UInt16(&Pack, SBN.SubCnt);
+    Pack_UInt16(&Pack, SBN.NetCnt);
 
     /* 
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &SBN.Hk);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *) &SBN.Hk);
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) HKBuf);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
 }/* end HKCmd */
 
 /** \brief Request for housekeeping for one network.
@@ -373,23 +386,34 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
     uint8 *Ptr = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
     uint8 NetIdx = *Ptr;
 
-    if(NetIdx > SBN.Hk.NetCount)
+    if(NetIdx > SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.Hk.NetCount);
+            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt);
         return;
     }/* end if */
 
-    SBN_NetStatus_t *NetStatus = &(SBN.Nets[NetIdx].Status);
-    NetStatus->CC = SBN_HK_NET_CC;
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
 
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk net command");
+    uint8 HKBuf[SBN_HKNET_LEN];
+    Pack_t Pack;
+    Pack_Init(&Pack,
+        HKBuf + CFE_SB_TLM_HDR_SIZE,
+        SBN_HKNET_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKNET_LEN, TRUE);
+
+    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt8(&Pack, SBN_MAX_NET_NAME_LEN);
+    Pack_Data(&Pack, SBN.Nets[NetIdx].Name, SBN_MAX_NET_NAME_LEN);
+    Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolID);
+    Pack_UInt16(&Pack, SBN.Nets[NetIdx].PeerCnt);
 
     /* 
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)NetStatus);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)NetStatus);
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) HKBuf);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
 }/* end HKNetCmd */
 
 /** \brief Request for housekeeping for one peer.
@@ -414,31 +438,51 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     uint8 NetIdx = *Ptr++;
     uint8 PeerIdx = *Ptr;
 
-    if(NetIdx > SBN.Hk.NetCount)
+    if(NetIdx > SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
-            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.Hk.NetCount);
+            "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt);
         return;
     }/* end if */
 
-    if(PeerIdx > SBN.Nets[NetIdx].Status.PeerCount)
+    if(PeerIdx > SBN.Nets[NetIdx].PeerCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
-            NetIdx, PeerIdx, SBN.Nets[NetIdx].Status.PeerCount);
+            NetIdx, PeerIdx, SBN.Nets[NetIdx].PeerCnt);
         return;
     }/* end if */
 
-    SBN_PeerStatus_t *PeerStatus = &(SBN.Nets[NetIdx].Peers[PeerIdx].Status);
-    PeerStatus->CC = SBN_HK_PEER_CC;
+    SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
 
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk peer command");
+
+    uint8 HKBuf[SBN_HKPEER_LEN];
+    Pack_t Pack;
+    Pack_Init(&Pack,
+        HKBuf + CFE_SB_TLM_HDR_SIZE,
+        SBN_HKPEER_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEER_LEN, TRUE);
+
+    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_Data(&Pack, &Peer->QoS, sizeof(Peer->QoS));
+    Pack_UInt8(&Pack, SBN_MAX_PEER_NAME_LEN);
+    Pack_Data(&Pack, Peer->Name, SBN_MAX_PEER_NAME_LEN);
+    Pack_UInt32(&Pack, Peer->ProcessorID);
+    Pack_Time(&Pack, Peer->LastSend);
+    Pack_Time(&Pack, Peer->LastRecv);
+    Pack_UInt16(&Pack, Peer->SendCnt);
+    Pack_UInt16(&Pack, Peer->RecvCnt);
+    Pack_UInt16(&Pack, Peer->SendErrCnt);
+    Pack_UInt16(&Pack, Peer->RecvErrCnt);
+    Pack_UInt16(&Pack, Peer->SubCnt);
 
     /* 
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)PeerStatus);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)PeerStatus);
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) HKBuf);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
 }/* end HKCmd */
 
 /** \brief Send My Subscriptions
@@ -453,29 +497,34 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
  */
 static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 {
-    SBN_HkSubsPkt_t Pkt;
-    int SubNum = 0;
-
     if(!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "my subs"))
     {   
         return;
     }/* end if */
 
-    CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
-    Pkt.CC = SBN_HK_MYSUBS_CC;
-    Pkt.PeerIdx = 0;
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk mysubs command");
 
-    Pkt.SubCount = SBN.Hk.SubCount;
-    for(SubNum = 0; SubNum < SBN.Hk.SubCount; SubNum++)
+    uint8 HKBuf[SBN_HKMYSUBS_LEN];
+    Pack_t Pack;
+    Pack_Init(&Pack,
+        HKBuf + CFE_SB_TLM_HDR_SIZE,
+        SBN_HKMYSUBS_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKMYSUBS_LEN, TRUE);
+
+    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt16(&Pack, SBN.SubCnt);
+    int i;
+    for(i = 0; i < SBN.SubCnt; i++)
     {
-        Pkt.Subs[SubNum] = SBN.LocalSubs[SubNum].MsgID;
-    }/* end for */
+        Pack_MsgID(&Pack, SBN.Subs[i].MsgID);
+    }
 
     /* 
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &Pkt);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *) &Pkt);
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) HKBuf);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
 }/* end MySubsCmd */
 
 /************************************************************************/
@@ -492,7 +541,6 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 *************************************************************************/
 static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 {
-    int SubNum = 0;
     if(!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "peer subs"))
     {
         return;
@@ -502,44 +550,50 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     uint8 NetIdx = *Ptr++;
     uint8 PeerIdx = *Ptr;
 
-    if(NetIdx >= SBN.Hk.NetCount)
+    if(NetIdx >= SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "Invalid NetIdx (%d, max is %d)",
-            NetIdx, SBN.Hk.NetCount);
+            NetIdx, SBN.NetCnt);
         return;
     }/* end if */
 
-    if(PeerIdx >= SBN.Nets[NetIdx].Status.PeerCount)
+    if(PeerIdx >= SBN.Nets[NetIdx].PeerCnt)
     {
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
             NetIdx, PeerIdx,
-            SBN.Nets[NetIdx].Status.PeerCount);
+            SBN.Nets[NetIdx].PeerCnt);
         return;
     }/* end if */
 
-    SBN_HkSubsPkt_t Pkt;
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk peersubs command");
 
-    CFE_SB_InitMsg(&Pkt, SBN_TLM_MID, sizeof(Pkt), TRUE);
-    Pkt.CC = SBN_HK_PEERSUBS_CC;
-    Pkt.NetIdx = NetIdx;
-    Pkt.PeerIdx = PeerIdx;
+    SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
 
-    SBN_PeerInterface_t *Peer =
-        &(SBN.Nets[NetIdx].Peers[PeerIdx]);
+    uint8 HKBuf[SBN_HKPEERSUBS_LEN];
+    Pack_t Pack;
+    Pack_Init(&Pack,
+        HKBuf + CFE_SB_TLM_HDR_SIZE,
+        SBN_HKPEERSUBS_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
-    Pkt.SubCount = Peer->Status.SubCount;
-    for(SubNum = 0; SubNum < Pkt.SubCount; SubNum++)
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEERSUBS_LEN, TRUE);
+
+    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt16(&Pack, NetIdx);
+    Pack_UInt16(&Pack, PeerIdx);
+    Pack_UInt16(&Pack, Peer->SubCnt);
+    int i;
+    for(i = 0; i < Peer->SubCnt; i++)
     {
-        Pkt.Subs[SubNum] = Peer->Subs[SubNum].MsgID;
-    }/* end for */
+        Pack_MsgID(&Pack, Peer->Subs[i].MsgID);
+    }
 
     /* 
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) &Pkt);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *) &Pkt);
+    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) HKBuf);
+    CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
 }/* end PeerSubsCmd */
 
 /*******************************************************************/
@@ -554,7 +608,7 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
 
     if((MsgId = CFE_SB_GetMsgId(MsgPtr)) != SBN_CMD_MID)
     {
-        SBN.Hk.CmdErrCount++;
+        SBN.CmdErrCnt++;
         CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
             "invalid command pipe message ID (ID=0x%04X)",
             MsgId);
@@ -603,7 +657,7 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
             /* TODO: debug message? */
             break;
         default:
-            SBN.Hk.CmdErrCount++;
+            SBN.CmdErrCnt++;
             CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_ERROR,
                 "invalid command code (ID=0x%04X, CC=%d)",
                 MsgId, CommandCode);

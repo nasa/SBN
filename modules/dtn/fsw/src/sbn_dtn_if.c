@@ -7,15 +7,15 @@
 #include <errno.h>
 #include <sys/select.h>
 
-int SBN_DTN_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net)
+int SBN_DTN_LoadNet(const char **Row, int FieldCnt, SBN_NetInterface_t *Net)
 {
     SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Net->ModulePvt;
 
-    if(FieldCount < SBN_DTN_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_DTN_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_DTN_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid host entry (expected %d items, found %d)",
-                SBN_DTN_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_DTN_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
@@ -24,16 +24,16 @@ int SBN_DTN_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net)
     return SBN_SUCCESS;
 }/* end SBN_DTN_LoadNet */
 
-int SBN_DTN_LoadPeer(const char **Row, int FieldCount,
+int SBN_DTN_LoadPeer(const char **Row, int FieldCnt,
     SBN_PeerInterface_t *Peer)
 {
     SBN_DTN_Peer_t *PeerData = (SBN_DTN_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCount < SBN_DTN_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_DTN_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_DTN_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid peer entry (expected %d items, found %d)",
-                SBN_DTN_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_DTN_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
@@ -99,14 +99,14 @@ int SBN_DTN_PollPeer(SBN_PeerInterface_t *Peer)
 }/* end SBN_DTN_InitPeer */
 
 int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
+    SBN_MsgSz_t MsgSz, void *Payload)
 {
-    SBN_PackedMsg_t SendBuf;
+    uint8 SendBuf[SBN_MAX_PACKED_MSG_SZ];
 
     SBN_DTN_Peer_t *PeerData = (SBN_DTN_Peer_t *)Peer->ModulePvt;
     SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Peer->Net->ModulePvt;
 
-    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Payload);
+    SBN_PackMsg(&SendBuf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
     CHKZERO(sdr_begin_xn(NetData->SendSDR));
 
@@ -153,10 +153,10 @@ int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
  * good!
  */
 int SBN_DTN_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
-        SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,
-        SBN_Payload_t Payload)
+        SBN_MsgSz_t *MsgSzPtr, SBN_CpuID_t *CpuIDPtr,
+        void *Payload)
 {
-    SBN_PackedMsg_t RecvBuf;
+    uint8 RecvBuf[SBN_MAX_PACKED_MSG_SZ];
     BpDelivery Delivery;
     int TimeoutSecs = 0;
 
@@ -219,7 +219,7 @@ int SBN_DTN_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
         return SBN_ERROR;
     }/* end if */
 
-    SBN_UnpackMsg(&RecvBuf, MsgSizePtr, MsgTypePtr, CpuIDPtr, Payload);
+    SBN_UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, CpuIDPtr, Payload);
 
     return SBN_SUCCESS;
 }/* end SBN_DTN_Recv */
@@ -242,7 +242,7 @@ int SBN_DTN_UnloadNet(SBN_NetInterface_t *Net)
     bp_detach();
 
     int PeerIdx = 0;
-    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_DTN_UnloadPeer(&Net->Peers[PeerIdx]);
     }/* end for */

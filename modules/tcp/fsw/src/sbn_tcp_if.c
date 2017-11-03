@@ -13,17 +13,17 @@
 #include <sys/select.h>
 #endif
 
-static SBN_PackedMsg_t SendBufs[SBN_MAX_NETS];
-static int SendBufCount = 0;
-int SBN_TCP_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net)
+static uint8 SendBufs[SBN_MAX_NETS][SBN_MAX_PACKED_MSG_SZ];
+static int SendBufCnt = 0;
+int SBN_TCP_LoadNet(const char **Row, int FieldCnt, SBN_NetInterface_t *Net)
 {
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
-    if(FieldCount < SBN_TCP_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_TCP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid peer file line (expected %d items, found %d)",
-                SBN_TCP_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_TCP_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
@@ -36,23 +36,23 @@ int SBN_TCP_LoadNet(const char **Row, int FieldCount, SBN_NetInterface_t *Net)
                 "invalid port");
     }/* end if */
 
-    NetData->BufNum = SendBufCount++;
+    NetData->BufNum = SendBufCnt++;
 
     return SBN_SUCCESS;
 }/* end SBN_TCP_LoadNet */
 
-static SBN_PackedMsg_t RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
-static int RecvBufCount = 0;
-int SBN_TCP_LoadPeer(const char **Row, int FieldCount,
+static uint8 RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET][SBN_MAX_PACKED_MSG_SZ];
+static int RecvBufCnt = 0;
+int SBN_TCP_LoadPeer(const char **Row, int FieldCnt,
     SBN_PeerInterface_t *Peer)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCount < SBN_TCP_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_TCP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid peer file line (expected %d items, found %d)",
-                SBN_TCP_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_TCP_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
@@ -65,7 +65,7 @@ int SBN_TCP_LoadPeer(const char **Row, int FieldCount,
                 "invalid port");
     }/* end if */
 
-    PeerData->BufNum = RecvBufCount++;
+    PeerData->BufNum = RecvBufCnt++;
 
     return SBN_SUCCESS;
 }/* end SBN_TCP_LoadEntry */
@@ -141,7 +141,7 @@ int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
         = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
     PeerData->ConnectOut =
-        (Peer->Status.ProcessorID > CFE_PSP_GetProcessorId());
+        (Peer->ProcessorID > CFE_PSP_GetProcessorId());
     PeerData->Connected = FALSE;
 
     return SBN_SUCCESS;
@@ -181,7 +181,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
             return;
         }/* end if */
         
-        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
             SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
@@ -189,7 +189,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                 == inet_addr(PeerData->Host))
             {
                 CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-                    "CPU %d connected", Peer->Status.ProcessorID);
+                    "CPU %d connected", Peer->ProcessorID);
 
                 PeerData->Socket = ClientFd;
                 PeerData->Connected = TRUE;
@@ -208,7 +208,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
      * For peers I connect out to, and which are not currently connected,
      * try connecting now.
      */
-    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
         SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
@@ -239,7 +239,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                     >= 0)
                 {
                     CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-                        "CPU %d connected", Peer->Status.ProcessorID);
+                        "CPU %d connected", Peer->ProcessorID);
 
                     PeerData->Socket = Socket;
                     PeerData->Connected = TRUE;
@@ -271,18 +271,18 @@ int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
     OS_GetLocalTime(&CurrentTime);
 
     if(SBN_TCP_PEER_HEARTBEAT > 0 &&
-        CurrentTime.seconds - Peer->Status.LastSend.seconds
+        CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_TCP_PEER_HEARTBEAT)
     {
         SBN_TCP_Send(Peer, SBN_TCP_HEARTBEAT_MSG, 0, NULL);
     }/* end if */
 
     if(SBN_TCP_PEER_TIMEOUT > 0 &&
-        CurrentTime.seconds - Peer->Status.LastRecv.seconds
+        CurrentTime.seconds - Peer->LastRecv.seconds
             > SBN_TCP_PEER_TIMEOUT)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-            "CPU %d disconnected", Peer->Status.ProcessorID);
+            "CPU %d disconnected", Peer->ProcessorID);
 
         close(PeerData->Socket);
         PeerData->Connected = FALSE;
@@ -292,7 +292,7 @@ int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
 }
 
 int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
-    SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize, SBN_Payload_t Msg)
+    SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
     SBN_NetInterface_t *Net = Peer->Net;
@@ -306,13 +306,13 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
         return SBN_SUCCESS;
     }/* end if */
 
-    SBN_PackMsg(&SendBufs[NetData->BufNum], MsgSize, MsgType, CFE_PSP_GetProcessorId(), Msg);
+    SBN_PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
     size_t sent_size = send(PeerData->Socket, &SendBufs[NetData->BufNum],
-        MsgSize + SBN_PACKED_HDR_SIZE, MSG_NOSIGNAL);
-    if(sent_size < MsgSize + SBN_PACKED_HDR_SIZE)
+        MsgSz + SBN_PACKED_HDR_SZ, MSG_NOSIGNAL);
+    if(sent_size < MsgSz + SBN_PACKED_HDR_SZ)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-            "CPU %d disconnected", Peer->Status.ProcessorID);
+            "CPU %d disconnected", Peer->ProcessorID);
 
         close(PeerData->Socket);
         PeerData->Connected = FALSE;
@@ -322,8 +322,8 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
 }/* end SBN_TCP_Send */
 
 int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-    SBN_MsgType_t *MsgTypePtr, SBN_MsgSize_t *MsgSizePtr,
-    SBN_CpuID_t *CpuIDPtr, SBN_Payload_t MsgBuf)
+    SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
+    SBN_CpuID_t *CpuIDPtr, void *MsgBuf)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
@@ -362,23 +362,23 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     if(!PeerData->ReceivingBody)
     {
         /* recv the header first */
-        ToRead = SBN_PACKED_HDR_SIZE - PeerData->RecvSize;
+        ToRead = SBN_PACKED_HDR_SZ - PeerData->RecvSz;
 
         Received = recv(PeerData->Socket,
-            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSize,
+            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSz,
             ToRead, 0);
 
         if(Received < 0)
         {
             CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-                "CPU %d disconnected", Peer->Status.ProcessorID);
+                "CPU %d disconnected", Peer->ProcessorID);
 
             close(PeerData->Socket);
             PeerData->Connected = FALSE;
             return SBN_IF_EMPTY;
         }/* end if */
 
-        PeerData->RecvSize += Received;
+        PeerData->RecvSz += Received;
 
         if(Received >= ToRead)
         {
@@ -393,19 +393,19 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     /* only get here if we're recv'd the header and ready for the body */
 
     ToRead = CFE_MAKE_BIG16(
-            *((SBN_MsgSize_t *)&RecvBufs[PeerData->BufNum].Hdr.MsgSizeBuf)
-        ) + SBN_PACKED_HDR_SIZE - PeerData->RecvSize;
+            *((SBN_MsgSz_t *)&RecvBufs[PeerData->BufNum])
+        ) + SBN_PACKED_HDR_SZ - PeerData->RecvSz;
     if(ToRead)
     {
         Received = recv(PeerData->Socket,
-            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSize,
+            (char *)&RecvBufs[PeerData->BufNum] + PeerData->RecvSz,
             ToRead, 0);
         if(Received < 0)
         {
             return SBN_ERROR;
         }/* end if */
 
-        PeerData->RecvSize += Received;
+        PeerData->RecvSz += Received;
 
         if(Received < ToRead)
         {
@@ -414,14 +414,14 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     }/* end if */
 
     /* we have the complete body, decode! */
-    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSizePtr, MsgTypePtr,
+    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSzPtr, MsgTypePtr,
         CpuIDPtr, MsgBuf) == FALSE)
     {
         return SBN_ERROR;
     }/* end if */
 
     PeerData->ReceivingBody = FALSE;
-    PeerData->RecvSize = 0;
+    PeerData->RecvSz = 0;
 
     return SBN_SUCCESS;
 }/* end SBN_TCP_Recv */
@@ -446,7 +446,7 @@ int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
     }/* end if */
 
     int PeerIdx = 0;
-    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_TCP_UnloadPeer(&Net->Peers[PeerIdx]);
     }/* end if */

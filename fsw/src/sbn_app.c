@@ -24,6 +24,7 @@
  */
 #include <fcntl.h>
 
+#include "sbn_pack.h"
 #include "sbn_app.h"
 #include "sbn_remap.h"
 #include "cfe_sb_events.h" /* For event message IDs */
@@ -49,25 +50,25 @@ SBN_App_t SBN;
  * @param[in] header The section header (if any) for the configuration file
  *            section.
  * @param[in] Row The entries from the row.
- * @param[in] FieldCount The number of fields in the row array.
+ * @param[in] FieldCnt The number of fields in the row array.
  * @param[in] Opaque The Opaque data passed through the parser.
  * @return OS_SUCCESS on successful loading of the configuration file row.
  */
 static int PeerFileRowCallback(const char *Filename, int LineNum,
-    const char *Header, const char *Row[], int FieldCount, void *Opaque)
+    const char *Header, const char *Row[], int FieldCnt, void *Opaque)
 {
     char *ValidatePtr = NULL;
     int Status = OS_SUCCESS;
 
-    if(FieldCount < 4)
+    if(FieldCnt < 4)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "too few fields (FieldCount=%d)", FieldCount);
+            "too few fields (FieldCnt=%d)", FieldCnt);
         return OS_ERROR;
     }/* end if */
 
     const char *Name = Row[0];
-    if(strlen(Name) >= SBN_MAX_PEERNAME_LENGTH)
+    if(strlen(Name) >= SBN_MAX_PEER_NAME_LEN)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "Processor name too long: %s (%d)", Name,
@@ -109,7 +110,8 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         return OS_ERROR; /* ignore other spacecraft entries */
     }/* end if */
 
-    uint8 QoS = strtol(Row[4], &ValidatePtr, 0);
+    uint16 QoSInt = strtol(Row[4], &ValidatePtr, 0);
+    CFE_SB_Qos_t QoS = {(QoSInt & 0xFF00) >> 8, QoSInt & 0xFF};
     if(!ValidatePtr || ValidatePtr == Row[4])
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
@@ -117,47 +119,61 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
         return OS_ERROR;
     }/* end if */
 
-    uint8 NetIdx = strtol(Row[5], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[5] || NetIdx >= SBN_MAX_NETS)
+    uint8 NetIdx;
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "invalid network ID (must be a number < %d)", SBN_MAX_NETS);
-        return OS_ERROR;
+        if(!strcmp(Row[5], SBN.Nets[NetIdx].Name))
+        {
+            break;
+        }
     }
 
     SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-    memset(Net, 0, sizeof(*Net));
-    CFE_SB_InitMsg(&Net->Status, SBN_TLM_MID, sizeof(Net->Status), TRUE);
+
+    if(NetIdx == SBN.NetCnt)
+    {
+        if(NetIdx == SBN_MAX_NETS)
+        {
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+                "too many networks.");
+            return OS_ERROR;
+        }
+
+        SBN.NetCnt++;
+
+        memset(Net, 0, sizeof(*Net));
+
+        strncpy(Net->Name, Row[5], sizeof(Net->Name) - 1);
+    }
 
     if(ProcessorID == CFE_PSP_GetProcessorId())
     {
         Net->Configured = TRUE;
-        Net->Status.ProtocolID = ProtocolID;
+
+        Net->ProtocolID = ProtocolID;
         Net->IfOps = SBN.IfOps[ProtocolID];
-        Net->IfOps->LoadNet(Row + 6, FieldCount - 6, Net);
+        Net->IfOps->LoadNet(Row + 6, FieldCnt - 6, Net);
     }
     else
     {
-        if(Net->Status.PeerCount >= SBN_MAX_PEERS_PER_NET)
+        if(Net->PeerCnt >= SBN_MAX_PEERS_PER_NET)
         {   
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
                 "too many peer entries (%d, max = %d)",
-                Net->Status.PeerCount, SBN_MAX_PEERS_PER_NET);
+                Net->PeerCnt, SBN_MAX_PEERS_PER_NET);
 
             return OS_ERROR;
         }/* end if */
 
-        SBN_PeerInterface_t *Peer = &Net->Peers[Net->Status.PeerCount++];
+        SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
 
         memset(Peer, 0, sizeof(*Peer));
 
+        strncpy(Peer->Name, Row[0], sizeof(Peer->Name) - 1);
         Peer->Net = Net;
-        memset(&Peer->Status, 0, sizeof(Peer->Status));
-        CFE_SB_InitMsg(&Peer->Status, SBN_TLM_MID, sizeof(Peer->Status), TRUE);
-        strncpy(Peer->Status.Name, Name, SBN_MAX_PEERNAME_LENGTH);
-        Peer->Status.ProcessorID = ProcessorID;
-        Peer->Status.QoS = QoS;
-        SBN.IfOps[ProtocolID]->LoadPeer(Row + 6, FieldCount - 6, Peer);
+        Peer->ProcessorID = ProcessorID;
+        Peer->QoS = QoS;
+        SBN.IfOps[ProtocolID]->LoadPeer(Row + 6, FieldCnt - 6, Peer);
     }/* end if */
 
     return Status;
@@ -201,7 +217,7 @@ int32 SBN_GetPeerFileData(void)
 /**
  * Parses a peer configuration file entry to obtain the peer configuration.
  *
- * @param[in] FileEntry  The row of peer configuration data.
+ * @param[in] FileEntry The row of peer configuration data.
 
  * @return  SBN_SUCCESS on success, SBN_ERROR on error
  */
@@ -212,14 +228,14 @@ static int ParseFileEntry(char *FileEntry)
     const char *Row[16];
     memset(&Row, 0, sizeof(Row));
 
-    int FieldCount = 0;
+    int FieldCnt = 0;
     while(1)
     {
         /* eat leading spaces */
         for(; isspace(*FileEntry); FileEntry++);
 
-        Row[FieldCount++] = FileEntry;
-        if(FieldCount >= 16)
+        Row[FieldCnt++] = FileEntry;
+        if(FieldCnt >= 16)
         {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
                 "too many parameters, line %d", ParseLineNum);
@@ -240,7 +256,7 @@ static int ParseFileEntry(char *FileEntry)
     }/* end while */
 
     
-    return PeerFileRowCallback("unknown", ParseLineNum++, "", Row, FieldCount,
+    return PeerFileRowCallback("unknown", ParseLineNum++, "", Row, FieldCnt,
         NULL);
 }/* end ParseFileEntry */
 
@@ -252,7 +268,7 @@ static int ParseFileEntry(char *FileEntry)
  */
 int32 SBN_GetPeerFileData(void)
 {
-    static char     SBN_PeerData[SBN_PEER_FILE_LINE_SIZE];
+    static char     SBN_PeerData[SBN_PEER_FILE_LINE_SZ];
     int             BuffLen = 0; /* Length of the current buffer */
     int             PeerFile = 0;
     char            c = '\0';
@@ -301,7 +317,7 @@ int32 SBN_GetPeerFileData(void)
         return SBN_ERROR;
     }/* end if */
 
-    memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+    memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SZ);
     BuffLen = 0;
 
     /*
@@ -330,7 +346,7 @@ int32 SBN_GetPeerFileData(void)
              ** replace the field delimiter with a space
              */
             SBN_PeerData[BuffLen] = ' ';
-            if(BuffLen < (SBN_PEER_FILE_LINE_SIZE - 1))
+            if(BuffLen < (SBN_PEER_FILE_LINE_SZ - 1))
                 BuffLen++;
         }
         else if(c != ';')
@@ -339,7 +355,7 @@ int32 SBN_GetPeerFileData(void)
              ** Regular data gets copied in
              */
             SBN_PeerData[BuffLen] = c;
-            if(BuffLen < (SBN_PEER_FILE_LINE_SIZE - 1))
+            if(BuffLen < (SBN_PEER_FILE_LINE_SZ - 1))
                 BuffLen++;
         }
         else
@@ -353,7 +369,7 @@ int32 SBN_GetPeerFileData(void)
                 return SBN_ERROR;
             }/* end if */
             LineNum++;
-            memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SIZE);
+            memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SZ);
             BuffLen = 0;
         }/* end if */
     }/* end while */
@@ -409,38 +425,35 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 
 /**
  * \brief Packs a CCSDS message with an SBN message header.
- * \note Ensures the SBN fields (CPU ID, MsgSize) and CCSDS message headers
+ * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
  *       are in network (big-endian) byte order.
  * \param SBNBuf[out] The buffer to pack into.
  * \param MsgType[in] The SBN message type.
- * \param MsgSize[in] The size of the payload.
+ * \param MsgSz[in] The size of the payload.
  * \param CpuID[in] The CpuID of the sender (should be CFE_CPU_ID)
  * \param Msg[in] The payload (CCSDS message or SBN sub/unsub.)
  */
-void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
-    SBN_MsgType_t MsgType, SBN_CpuID_t CpuID, SBN_Payload_t Msg)
+void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz,
+    SBN_MsgType_t MsgType, SBN_CpuID_t CpuID, void * Msg)
 {
-    MsgSize = CFE_MAKE_BIG16(MsgSize);
-    memcpy(SBNBuf->Hdr.MsgSizeBuf, &MsgSize, sizeof(MsgSize));
-    MsgSize = CFE_MAKE_BIG16(MsgSize); /* swap back */
+    Pack_t Pack;
+    Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, 0);
 
-    memcpy(SBNBuf->Hdr.MsgTypeBuf, &MsgType, sizeof(MsgType));
+    Pack_UInt16(&Pack, MsgSz);
+    Pack_UInt8(&Pack, MsgType);
+    Pack_UInt32(&Pack, CpuID);
 
-    CpuID = CFE_MAKE_BIG32(CpuID);
-    memcpy(SBNBuf->Hdr.CpuIDBuf, &CpuID, sizeof(CpuID));
-    CpuID = CFE_MAKE_BIG32(CpuID); /* swap back */
-
-    if(!Msg || !MsgSize)
+    if(!Msg || !MsgSz)
     {
         /* valid to have a NULL pointer/empty size payload */
         return;
     }/* end if */
 
-    memcpy(SBNBuf->Payload, Msg, MsgSize);
+    Pack_Data(&Pack, Msg, MsgSz);
 
     if(MsgType == SBN_APP_MSG)
     {
-        SwapCCSDS((CFE_SB_Msg_t *)SBNBuf->Payload);
+        SwapCCSDS(SBNBuf + SBN_PACKED_HDR_SZ);
     }/* end if */
 }/* end SBN_PackMsg */
 
@@ -448,33 +461,34 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t MsgSize,
  * \brief Unpacks a CCSDS message with an SBN message header.
  * \param SBNBuf[in] The buffer to unpack.
  * \param MsgTypePtr[out] The SBN message type.
- * \param MsgSizePtr[out] The payload size.
+ * \param MsgSzPtr[out] The payload size.
  * \param CpuID[out] The CpuID of the sender.
  * \param Msg[out] The payload (a CCSDS message, or SBN sub/unsub).
  * \return TRUE if we were able to unpack the message.
  *
- * \note Ensures the SBN fields (CPU ID, MsgSize) and CCSDS message headers
+ * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
  *       are in platform byte order.
  * \todo Use a type for SBNBuf.
  */
-boolean SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, SBN_Payload_t Msg)
+boolean SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, void *Msg)
 {
-    *MsgSizePtr = CFE_MAKE_BIG16(*((SBN_MsgSize_t *)SBNBuf->Hdr.MsgSizeBuf));
-    *MsgTypePtr = *((SBN_MsgType_t *)SBNBuf->Hdr.MsgTypeBuf);
-    *CpuIDPtr = CFE_MAKE_BIG32(*((SBN_CpuID_t *)SBNBuf->Hdr.CpuIDBuf));
+    Unpack_t Unpack; Unpack_Init(&Unpack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);
+    Unpack_UInt16(&Unpack, MsgSzPtr);
+    Unpack_UInt8(&Unpack, MsgTypePtr);
+    Unpack_UInt32(&Unpack, CpuIDPtr);
 
-    if(!*MsgSizePtr)
+    if(!*MsgSzPtr)
     {
         return FALSE;
     }/* end if */
 
-    if(*MsgSizePtr > CFE_SB_MAX_SB_MSG_SIZE)
+    if(*MsgSzPtr > CFE_SB_MAX_SB_MSG_SIZE)
     {
         return FALSE;
     }/* end if */
 
-    memcpy(Msg, SBNBuf->Payload, *MsgSizePtr);
+    Unpack_Data(&Unpack, Msg, *MsgSzPtr);
 
     if(*MsgTypePtr == SBN_APP_MSG)
     {
@@ -498,7 +512,7 @@ typedef struct
     SBN_NetInterface_t *Net;
     SBN_CpuID_t CpuID;
     SBN_MsgType_t MsgType;
-    SBN_MsgSize_t MsgSize;
+    SBN_MsgSz_t MsgSz;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
 } RecvPeerTaskData_t;
 
@@ -515,10 +529,15 @@ static void RecvPeerTask(void)
 
     D.RecvTaskID = OS_TaskGetId();
 
-    for(D.NetIdx = 0; D.NetIdx < SBN.Hk.NetCount; D.NetIdx++)
+    for(D.NetIdx = 0; D.NetIdx < SBN.NetCnt; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
-        for(D.PeerIdx = 0; D.PeerIdx < D.Net->Status.PeerCount; D.PeerIdx++)
+        if(!D.Net.Configured)
+        {
+            continue;
+        }
+
+        for(D.PeerIdx = 0; D.PeerIdx < D.Net->PeerCnt; D.PeerIdx++)
         {
             D.Peer = &D.Net->Peers[D.PeerIdx];
             if(D.Peer->RecvTaskID == D.RecvTaskID)
@@ -527,13 +546,13 @@ static void RecvPeerTask(void)
             }/* end if */
         }/* end for */
 
-        if(D.PeerIdx < D.Net->Status.PeerCount)
+        if(D.PeerIdx < D.Net->PeerCnt)
         {
             break;
         }/* end if */
     }/* end for */
 
-    if(D.NetIdx == SBN.Hk.NetCount)
+    if(D.NetIdx == SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
             "unable to connect task to peer struct");
@@ -543,7 +562,7 @@ static void RecvPeerTask(void)
     while(1)
     {
         D.Status = D.Net->IfOps->RecvFromPeer(D.Net, D.Peer,
-            &D.MsgType, &D.MsgSize, &D.CpuID, &D.Msg);
+            &D.MsgType, &D.MsgSz, &D.CpuID, &D.Msg);
 
         if(D.Status == SBN_IF_EMPTY)
         {
@@ -552,15 +571,15 @@ static void RecvPeerTask(void)
 
         if(D.Status == SBN_SUCCESS)
         {
-            OS_GetLocalTime(&D.Peer->Status.LastRecv);
+            OS_GetLocalTime(&D.Peer->LastRecv);
 
-            SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSize, &D.Msg);
+            SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSz, &D.Msg);
         }
         else
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                 "recv error (%d)", D.Status);
-            D.Peer->Status.RecvErrCount++;
+            D.Peer->RecvErrCnt++;
         }/* end if */
     }/* end while */
 }/* end RecvPeerTask */
@@ -574,7 +593,7 @@ typedef struct
     uint32 RecvTaskID;
     SBN_CpuID_t CpuID;
     SBN_MsgType_t MsgType;
-    SBN_MsgSize_t MsgSize;
+    SBN_MsgSz_t MsgSz;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
 } RecvNetTaskData_t;
 
@@ -591,7 +610,7 @@ static void RecvNetTask(void)
 
     D.RecvTaskID = OS_TaskGetId();
 
-    for(D.NetIdx = 0; D.NetIdx < SBN.Hk.NetCount; D.NetIdx++)
+    for(D.NetIdx = 0; D.NetIdx < SBN.NetCnt; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
         if(D.Net->RecvTaskID == D.RecvTaskID)
@@ -600,7 +619,7 @@ static void RecvNetTask(void)
         }/* end if */
     }/* end for */
 
-    if(D.NetIdx == SBN.Hk.NetCount)
+    if(D.NetIdx == SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
             "unable to connect task to net struct");
@@ -610,7 +629,7 @@ static void RecvNetTask(void)
     while(1)
     {
         D.Status = D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType,
-            &D.MsgSize, &D.CpuID, &D.Msg);
+            &D.MsgSz, &D.CpuID, &D.Msg);
 
         if(D.Status == SBN_IF_EMPTY)
         {
@@ -628,9 +647,9 @@ static void RecvNetTask(void)
             return;
         }/* end if */
 
-        OS_GetLocalTime(&D.Peer->Status.LastRecv);
+        OS_GetLocalTime(&D.Peer->LastRecv);
 
-        SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSize, &D.Msg);
+        SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSz, &D.Msg);
     }/* end while */
 }/* end RecvNetTask */
 
@@ -647,23 +666,23 @@ void SBN_RecvNetMsgs(void)
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
 
     int NetIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
         SBN_MsgType_t MsgType;
-        SBN_MsgSize_t MsgSize;
+        SBN_MsgSz_t MsgSz;
         SBN_CpuID_t CpuID;
 
         if(Net->IfOps->RecvFromNet)
         {
-            int MsgCount = 0;
+            int MsgCnt = 0;
             // TODO: make configurable
-            for(MsgCount = 0; MsgCount < 100; MsgCount++)
+            for(MsgCnt = 0; MsgCnt < 100; MsgCnt++)
             {
                 memset(Msg, 0, sizeof(Msg));
 
                 Status = Net->IfOps->RecvFromNet(
-                    Net, &MsgType, &MsgSize, &CpuID, Msg);
+                    Net, &MsgType, &MsgSz, &CpuID, Msg);
 
                 if(Status == SBN_IF_EMPTY)
                 {
@@ -677,16 +696,16 @@ void SBN_RecvNetMsgs(void)
 
                 if(Peer)
                 {
-                    OS_GetLocalTime(&Peer->Status.LastRecv);
+                    OS_GetLocalTime(&Peer->LastRecv);
                 }/* end if */
 
-                SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSize, Msg);
+                SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSz, Msg);
             }
         }
         else if(Net->IfOps->RecvFromPeer)
         {
             int PeerIdx = 0;
-            for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+            for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
@@ -698,21 +717,21 @@ void SBN_RecvNetMsgs(void)
                 {
                     SBN_CpuID_t CpuID = 0;
                     SBN_MsgType_t MsgType = 0;
-                    SBN_MsgSize_t MsgSize = 0;
+                    SBN_MsgSz_t MsgSz = 0;
 
                     memset(Msg, 0, sizeof(Msg));
 
                     Status = Net->IfOps->RecvFromPeer(Net, Peer,
-                        &MsgType, &MsgSize, &CpuID, Msg);
+                        &MsgType, &MsgSz, &CpuID, Msg);
 
                     if(Status == SBN_IF_EMPTY)
                     {
                         break; /* no (more) messages */
                     }/* end if */
 
-                    OS_GetLocalTime(&Peer->Status.LastRecv);
+                    OS_GetLocalTime(&Peer->LastRecv);
 
-                    SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSize, Msg);
+                    SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSz, Msg);
                 }/* end for */
             }/* end for */
         }
@@ -730,15 +749,15 @@ void SBN_RecvNetMsgs(void)
 /**
  * Sends a message to a peer using the module's SendNetMsg.
  *
- * @param MsgType       SBN type of the message
- * @param MsgSize       Size of the message
- * @param Msg           Message to send
- * @param Peer          The peer to send the message to.
+ * @param MsgType SBN type of the message
+ * @param MsgSz Size of the message
+ * @param Msg Message to send
+ * @param Peer The peer to send the message to.
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
-    SBN_Payload_t *Msg, SBN_PeerInterface_t *Peer)
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
+    void *Msg, SBN_PeerInterface_t *Peer)
 {
     int Status = 0;
     SBN_NetInterface_t *Net = Peer->Net;
@@ -753,16 +772,16 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
 
     #endif /* SBN_SEND_TASK */
 
-    Status = Net->IfOps->Send(Peer, MsgType, MsgSize, Msg);
+    Status = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
 
     if(Status != -1)
     {
-        Peer->Status.SendCount++;
-        OS_GetLocalTime(&Peer->Status.LastSend);
+        Peer->SendCnt++;
+        OS_GetLocalTime(&Peer->LastSend);
     }
     else
     {
-        Peer->Status.SendErrCount++;
+        Peer->SendErrCnt++;
     }/* end if */
 
     #ifdef SBN_SEND_TASK
@@ -810,10 +829,10 @@ static void SendTask(void)
 
     D.SendTaskID = OS_TaskGetId();
 
-    for(D.NetIdx = 0; D.NetIdx < SBN.Hk.NetCount; D.NetIdx++)
+    for(D.NetIdx = 0; D.NetIdx < SBN.NetCnt; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
-        for(D.PeerIdx = 0; D.PeerIdx < D.Net->Status.PeerCount; D.PeerIdx++)
+        for(D.PeerIdx = 0; D.PeerIdx < D.Net->PeerCnt; D.PeerIdx++)
         {
             D.Peer = &D.Net->Peers[D.PeerIdx];
             if(D.Peer->SendTaskID == D.SendTaskID)
@@ -822,13 +841,13 @@ static void SendTask(void)
             }/* end if */
         }/* end for */
         
-        if(D.PeerIdx < D.Net->Status.PeerCount)
+        if(D.PeerIdx < D.Net->PeerCnt)
         {
             break; /* found a ringer */
         }/* end if */
     }/* end for */
 
-    if(D.NetIdx == SBN.Hk.NetCount)
+    if(D.NetIdx == SBN.NetCnt)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "error connecting send task\n");
@@ -854,7 +873,7 @@ static void SendTask(void)
 
         if(SBN.RemapEnabled)
         {   
-            D.MsgID = SBN_RemapMsgID(D.Peer->Status.ProcessorID,
+            D.MsgID = SBN_RemapMsgID(D.Peer->ProcessorID,
                 CFE_SB_GetMsgId(D.SBMsgPtr));
             if(D.MsgID == 0x0000)
             {   
@@ -865,7 +884,7 @@ static void SendTask(void)
 
         SBN_SendNetMsg(SBN_APP_MSG,
             CFE_SB_GetTotalMsgLength(D.SBMsgPtr),
-            (SBN_Payload_t *)D.SBMsgPtr, D.Peer);
+            D.SBMsgPtr, D.Peer);
     }/* end while */
 }/* end SendTask */
 
@@ -891,12 +910,12 @@ static void CheckPeerPipes(void)
         ReceivedFlag = 0;
 
         int NetIdx = 0;
-        for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+        for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
         {
             SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
             int PeerIdx = 0;
-            for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+            for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
                 /* if peer data is not in use, go to next peer */
@@ -921,7 +940,7 @@ static void CheckPeerPipes(void)
                 if(SBN.RemapEnabled)
                 {
                     CFE_SB_MsgId_t MsgID =
-                        SBN_RemapMsgID(Peer->Status.ProcessorID,
+                        SBN_RemapMsgID(Peer->ProcessorID,
                         CFE_SB_GetMsgId(SBMsgPtr));
                     if(!MsgID)
                     {   
@@ -933,7 +952,7 @@ static void CheckPeerPipes(void)
 
                 SBN_SendNetMsg(SBN_APP_MSG,
                     CFE_SB_GetTotalMsgLength(SBMsgPtr),
-                    (SBN_Payload_t *)SBMsgPtr, Peer);
+                    SBMsgPtr, Peer);
             }/* end for */
         }/* end for */
 
@@ -953,12 +972,12 @@ static void CheckPeerPipes(void)
 static void PeerPoll(void)
 {
     int NetIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
         int PeerIdx = 0;
-        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
@@ -975,7 +994,7 @@ static void PeerPoll(void)
  */
 int SBN_InitInterfaces(void)
 {
-    if(SBN.Hk.NetCount < 1)
+    if(SBN.NetCnt < 1)
     {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
             "no networks configured");
@@ -984,7 +1003,7 @@ int SBN_InitInterfaces(void)
     }/* end if */
 
     int NetIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
@@ -1012,7 +1031,7 @@ int SBN_InitInterfaces(void)
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "error creating task for %s", Net->Status.Name);
+                    "error creating task for %s", Net->Name);
                 return Status;
             }/* end if */
         }/* end if */
@@ -1020,7 +1039,7 @@ int SBN_InitInterfaces(void)
 #endif /* SBN_RECV_TASK */
 
         int PeerIdx = 0;
-        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
@@ -1028,7 +1047,7 @@ int SBN_InitInterfaces(void)
 
             /* create a pipe name string similar to SBN_0_CPU2_Pipe */
             snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%s_Pipe",
-                NetIdx, Peer->Status.Name);
+                NetIdx, Peer->Name);
             int Status = CFE_SB_CreatePipe(&(Peer->Pipe), 2, PipeName);
 
             if(Status != CFE_SUCCESS)
@@ -1060,7 +1079,7 @@ int SBN_InitInterfaces(void)
                 if(Status != CFE_SUCCESS)
                 {
                     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                        "error creating task for %s", Peer->Status.Name);
+                        "error creating task for %s", Peer->Name);
                     return Status;
                 }/* end if */
             }/* end if */
@@ -1071,8 +1090,8 @@ int SBN_InitInterfaces(void)
 
             char SendTaskName[32];
 
-            snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Status.Name,
-                Peer->Status.Name);
+            snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Name,
+                Peer->Name);
             Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
                 SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
                 CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
@@ -1080,7 +1099,7 @@ int SBN_InitInterfaces(void)
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "error creating send task for %s", Peer->Status.Name);
+                    "error creating send task for %s", Peer->Name);
                 return Status;
             }/* end if */
 
@@ -1091,13 +1110,13 @@ int SBN_InitInterfaces(void)
 
     CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
         "configured, %d nets",
-        SBN.Hk.NetCount);
+        SBN.NetCnt);
 
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-            "net #%d has %d peers", NetIdx,
-            SBN.Nets[NetIdx].Status.PeerCount);
+            "net %s (#%d) has %d peers", SBN.Nets[NetIdx].Name, NetIdx,
+            SBN.Nets[NetIdx].PeerCnt);
     }/* end for */
 
     return SBN_SUCCESS;
@@ -1266,8 +1285,6 @@ void SBN_AppMain(void)
 
     SBN.AppID = AppID;
 
-    CFE_SB_InitMsg(&SBN.Hk, SBN_TLM_MID, sizeof(SBN.Hk), TRUE);
-
     /* load the App_FullName so I can ignore messages I send out to SB */
     uint32 TskId = OS_TaskGetId();
     CFE_SB_GetAppTskName(TskId, SBN.App_FullName);
@@ -1404,7 +1421,7 @@ void SBN_AppMain(void)
     while(CFE_ES_RunLoop(&RunStatus)) WaitForWakeup(SBN_MAIN_LOOP_DELAY);
 
     int NetIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
         Net->IfOps->UnloadNet(Net);
@@ -1419,11 +1436,11 @@ void SBN_AppMain(void)
  * Sends a message to a peer.
  * @param[in] MsgType The type of the message (application data, SBN protocol)
  * @param[in] CpuID The CpuID to send this message to.
- * @param[in] MsgSize The size of the message (in bytes).
+ * @param[in] MsgSz The size of the message (in bytes).
  * @param[in] Msg The message contents.
  */
 void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
-    SBN_CpuID_t CpuID, SBN_MsgSize_t MsgSize, void *Msg)
+    SBN_CpuID_t CpuID, SBN_MsgSz_t MsgSize, void *Msg)
 {
     int Status = 0;
 
@@ -1472,9 +1489,9 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID)
 {
     int PeerIdx = 0;
 
-    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
-        if(Net->Peers[PeerIdx].Status.ProcessorID == ProcessorID)
+        if(Net->Peers[PeerIdx].ProcessorID == ProcessorID)
         {
             return &Net->Peers[PeerIdx];
         }/* end if */

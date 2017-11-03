@@ -20,7 +20,7 @@ typedef struct
             /** \brief Is this peer currently connected? */
             Connected,
             BufNum;
-    int RecvSize;
+    int RecvSz;
 
     /** See SBN_SERIAL_CONNTRY_TIME. */
     OS_time_t LastConnTry;

@@ -13,84 +13,52 @@
 typedef struct {
   uint32            InUseCtr;
   CFE_SB_MsgId_t    MsgID;
-  CFE_SB_Qos_t      Qos;
+  CFE_SB_Qos_t      QoS;
 } SBN_Subs_t;
 
-typedef uint16 SBN_MsgSize_t;
+typedef uint16 SBN_MsgSz_t;
 typedef uint8 SBN_MsgType_t;
 typedef uint32 SBN_CpuID_t;
 
 /**
- * Byte arrays to prevent data structure alignment.
- */
-typedef struct
-{
-    /** @brief Size of payload not including SBN header */
-    uint8 MsgSizeBuf[sizeof(SBN_MsgSize_t)];
-
-    /** @brief Type of SBN message */
-    uint8 MsgTypeBuf[sizeof(SBN_MsgType_t)];
-
-    /** @brief CpuID of sender */
-    uint8 CpuIDBuf[sizeof(SBN_CpuID_t)];
-}
-SBN_PackedHdr_t;
-
-typedef struct
-{
-    /** @brief CCSDS MsgID of sub */
-    uint8 MsgID[sizeof(CFE_SB_MsgId_t)];
-
-    /** @brief CCSDS Qos of sub */
-    uint8 Qos[sizeof(CFE_SB_Qos_t)];
-}
-SBN_PackedSub_t;
-
-typedef struct
-{
-    char VersionHash[SBN_IDENT_LEN];
-    uint16 SubCnt;
-    SBN_PackedSub_t Subs[SBN_MAX_SUBS_PER_PEER];
-}
-SBN_PackedSubs_t;
-
-/**
  * @note The packed size is likely smaller than an in-memory's struct
  * size, as the compiler will align objects.
- * SBN headers are MsgSize + MsgType + CpuID
- * SBN subscription messages are MsgID + Qos
+ * SBN headers are MsgSz + MsgType + CpuID
+ * SBN subscription messages are MsgID + QoS
  */
-#define SBN_PACKED_HDR_SIZE (sizeof(SBN_PackedHdr_t))
-#define SBN_MAX_PACKED_MSG_SIZE (SBN_PACKED_HDR_SIZE + CFE_SB_MAX_SB_MSG_SIZE)
 
-typedef void *SBN_Payload_t;
+/**
+ * uint16 MsgSz, uint8 MsgType, uint32 ProcessorID
+ */
+#define SBN_PACKED_HDR_SZ (2 + 1 + 4)
 
-typedef struct
-{
-    SBN_PackedHdr_t Hdr;
-    uint8 Payload[CFE_SB_MAX_SB_MSG_SIZE];
-}
-SBN_PackedMsg_t;
+/*
+ * SBN_PACKED_HDR_SZ + uint16 SubCnt + CFE_SB_MsgId_t Subs[SubCnt]
+ */
+#define SBN_PACKED_SUB_SZ (SBN_PACKED_HDR_SZ + 2 + sizeof(CFE_SB_MsgId_t) * SBN_MAX_SUBS_PER_PEER)
+
+#define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_SB_MAX_SB_MSG_SIZE)
 
 /**
  * @brief Used by modules to pack messages to send.
  *
  * @param SBNMsgBuf[out] The buffer pointer to receive the packed message.
- * @param MsgSize[in] The size of the Msg parameter.
+ *                       Should be MsgSz + SBN_PACKED_HDR_SZ bytes or larger.
+ * @param MsgSz[in] The size of the Msg parameter.
  * @param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
  * @param CpuID[in] The CPU ID of the sender (should be CFE_CPU_ID)
  * @param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
  *
  * @sa SBN_UnpackMsg
  */
-void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
-    SBN_MsgType_t MsgType, SBN_CpuID_t CpuID, SBN_Payload_t Msg);
+void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz,
+    SBN_MsgType_t MsgType, SBN_CpuID_t CpuID, void *Msg);
 
 /**
  * @brief Used by modules to unpack messages received.
  *
  * @param SBNMsgBuf[in] The buffer pointer containing the SBN message.
- * @param MsgSizePtr[out] The size of the Msg parameter.
+ * @param MsgSzPtr[out] The size of the Msg parameter.
  * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
  * @param CpuID[out] The CPU ID of the sender (should be CFE_CPU_ID)
  * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_SB_MAX_SB_MSG_SIZE)
@@ -98,15 +66,21 @@ void SBN_PackMsg(SBN_PackedMsg_t *SBNMsgBuf, SBN_MsgSize_t MsgSize,
  *
  * @sa SBN_PackMsg
  */
-boolean SBN_UnpackMsg(SBN_PackedMsg_t *SBNBuf, SBN_MsgSize_t *MsgSizePtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, SBN_Payload_t Msg);
+boolean SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
+    SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, void *Msg);
 
 typedef struct SBN_IfOps_s SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
 
 typedef struct {
-    /** @brief The peer status details. */
-    SBN_PeerStatus_t Status;
+    /** @brief The text name of this peer (likely the CPUNAME). */
+    char Name[SBN_MAX_PEER_NAME_LEN];
+
+    /** @brief Quality of Service (unused.) */
+    CFE_SB_Qos_t QoS;
+
+    /** @brief The processor ID of this peer (MUST match the ProcessorID.) */
+    uint32 ProcessorID;
 
     /** @brief A convenience pointer to the net that this peer belongs to. */
     SBN_NetInterface_t *Net;
@@ -145,6 +119,9 @@ typedef struct {
     /* TODO: do I need this? */
     SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
 
+    OS_time_t LastSend, LastRecv;
+    uint16 SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
+
     /** @brief generic blob of bytes for the module-specific data. */
     uint8 ModulePvt[128];
 } SBN_PeerInterface_t;
@@ -168,7 +145,12 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
 struct SBN_NetInterface_s {
+    /** @brief The text name of this peer (likely the CPUNAME). */
+    char Name[SBN_MAX_NET_NAME_LEN];
+
     boolean Configured;
+
+    uint8 ProtocolID;
 
     #ifdef SBN_SEND_TASK
 
@@ -182,9 +164,9 @@ struct SBN_NetInterface_s {
 
     #endif /* SBN_RECV_TASK */
 
-    SBN_NetStatus_t Status;
-
     SBN_IfOps_t *IfOps; /* convenience */
+
+    uint16 PeerCnt;
 
     SBN_PeerInterface_t Peers[SBN_MAX_PEERS_PER_NET];
 
@@ -199,10 +181,10 @@ struct SBN_NetInterface_s {
  */
 struct SBN_IfOps_s {
     /** TODO: Document */
-    int (*LoadNet)(const char **Row, int FieldCount,
+    int (*LoadNet)(const char **Row, int FieldCnt,
         SBN_NetInterface_t *Net);
     /** TODO: Document */
-    int (*LoadPeer)(const char **Row, int FieldCount,
+    int (*LoadPeer)(const char **Row, int FieldCnt,
         SBN_PeerInterface_t *Peer);
 
     /**
@@ -244,13 +226,13 @@ struct SBN_IfOps_s {
      * @param Net[in] Interface data for the network where this peer lives.
      * @param Peer[in] Interface data describing the intended peer recipient.
      * @param MsgType[in] The SBN message type.
-     * @param MsgSize[in] The size of the SBN message payload.
+     * @param MsgSz[in] The size of the SBN message payload.
      * @param Payload[in] The SBN message payload.
      *
      * @return Number of bytes sent on success, -1 on error.
      */
     int (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-        SBN_MsgSize_t MsgSize, SBN_Payload_t Payload);
+        SBN_MsgSz_t MsgSz, void *Payload);
 
     /**
      * Receives an individual message from the specified peer. Note, only
@@ -259,7 +241,7 @@ struct SBN_IfOps_s {
      * @param Net[in] Interface data for the network where this peer lives.
      * @param Peer[in] Interface data describing the intended peer recipient.
      * @param MsgTypePtr[out] SBN message type received.
-     * @param MsgSizePtr[out] Payload size received.
+     * @param MsgSzPtr[out] Payload size received.
      * @param CpuIDPtr[out] CpuID of the sender.
      * @param PayloadBuffer[out] Payload buffer
      *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
@@ -267,15 +249,15 @@ struct SBN_IfOps_s {
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
     int (*RecvFromPeer)(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
-        SBN_MsgType_t *MsgTypePtr, SBN_MsgSize_t *MsgSizePtr,
-        SBN_CpuID_t *CpuIDPtr, SBN_Payload_t PayloadBuffer);
+        SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
+        SBN_CpuID_t *CpuIDPtr, void *PayloadBuffer);
 
     /**
      * Receives an individual message from the network.
      *
      * @param Net[in] Interface data for the network where this peer lives.
      * @param MsgTypePtr[out] SBN message type received.
-     * @param MsgSizePtr[out] Payload size received.
+     * @param MsgSzPtr[out] Payload size received.
      * @param CpuIDPtr[out] CpuID of the sender.
      * @param PayloadBuffer[out] Payload buffer
      *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
@@ -283,12 +265,12 @@ struct SBN_IfOps_s {
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
     int (*RecvFromNet)(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
-        SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,
-        SBN_Payload_t PayloadBuffer);
+        SBN_MsgSz_t *MsgSzPtr, SBN_CpuID_t *CpuIDPtr,
+        void *PayloadBuffer);
 
     /**
      * Reports the status of the module.  The status can be in a module-specific
-     * format but must be no larger than SBN_MOD_STATUS_MSG_SIZE bytes (as
+     * format but must be no larger than SBN_MOD_STATUS_MSG_SZ bytes (as
      * defined in sbn_platform_cfg.h).  The status packet is passed in
      * initialized (with message ID and size), the module fills it, and upon
      * return the SBN application sends the message over the software bus.

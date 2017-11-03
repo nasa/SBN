@@ -101,7 +101,7 @@ int32 SBN_ReadModuleFile(void)
 int32 SBN_ReadModuleFile(void)
 {
     /* A buffer for a line in a file */
-    static char     SBN_ModuleData[SBN_MODULE_FILE_LINE_SIZE];
+    static char     SBN_ModuleData[SBN_MODULE_FILE_LINE_SZ];
     int             BuffLen = 0, /* Length of the current buffer */
                     ModuleFile = 0;
     char            CurrentChar = '\0';
@@ -114,7 +114,7 @@ int32 SBN_ReadModuleFile(void)
         return SBN_ERROR;
     }/* end if */
 
-    memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
+    memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SZ);
     BuffLen = 0;
 
     /* Parse the lines from the file */
@@ -141,7 +141,7 @@ int32 SBN_ReadModuleFile(void)
                  ** This is used for the sscanf string parsing
                  */
                 SBN_ModuleData[BuffLen] = ' ';
-                if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
+                if (BuffLen < (SBN_MODULE_FILE_LINE_SZ - 1))
                 {
                     BuffLen++;
                 }/* end if */
@@ -151,13 +151,13 @@ int32 SBN_ReadModuleFile(void)
                 if (SBN_ParseModuleEntry(SBN_ModuleData, LineNum) == -1)
                     return SBN_ERROR;
                 LineNum++;
-                memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SIZE);
+                memset(SBN_ModuleData, 0x0, SBN_MODULE_FILE_LINE_SZ);
                 BuffLen = 0;
                 break;
             default:
                 /* Regular data gets copied in */
                 SBN_ModuleData[BuffLen] = CurrentChar;
-                if (BuffLen < (SBN_MODULE_FILE_LINE_SIZE - 1))
+                if (BuffLen < (SBN_MODULE_FILE_LINE_SZ - 1))
                 {
                     BuffLen++;
                 }/* end if */

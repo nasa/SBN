@@ -13,17 +13,17 @@
 #include <sys/select.h>
 #endif
 
-int SBN_UDP_LoadNet(const char **Row, int FieldCount,
+int SBN_UDP_LoadNet(const char **Row, int FieldCnt,
     SBN_NetInterface_t *Net)
 {
     char *ValidatePtr = NULL;
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    if(FieldCount < SBN_UDP_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_UDP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid host entry (expected %d items, found %d)",
-                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
@@ -38,17 +38,17 @@ int SBN_UDP_LoadNet(const char **Row, int FieldCount,
     return SBN_SUCCESS;
 }/* end SBN_UDP_LoadNet */
 
-int SBN_UDP_LoadPeer(const char **Row, int FieldCount,
+int SBN_UDP_LoadPeer(const char **Row, int FieldCnt,
     SBN_PeerInterface_t *Peer)
 {
     char *ValidatePtr = NULL;
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCount < SBN_UDP_ITEMS_PER_FILE_LINE)
+    if(FieldCnt < SBN_UDP_ITEMS_PER_FILE_LINE)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid peer entry (expected %d items, found %d)",
-                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCount);
+                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCnt);
         return SBN_ERROR;
     }/* end if */
 
@@ -123,16 +123,16 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
     
     if(PeerData->ConnectedFlag)
     {
-        if(CurrentTime.seconds - Peer->Status.LastRecv.seconds
+        if(CurrentTime.seconds - Peer->LastRecv.seconds
             > SBN_UDP_PEER_TIMEOUT)
         {
             CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
-                "CPU %d disconnected", Peer->Status.ProcessorID);
+                "CPU %d disconnected", Peer->ProcessorID);
             PeerData->ConnectedFlag = FALSE;
             return 0;
         }/* end if */
 
-        if(CurrentTime.seconds - Peer->Status.LastSend.seconds
+        if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_PEER_HEARTBEAT)
         {
             return SBN_UDP_Send(Peer, SBN_UDP_HEARTBEAT_MSG, 0, NULL);
@@ -140,7 +140,7 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
     }
     else
     {
-        if(CurrentTime.seconds - Peer->Status.LastSend.seconds
+        if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
             return SBN_UDP_Send(Peer, SBN_UDP_ANNOUNCE_MSG, 0, NULL);
@@ -150,15 +150,16 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
 }/* end SBN_UDP_PollPeer */
 
 int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-    SBN_MsgSize_t MsgSize, SBN_Payload_t Payload)
+    SBN_MsgSz_t MsgSz, void *Payload)
 {
-    SBN_PackedMsg_t SendBuf;
+    size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ;
+    uint8 Buf[BufSz];
 
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
     SBN_NetInterface_t *Net = Peer->Net;
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN_PackMsg(&SendBuf, MsgSize, MsgType, CFE_PSP_GetProcessorId(), Payload);
+    SBN_PackMsg(&Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
     static struct sockaddr_in s_addr;
 
@@ -167,9 +168,8 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     s_addr.sin_addr.s_addr = inet_addr(PeerData->Host);
     s_addr.sin_port = htons(PeerData->Port);
 
-    sendto(NetData->Socket, &SendBuf,
-        MsgSize + SBN_PACKED_HDR_SIZE, 0,
-        (struct sockaddr *) &s_addr, sizeof(s_addr));
+    sendto(NetData->Socket, &Buf, BufSz, 0, (struct sockaddr *) &s_addr,
+        sizeof(s_addr));
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_Send */
@@ -179,10 +179,10 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
  * good!
  */
 int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
-        SBN_MsgSize_t *MsgSizePtr, SBN_CpuID_t *CpuIDPtr,
-        SBN_Payload_t Payload)
+        SBN_MsgSz_t *MsgSzPtr, SBN_CpuID_t *CpuIDPtr,
+        void *Payload)
 {
-    SBN_PackedMsg_t RecvBuf;
+    uint8 RecvBuf[SBN_MAX_PACKED_MSG_SZ];
 
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
@@ -216,7 +216,7 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 
     /* each UDP packet is a full SBN message */
 
-    if(SBN_UnpackMsg(&RecvBuf, MsgSizePtr, MsgTypePtr, CpuIDPtr, Payload)
+    if(SBN_UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, CpuIDPtr, Payload)
         == FALSE)
     {
         return SBN_ERROR;
@@ -260,7 +260,7 @@ int SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
     close(NetData->Socket);
 
     int PeerIdx = 0;
-    for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_UDP_UnloadPeer(&Net->Peers[PeerIdx]);
     }/* end if */

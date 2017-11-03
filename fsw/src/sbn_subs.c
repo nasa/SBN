@@ -23,6 +23,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "cfe_msgids.h"
+#include "sbn_pack.h"
 
 // TODO: instead of using void * for the buffer for SBN messages, use
 // a struct that has the SBN header in packed bytes.
@@ -47,60 +48,26 @@ void SBN_SendSubsRequests(void)
 }/* end SBN_SendSubsRequests */
 
 /**
- * \brief Utility function to pack SBN protocol subscription information.
- *
- * @param[out] SubMsg Destination SBN msg buffer for subscription information.
- * @param[in] MsgID The CCSDS message ID for the subscription.
- * @param[in] Qos The CCSDS quality of service for the subscription.
- *
- * @return The pointer into the buffer after the packed sub.
- */
-static void *PackSub(void *SubMsg, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
-{
-    MsgID = CFE_MAKE_BIG16(MsgID);
-    memcpy(SubMsg, &MsgID, sizeof(MsgID));
-    SubMsg += sizeof(MsgID);
-    memcpy(SubMsg, &Qos, sizeof(Qos));
-    return SubMsg + sizeof(Qos);
-}
-
-/**
- * \brief Utility function to unpack SBN protocol subscription information.
- *
- * @param[in] SubMsg Source SBN msg buffer for subscription information.
- * @param[out] MsgIDPtr A pointer to the CCSDS message ID for the subscription.
- * @param[out] QosPtr A pointer to CCSDS quality of service for the
- *             subscription.
- */
-static void UnPackSub(void *SubMsg, CFE_SB_MsgId_t *MsgIDPtr,
-    CFE_SB_Qos_t *QosPtr)
-{
-    memcpy(MsgIDPtr, SubMsg, sizeof(*MsgIDPtr));
-    *MsgIDPtr = CFE_MAKE_BIG16(*MsgIDPtr);
-    memcpy(QosPtr, SubMsg + sizeof(*MsgIDPtr), sizeof(*QosPtr));
-}
-
-/**
  * \brief Sends a local subscription over the wire to a peer.
  *
  * @param[in] SubType Whether this is a subscription or unsubscription.
  * @param[in] MsgID The CCSDS message ID being (un)subscribed.
- * @param[in] Qos The CCSDS quality of service being (un)subscribed.
+ * @param[in] QoS The CCSDS quality of service being (un)subscribed.
  * @param[in] Peer The Peer interface
  */
 static void SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
-    CFE_SB_Qos_t Qos, SBN_PeerInterface_t *Peer)
+    CFE_SB_Qos_t QoS, SBN_PeerInterface_t *Peer)
 {
-    SBN_PackedSubs_t SubMsg;
-    memset(&SubMsg, 0, sizeof(SubMsg));
-    memcpy(SubMsg.VersionHash, SBN_IDENT, SBN_IDENT_LEN);
-    SubMsg.SubCnt = CFE_MAKE_BIG16(1);
+    uint8 Buf[SBN_PACKED_SUB_SZ];
+    Pack_t Pack;
+    Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
+    Pack_Data(&Pack, SBN_IDENT, SBN_IDENT_LEN);
+    Pack_UInt16(&Pack, 1);
 
-    PackSub(&SubMsg.Subs[0], MsgID, Qos);
+    Pack_MsgID(&Pack, MsgID);
+    Pack_Data(&Pack, &QoS, sizeof(QoS)); /* 2 uint8's */
 
-    SBN_SendNetMsg(SubType,
-        SBN_IDENT_LEN + sizeof(SubMsg.SubCnt) + SBN_PACKED_HDR_SIZE,
-        (SBN_Payload_t *)&SubMsg, Peer);
+    SBN_SendNetMsg(SubType, Pack.BufUsed, Buf, Peer);
 }/* end SendLocalSubToPeer */
 
 /**
@@ -110,26 +77,25 @@ static void SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
  */
 void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
 {
-    SBN_PackedSubs_t SubMsg;
-    memset(&SubMsg, 0, sizeof(SubMsg));
-    memcpy(SubMsg.VersionHash, SBN_IDENT, SBN_IDENT_LEN);
-    SubMsg.SubCnt = CFE_MAKE_BIG16(SBN.Hk.SubCount);
+    uint8 Buf[SBN_PACKED_SUB_SZ];
+    Pack_t Pack;
+    Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
+    Pack_Data(&Pack, SBN_IDENT, SBN_IDENT_LEN);
+    Pack_UInt16(&Pack, SBN.SubCnt);
 
     int i = 0;
-    for(i = 0; i < SBN.Hk.SubCount; i++)
+    for(i = 0; i < SBN.SubCnt; i++)
     {
-        PackSub(&SubMsg.Subs[i], SBN.LocalSubs[i].MsgID,
-            SBN.LocalSubs[i].Qos);
+        Pack_MsgID(&Pack, SBN.Subs[i].MsgID);
+        /* 2 uint8's */
+        Pack_Data(&Pack, &SBN.Subs[i].QoS, sizeof(SBN.Subs[i].QoS));
     }/* end for */
 
-    SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, 
-        SBN_IDENT_LEN + sizeof(SubMsg.Subs)
-            + SBN_PACKED_HDR_SIZE * SBN.Hk.SubCount,
-        (SBN_Payload_t *)&SubMsg, Peer);
+    SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, Pack.BufUsed, Buf, Peer);
 }/* end SBN_SendLocalSubsToPeer */
 
 /**
- * Utility to find the subscription index (SBN.LocalSubs)
+ * Utility to find the subscription index (SBN.Subs)
  * that is subscribed to the CCSDS message ID.
  *
  * @param[out] IdxPtr The subscription index found.
@@ -140,9 +106,9 @@ static int IsMsgIDSub(int *IdxPtr, CFE_SB_MsgId_t MsgID)
 {
     int     i = 0;
 
-    for(i = 0; i < SBN.Hk.SubCount; i++)
+    for(i = 0; i < SBN.SubCnt; i++)
     {
-        if(SBN.LocalSubs[i].MsgID == MsgID)
+        if(SBN.Subs[i].MsgID == MsgID)
         {
             if (IdxPtr)
             {
@@ -171,7 +137,7 @@ static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID,
 {
     int     i = 0;
 
-    for(i = 0; i < Peer->Status.SubCount; i++)
+    for(i = 0; i < Peer->SubCnt; i++)
     {
         if(Peer->Subs[i].MsgID == MsgID)
         {
@@ -189,14 +155,14 @@ static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID,
  * first instance of a subscription for this message ID.
  *
  * @param[in] MsgID The CCSDS Message ID of the local subscription.
- * @param[in] Qos The CCSDS quality of service of the local subscription.
+ * @param[in] QoS The CCSDS quality of service of the local subscription.
  */
-static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
+static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 {
     /* don't subscribe to event messages */
     if(MsgID == CFE_EVS_EVENT_MSG_MID) return;
 
-    if(SBN.Hk.SubCount >= SBN_MAX_SUBS_PER_PEER)
+    if(SBN.SubCnt >= SBN_MAX_SUBS_PER_PEER)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
                 "local subscription ignored for MsgID 0x%04X, max (%d) met",
@@ -209,26 +175,26 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
     /* if there is already an entry for this msg id,just incr InUseCtr */
     if(IsMsgIDSub(&SubIdx, MsgID))
     {
-        SBN.LocalSubs[SubIdx].InUseCtr++;
+        SBN.Subs[SubIdx].InUseCtr++;
         /* does not send to peers, as they already know */
         return;
     }/* end if */
 
-    /* log new entry into LocalSubs array */
-    SBN.LocalSubs[SBN.Hk.SubCount].InUseCtr = 1;
-    SBN.LocalSubs[SBN.Hk.SubCount].MsgID = MsgID;
-    SBN.LocalSubs[SBN.Hk.SubCount].Qos = Qos;
-    SBN.Hk.SubCount++;
+    /* log new entry into Subs array */
+    SBN.Subs[SBN.SubCnt].InUseCtr = 1;
+    SBN.Subs[SBN.SubCnt].MsgID = MsgID;
+    SBN.Subs[SBN.SubCnt].QoS = QoS;
+    SBN.SubCnt++;
 
     int NetIdx = 0, PeerIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            SendLocalSubToPeer(SBN_SUBSCRIBE_MSG, MsgID, Qos, Peer);
+            SendLocalSubToPeer(SBN_SUBSCRIBE_MSG, MsgID, QoS, Peer);
         }/* end for */
     }/* end for */
 }/* end ProcessLocalSub */
@@ -238,7 +204,7 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t Qos)
  * last instance of a subscription for this message ID.
  *
  * @param[in] MsgID The CCSDS Message ID of the local unsubscription.
- * @param[in] Qos The CCSDS quality of service of the local unsubscription.
+ * @param[in] QoS The CCSDS quality of service of the local unsubscription.
  */
 static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
 {
@@ -249,42 +215,42 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
         return;
     }/* end if */
 
-    SBN.LocalSubs[SubIdx].InUseCtr--;
+    SBN.Subs[SubIdx].InUseCtr--;
 
     /* do not modify the array and tell peers
     ** until the # of local subscriptions = 0
     */
-    if(SBN.LocalSubs[SubIdx].InUseCtr > 0)
+    if(SBN.Subs[SubIdx].InUseCtr > 0)
     {
         return;
     }/* end if */
 
     /* remove sub from array for and
     ** shift all subscriptions in higher elements to fill the gap
-    ** note that the LocalSubs[] array has one extra element to allow for an
+    ** note that the Subs[] array has one extra element to allow for an
     ** unsub from a full table.
     */
-    for(; SubIdx < SBN.Hk.SubCount; SubIdx++)
+    for(; SubIdx < SBN.SubCnt; SubIdx++)
     {
-        memcpy(&SBN.LocalSubs[SubIdx], &SBN.LocalSubs[SubIdx + 1],
+        memcpy(&SBN.Subs[SubIdx], &SBN.Subs[SubIdx + 1],
             sizeof(SBN_Subs_t));
     }/* end for */
 
-    SBN.Hk.SubCount--;
+    SBN.SubCnt--;
 
     /* send unsubscription to all peers if peer state is heartbeating and */
     /* only if no more local subs (InUseCtr = 0)  */
     int NetIdx = 0, PeerIdx = 0;
-    for(NetIdx = 0; NetIdx < SBN.Hk.NetCount; NetIdx++)
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-        for(PeerIdx = 0; PeerIdx < Net->Status.PeerCount; PeerIdx++)
+        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             SendLocalSubToPeer(SBN_UN_SUBSCRIBE_MSG,
-                SBN.LocalSubs[PeerIdx].MsgID,
-                SBN.LocalSubs[PeerIdx].Qos, Peer);
+                SBN.Subs[PeerIdx].MsgID,
+                SBN.Subs[PeerIdx].QoS, Peer);
         }/* end for */
     }/* end for */
 }/* end ProcessLocalUnsub */
@@ -342,9 +308,9 @@ int32 SBN_CheckSubscriptionPipe(void)
 }/* end SBN_CheckSubscriptionPipe */
 
 static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
-    CFE_SB_Qos_t Qos)
+    CFE_SB_Qos_t QoS)
 {   
-    int idx = 0, FirstOpenSlot = Peer->Status.SubCount;
+    int idx = 0, FirstOpenSlot = Peer->SubCnt;
     uint32 Status = CFE_SUCCESS;
     
     /* if msg id already in the list, ignore */
@@ -353,11 +319,11 @@ static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
         return;
     }/* end if */
 
-    if(Peer->Status.SubCount >= SBN_MAX_SUBS_PER_PEER)
+    if(Peer->SubCnt >= SBN_MAX_SUBS_PER_PEER)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "cannot process subscription from '%s', max (%d) met",
-            Peer->Status.Name, SBN_MAX_SUBS_PER_PEER);
+            Peer->Name, SBN_MAX_SUBS_PER_PEER);
         return;
     }/* end if */
     
@@ -372,13 +338,13 @@ static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     
     /* log the subscription in the peer table */ 
     Peer->Subs[FirstOpenSlot].MsgID = MsgID;
-    Peer->Subs[FirstOpenSlot].Qos = Qos;
+    Peer->Subs[FirstOpenSlot].QoS = QoS;
     
-    Peer->Status.SubCount++;
+    Peer->SubCnt++;
 }/* end AddSub */
 
 static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
-    CFE_SB_Qos_t Qos)
+    CFE_SB_Qos_t QoS)
 {
     if(OS_MutSemTake(SBN.RemapMutex) != OS_SUCCESS)
     {
@@ -392,7 +358,7 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     int idx = 0;
     for(idx = 0; !RemappedFlag && idx < SBN.RemapTbl->EntryCnt; idx++)
     {
-        if(SBN.RemapTbl->Entries[idx].ProcessorID == Peer->Status.ProcessorID
+        if(SBN.RemapTbl->Entries[idx].ProcessorID == Peer->ProcessorID
             && SBN.RemapTbl->Entries[idx].FromMID == MsgID
             && SBN.RemapTbl->Entries[idx].ToMID == 0x0000)
         {
@@ -409,10 +375,10 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     for(idx = 0; idx < SBN.RemapTbl->EntryCnt; idx++)
     {
         if(SBN.RemapTbl->Entries[idx].ProcessorID
-                == Peer->Status.ProcessorID
+                == Peer->ProcessorID
             && SBN.RemapTbl->Entries[idx].ToMID == MsgID)
         {
-            AddSub(Peer, SBN.RemapTbl->Entries[idx].FromMID, Qos);
+            AddSub(Peer, SBN.RemapTbl->Entries[idx].FromMID, QoS);
             RemappedFlag = TRUE;
         }/* end if */
     }/* end for */
@@ -420,7 +386,7 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     /* if there's no remap ID's, subscribe to the original MID. */
     if(!RemappedFlag)
     {
-        AddSub(Peer, MsgID, Qos);
+        AddSub(Peer, MsgID, QoS);
     }/* end if */
 
     if(OS_MutSemGive(SBN.RemapMutex) != OS_SUCCESS)
@@ -438,26 +404,32 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
  */
 void SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    SBN_PackedSubs_t *SubMsg = Msg;
+    Unpack_t Unpack;
+    char VersionHash[SBN_IDENT_LEN];
 
-    if(strncmp(SubMsg->VersionHash, SBN_IDENT, SBN_IDENT_LEN))
+    Unpack_Init(&Unpack, Msg, CFE_SB_MAX_SB_MSG_SIZE);
+
+    Unpack_Data(&Unpack, VersionHash, SBN_IDENT_LEN);
+
+    if(strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
         CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
             "version number mismatch with peer CpuID %d",
-            Peer->Status.ProcessorID);
+            Peer->ProcessorID);
     }
 
-    int SubCnt = CFE_MAKE_BIG16(SubMsg->SubCnt);
+    uint16 SubCnt;
+    Unpack_UInt16(&Unpack, &SubCnt);
 
     int SubIdx = 0;
     for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID;
-        CFE_SB_Qos_t Qos;
+        Unpack_MsgID(&Unpack, &MsgID);
+        CFE_SB_Qos_t QoS;
+        Unpack_Data(&Unpack, &QoS, sizeof(QoS));
 
-        UnPackSub((void *)&SubMsg->Subs[SubIdx], &MsgID, &Qos);
-
-        ProcessSubFromPeer(Peer, MsgID, Qos);
+        ProcessSubFromPeer(Peer, MsgID, QoS);
     }/* end for */
 }/* SBN_ProcessSubsFromPeer */
 
@@ -471,7 +443,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
             "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
-            CFE_CPU_NAME, Peer->Status.Name, htons(MsgID));
+            CFE_CPU_NAME, Peer->Name, htons(MsgID));
         return;
     }/* end if */
 
@@ -480,7 +452,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     ** note that the Subs[] array has one extra element to allow for an
     ** unsub from a full table.
     */
-    for(i = idx; i < Peer->Status.SubCount; i++)
+    for(i = idx; i < Peer->SubCnt; i++)
     {
         memcpy(&Peer->Subs[i],
             &Peer->Subs[i + 1],
@@ -488,7 +460,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     }/* end for */
 
     /* decrement sub cnt */
-    Peer->Status.SubCount--;
+    Peer->SubCnt--;
 
     /* unsubscribe to the msg id on the peer pipe */
     Status = CFE_SB_UnsubscribeLocal(MsgID, Peer->Pipe);
@@ -508,24 +480,31 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
  */
 void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    SBN_PackedSubs_t *SubMsg = Msg;
+    Unpack_t Unpack;
 
-    if(strncmp(SubMsg->VersionHash, SBN_IDENT, SBN_IDENT_LEN))
+    Unpack_Init(&Unpack, Msg, CFE_SB_MAX_SB_MSG_SIZE);
+
+    char VersionHash[SBN_IDENT_LEN];
+
+    Unpack_Data(&Unpack, VersionHash, SBN_IDENT_LEN);
+
+    if(strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
         CFE_EVS_SendEvent(SBN_PROTO_EID, CFE_EVS_ERROR,
             "version number mismatch with peer CpuID %d",
-            Peer->Status.ProcessorID);
+            Peer->ProcessorID);
     }
 
-    int SubCnt = CFE_MAKE_BIG16(SubMsg->SubCnt);
+    uint16 SubCnt;
+    Unpack_UInt16(&Unpack, &SubCnt);
 
     int SubIdx = 0;
     for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
-        CFE_SB_MsgId_t MsgID = 0x0000;
-        CFE_SB_Qos_t Qos;
-
-        UnPackSub((void *)&SubMsg->Subs[SubIdx], &MsgID, &Qos);
+        CFE_SB_MsgId_t MsgID;
+        Unpack_MsgID(&Unpack, &MsgID);
+        CFE_SB_Qos_t QoS;
+        Unpack_Data(&Unpack, &QoS, sizeof(QoS));
 
         int idx, RemappedFlag = 0;
 
@@ -540,7 +519,7 @@ void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         for(idx = 0; RemappedFlag == 0 && idx < SBN.RemapTbl->EntryCnt; idx++)
         {   
             if(SBN.RemapTbl->Entries[idx].ProcessorID
-                    == Peer->Status.ProcessorID
+                    == Peer->ProcessorID
                 && SBN.RemapTbl->Entries[idx].FromMID == MsgID
                 && SBN.RemapTbl->Entries[idx].ToMID == 0x0000)
             {   
@@ -557,7 +536,7 @@ void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         for(idx = 0; idx < SBN.RemapTbl->EntryCnt; idx++)
         {   
             if(SBN.RemapTbl->Entries[idx].ProcessorID
-                    == Peer->Status.ProcessorID
+                    == Peer->ProcessorID
                 && SBN.RemapTbl->Entries[idx].ToMID == MsgID)
             {   
                 /* Unsubscribe from each "ToMID" match. */
@@ -618,7 +597,7 @@ void SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
     int i = 0;
     uint32 Status = CFE_SUCCESS;
 
-    for(i = 0; i < Peer->Status.SubCount; i++)
+    for(i = 0; i < Peer->SubCnt; i++)
     {
         Status = CFE_SB_UnsubscribeLocal(Peer->Subs[i].MsgID,
             Peer->Pipe);
@@ -632,8 +611,8 @@ void SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
 
     CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
         "unsubscribed %d message id's from %s",
-        (int)Peer->Status.SubCount,
-        Peer->Status.Name);
+        (int)Peer->SubCnt,
+        Peer->Name);
 
-    Peer->Status.SubCount = 0;
+    Peer->SubCnt = 0;
 }/* end SBN_RemoveAllSubsFromPeer */

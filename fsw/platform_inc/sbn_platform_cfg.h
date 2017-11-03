@@ -33,10 +33,10 @@
 #define SBN_MAX_SUBS_PER_PEER       256 
 
 /** @brief Maximum length of the name field in the `SbnPeerData.dat` file. */
-#define SBN_MAX_PEERNAME_LENGTH     32
+#define SBN_MAX_PEER_NAME_LEN       32
 
 /** @brief Maximum length of the network field in the `SbnPeerData.dat` file. */
-#define SBN_MAX_NET_NAME_LENGTH     16
+#define SBN_MAX_NET_NAME_LEN        16
 
 /**
  * @brief At most process this many SB messages per peer per wakeup.
@@ -101,7 +101,7 @@
  * @brief The maximum length of a line of configuration data in the peer data
  * file.
  */
-#define SBN_PEER_FILE_LINE_SIZE       128
+#define SBN_PEER_FILE_LINE_SZ         128
 
 /** @brief The volatile memory location for the module data file. */
 #define SBN_VOL_MODULE_FILENAME       "/ram/SbnModuleData.dat"
@@ -113,7 +113,7 @@
  * @brief The maximum length of a line of configuration data in the peer data
  * file.
  */
-#define SBN_MODULE_FILE_LINE_SIZE     128
+#define SBN_MODULE_FILE_LINE_SZ       128
 
 /** @brief Maximum number of protocol modules. */
 #define SBN_MAX_INTERFACE_TYPES       8
@@ -122,7 +122,7 @@
  * @brief SBN modules can provide status messages for housekeeping requests,
  * this is the maximum length those messages can be.
  */
-#define SBN_MOD_STATUS_MSG_SIZE       128
+#define SBN_MOD_STATUS_MSG_SZ         128
 
 /**
  * @brief Define this to use one task per peer pipe to send messages (each

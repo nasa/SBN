@@ -49,7 +49,7 @@ typedef struct
             Connected,
             BufNum;
     OS_time_t LastConnectTry;
-    int RecvSize;
+    int RecvSz;
 } SBN_TCP_Peer_t;
 
 #endif /* _sbn_tcp_if_struct_h_ */

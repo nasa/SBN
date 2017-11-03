@@ -53,12 +53,12 @@ int SPW_GetStatus(SPW_SBNEntry_t spwEntry, char *statusName) {
  *
  * @param spwEntry Entry associated with this SpaceWire interface
  * @param ProtoMsgBuf Pointer to the target data buffer
- * @param dataSize Size of the data buffer in bytes
+ * @param dataSz Size of the data buffer in bytes
  * @param error Pointer to store error status from the copy operation
  * @return dataRead Size in bytes of the copied data if successful, -1 if unsuccessful
  */
 
-int SPW_GetData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSize, int *error) {
+int SPW_GetData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSz, int *error) {
  /* TODO: this needs to 'packet-ize' the incoming data, it currently just takes everything in the incoming buffer */
  /* TODO: Use OSAL functions for file IO */
 	FILE *fp;
@@ -75,7 +75,7 @@ int SPW_GetData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSize, int *er
 	}
 
 	/* Copy data from the device file to the buffer, get error */
-	dataRead = fread(dataBuffer, 1, dataSize, fp);
+	dataRead = fread(dataBuffer, 1, dataSz, fp);
 	&error = ferror(fp);
 
 	if (error == SPW_FREAD_NO_ERROR) {
@@ -89,12 +89,12 @@ int SPW_GetData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSize, int *er
  *
  * @param spwEntry Entry associated with this SpaceWire interface
  * @param ProtoMsgBuf Pointer to the target data buffer
- * @param dataSize Size of the data buffer in bytes
+ * @param dataSz Size of the data buffer in bytes
  * @param error Pointer to store error status from the copy operation
  * @return dataRead Size in bytes of the copied data if successful, -1 if unsuccessful
  */
 
-int SPW_SendData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSize, int *error) {
+int SPW_SendData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSz, int *error) {
  /* TODO: this needs to 'packet-ize' the incoming data, it currently just takes everything in the incoming buffer */
  /* TODO: Use OSAL functions for file IO */
 	FILE *fp;
@@ -111,7 +111,7 @@ int SPW_SendData(SPW_SBNEntry_t spwEntry, void *dataBuffer, int dataSize, int *e
 	}
 
 	/* Copy data from the buffer to the device file, get error */
-	dataRead = fwrite(dataBuffer, 1, dataSize, fp);
+	dataRead = fwrite(dataBuffer, 1, dataSz, fp);
 	&error = ferror(fp);
 
 	if (error == SPW_FREAD_NO_ERROR) {
@@ -163,7 +163,7 @@ int SBN_SPWRcvMsg(SBN_InterfaceData *Peer, NetDataUnion *DataMsgBuf) {
 	int dataRead;
 	int error;
 
-	dataRead = SPW_GetData(peer->spwEntry, (*void)ProtoMsgBuf, SBN_MAX_MSG_SIZE, &error);
+	dataRead = SPW_GetData(peer->spwEntry, (*void)ProtoMsgBuf, SBN_MAX_MSG_SZ, &error);
 
 	/* TODO: determine whether to only check for empty buffer on return, or include other error checks */
     if (dataRead <= 0) { /* Positive number indicates byte length of message */
@@ -251,14 +251,14 @@ int32 SBN_InitSPWIF(SBN_InterfaceData *Data) {
  * Sends a message to a peer over a SPW interface.
  *
  * @param MsgType      Type of Message
- * @param MsgSize      Size of Message
+ * @param MsgSz        Size of Message
  * @param HostList     The array of SBN_InterfaceData structs that describes the host
  * @param SenderPtr    Sender information
  * @param IfData       The SBN_InterfaceData struct describing this peer
  * @param ProtoMsgBuf  Protocol message
  * @param DataMsgBuf   Data message
  */
-int32 SBN_SendSPWNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf) {
+int32 SBN_SendSPWNetMsg(uint32 MsgType, uint32 MsgSz, SBN_InterfaceData *HostList[], int32 NumHosts, CFE_SB_SenderId_t *SenderPtr, SBN_InterfaceData *IfData, SBN_NetProtoMsg_t *ProtoMsgBuf, NetDataUnion *DataMsgBuf) {
     int    status, found = 0;
     SPW_SBNPeerData_t *peer;
     SPW_SBNHostData_t *host;
@@ -281,7 +281,7 @@ int32 SBN_SendSPWNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostL
             strncpy((char *)&DataMsgBuf->Hdr.SrcCpuName,CFE_CPU_NAME,SBN_MAX_PEERNAME_LENGTH);
 
             DataMsgBuf->Hdr.Type = MsgType;
-            status = SPW_SendData(peer->spwEntry, (*void)ProtoMsgBuf, MsgSize, &error);
+            status = SPW_SendData(peer->spwEntry, (*void)ProtoMsgBuf, MsgSz, &error);
 
             break;
 
@@ -293,7 +293,7 @@ int32 SBN_SendSPWNetMsg(uint32 MsgType, uint32 MsgSize, SBN_InterfaceData *HostL
             ProtoMsgBuf->Hdr.Type = MsgType;
             strncpy(ProtoMsgBuf->Hdr.SrcCpuName, CFE_CPU_NAME, SBN_MAX_PEERNAME_LENGTH);
 
-            status = SPW_SendData(peer->spwEntry, (*void)ProtoMsgBuf, MsgSize, &error);
+            status = SPW_SendData(peer->spwEntry, (*void)ProtoMsgBuf, MsgSz, &error);
             break;
 
         default:

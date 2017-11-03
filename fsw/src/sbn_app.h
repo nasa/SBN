@@ -69,13 +69,15 @@ void SBN_RecvNetMsgs(void);
 void SBN_CheckPeerPipes(void);
 #endif /* !SBN_SEND_TASK */
 
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSize_t MsgSize,
-    SBN_Payload_t *Msg, SBN_PeerInterface_t *Peer);
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
+    void *Msg, SBN_PeerInterface_t *Peer);
 /**
  * \brief SBN global data structure definition
  */
 typedef struct
 {
+    uint16 NetCnt;
+
     /** \brief Data only on host definitions. */
     SBN_NetInterface_t Nets[SBN_MAX_NETS];
 
@@ -96,13 +98,18 @@ typedef struct
     CFE_SB_PipeId_t CmdPipe;
 
     /**
+     * \brief Number of local subs.
+     */
+    uint16 SubCnt;
+
+    /**
      * \brief All subscriptions by apps connected to the SB.
      *
      * When a peer and I connect, I send that peer all subscriptions I have
      * and they send me theirs. All messages on the local bus that are
      * subscribed to by the peer are sent over, and vice-versa.
      */
-    SBN_Subs_t LocalSubs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
 
     /** \brief CFE scheduling pipe */
     CFE_SB_PipeId_t SchPipe;
@@ -118,9 +125,6 @@ typedef struct
      */
     uint32 ModuleIDs[SBN_MAX_INTERFACE_TYPES];
 
-    /** \brief Housekeeping information. */
-    SBN_HkPacket_t Hk;
-
     CFE_TBL_Handle_t TblHandle;
     SBN_RemapTbl_t *RemapTbl;
     uint8 RemapEnabled; /* !0 == enabled */
@@ -133,6 +137,7 @@ typedef struct
 
 #endif
 
+    uint16 CmdCnt, CmdErrCnt;
 } SBN_App_t;
 
 /**
@@ -145,7 +150,7 @@ extern SBN_App_t SBN;
 */
 void SBN_AppMain(void);
 void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
-    SBN_CpuID_t CpuID, SBN_MsgSize_t MsgSize, void *Msg);
+    SBN_CpuID_t CpuID, SBN_MsgSz_t MsgSz, void *Msg);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
 #endif /* _sbn_app_ */
