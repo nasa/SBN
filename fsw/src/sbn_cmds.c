@@ -342,15 +342,15 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
         return;
     }/* end if */
 
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
+
     uint8 HKBuf[SBN_HK_LEN];
     Pack_t Pack;
     
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HK_LEN, TRUE);
+
     Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE,
         SBN_HK_LEN - CFE_SB_TLM_HDR_SIZE, 1);
-
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "hk command");
-
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HK_LEN, TRUE);
 
     Pack_UInt8(&Pack, SBN_HK_CC);
     Pack_UInt16(&Pack, SBN.CmdCnt);
@@ -398,13 +398,14 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
 
     uint8 HKBuf[SBN_HKNET_LEN];
     Pack_t Pack;
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKNET_LEN, TRUE);
+
     Pack_Init(&Pack,
         HKBuf + CFE_SB_TLM_HDR_SIZE,
         SBN_HKNET_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKNET_LEN, TRUE);
-
-    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt8(&Pack, SBN_HK_NET_CC);
     Pack_UInt8(&Pack, SBN_MAX_NET_NAME_LEN);
     Pack_Data(&Pack, SBN.Nets[NetIdx].Name, SBN_MAX_NET_NAME_LEN);
     Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolID);
@@ -460,13 +461,14 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
 
     uint8 HKBuf[SBN_HKPEER_LEN];
     Pack_t Pack;
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEER_LEN, TRUE);
+
     Pack_Init(&Pack,
         HKBuf + CFE_SB_TLM_HDR_SIZE,
         SBN_HKPEER_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEER_LEN, TRUE);
-
-    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt8(&Pack, SBN_HK_PEER_CC);
     Pack_Data(&Pack, &Peer->QoS, sizeof(Peer->QoS));
     Pack_UInt8(&Pack, SBN_MAX_PEER_NAME_LEN);
     Pack_Data(&Pack, Peer->Name, SBN_MAX_PEER_NAME_LEN);
@@ -484,7 +486,7 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     */
     CFE_SB_TimeStampMsg((CFE_SB_Msg_t *) HKBuf);
     CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
-}/* end HKCmd */
+}/* end HKPeerCmd */
 
 /** \brief Send My Subscriptions
  *
@@ -507,13 +509,14 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 
     uint8 HKBuf[SBN_HKMYSUBS_LEN];
     Pack_t Pack;
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKMYSUBS_LEN, TRUE);
+
     Pack_Init(&Pack,
         HKBuf + CFE_SB_TLM_HDR_SIZE,
         SBN_HKMYSUBS_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKMYSUBS_LEN, TRUE);
-
-    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
     Pack_UInt16(&Pack, SBN.SubCnt);
     int i;
     for(i = 0; i < SBN.SubCnt; i++)
@@ -574,16 +577,18 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 
     uint8 HKBuf[SBN_HKPEERSUBS_LEN];
     Pack_t Pack;
+
+    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEERSUBS_LEN, TRUE);
+
     Pack_Init(&Pack,
         HKBuf + CFE_SB_TLM_HDR_SIZE,
         SBN_HKPEERSUBS_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEERSUBS_LEN, TRUE);
-
-    Pack_UInt8(&Pack, SBN_HK_CC);
+    Pack_UInt8(&Pack, SBN_HK_PEERSUBS_CC);
     Pack_UInt16(&Pack, NetIdx);
     Pack_UInt16(&Pack, PeerIdx);
     Pack_UInt16(&Pack, Peer->SubCnt);
+
     int i;
     for(i = 0; i < Peer->SubCnt; i++)
     {
