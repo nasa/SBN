@@ -6,6 +6,12 @@
 #include "osconfig.h"
 #include "cfe.h"
 
+#ifdef SOFTWARE_BIG_BIT_ORDER
+    #define CFE_MAKE_BIG32(n) (n)
+#else /* !SOFTWARE_BIG_BIT_ORDER */
+    #define CFE_MAKE_BIG32(n) ( (((n) << 24) & 0xFF000000) | (((n) << 8) & 0x00FF0000) | (((n) >> 8) & 0x0000FF00) | (((n) >> 24) & 0x000000FF) )
+#endif /* SOFTWARE_BIG_BIT_ORDER */
+
 typedef struct
 {   
     void *Buf;

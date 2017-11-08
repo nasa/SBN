@@ -381,12 +381,6 @@ int32 SBN_GetPeerFileData(void)
 
 #endif /* CFE_ES_CONFLOADER */
 
-#ifdef SOFTWARE_BIG_BIT_ORDER
-  #define CFE_MAKE_BIG32(n) (n)
-#else /* !SOFTWARE_BIG_BIT_ORDER */
-  #define CFE_MAKE_BIG32(n) ( (((n) << 24) & 0xFF000000) | (((n) << 8) & 0x00FF0000) | (((n) >> 8) & 0x0000FF00) | (((n) >> 24) & 0x000000FF) )
-#endif /* SOFTWARE_BIG_BIT_ORDER */
-
 static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
@@ -1185,7 +1179,7 @@ static int32 WaitForWakeup(int32 iTimeOut)
  */
 static int WaitForSBStartup(void)
 {
-    CFE_EVS_EventTlm_t *EvsTlm = NULL;
+    CFE_EVS_Packet_t *EvsTlm = NULL;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     uint8 counter = 0;
     CFE_SB_PipeId_t EventPipe = 0;
@@ -1232,7 +1226,7 @@ static int WaitForSBStartup(void)
         {
             if(CFE_SB_GetMsgId(SBMsgPtr) == CFE_EVS_EVENT_MSG_MID)
             {
-                EvsTlm = (CFE_EVS_EventTlm_t *)SBMsgPtr;
+                EvsTlm = (CFE_EVS_Packet_t *)SBMsgPtr;
 
                 /* If it's an event message from SB, make sure it's the init
                  * message
