@@ -36,7 +36,7 @@ void SBN_SendSubsRequests(void)
     CFE_SB_CmdHdr_t     SBCmdMsg;
 
     /* Turn on SB subscription reporting */
-    CFE_SB_InitMsg(&SBCmdMsg.Pri, CFE_SB_CMD_MID, sizeof(CFE_SB_CmdHdr_t),
+    CFE_SB_InitMsg(&SBCmdMsg, CFE_SB_CMD_MID, sizeof(CFE_SB_CmdHdr_t),
         TRUE);
     CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t) &SBCmdMsg,
         CFE_SB_ENABLE_SUB_REPORTING_CC);

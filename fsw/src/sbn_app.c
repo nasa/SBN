@@ -32,6 +32,7 @@
 #include "cfe_es.h" /* PerfLog */
 #include "cfe_platform_cfg.h"
 #include "cfe_msgids.h"
+#include "cfe_version.h"
 
 #ifdef CFE_ES_CONFLOADER
 #include "cfe_es_conf.h"
@@ -381,6 +382,12 @@ int32 SBN_GetPeerFileData(void)
 
 #endif /* CFE_ES_CONFLOADER */
 
+#if CFE_MAJOR_VERSION > 6 || CFE_MINOR_VERSION >= 6
+#define SECHDR Sec
+#else
+#define SECHDR SecHdr
+#endif
+
 static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
@@ -388,31 +395,31 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
     {   
         CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
 
-        uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->SecHdr);
+        uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->SECHDR);
         Seconds = CFE_MAKE_BIG32(Seconds);
-        CCSDS_WR_SEC_HDR_SEC(TlmPktPtr->SecHdr, Seconds);
+        CCSDS_WR_SEC_HDR_SEC(TlmPktPtr->SECHDR, Seconds);
 
         /* SBN sends CCSDS telemetry messages with secondary headers in
          * big-endian order.
          */
         if(CCSDS_TIME_SIZE == 6)
         {
-            uint16 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr);
+            uint16 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR);
             SubSeconds = CFE_MAKE_BIG16(SubSeconds);
-            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr, SubSeconds);
+            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR, SubSeconds);
         }
         else
         {
-            uint32 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr);
+            uint32 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR);
             SubSeconds = CFE_MAKE_BIG32(SubSeconds);
-            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SecHdr, SubSeconds);
+            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR, SubSeconds);
         }/* end if */
     }
     else if(CCSDSType == CCSDS_CMD)
     {
         CCSDS_CmdPkt_t *CmdPktPtr = (CCSDS_CmdPkt_t *)Msg;
 
-        CmdPktPtr->SecHdr.Command = CFE_MAKE_BIG16(CmdPktPtr->SecHdr.Command);;
+        CmdPktPtr->SECHDR.Command = CFE_MAKE_BIG16(CmdPktPtr->SECHDR.Command);;
     /* else what? */
     }/* end if */
 }/* end SwapCCSDS */
