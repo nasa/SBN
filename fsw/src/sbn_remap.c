@@ -45,13 +45,15 @@ static int BinarySearch(void *Entries, void *SearchEntry,
 {
     int start, end, midpoint, found;
 
-    for(start = 0, end = EntryCnt - 1, found = 0; found == 0 && end > start; )
+    for(start = 0, end = EntryCnt - 1, found = 0;
+        found == 0 && start <= end;
+        )
     {
         midpoint = (end + start) / 2;
         int c = EntryCompare(SearchEntry, Entries + EntrySz * midpoint);
         if (c == 0)
         {
-            found = 1;
+            return midpoint;
         }
         else if (c > 0)
         {
@@ -59,7 +61,7 @@ static int BinarySearch(void *Entries, void *SearchEntry,
         }
         else
         {   
-           end = midpoint;
+           end = midpoint - 1;
         }/* end if */
     }/* end while */
 
