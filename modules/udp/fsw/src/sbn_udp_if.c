@@ -135,7 +135,7 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
         if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_PEER_HEARTBEAT)
         {
-            return SBN_UDP_Send(Peer, SBN_UDP_HEARTBEAT_MSG, 0, NULL);
+            return SBN_SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         }/* end if */
     }
     else
@@ -143,7 +143,7 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
         if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
-            return SBN_UDP_Send(Peer, SBN_UDP_ANNOUNCE_MSG, 0, NULL);
+            return SBN_SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
         }/* end if */
     }/* end if */
     return SBN_SUCCESS;
