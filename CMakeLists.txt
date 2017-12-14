@@ -7,12 +7,9 @@ include_directories(${CFECORE_SOURCE_DIR}/src/sb)
 include_directories(fsw/platform_inc)
 
 aux_source_directory(fsw/src APP_SRC_FILES)
-aux_source_directory(fsw/tables APP_SRC_FILES)
 
 # Create the app module
 add_cfe_app(sbn ${APP_SRC_FILES})
 
-if (COMMAND add_cfe_tables)
-    aux_source_directory(fsw/tables APP_TBL_FILES)
-    add_cfe_tables(sbn ${APP_TBL_FILES})
-endif(COMMAND add_cfe_tables)
+aux_source_directory(fsw/tables APP_TBL_FILES)
+add_cfe_tables(sbn ${APP_TBL_FILES})

@@ -1374,15 +1374,13 @@ void SBN_AppMain(void)
         return;
     }/* end if */
 
-    Status = SBN_LoadTbl(&SBN.TblHandle);
+    Status = SBN_LoadTbl(&SBN.RemapTbl);
     if (Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
             "SBN failed to load SBN.RemapTbl (%d)", Status);
         return;
     }/* end if */
-
-    CFE_TBL_GetAddress((void **)&SBN.RemapTbl, SBN.TblHandle);
 
     #ifdef SBN_REMAP_ENABLED
     SBN.RemapEnabled = 1;

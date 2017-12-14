@@ -142,4 +142,6 @@
  */
 #define SBN_REMAP_ENABLED
 
+#define SBN_TBL_FILENAME "/cf/sbn_remap_tbl.tbl"
+
 #endif /* _sbn_platform_cfg_h_ */

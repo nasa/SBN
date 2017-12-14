@@ -125,7 +125,6 @@ typedef struct
      */
     uint32 ModuleIDs[SBN_MAX_INTERFACE_TYPES];
 
-    CFE_TBL_Handle_t TblHandle;
     SBN_RemapTbl_t *RemapTbl;
     uint8 RemapEnabled; /* !0 == enabled */
     uint32 RemapMutex;

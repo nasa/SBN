@@ -67,11 +67,10 @@ SBN_RemapTbl_t;
  * This function loads SBN tables (only one, the remap table, currently)
  * into memory, and validates the table's contents.
  * 
- * @param HandlePtr[in] The table handle to attach the table to.
+ * @param TblPtr[out] The table pointer to load.
+ *
  * @return SBN_SUCCESS upon successful loading.
  */
-int32 SBN_LoadTbl(CFE_TBL_Handle_t *HandlePtr);
-
-extern SBN_RemapTbl_t SBN_RemapTbl;
+int32 SBN_LoadTbl(SBN_RemapTbl_t **TblPtr);
 
 #endif /* _sbn_tbl_h_ */
