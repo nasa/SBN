@@ -3,13 +3,11 @@
 
 SBN_RemapTbl_t SBN_RemapTbl =
 { 
-    SBN_REMAP_DEFAULT_IGNORE, /* Remap Default */
+    SBN_REMAP_DEFAULT_SEND, /* Remap Default */
     0, /* number of entries, initialized at validation time */
     {  /* remap table */
         /* {CPU_ID, from, to} and if to is 0x0000, filter rather than remap */
-        {2, 0x0888, 0x0888},
-        {2, 0x0889, 0x0889},
-        {2, 0x0890, 0x0890},
+        {0, 0x0000, 0x0000}
     }
 };/* end SBN_RemapTbl */
 
