@@ -104,7 +104,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     }/* end if */
 
     if(SpacecraftID != CFE_PSP_GetSpacecraftId())
-    {   
+    {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "Invalid spacecraft ID (got '%d', expected '%d')", SpacecraftID,
             CFE_PSP_GetSpacecraftId());
@@ -158,7 +158,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     else
     {
         if(Net->PeerCnt >= SBN_MAX_PEERS_PER_NET)
-        {   
+        {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
                 "too many peer entries (%d, max = %d)",
                 Net->PeerCnt, SBN_MAX_PEERS_PER_NET);
@@ -256,7 +256,7 @@ static int ParseFileEntry(char *FileEntry)
         FileEntry = End + 1;
     }/* end while */
 
-    
+
     return PeerFileRowCallback("unknown", ParseLineNum++, "", Row, FieldCnt,
         NULL);
 }/* end ParseFileEntry */
@@ -392,7 +392,7 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
     if(CCSDSType == CCSDS_TLM)
-    {   
+    {
         CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
 
         uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->SECHDR);
@@ -773,7 +773,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
     #ifdef SBN_SEND_TASK
 
     if(OS_MutSemTake(SBN.SendMutex) != OS_SUCCESS)
-    {   
+    {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to take mutex");
         return SBN_ERROR;
     }/* end if */
@@ -795,7 +795,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
     #ifdef SBN_SEND_TASK
 
     if(OS_MutSemGive(SBN.SendMutex) != OS_SUCCESS)
-    {   
+    {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to give mutex");
         return SBN_ERROR;
     }/* end if */
@@ -848,7 +848,7 @@ static void SendTask(void)
                 break;
             }/* end if */
         }/* end for */
-        
+
         if(D.PeerIdx < D.Net->PeerCnt)
         {
             break; /* found a ringer */
@@ -866,7 +866,7 @@ static void SendTask(void)
     {
         if(CFE_SB_RcvMsg(&D.SBMsgPtr, D.Peer->Pipe, CFE_SB_PEND_FOREVER)
             != CFE_SUCCESS)
-        {   
+        {
             break;
         }/* end if */
 
@@ -880,11 +880,11 @@ static void SendTask(void)
         }/* end if */
 
         if(SBN.RemapEnabled)
-        {   
+        {
             D.MsgID = SBN_RemapMsgID(D.Peer->ProcessorID,
                 CFE_SB_GetMsgId(D.SBMsgPtr));
             if(D.MsgID == 0x0000)
-            {   
+            {
                 continue; /* don't send message, filtered out */
             }/* end if */
             CFE_SB_SetMsgId(D.SBMsgPtr, D.MsgID);
@@ -930,7 +930,7 @@ static void CheckPeerPipes(void)
 
                 if(CFE_SB_RcvMsg(&SBMsgPtr, Peer->Pipe, CFE_SB_POLL)
                     != CFE_SUCCESS)
-                {   
+                {
                     continue;
                 }/* end if */
 
@@ -941,7 +941,7 @@ static void CheckPeerPipes(void)
 
                 if(!strncmp(SBN.App_FullName, LastSenderPtr->AppName,
                     strlen(SBN.App_FullName)))
-                {   
+                {
                     continue;
                 }/* end if */
 
@@ -951,7 +951,7 @@ static void CheckPeerPipes(void)
                         SBN_RemapMsgID(Peer->ProcessorID,
                         CFE_SB_GetMsgId(SBMsgPtr));
                     if(!MsgID)
-                    {   
+                    {
                         continue; /* don't send message, filtered out */
                     }/* end if */
 
@@ -1060,7 +1060,7 @@ int SBN_InitInterfaces(void)
                 PipeName);
 
             if(Status != CFE_SUCCESS)
-            {   
+            {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
                     "failed to create pipe '%s'", PipeName);
 
