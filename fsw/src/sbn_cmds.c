@@ -660,7 +660,8 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
             break;
 
         case SBN_SCH_WAKEUP_CC:
-            /* TODO: debug message? */
+            CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
+                "wakeup");
             break;
         default:
             SBN.CmdErrCnt++;
