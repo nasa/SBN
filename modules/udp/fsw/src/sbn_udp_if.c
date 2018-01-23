@@ -135,6 +135,8 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
         if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_PEER_HEARTBEAT)
         {
+            CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
+                "CPU %d - heartbeat", Peer->ProcessorID);
             return SBN_SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         }/* end if */
     }
