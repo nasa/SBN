@@ -533,7 +533,7 @@ static void RecvPeerTask(void)
     for(D.NetIdx = 0; D.NetIdx < SBN.NetCnt; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
-        if(!D.Net.Configured)
+        if(!D.Net->Configured)
         {
             continue;
         }
