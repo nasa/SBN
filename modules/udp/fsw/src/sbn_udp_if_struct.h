@@ -6,8 +6,6 @@
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
 
-#define SBN_UDP_ITEMS_PER_FILE_LINE 2
-
 /**
  * \brief Number of seconds since last I've sent the peer a message when
  * I send an empty heartbeat message.

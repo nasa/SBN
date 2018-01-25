@@ -20,12 +20,6 @@
  */
 #define SBN_TCP_PEER_TIMEOUT 10
 
-/**
- * TCP module specific fields in the SbnPeerData.dat file are the IP address
- * and port number of the peer.
- */
-#define SBN_TCP_ITEMS_PER_FILE_LINE 2
-
 typedef struct
 {
     char Host[16];

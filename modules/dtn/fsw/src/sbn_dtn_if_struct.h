@@ -7,8 +7,6 @@
 #include "cfe.h"
 #include <bp.h>
 
-#define SBN_DTN_ITEMS_PER_FILE_LINE 1
-
 typedef struct
 {
     char EIN[32];

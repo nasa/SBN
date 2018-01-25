@@ -16,8 +16,7 @@
 #include <sys/select.h>
 #endif
 
-int SBN_SERIAL_LoadNet(const char **Row, int FieldCnt,
-    SBN_NetInterface_t *Net)
+int SBN_SERIAL_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     /* this space intentionally left blank */
     return SBN_SUCCESS;
@@ -27,20 +26,11 @@ static uint8 SendBuf[SBN_MAX_PACKED_MSG_SZ],
     RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
 static int BufCnt = 0;
 
-int SBN_SERIAL_LoadPeer(const char **Row, int FieldCnt,
-    SBN_PeerInterface_t *Peer)
+int SBN_SERIAL_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_SERIAL_Peer_t *PeerData = (SBN_SERIAL_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCnt < SBN_SERIAL_ITEMS_PER_FILE_LINE)
-    {
-        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid peer file line (expected %d items, found %d)",
-                SBN_SERIAL_ITEMS_PER_FILE_LINE, FieldCnt);
-        return SBN_ERROR;
-    }/* end if */
-
-    strncpy(PeerData->Filename, Row[0], sizeof(PeerData->Filename));
+    strncpy(PeerData->Filename, Address, sizeof(PeerData->Filename));
 
     PeerData->BufNum = BufCnt++;
 

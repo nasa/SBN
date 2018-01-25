@@ -73,14 +73,11 @@ typedef struct SBN_IfOps_s SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
 
 typedef struct {
-    /** @brief The text name of this peer (likely the CPUNAME). */
-    char Name[SBN_MAX_PEER_NAME_LEN];
-
-    /** @brief Quality of Service (unused.) */
-    CFE_SB_Qos_t QoS;
-
     /** @brief The processor ID of this peer (MUST match the ProcessorID.) */
     uint32 ProcessorID;
+
+    /** @brief The Spacecraft ID of this peer (MUST match the SpacecraftID.) */
+    uint32 SpacecraftID;
 
     /** @brief A convenience pointer to the net that this peer belongs to. */
     SBN_NetInterface_t *Net;
@@ -145,9 +142,6 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
 struct SBN_NetInterface_s {
-    /** @brief The text name of this peer (likely the CPUNAME). */
-    char Name[SBN_MAX_NET_NAME_LEN];
-
     boolean Configured;
 
     uint8 ProtocolID;
@@ -168,7 +162,7 @@ struct SBN_NetInterface_s {
 
     uint16 PeerCnt;
 
-    SBN_PeerInterface_t Peers[SBN_MAX_PEERS_PER_NET];
+    SBN_PeerInterface_t Peers[SBN_MAX_PEER_CNT];
 
     /** @brief generic blob of bytes, module-specific */
     uint8  ModulePvt[128];
@@ -181,11 +175,9 @@ struct SBN_NetInterface_s {
  */
 struct SBN_IfOps_s {
     /** TODO: Document */
-    int (*LoadNet)(const char **Row, int FieldCnt,
-        SBN_NetInterface_t *Net);
+    int (*LoadNet)(SBN_NetInterface_t *Net, const char *Address);
     /** TODO: Document */
-    int (*LoadPeer)(const char **Row, int FieldCnt,
-        SBN_PeerInterface_t *Peer);
+    int (*LoadPeer)(SBN_PeerInterface_t *Peer, const char *Address);
 
     /**
      * Initializes the host interface.

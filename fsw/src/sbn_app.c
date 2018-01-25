@@ -34,351 +34,34 @@
 #include "cfe_msgids.h"
 #include "cfe_version.h"
 
-#ifdef CFE_ES_CONFLOADER
-#include "cfe_es_conf.h"
-#else /* !CFE_ES_CONFLOADER */
-#include <ctype.h> /* isspace() */
-#endif /* CFE_ES_CONFLOADER */
-
 /** \brief SBN global application data, indexed by AppID. */
 SBN_App_t SBN;
 
-/**
- * Handles a row's worth of fields from a configuration file.
- * @param[in] FileName The FileName of the configuration file currently being
- *            processed.
- * @param[in] LineNum The line number of the line being processed.
- * @param[in] header The section header (if any) for the configuration file
- *            section.
- * @param[in] Row The entries from the row.
- * @param[in] FieldCnt The number of fields in the row array.
- * @param[in] Opaque The Opaque data passed through the parser.
- * @return OS_SUCCESS on successful loading of the configuration file row.
- */
-static int PeerFileRowCallback(const char *Filename, int LineNum,
-    const char *Header, const char *Row[], int FieldCnt, void *Opaque)
-{
-    char *ValidatePtr = NULL;
-    int Status = OS_SUCCESS;
-
-    if(FieldCnt < 4)
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "too few fields (FieldCnt=%d)", FieldCnt);
-        return OS_ERROR;
-    }/* end if */
-
-    const char *Name = Row[0];
-    if(strlen(Name) >= SBN_MAX_PEER_NAME_LEN)
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "Processor name too long: %s (%d)", Name,
-            strlen(Name));
-        return OS_ERROR;
-    }/* end if */
-
-    uint32 ProcessorID = strtol(Row[1], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[1])
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "invalid processor id");
-        return OS_ERROR;
-    }/* end if */
-
-    uint8 ProtocolID = strtol(Row[2], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[2]
-        || ProtocolID < 0 || ProtocolID > SBN_MAX_INTERFACE_TYPES
-        || !SBN.IfOps[ProtocolID])
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "invalid protocol id");
-        return OS_ERROR;
-    }/* end if */
-
-    uint32 SpacecraftID = strtol(Row[3], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[3])
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "invalid spacecraft id");
-        return OS_ERROR;
-    }/* end if */
-
-    if(SpacecraftID != CFE_PSP_GetSpacecraftId())
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "Invalid spacecraft ID (got '%d', expected '%d')", SpacecraftID,
-            CFE_PSP_GetSpacecraftId());
-        return OS_ERROR; /* ignore other spacecraft entries */
-    }/* end if */
-
-    uint16 QoSInt = strtol(Row[4], &ValidatePtr, 0);
-    CFE_SB_Qos_t QoS = {(QoSInt & 0xFF00) >> 8, QoSInt & 0xFF};
-    if(!ValidatePtr || ValidatePtr == Row[4])
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-            "invalid quality of service");
-        return OS_ERROR;
-    }/* end if */
-
-    uint8 NetIdx;
-    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
-    {
-        if(!strcmp(Row[5], SBN.Nets[NetIdx].Name))
-        {
-            break;
-        }
-    }
-
-    SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-
-    if(NetIdx == SBN.NetCnt)
-    {
-        if(NetIdx == SBN_MAX_NETS)
-        {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-                "too many networks.");
-            return OS_ERROR;
-        }
-
-        SBN.NetCnt++;
-
-        memset(Net, 0, sizeof(*Net));
-
-        strncpy(Net->Name, Row[5], sizeof(Net->Name) - 1);
-    }
-
-    if(ProcessorID == CFE_PSP_GetProcessorId())
-    {
-        Net->Configured = TRUE;
-
-        Net->ProtocolID = ProtocolID;
-        Net->IfOps = SBN.IfOps[ProtocolID];
-        Net->IfOps->LoadNet(Row + 6, FieldCnt - 6, Net);
-    }
-    else
-    {
-        if(Net->PeerCnt >= SBN_MAX_PEERS_PER_NET)
-        {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-                "too many peer entries (%d, max = %d)",
-                Net->PeerCnt, SBN_MAX_PEERS_PER_NET);
-
-            return OS_ERROR;
-        }/* end if */
-
-        SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
-
-        memset(Peer, 0, sizeof(*Peer));
-
-        strncpy(Peer->Name, Row[0], sizeof(Peer->Name) - 1);
-        Peer->Net = Net;
-        Peer->ProcessorID = ProcessorID;
-        Peer->QoS = QoS;
-        SBN.IfOps[ProtocolID]->LoadPeer(Row + 6, FieldCnt - 6, Peer);
-    }/* end if */
-
-    return Status;
-}/* end PeerFileRowCallback */
+#include <string.h>
+#include "sbn_app.h"
 
 #ifdef CFE_ES_CONFLOADER
-/**
- * When the configuration file loader encounters an error, it will call this
- * function with details.
- * @param[in] FileName The FileName of the configuration file currently being
- *            processed.
- * @param[in] LineNum The line number of the line being processed.
- * @param[in] ErrMessage The textual description of the error.
- * @param[in] Opaque The Opaque data passed through the parser.
- * @return OS_SUCCESS
- */
-static int PeerFileErrCallback(const char *FileName, int LineNum,
-    const char *Err, void *Opaque)
+
+#include "cfe_es_conf.h"
+
+
+void SBN_UnloadModules(void)
 {
-    return OS_SUCCESS;
-}/* end PeerFileErrCallback */
+    int ProtocolID = 0;
 
-/**
- * Function to read in, using the CFE_ES_Conf API, the configuration file
- * entries.
- *
- * @return OS_SUCCESS on successful completion.
- */
-int32 SBN_GetPeerFileData(void)
-{
-    CFE_ES_ConfLoad(SBN_VOL_PEER_FILENAME, NULL, PeerFileRowCallback,
-        PeerFileErrCallback, NULL);
-    CFE_ES_ConfLoad(SBN_NONVOL_PEER_FILENAME, NULL, PeerFileRowCallback,
-        PeerFileErrCallback, NULL);
-
-    return SBN_SUCCESS;
-}/* end SBN_GetPeerFileData */
-
-#else /* !CFE_ES_CONFLOADER */
-
-/**
- * Parses a peer configuration file entry to obtain the peer configuration.
- *
- * @param[in] FileEntry The row of peer configuration data.
-
- * @return  SBN_SUCCESS on success, SBN_ERROR on error
- */
-static int ParseLineNum = 0;
-
-static int ParseFileEntry(char *FileEntry)
-{
-    const char *Row[16];
-    memset(&Row, 0, sizeof(Row));
-
-    int FieldCnt = 0;
-    while(1)
+    for(ProtocolID = 0; ProtocolID < SBN_MAX_INTERFACE_TYPES; ProtocolID++)
     {
-        /* eat leading spaces */
-        for(; isspace(*FileEntry); FileEntry++);
-
-        Row[FieldCnt++] = FileEntry;
-        if(FieldCnt >= 16)
+        if(SBN.ModuleIDs[ProtocolID])
         {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
-                "too many parameters, line %d", ParseLineNum);
-            return SBN_ERROR;
-        }/* end if */
-
-        char *End = FileEntry;
-        /* run to the end of this parameter */
-        for(; *End && !isspace(*End); End++);
-
-        if(!*End)
-        {
-            break;
-        }/* end if */
-
-        *End = '\0';
-        FileEntry = End + 1;
-    }/* end while */
-
-
-    return PeerFileRowCallback("unknown", ParseLineNum++, "", Row, FieldCnt,
-        NULL);
-}/* end ParseFileEntry */
-
-/**
- * Parse the peer configuration file(s) to find the peers that this cFE should
- * connect to.
- *
- * @return SBN_SUCCESS on success.
- */
-int32 SBN_GetPeerFileData(void)
-{
-    static char     SBN_PeerData[SBN_PEER_FILE_LINE_SZ];
-    int             BuffLen = 0; /* Length of the current buffer */
-    int             PeerFile = 0;
-    char            c = '\0';
-    int             FileOpened = FALSE;
-    int             LineNum = 0;
-
-    /* First check for the file in RAM */
-    PeerFile = OS_open(SBN_VOL_PEER_FILENAME, O_RDONLY, 0);
-    if(PeerFile != OS_ERROR)
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-            "opened peer data file '%s'", SBN_VOL_PEER_FILENAME);
-        FileOpened = TRUE;
-    }
-    else
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "failed to open peer file '%s'", SBN_VOL_PEER_FILENAME);
-        FileOpened = FALSE;
-    }/* end if */
-
-    /* If ram file failed to open, try to open non vol file */
-    if(!FileOpened)
-    {
-        PeerFile = OS_open(SBN_NONVOL_PEER_FILENAME, O_RDONLY, 0);
-
-        if(PeerFile != OS_ERROR)
-        {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-                "opened peer data file '%s'", SBN_NONVOL_PEER_FILENAME);
-            FileOpened = TRUE;
-        }
-        else
-        {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-                "peer file '%s' failed to open", SBN_NONVOL_PEER_FILENAME);
-            FileOpened = FALSE;
-        }/* end if */
-    }/* end if */
-
-    /*
-     ** If no file was opened, SBN must terminate
-     */
-    if(!FileOpened)
-    {
-        return SBN_ERROR;
-    }/* end if */
-
-    memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SZ);
-    BuffLen = 0;
-
-    /*
-     ** Parse the lines from the file
-     */
-
-    while(1)
-    {
-        OS_read(PeerFile, &c, 1);
-
-        if(c == '!')
-        {
-            break;
-        }/* end if */
-
-        if(c == '\n' || c == ' ' || c == '\t')
-        {
-            /*
-             ** Skip all white space in the file
-             */
-            ;
-        }
-        else if(c == ',')
-        {
-            /*
-             ** replace the field delimiter with a space
-             */
-            SBN_PeerData[BuffLen] = ' ';
-            if(BuffLen < (SBN_PEER_FILE_LINE_SZ - 1))
-                BuffLen++;
-        }
-        else if(c != ';')
-        {
-            /*
-             ** Regular data gets copied in
-             */
-            SBN_PeerData[BuffLen] = c;
-            if(BuffLen < (SBN_PEER_FILE_LINE_SZ - 1))
-                BuffLen++;
-        }
-        else
-        {
-            /*
-             ** Send the line to the file parser
-             */
-            if(ParseFileEntry(SBN_PeerData) == SBN_ERROR)
+            if(OS_ModuleUnload(SBN.ModuleIDs[ProtocolID]) != OS_SUCCESS)
             {
-                OS_close(PeerFile);
-                return SBN_ERROR;
+                /* TODO: send event? */
+                OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
+                    SBN.ModuleIDs[ProtocolID], ProtocolID);
             }/* end if */
-            LineNum++;
-            memset(SBN_PeerData, 0x0, SBN_PEER_FILE_LINE_SZ);
-            BuffLen = 0;
         }/* end if */
-    }/* end while */
-
-    OS_close(PeerFile);
-
-    return SBN_SUCCESS;
-}/* end SBN_GetPeerFileData */
+    }/* end for */
+}/* end SBN_UnloadModules */
 
 #endif /* CFE_ES_CONFLOADER */
 
@@ -1039,7 +722,7 @@ int SBN_InitInterfaces(void)
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "error creating task for %s", Net->Name);
+                    "error creating task for net %d", NetIdx);
                 return Status;
             }/* end if */
         }/* end if */
@@ -1053,9 +736,9 @@ int SBN_InitInterfaces(void)
 
             char PipeName[OS_MAX_API_NAME];
 
-            /* create a pipe name string similar to SBN_0_CPU2_Pipe */
-            snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%s_Pipe",
-                NetIdx, Peer->Name);
+            /* create a pipe name string similar to SBN_0_2_Pipe */
+            snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%d_Pipe",
+                NetIdx, Peer->ProcessorID);
             int Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH,
                 PipeName);
 
@@ -1088,7 +771,7 @@ int SBN_InitInterfaces(void)
                 if(Status != CFE_SUCCESS)
                 {
                     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                        "error creating task for %s", Peer->Name);
+                        "error creating task for %d", Peer->ProcessorID);
                     return Status;
                 }/* end if */
             }/* end if */
@@ -1099,8 +782,8 @@ int SBN_InitInterfaces(void)
 
             char SendTaskName[32];
 
-            snprintf(SendTaskName, 32, "sendT_%s_%s", Net->Name,
-                Peer->Name);
+            snprintf(SendTaskName, 32, "sendT_%d_%d", NetIdx,
+                Peer->ProcessorID);
             Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
                 SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
                 CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
@@ -1108,7 +791,7 @@ int SBN_InitInterfaces(void)
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "error creating send task for %s", Peer->Name);
+                    "error creating send task for %d", Peer->ProcessorID);
                 return Status;
             }/* end if */
 
@@ -1124,8 +807,7 @@ int SBN_InitInterfaces(void)
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
-            "net %s (#%d) has %d peers", SBN.Nets[NetIdx].Name, NetIdx,
-            SBN.Nets[NetIdx].PeerCnt);
+            "net %d has %d peers", NetIdx, SBN.Nets[NetIdx].PeerCnt);
     }/* end for */
 
     return SBN_SUCCESS;
@@ -1308,7 +990,7 @@ static int32 RemapTblVal(void *TblPtr)
     return CFE_SUCCESS;
 }/* end RemapTblVal */
 
-static int32 LoadTbl(SBN_RemapTbl_t **TblPtr)
+static int32 LoadRemapTbl(SBN_RemapTbl_t **TblPtr)
 {
     CFE_TBL_Handle_t TblHandle;
     int32 Status = CFE_SUCCESS;
@@ -1320,7 +1002,147 @@ static int32 LoadTbl(SBN_RemapTbl_t **TblPtr)
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Load(TblHandle, CFE_TBL_SRC_FILE, SBN_TBL_FILENAME))
+    if((Status = CFE_TBL_Load(TblHandle, CFE_TBL_SRC_FILE,
+            SBN_REMAP_TBL_FILENAME))
+        != CFE_SUCCESS)
+    {
+        CFE_TBL_Unregister(TblHandle);
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_Manage(TblHandle)) != CFE_SUCCESS)
+    {
+        CFE_TBL_Unregister(TblHandle);
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_GetAddress((void **)TblPtr, TblHandle))
+        != CFE_TBL_INFO_UPDATED)
+    {
+        CFE_TBL_Unregister(TblHandle);
+        return Status;
+    }/* end if */
+
+    return CFE_SUCCESS;
+}/* end LoadTbl */
+
+static int32 ConfTblVal(void *TblPtr)
+{
+    SBN_ConfTbl_t *t = (SBN_ConfTbl_t *)TblPtr;
+    int i = 0;
+
+    int32 Status = 0;
+
+    uint32 ModuleID = 0;
+
+    cpuaddr StructAddr = 0;
+
+    for(i = 0; i < t->ModCnt; i++)
+    {
+    	SBN_Mod_Entry_t *e = &t->Mods[i];
+
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+            "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
+
+        if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
+        		!= OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+                "invalid module file (Name=%s LibFileName=%s)", e->Name,
+                e->LibFileName);
+
+        	return Status;
+        }/* end if */
+
+        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+            "linking symbol (%s)", e->LibSymbol);
+
+        if((Status = OS_SymbolLookup(&StructAddr, e->LibSymbol)) != OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+                "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
+				e->LibSymbol);
+
+        	return Status;
+        }/* end if */
+        SBN.IfOps[i] = (SBN_IfOps_t *)StructAddr;
+        SBN.ModuleIDs[i] = ModuleID;
+    }/* end for */
+
+    for(i = 0; i < t->PeerCnt; i++)
+    {
+    	SBN_Peer_Entry_t *e = &t->Peers[i];
+
+    	if (e->ModIdx < 0 || e->ModIdx >= t->ModCnt)
+    	{
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+                "invalid module idx (peeridx=%d, modidx=%d)", i, e->ModIdx);
+            return OS_ERROR;
+    	}/* end if */
+
+    	if(e->NetNum < 0 || e->NetNum >= SBN_MAX_NETS)
+    	{
+            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+                "too many networks.");
+            return OS_ERROR;
+    	}/* end if */
+
+        if(e->NetNum + 1 > SBN.NetCnt)
+        {
+            SBN.NetCnt = e->NetNum + 1;
+        }/* end if */
+
+    	SBN_NetInterface_t *Net = &SBN.Nets[e->NetNum];
+
+        if(e->ProcessorID == CFE_PSP_GetProcessorId()
+            && e->SpacecraftID == CFE_PSP_GetSpacecraftId())
+         {
+             Net->Configured = TRUE;
+
+             Net->ProtocolID = e->ModIdx;
+             Net->IfOps = SBN.IfOps[e->ModIdx];
+             Net->IfOps->LoadNet(Net, (const char *)e->Address);
+         }
+         else
+         {
+             if(Net->PeerCnt >= SBN_MAX_PEER_CNT)
+             {
+                 CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+                     "too many peer entries (%d, max = %d)",
+                     Net->PeerCnt, SBN_MAX_PEER_CNT);
+
+                 return OS_ERROR;
+             }/* end if */
+
+             SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
+
+             memset(Peer, 0, sizeof(*Peer));
+
+             Peer->Net = Net;
+             Peer->ProcessorID = e->ProcessorID;
+             Peer->SpacecraftID = e->SpacecraftID;
+             SBN.IfOps[e->ModIdx]->LoadPeer(Peer, (const char *)e->Address);
+         }/* end if */
+    }/* end for */
+
+    return CFE_SUCCESS;
+}/* end RemapTblVal */
+
+
+static int32 LoadConfTbl(SBN_ConfTbl_t **TblPtr)
+{
+    CFE_TBL_Handle_t TblHandle;
+    int32 Status = CFE_SUCCESS;
+
+    if((Status = CFE_TBL_Register(&TblHandle, "SBN_ConfTbl",
+        sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, &ConfTblVal))
+        != CFE_SUCCESS)
+    {
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_Load(TblHandle, CFE_TBL_SRC_FILE,
+            SBN_CONF_TBL_FILENAME))
         != CFE_SUCCESS)
     {
         CFE_TBL_Unregister(TblHandle);
@@ -1367,18 +1189,12 @@ void SBN_AppMain(void)
     uint32 TskId = OS_TaskGetId();
     CFE_SB_GetAppTskName(TskId, SBN.App_FullName);
 
-    if(SBN_ReadModuleFile() == SBN_ERROR)
+    Status = LoadConfTbl(&SBN.ConfTbl);
+    if (Status != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "module file not found or data invalid");
-        return;
-    }/* end if */
-
-    if(SBN_GetPeerFileData() == SBN_ERROR)
-    {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
-            "peer file not found or data invalid");
-        return;
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
+            "SBN failed to load SBN.ConfTbl (%d)", Status);
+        SBN.ConfTbl = NULL;
     }/* end if */
 
     #ifdef SBN_SEND_TASK
@@ -1450,7 +1266,7 @@ void SBN_AppMain(void)
         return;
     }/* end if */
 
-    Status = LoadTbl(&SBN.RemapTbl);
+    Status = LoadRemapTbl(&SBN.RemapTbl);
     if (Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,

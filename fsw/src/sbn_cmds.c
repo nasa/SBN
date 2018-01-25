@@ -406,8 +406,6 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
         SBN_HKNET_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
     Pack_UInt8(&Pack, SBN_HK_NET_CC);
-    Pack_UInt8(&Pack, SBN_MAX_NET_NAME_LEN);
-    Pack_Data(&Pack, SBN.Nets[NetIdx].Name, SBN_MAX_NET_NAME_LEN);
     Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolID);
     Pack_UInt16(&Pack, SBN.Nets[NetIdx].PeerCnt);
 
@@ -469,9 +467,6 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
         SBN_HKPEER_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
     Pack_UInt8(&Pack, SBN_HK_PEER_CC);
-    Pack_Data(&Pack, &Peer->QoS, sizeof(Peer->QoS));
-    Pack_UInt8(&Pack, SBN_MAX_PEER_NAME_LEN);
-    Pack_Data(&Pack, Peer->Name, SBN_MAX_PEER_NAME_LEN);
     Pack_UInt32(&Pack, Peer->ProcessorID);
     Pack_Time(&Pack, Peer->LastSend);
     Pack_Time(&Pack, Peer->LastRecv);

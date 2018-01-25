@@ -26,17 +26,8 @@
 /** @brief Maximum number of networks allowed. */
 #define SBN_MAX_NETS                16
 
-/** @brief Maximum number of peers per network allowed. */
-#define SBN_MAX_PEERS_PER_NET       32
-
 /** @brief Maximum number of subscriptions allowed per peer allowed. */
 #define SBN_MAX_SUBS_PER_PEER       256 
-
-/** @brief Maximum length of the name field in the `SbnPeerData.dat` file. */
-#define SBN_MAX_PEER_NAME_LEN       32
-
-/** @brief Maximum length of the network field in the `SbnPeerData.dat` file. */
-#define SBN_MAX_NET_NAME_LEN        16
 
 /**
  * @brief At most process this many SB messages per peer per wakeup.
@@ -91,32 +82,17 @@
  */
 #define SBN_MAX_ALLSUBS_PKTS_ON_PIPE  64
 
-/** @brief The volatile memory location for the peer data file. */
-#define SBN_VOL_PEER_FILENAME         "/ram/SbnPeerData.dat"
-
-/** @brief The non-volatile memory location for the peer data file. */
-#define SBN_NONVOL_PEER_FILENAME      "/cf/SbnPeerData.dat"
-
 /**
- * @brief The maximum length of a line of configuration data in the peer data
+ * @brief The maximum length of a module's name
  * file.
  */
-#define SBN_PEER_FILE_LINE_SZ         128
-
-/** @brief The volatile memory location for the module data file. */
-#define SBN_VOL_MODULE_FILENAME       "/ram/SbnModuleData.dat"
-
-/** @brief The non-volatile memory location for the module data file. */
-#define SBN_NONVOL_MODULE_FILENAME    "/cf/SbnModuleData.dat"
-
-/**
- * @brief The maximum length of a line of configuration data in the peer data
- * file.
- */
-#define SBN_MODULE_FILE_LINE_SZ       128
+#define SBN_MAX_MOD_NAME_LEN         16
 
 /** @brief Maximum number of protocol modules. */
-#define SBN_MAX_INTERFACE_TYPES       8
+#define SBN_MAX_MOD_CNT		     8
+
+/** @brief Maximum number of protocol modules. */
+#define SBN_MAX_PEER_CNT             16
 
 /**
  * @brief SBN modules can provide status messages for housekeeping requests,
@@ -128,20 +104,22 @@
  * @brief Define this to use one task per peer pipe to send messages (each
  * task blocks on read). Otherwise, pipes will be polled periodically.
  */
-#undef SBN_SEND_TASK
+#define SBN_SEND_TASK
 
 /**
  * @brief Define this to use one task per peer to receive messages (each
  * task blocks on read). Otherwise, another method (e.g. select) must be used
  * to prevent blocking.
  */
-#undef SBN_RECV_TASK
+#define SBN_RECV_TASK
 
 /**
  * @brief If defined, remapping is enabled at boot time.
  */
 #define SBN_REMAP_ENABLED
 
-#define SBN_TBL_FILENAME "/cf/sbn_remap_tbl.tbl"
+#define SBN_REMAP_TBL_FILENAME "/cf/sbn_remap_tbl.tbl"
+
+#define SBN_CONF_TBL_FILENAME "/cf/sbn_conf_tbl.tbl"
 
 #endif /* _sbn_platform_cfg_h_ */

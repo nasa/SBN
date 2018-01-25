@@ -11,11 +11,9 @@
 #define SBN_UDP_HEARTBEAT_MSG 0xA0
 #define SBN_UDP_ANNOUNCE_MSG 0xA1
 
-int SBN_UDP_LoadNet(const char **Row, int FieldCount,
-    SBN_NetInterface_t *Net);
+int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
-int SBN_UDP_LoadPeer(const char **Row, int FieldCount,
-    SBN_PeerInterface_t *Peer);
+int SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
 
 int SBN_UDP_InitNet(SBN_NetInterface_t *NetInterface);
 
