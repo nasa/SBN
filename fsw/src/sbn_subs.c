@@ -321,8 +321,8 @@ static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     if(Peer->SubCnt >= SBN_MAX_SUBS_PER_PEER)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
-            "cannot process subscription from '%s', max (%d) met",
-            Peer->Name, SBN_MAX_SUBS_PER_PEER);
+            "cannot process subscription from ProcessorID %d, max (%d) met",
+            Peer->ProcessorID, SBN_MAX_SUBS_PER_PEER);
         return;
     }/* end if */
     
@@ -441,8 +441,9 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     if(IsPeerSubMsgID(&idx, MsgID, Peer))
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-            "%s:Cannot process unsubscription from %s,msg 0x%04X not found",
-            CFE_CPU_NAME, Peer->Name, htons(MsgID));
+            "%s:Cannot process unsubscription from ProcessorID %d,"
+            "msg 0x%04X not found",
+            CFE_CPU_NAME, Peer->ProcessorID, htons(MsgID));
         return;
     }/* end if */
 
@@ -609,9 +610,9 @@ void SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
     }/* end for */
 
     CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_INFORMATION,
-        "unsubscribed %d message id's from %s",
+        "unsubscribed %d message id's from ProcessorID %d",
         (int)Peer->SubCnt,
-        Peer->Name);
+        Peer->ProcessorID);
 
     Peer->SubCnt = 0;
 }/* end SBN_RemoveAllSubsFromPeer */

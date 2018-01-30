@@ -4,7 +4,7 @@ Core Flight Software (cFS) Software Bus Networking (SBN)
 Documentation Version History
 ------------------------------
 This document details the design and use of the SBN application. This is current
-as of SBN version 1.7.
+as of SBN version 1.10.
 
 This document is maintained by [Chris Knight, NASA Ames Research Center]
 (Christopher.D.Knight@nasa.gov).
@@ -28,6 +28,7 @@ SBN Version History
 - SBN 1.7 \@eff7047 – Polling occurs each cycle (modules are responsible for managing timeouts), re-added serial backend, SbnPeerData.dat uses a numeric network ID, not name.
 - SBN 1.8 \@ae9a1f5 - Removed separate housekeeping status structs (moved housekeeping-related values to the main structs (`SBN_App_t`, `SBN_NetInterface_s` (`SBN_NetInterface_t`), `SBN_PeerInterface_t`). standardized on housekeeping being hand-packed big-endian.
 - SBN 1.9 \@063ebf2 - Adds protocol packet to identify protocol version. For now SBN reports if the version matches or not. (Is backward-compatible.) Also modules communicate to the main SBN app when a connection is established and lost and message pipes are only created/maintained for connected peers.
+- SBN 1.10 - Table-driven configuration, rather than flat-file. Removed net and peer names, instead should always use ProcessorID and NetIdx.
 
 Overview
 --------
@@ -51,15 +52,10 @@ application in the build process (and the module should be linked or copied
 to the apps source directory). SBN must be defined as an application
 in the `cfe_es_startup.scr` script but Modules should *not* be defined there.
 
-SBN uses two runtime text configuration files (in the same model as
-`cfe_es_startup.scr`, with one line per configuration and multiple columns,
-separated by commas.) `SbnModuleData.dat` specifies the protocol modules
-SBN should load at startup. `SbnPeerData.dat` specifies which protocol
-and which protocol options (such as IP address, port number, DTN endpoint, etc.)
-is required to communicate with that peer. Note that the `SbnPeerData.dat`
-file should be the same for all peers, and that the file should include
-at least one entry for the local system (sometimes this is referred to as
-the "host" entry.)
+SBN uses two tables, the "conf" table for configuring which modules to load
+and which networks and peers to communicate with and the "remap" table for
+identifying which Message ID's should be remapped or filtered before sending
+to specific peers.
 
 ### SBN Platform Configuration
 
@@ -68,69 +64,20 @@ how SBN allocates and limits resources as well as controlling the behavior
 of SBN. Most "max" definitions relate to in-memory static arrays, so increasing
 the value increases the memory footprint of SBN (in some cases, non-linearly.)
 
+### SBN Configuration Table
+
+The SBN configuration table is a standard cFS table defining modules and
+networks of peers.
+
+See `sbn_tbl.h` and `sbn_conf_tbl.c`.
+
 ### SBN Remapping Table
 
 The SBN remapping table is a standard cFS table defining, on a peer-by-peer
 basis, which message ID's should be remapped to other ID's, or which
 message ID's should be filtered (where the "To" field is 0).
 
-See `sbn_tables.h` and `sbn_remap_tbl.c`.
-
-### SbnModuleData.dat File Format
-
-The `SbnModuleData.dat` file is comprised of a number of rows, one per protocol
-module, with four columns:
-
-- Protocol ID - The ID used to in the SbnPeerData.dat file to identify which
-  module to use to communicate to that peer.
-- Module Name - The name of the module (used in debug/error CFE events.)
-- Module Shared Library Filename - The path/file name used to load the
-  shared library of the module.
-- Module interface symbol - The name of a global symbol that is of the type
-  `SBN_IfOps_t`.
-
-Fields are separated by commas (`,`) and lines are terminated with a semicolon
-(`;`). The first line starting with an exclamation mark (`!`) is considered the
-end of the file and all further text in the file is ignored (use with caution!)
-
-For example:
-
-    1, UDP, /cf/sbn_udp.so, SBN_UDP_Ops;
-    2, TCP, /cf/sbn_tcp.so, SBN_TCP_Ops;
-    8, DTN, /cf/sbn_dtn.so, SBN_DTN_Ops;
-    ! Module ID, Module Name, Shared Lib, Interface Symbol
-
-### SbnPeerData.dat File Format
-
-Once SBN has loaded modules via the `SbnModuleData.dat` file, it then loads the
-peer configuration file. Peers are grouped into "networks", all peers in the
-same network share messages equally (there is no routing or bridging between
-networks, but there can be filtering and remapping of message ID's between
-peers.) Networks are particularly important to identify the interface specifics
-of the local system (the "host" interface), particularly in connection-less
-(UDP and DTN) protocols.
-
-The fields in the peer data file are:
-- CPU Name - for debug/information event message text.
-- CPU ID - must match the return value of `CFE_PSP_GetProcessorId()` for the
-  system (normally `CFE_CPU_ID`).
-- Protocol ID - to determine which module to use to communicate with this
-  peer.
-- Spacecraft ID - Must match the spacecraft ID for the peer/host.
-- QoS - The QoS bitfield (currently unused.)
-- Network ID - Numeric identifier for grouping peers and host interfaces.
-- *network-specific fields* - All remaining fields are passed to the protocol
-  module, specifying how to address the host/peer.
-
-For example:
-
-    CPU1, 1, 8, 42, 0, NET0, ipn:1.1;
-    CPU2, 2, 8, 42, 0, NET0, ipn:1.2;
-    CPU3, 3, 8, 42, 0, NET0, ipn:1.3;
-
-    CPU1, 1, 1, 0xCC, 0, NET1, 127.0.0.1, 15820;
-    CPU5, 2, 1, 0xCC, 0, NET1, 127.0.0.1, 15821;
-    CPU6, 3, 1, 0xCC, 0, NET1, 127.0.0.1, 15822;
+See `sbn_tbl.h` and `sbn_remap_tbl.c`.
 
 SBN Remapping and Filtering
 ---------------------------
@@ -170,7 +117,6 @@ Macro               |CC    |Command Description                      |Parameters
 `SBN_HK_PEERSUBS_CC`|`0x0D`|Requests hk telemetry for a peer's subs.   |`uint8 NetIdx, uint8 PeerIdx`
 `SBN_HK_MYSUBS_CC`  |`0x0E`|Requests hk telemetry for my subs.         |<none>
 
-
 SBN Housekeeping Telemetry
 --------------------------
 Housekeeping command codes are used to request housekeeping telemetry messages. As all housekeeping is requested with command codes to the main (and only)
@@ -195,8 +141,6 @@ Field      |Type    |Description
 Field       |Type                        |Description
 ------------|----------------------------|-----------
 `CC`        |`uint8`                     |Command code of HK request.
-`Len`       |`uint8`                     |Length of name (always `SBN_MAX_NET_NAME_LEN`.)
-`Name`      |`char[SBN_MAX_NET_NAME_LEN]`|Name of this network interface (column 5 in the `SbnPeerData.dat` file.)
 `ProtocolID`|`uint8`                     |The ID of the protocol of this network.
 `PeerCnt`   |`uint16`                    |The number of peers associated with this network.
 
@@ -207,8 +151,6 @@ Field        |Type                         |Description
 `CC`         |`uint8`                      |Command code of HK request.
 `QoS`        |`CFE_SB_Qos_t`               |QoS flags for this peer.
 `SubCnt`     |`uint16`                     |Number of errors generated in trying to receive from this peer.
-`Len`        |`uint8`                      |Length of the name. (Always `SBN_MAX_NET_NAME_LEN`)
-`Name`       |`char[SBN_MAX_PEER_NAME_LEN]`|Name of the peer. (From SbnPeerData.dat, not necessarily the CPUNAME.)
 `ProcessorID`|`uint32`                     |The ProcessorID of the peer.
 `LastSend`   |`OS_time_t`                  |The last time I sent a message to this peer.
 `LastRecv`   |`OS_time_t`                  |The last time I received a message from this peer.

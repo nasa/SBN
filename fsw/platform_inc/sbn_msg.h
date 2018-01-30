@@ -36,18 +36,15 @@
  */
 #define SBN_HKPEERSUBS_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) + sizeof(uint16) * 3 + SBN_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
 
-/** @brief uint8 CC, uint8 QoSPri, uint8 QoSRel, uint8 SubCnt,
- * uint8 SBN_MAX_NET_NAME_LEN, char Name[SBN_MAX_PEER_NAME_LEN],
+/** @brief uint8 CC, uint8 SubCnt,
  * uint32 ProcessorID, OS_time_t LastSend, OS_time_t LastRecv,
  * uint16 SendCnt, uint16 RecvCnt, uint16 SendErrCnt, uint16 RecvErrCnt,
  */
-#define SBN_HKPEER_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) * 4 + sizeof(char) * SBN_MAX_PEER_NAME_LEN + sizeof(uint32) + sizeof(OS_time_t) * 2 + sizeof(uint16) * 4)
+#define SBN_HKPEER_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) * 2 + sizeof(OS_time_t) * 2 + sizeof(uint16) * 4)
 
-/** @brief uint8 CC, uint8 SBN_MAX_NET_NAME_LEN,
- * char Name[SBN_MAX_NET_NAME_LEN],
- * uint8 ProtocolID, uint16 PeerCnt
+/** @brief uint8 CC, uint8 ProtocolID, uint16 PeerCnt
  */
-#define SBN_HKNET_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) * 2 + sizeof(char) * SBN_MAX_NET_NAME_LEN + sizeof(uint8) + sizeof(uint16))
+#define SBN_HKNET_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) * 2 + sizeof(uint16))
 
 /**
  * @brief Module status response packet structure

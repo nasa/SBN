@@ -13,55 +13,66 @@
 #include <sys/select.h>
 #endif
 
-int SBN_UDP_LoadNet(const char **Row, int FieldCnt,
-    SBN_NetInterface_t *Net)
+int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
-    char *ValidatePtr = NULL;
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    if(FieldCnt < SBN_UDP_ITEMS_PER_FILE_LINE)
+    char *Colon = strchr(Address, ':');
+
+    if(!Colon)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid host entry (expected %d items, found %d)",
-                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCnt);
+                "invalid net ('%s')", Address);
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(NetData->Host, Row[0], sizeof(NetData->Host));
-    NetData->Port = strtol(Row[1], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[1])
+    int ColonLen = Colon - Address;
+
+    strncpy(NetData->Host, Address, ColonLen);
+
+    char *ValidatePtr = NULL;
+    NetData->Port = strtol(Colon + 1, &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid port");
     }/* end if */
+
+    CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
+            "net configured (%s:%d)", NetData->Host, NetData->Port);
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_LoadNet */
 
-int SBN_UDP_LoadPeer(const char **Row, int FieldCnt,
-    SBN_PeerInterface_t *Peer)
+int SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
-    char *ValidatePtr = NULL;
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCnt < SBN_UDP_ITEMS_PER_FILE_LINE)
+    char *Colon = strchr(Address, ':');
+
+    if(!Colon)
     {
         CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid peer entry (expected %d items, found %d)",
-                SBN_UDP_ITEMS_PER_FILE_LINE, FieldCnt);
+                "invalid net ('%s')", Address);
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(PeerData->Host, Row[0], sizeof(PeerData->Host));
-    PeerData->Port = strtol(Row[1], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[1])
+    int ColonLen = Colon - Address;
+
+    strncpy(PeerData->Host, Address, ColonLen);
+
+    char *ValidatePtr = NULL;
+    PeerData->Port = strtol(Colon + 1, &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid port");
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR, "invalid port");
     }/* end if */
 
+    CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
+            "peer configured (%s:%d)", PeerData->Host, PeerData->Port);
+
     return SBN_SUCCESS;
-}/* end SBN_UDP_LoadHost */
+}/* end SBN_UDP_LoadPeer */
 
 /**
  * Initializes an UDP host.

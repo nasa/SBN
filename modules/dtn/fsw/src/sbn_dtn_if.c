@@ -7,37 +7,20 @@
 #include <errno.h>
 #include <sys/select.h>
 
-int SBN_DTN_LoadNet(const char **Row, int FieldCnt, SBN_NetInterface_t *Net)
+int SBN_DTN_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Net->ModulePvt;
 
-    if(FieldCnt < SBN_DTN_ITEMS_PER_FILE_LINE)
-    {
-        CFE_EVS_SendEvent(SBN_DTN_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid host entry (expected %d items, found %d)",
-                SBN_DTN_ITEMS_PER_FILE_LINE, FieldCnt);
-        return SBN_ERROR;
-    }/* end if */
-
-    strncpy(NetData->EIN, Row[0], sizeof(NetData->EIN));
+    strncpy(NetData->EIN, Address, sizeof(NetData->EIN));
 
     return SBN_SUCCESS;
 }/* end SBN_DTN_LoadNet */
 
-int SBN_DTN_LoadPeer(const char **Row, int FieldCnt,
-    SBN_PeerInterface_t *Peer)
+int SBN_DTN_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_DTN_Peer_t *PeerData = (SBN_DTN_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCnt < SBN_DTN_ITEMS_PER_FILE_LINE)
-    {
-        CFE_EVS_SendEvent(SBN_DTN_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid peer entry (expected %d items, found %d)",
-                SBN_DTN_ITEMS_PER_FILE_LINE, FieldCnt);
-        return SBN_ERROR;
-    }/* end if */
-
-    strncpy(PeerData->EIN, Row[0], sizeof(PeerData->EIN));
+    strncpy(PeerData->EIN, Address, sizeof(PeerData->EIN));
 
     return SBN_SUCCESS;
 }/* end SBN_DTN_LoadHost */

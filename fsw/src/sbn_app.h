@@ -37,7 +37,6 @@
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
 #include "sbn_msgids.h"
-#include "sbn_loader.h"
 #include "sbn_cmds.h"
 #include "sbn_subs.h"
 #include "sbn_main_events.h"
@@ -58,8 +57,6 @@
 
 void SBN_ShowPeerData(void);
 int32 SBN_GetPeerFileData(void);
-
-int SBN_InitInterfaces(void);
 
 #ifndef SBN_RECV_TASK
 void SBN_RecvNetMsgs(void);
@@ -116,16 +113,18 @@ typedef struct
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_IfOps_t *IfOps[SBN_MAX_INTERFACE_TYPES];
+    SBN_IfOps_t *IfOps[SBN_MAX_MOD_CNT];
 
     /**
      * Retain the module ID's for each interface.
      */
-    uint32 ModuleIDs[SBN_MAX_INTERFACE_TYPES];
+    uint32 ModuleIDs[SBN_MAX_MOD_CNT];
 
     SBN_RemapTbl_t *RemapTbl;
     uint8 RemapEnabled; /* !0 == enabled */
     uint32 RemapMutex;
+
+    SBN_ConfTbl_t *ConfTbl;
 
 #ifdef SBN_SEND_TASK
 

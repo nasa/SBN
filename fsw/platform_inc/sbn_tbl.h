@@ -2,6 +2,41 @@
 #define _sbn_tbl_h_
 
 #include "cfe.h"
+#include "sbn_platform_cfg.h"
+
+#define SBN_ADDR_SZ 16 /* TODO: move to constants.h? */
+
+/****
+ * @brief The config table contains entries for peers (other CPU's),
+ * modules (back-end libraries used to talk to peers), networks
+ * (all peers that communicate amonsgt each other using a specific
+ * protocol/network technology), and interfaces (the interconnection
+ * between the "host" end and the peer end of the network.)
+ */
+typedef struct
+{
+    char Name[SBN_MAX_MOD_NAME_LEN];
+    char LibFileName[OS_MAX_PATH_LEN];
+    char LibSymbol[OS_MAX_API_NAME];
+} SBN_Mod_Entry_t;
+
+typedef struct
+{   
+    uint32 ProcessorID;
+    uint32 SpacecraftID;
+    uint16 NetNum;
+    uint16 ModIdx;
+    uint8 Address[SBN_ADDR_SZ];
+} SBN_Peer_Entry_t;
+
+typedef struct
+{
+    SBN_Mod_Entry_t Mods[SBN_MAX_MOD_CNT];
+    uint16 ModCnt;
+    SBN_Peer_Entry_t Peers[SBN_MAX_PEER_CNT];
+    uint16 PeerCnt;
+} SBN_ConfTbl_t;
+
 
 /****
  * @brief The RemapTbl defines, for a peer, which MID's should be remapped

@@ -5,11 +5,9 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
-int SBN_TCP_LoadNet(const char **Row, int FieldCount,
-        SBN_NetInterface_t *Net);
+int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
-int SBN_TCP_LoadPeer(const char **Row, int FieldCount,
-        SBN_PeerInterface_t *Peer);
+int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
 
 int SBN_TCP_InitNet(SBN_NetInterface_t *Net);
 

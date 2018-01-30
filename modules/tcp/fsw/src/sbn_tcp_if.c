@@ -15,22 +15,25 @@
 
 static uint8 SendBufs[SBN_MAX_NETS][SBN_MAX_PACKED_MSG_SZ];
 static int SendBufCnt = 0;
-int SBN_TCP_LoadNet(const char **Row, int FieldCnt, SBN_NetInterface_t *Net)
+int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
-    if(FieldCnt < SBN_TCP_ITEMS_PER_FILE_LINE)
+    char *Colon = strchr(Address, ':');
+
+    if(!Colon)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid peer file line (expected %d items, found %d)",
-                SBN_TCP_ITEMS_PER_FILE_LINE, FieldCnt);
+                "invalid net address (%s)", Address);
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(NetData->Host, Row[0], sizeof(NetData->Host));
+    int AddrLen = Colon - Address;
+
+    strncpy(NetData->Host, Address, AddrLen);
     char *ValidatePtr = NULL;
-    NetData->Port = strtol(Row[1], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[1])
+    NetData->Port = strtol(Colon + 1, &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid port");
@@ -38,34 +41,42 @@ int SBN_TCP_LoadNet(const char **Row, int FieldCnt, SBN_NetInterface_t *Net)
 
     NetData->BufNum = SendBufCnt++;
 
+    CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
+        "net configured (%s:%d)", NetData->Host, NetData->Port);
+
     return SBN_SUCCESS;
 }/* end SBN_TCP_LoadNet */
 
-static uint8 RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET][SBN_MAX_PACKED_MSG_SZ];
+static uint8 RecvBufs[SBN_MAX_PEER_CNT][SBN_MAX_PACKED_MSG_SZ];
 static int RecvBufCnt = 0;
-int SBN_TCP_LoadPeer(const char **Row, int FieldCnt,
-    SBN_PeerInterface_t *Peer)
+int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
-    if(FieldCnt < SBN_TCP_ITEMS_PER_FILE_LINE)
+    char *Colon = strchr(Address, ':');
+
+    if(!Colon)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid peer file line (expected %d items, found %d)",
-                SBN_TCP_ITEMS_PER_FILE_LINE, FieldCnt);
+                "invalid net address (%s)", Address);
         return SBN_ERROR;
     }/* end if */
 
-    strncpy(PeerData->Host, Row[0], sizeof(PeerData->Host));
+    int AddrLen = Colon - Address;
+
+    strncpy(PeerData->Host, Address, AddrLen);
     char *ValidatePtr = NULL;
-    PeerData->Port = strtol(Row[1], &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Row[1])
+    PeerData->Port = strtol(Colon + 1, &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
         CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
                 "invalid port");
     }/* end if */
 
-    PeerData->BufNum = RecvBufCnt++;
+    PeerData->BufNum = SendBufCnt++;
+
+    CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
+        "peer configured (%s:%d)", PeerData->Host, PeerData->Port);
 
     return SBN_SUCCESS;
 }/* end SBN_TCP_LoadEntry */
@@ -115,7 +126,7 @@ int SBN_TCP_InitNet(SBN_NetInterface_t *Net)
         return SBN_ERROR;
     }/* end if */
 
-    if(listen(Socket, SBN_MAX_PEERS_PER_NET) < 0)
+    if(listen(Socket, SBN_MAX_PEER_CNT) < 0)
     {
         close(Socket);
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
