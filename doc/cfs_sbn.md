@@ -27,6 +27,7 @@ SBN Version History
 - SBN 1.6 \@b0d0027 – Added “unload” method to modules.
 - SBN 1.7 \@eff7047 – Polling occurs each cycle (modules are responsible for managing timeouts), re-added serial backend, SbnPeerData.dat uses a numeric network ID, not name.
 - SBN 1.8 \@ae9a1f5 - Removed separate housekeeping status structs (moved housekeeping-related values to the main structs (`SBN_App_t`, `SBN_NetInterface_s` (`SBN_NetInterface_t`), `SBN_PeerInterface_t`). standardized on housekeeping being hand-packed big-endian.
+- SBN 1.9 \@063ebf2 - Adds protocol packet to identify protocol version. For now SBN reports if the version matches or not. (Is backward-compatible.) Also modules communicate to the main SBN app when a connection is established and lost and message pipes are only created/maintained for connected peers.
 
 Overview
 --------
@@ -42,7 +43,6 @@ table-configured.)
 
 SBN Build and Configuration
 ---------------------------
-
 SBN is built like any other cFS application, either via specifying it in 
 the the `TGT#_APPLISTS` parameter in the targets.cmake (for the CMake build)
 or `THE_APPS` in the Makefile (for the "classic" build). Protocol modules
@@ -153,7 +153,6 @@ command.
 
 SBN Control Commands
 --------------------
-
 SBN has a number of commands for managing the SBN application's configuration
 and for requesting housekeeping telemetry.
 
@@ -237,7 +236,6 @@ Field      |Type                    |Description
 
 SBN Interactions With the Software Bus (SB)
 -------------------------------------------
-
 SBN treats all nodes as peers and (by default) all subscriptions of local
 applications should receive messages sent by publishers on other peers, and
 all messages published on the local bus should be transmitted to any peers
@@ -252,9 +250,35 @@ a message to the peers with the information on the update.
 
 ![SBN-SB Interface](SBN_SB_Interface.png)
 
+SBN Application-Level Network Protocol
+--------------------------------------
+In communicating with peers over a network protocol provided by a protocol
+module, SBN uses an SBN message format which is comprised of the following
+fields in big-endian, packed (no alignment) format:
+
+Field    |Type    |Description
+---------|--------|-----------
+`MsgSz`  |`uint16`|The total size of the message, including this header.
+`MsgType`|`uint8` |The type of the message (see below).
+`CpuID`  |`uint32`|The ProcessorID of the sender.
+
+Message types are an enumeration from below, although protocol modules may
+send additional message types. Type values of 128 or higher (high bit set)
+are reserved for module use.
+
+MsgType        |Value |Description
+---------------|------|-----------
+`SBN_NO_MSG`   |`0x00`|No payload. (Unused.)
+`SBN_SUB_MSG`  |`0x01`|Payload is local subs for peer to add.
+`SBN_UNSUB_MSG`|`0x02`|Payload is local unsubscriptions for peer to remove.
+`SBN_APP_MSG`  |`0x03`|Payload is a message from the local software bus.
+`SBN_PROTO_MSG`|`0x04`|Payload is a protocol informational packet.
+
+Currently protocol messages contain a single byte value representing the
+current protocol version defined by `SBN_PROTO_VER`.
+
 SBN Scheduling and Tasks
 ------------------------
-
 SBN has two modes of operation (configured at compile time):
 
 - A traditional scheduler (SCH)-driven mode where SCH sends a wakeup message
@@ -280,7 +304,6 @@ best to stick with either SCH-driven processing or task-driven processing.
 
 SBN Protocol Modules
 --------------------
-
 SBN requires the use of protocol modules--shared libraries that provide a
 defined set of functions to send and receive encapsulated software bus messages
 and subscription updates. Protocol modules may use connection-less (UDP)
@@ -292,8 +315,8 @@ that peer; otherwise SBN does not need to know the state of the network
 the module is communicating with.
 
 SBN modules are built as separate cFS "applications" but are not loaded via the
-Executive Service (ES) interface, instead the module is loaded by the SBN
-application (as defined by a start-time configuration file.)
+Executive Service (ES) interface, instead the module's shared library is
+loaded by the SBN application (as defined by a start-time configuration file.)
 
 Currently SBN provides the following modules:
 - UDP - Utilizing the UDP/IP connectionless protocol, the UDP module uses
@@ -313,7 +336,6 @@ Currently SBN provides the following modules:
 
 SBN Datastructures
 ------------------
-
 SBN utilizes a complex set of data structures in memory to track
 the state of the local system and its state knowledge of the peers on
 the network.
