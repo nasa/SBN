@@ -327,4 +327,23 @@ struct SBN_IfOps_s {
     int (*UnloadPeer)(SBN_PeerInterface_t *Peer);
 };
 
+/**
+ * @brief Called by backend modules to signal that the connection has been
+ * established and that the initial handshake should ensue.
+ */
+uint32 SBN_Connected(SBN_PeerInterface_t *Peer);
+
+/**
+ * @brief Called by backend modules to signal that the connection has been
+ * lost.
+ */
+uint32 SBN_Disconnected(SBN_PeerInterface_t *Peer);
+
+/**
+ * @brief Used by modules to send protocol-specific messages
+ * (particularly UDP which needs to send announcement/heartbeat msgs.)
+ */
+int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
+    void *Msg, SBN_PeerInterface_t *Peer);
+
 #endif /* _sbn_interfaces_h_ */

@@ -1042,26 +1042,7 @@ int SBN_InitInterfaces(void)
         int PeerIdx = 0;
         for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
-            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-
-            char PipeName[OS_MAX_API_NAME];
-
-            /* create a pipe name string similar to SBN_0_CPU2_Pipe */
-            snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%s_Pipe",
-                NetIdx, Peer->Name);
-            int Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH,
-                PipeName);
-
-            if(Status != CFE_SUCCESS)
-            {   
-                CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                    "failed to create pipe '%s'", PipeName);
-
-                return Status;
-            }/* end if */
-
-            CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
-                "pipe created '%s'", PipeName);
+        	SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             Net->IfOps->InitPeer(Peer);
 
@@ -1454,6 +1435,24 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
 
     switch(MsgType)
     {
+    	case SBN_PROTO_MSG:
+        {
+            uint8 Ver = ((uint8 *)Msg)[0];
+            if(Ver != SBN_PROTO_VER)
+            {
+                CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
+                    "SBN protocol version mismatch with ProcessorID %d, "
+                        "my version=%d, peer version %d",
+                    (int)Peer->ProcessorID, (int)SBN_PROTO_VER, (int)Ver);
+            }
+            else
+            {
+                CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_INFORMATION,
+                    "SBN protocol version match with ProcessorID %d",
+                    (int)Peer->ProcessorID);
+            }/* end if */
+            break;
+        }/* end case */
         case SBN_APP_MSG:
             Status = CFE_SB_SendMsgFull(Msg,
                 CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
@@ -1500,3 +1499,59 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID)
 
     return NULL;
 }/* end SBN_GetPeer */
+
+uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
+{
+	if (Peer->Pipe != 0)
+	{
+	    CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+	        "CPU %d already connected", Peer->ProcessorID);
+	    return SBN_ERROR;
+	}/* end if */
+
+    char PipeName[OS_MAX_API_NAME];
+
+    /* create a pipe name string similar to SBN_0_Pipe */
+    snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_Pipe", Peer->ProcessorID);
+    int Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH,
+        PipeName);
+
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "failed to create pipe '%s'", PipeName);
+
+        return Status;
+    }/* end if */
+
+    CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+        "pipe created '%s'", PipeName);
+
+    CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+        "CPU %d connected", Peer->ProcessorID);
+
+    uint8 ProtocolVer = SBN_PROTO_VER;
+    SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
+
+    SBN_SendLocalSubsToPeer(Peer);
+
+    return SBN_SUCCESS;
+} /* end SBN_Connected() */
+
+uint32 SBN_Disconnected(SBN_PeerInterface_t *Peer)
+{
+	if(Peer->Pipe == 0)
+	{
+		CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+	        "CPU %d not connected", Peer->ProcessorID);
+
+		return SBN_ERROR;
+	}
+	CFE_SB_DeletePipe(Peer->Pipe);
+	Peer->Pipe = 0;
+
+	CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
+        "CPU %d disconnected", Peer->ProcessorID);
+
+	return SBN_SUCCESS;
+}/* end SBN_Disconnected() */

@@ -43,7 +43,7 @@ int SBN_DTN_LoadPeer(const char **Row, int FieldCnt,
 }/* end SBN_DTN_LoadHost */
 
 /**
- * Initializes an DTN host.
+ * Initializes a DTN host.
  *
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
@@ -80,7 +80,7 @@ int SBN_DTN_InitNet(SBN_NetInterface_t *Net)
 }/* end SBN_DTN_InitNet */
 
 /**
- * Initializes an DTN host or peer data struct depending on the
+ * Initializes DTN peer data struct depending on the
  * CPU name.
  *
  * @param  Interface data structure containing the file entry
@@ -88,6 +88,8 @@ int SBN_DTN_InitNet(SBN_NetInterface_t *Net)
  */
 int SBN_DTN_InitPeer(SBN_PeerInterface_t *Peer)
 {
+    SBN_Connected(Peer);
+
     return SBN_SUCCESS;
 }/* end SBN_DTN_InitPeer */
 
@@ -96,7 +98,7 @@ int SBN_DTN_InitPeer(SBN_PeerInterface_t *Peer)
 int SBN_DTN_PollPeer(SBN_PeerInterface_t *Peer)
 {
     return SBN_SUCCESS;
-}/* end SBN_DTN_InitPeer */
+}/* end SBN_DTN_PollPeer */
 
 int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload)

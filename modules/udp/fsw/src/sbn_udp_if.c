@@ -140,8 +140,9 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
     }
     else
     {
-        if(CurrentTime.seconds - Peer->LastSend.seconds
-            > SBN_UDP_ANNOUNCE_TIMEOUT)
+        if(Peer->ProcessorID < CFE_PSP_GetProcessorId() &&
+            CurrentTime.seconds - Peer->LastSend.seconds
+                > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
             return SBN_SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
         }/* end if */
@@ -226,19 +227,15 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
     if(Peer == NULL)
     {
         return SBN_ERROR;
-    }
+    }/* end if */
 
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
     if(!PeerData->ConnectedFlag)
     {
-        CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
-            "CPU %d connected", *CpuIDPtr);
-
+        SBN_Connected(Peer);
         PeerData->ConnectedFlag = TRUE;
-
-        SBN_SendLocalSubsToPeer(Peer);
-    }
+    }/* end if */
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_Recv */
@@ -270,5 +267,12 @@ int SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
 
 int SBN_UDP_UnloadPeer(SBN_PeerInterface_t *Peer)
 {
+    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
+
+    if(PeerData->ConnectedFlag)
+    {
+        SBN_Disconnected(Peer);
+    }/* end if */
+
     return SBN_SUCCESS;
 }/* end SBN_UDP_UnloadPeer */

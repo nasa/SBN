@@ -194,7 +194,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                 PeerData->Socket = ClientFd;
                 PeerData->Connected = TRUE;
  
-                SBN_SendLocalSubsToPeer(Peer);
+                SBN_Connected(Peer);
 
                 return;
             }/* end if */
@@ -244,7 +244,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                     PeerData->Socket = Socket;
                     PeerData->Connected = TRUE;
 
-                    SBN_SendLocalSubsToPeer(Peer);
+                    SBN_Connected(Peer);
                 }
                 else
                 {
@@ -286,6 +286,8 @@ int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
 
         close(PeerData->Socket);
         PeerData->Connected = FALSE;
+
+        SBN_Disconnected(Peer);
     }/* end if */
 
     return 0;
@@ -316,6 +318,8 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
 
         close(PeerData->Socket);
         PeerData->Connected = FALSE;
+
+        SBN_Disconnected(Peer);
     }/* end if */
 
     return SBN_SUCCESS;
@@ -375,6 +379,9 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
 
             close(PeerData->Socket);
             PeerData->Connected = FALSE;
+
+            SBN_Disconnected(Peer);
+
             return SBN_IF_EMPTY;
         }/* end if */
 
@@ -461,6 +468,12 @@ int SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer)
     if(PeerData->Socket)
     {
         close(PeerData->Socket);
+    }/* end if */
+
+
+    if(PeerData->Connected == TRUE)
+    {
+        SBN_Disconnected(Peer);
     }/* end if */
 
     return SBN_SUCCESS;

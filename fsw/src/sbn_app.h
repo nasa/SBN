@@ -69,8 +69,6 @@ void SBN_RecvNetMsgs(void);
 void SBN_CheckPeerPipes(void);
 #endif /* !SBN_SEND_TASK */
 
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
-    void *Msg, SBN_PeerInterface_t *Peer);
 /**
  * \brief SBN global data structure definition
  */
