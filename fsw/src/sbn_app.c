@@ -104,7 +104,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     }/* end if */
 
     if(SpacecraftID != CFE_PSP_GetSpacecraftId())
-    {   
+    {
         CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
             "Invalid spacecraft ID (got '%d', expected '%d')", SpacecraftID,
             CFE_PSP_GetSpacecraftId());
@@ -158,7 +158,7 @@ static int PeerFileRowCallback(const char *Filename, int LineNum,
     else
     {
         if(Net->PeerCnt >= SBN_MAX_PEERS_PER_NET)
-        {   
+        {
             CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
                 "too many peer entries (%d, max = %d)",
                 Net->PeerCnt, SBN_MAX_PEERS_PER_NET);
@@ -256,7 +256,7 @@ static int ParseFileEntry(char *FileEntry)
         FileEntry = End + 1;
     }/* end while */
 
-    
+
     return PeerFileRowCallback("unknown", ParseLineNum++, "", Row, FieldCnt,
         NULL);
 }/* end ParseFileEntry */
@@ -392,7 +392,7 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
     if(CCSDSType == CCSDS_TLM)
-    {   
+    {
         CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
 
         uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->SECHDR);
@@ -481,7 +481,7 @@ boolean SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
 
     if(!*MsgSzPtr)
     {
-        return FALSE;
+        return TRUE;
     }/* end if */
 
     if(*MsgSzPtr > CFE_SB_MAX_SB_MSG_SIZE)
@@ -533,7 +533,7 @@ static void RecvPeerTask(void)
     for(D.NetIdx = 0; D.NetIdx < SBN.NetCnt; D.NetIdx++)
     {
         D.Net = &SBN.Nets[D.NetIdx];
-        if(!D.Net.Configured)
+        if(!D.Net->Configured)
         {
             continue;
         }
@@ -645,6 +645,8 @@ static void RecvNetTask(void)
         D.Peer = SBN_GetPeer(D.Net, D.CpuID);
         if(!D.Peer)
         {
+            CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
+                "unknown peer (CpuID=%d)", D.CpuID);
             return;
         }/* end if */
 
@@ -698,6 +700,11 @@ void SBN_RecvNetMsgs(void)
                 if(Peer)
                 {
                     OS_GetLocalTime(&Peer->LastRecv);
+                }
+                else
+                {
+                    CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
+                        "unknown peer (CpuID=%d)", CpuID);
                 }/* end if */
 
                 SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSz, Msg);
@@ -766,7 +773,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
     #ifdef SBN_SEND_TASK
 
     if(OS_MutSemTake(SBN.SendMutex) != OS_SUCCESS)
-    {   
+    {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to take mutex");
         return SBN_ERROR;
     }/* end if */
@@ -788,7 +795,7 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
     #ifdef SBN_SEND_TASK
 
     if(OS_MutSemGive(SBN.SendMutex) != OS_SUCCESS)
-    {   
+    {
         CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to give mutex");
         return SBN_ERROR;
     }/* end if */
@@ -841,7 +848,7 @@ static void SendTask(void)
                 break;
             }/* end if */
         }/* end for */
-        
+
         if(D.PeerIdx < D.Net->PeerCnt)
         {
             break; /* found a ringer */
@@ -859,7 +866,7 @@ static void SendTask(void)
     {
         if(CFE_SB_RcvMsg(&D.SBMsgPtr, D.Peer->Pipe, CFE_SB_PEND_FOREVER)
             != CFE_SUCCESS)
-        {   
+        {
             break;
         }/* end if */
 
@@ -873,11 +880,11 @@ static void SendTask(void)
         }/* end if */
 
         if(SBN.RemapEnabled)
-        {   
+        {
             D.MsgID = SBN_RemapMsgID(D.Peer->ProcessorID,
                 CFE_SB_GetMsgId(D.SBMsgPtr));
             if(D.MsgID == 0x0000)
-            {   
+            {
                 continue; /* don't send message, filtered out */
             }/* end if */
             CFE_SB_SetMsgId(D.SBMsgPtr, D.MsgID);
@@ -923,7 +930,7 @@ static void CheckPeerPipes(void)
 
                 if(CFE_SB_RcvMsg(&SBMsgPtr, Peer->Pipe, CFE_SB_POLL)
                     != CFE_SUCCESS)
-                {   
+                {
                     continue;
                 }/* end if */
 
@@ -934,7 +941,7 @@ static void CheckPeerPipes(void)
 
                 if(!strncmp(SBN.App_FullName, LastSenderPtr->AppName,
                     strlen(SBN.App_FullName)))
-                {   
+                {
                     continue;
                 }/* end if */
 
@@ -944,7 +951,7 @@ static void CheckPeerPipes(void)
                         SBN_RemapMsgID(Peer->ProcessorID,
                         CFE_SB_GetMsgId(SBMsgPtr));
                     if(!MsgID)
-                    {   
+                    {
                         continue; /* don't send message, filtered out */
                     }/* end if */
 
@@ -1042,7 +1049,7 @@ int SBN_InitInterfaces(void)
         int PeerIdx = 0;
         for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
-        	SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             Net->IfOps->InitPeer(Peer);
 
@@ -1248,6 +1255,75 @@ static int WaitForSBStartup(void)
     return TRUE;
 }/* end WaitForSBStartup */
 
+static int32 RemapTblVal(void *TblPtr)
+{
+    SBN_RemapTbl_t *r = (SBN_RemapTbl_t *)TblPtr;
+    int i = 0;
+
+    switch(r->RemapDefaultFlag)
+    {
+        /* all valid values */
+        case SBN_REMAP_DEFAULT_IGNORE:
+        case SBN_REMAP_DEFAULT_SEND:
+            break;
+        /* otherwise, unknown! */
+        default:
+            return 2;
+    }/* end switch */
+
+    /* Find the first "empty" entry (with a 0x0000 "from") to determine table
+     * size.
+     */
+    for(i = 0; i < SBN_REMAP_TABLE_SIZE; i++)
+    {
+        if (r->Entries[i].FromMID == 0x0000)
+        {
+            break;
+        }/* end if */
+    }/* end for */
+
+    r->EntryCnt = i;
+
+    SBN_RemapTblSort(r);
+
+    return CFE_SUCCESS;
+}/* end RemapTblVal */
+
+static int32 LoadTbl(SBN_RemapTbl_t **TblPtr)
+{
+    CFE_TBL_Handle_t TblHandle;
+    int32 Status = CFE_SUCCESS;
+
+    if((Status = CFE_TBL_Register(&TblHandle, "SBN_RemapTbl",
+        sizeof(SBN_RemapTbl_t), CFE_TBL_OPT_DEFAULT, &RemapTblVal))
+        != CFE_SUCCESS)
+    {
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_Load(TblHandle, CFE_TBL_SRC_FILE, SBN_TBL_FILENAME))
+        != CFE_SUCCESS)
+    {
+        CFE_TBL_Unregister(TblHandle);
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_Manage(TblHandle)) != CFE_SUCCESS)
+    {
+        CFE_TBL_Unregister(TblHandle);
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_GetAddress((void **)TblPtr, TblHandle))
+        != CFE_TBL_INFO_UPDATED)
+    {
+        CFE_TBL_Unregister(TblHandle);
+        return Status;
+    }/* end if */
+
+    return CFE_SUCCESS;
+}/* end LoadTbl */
+
 /** \brief SBN Main Routine */
 void SBN_AppMain(void)
 {
@@ -1355,16 +1431,19 @@ void SBN_AppMain(void)
         return;
     }/* end if */
 
-    Status = SBN_LoadTbl(&SBN.RemapTbl);
+    Status = LoadTbl(&SBN.RemapTbl);
     if (Status != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
             "SBN failed to load SBN.RemapTbl (%d)", Status);
-        return;
+        SBN.RemapTbl = NULL;
     }/* end if */
 
     #ifdef SBN_REMAP_ENABLED
-    SBN.RemapEnabled = 1;
+    if(SBN.RemapTbl != NULL)
+    {
+        SBN.RemapEnabled = 1;
+    }/* end if */
     #endif /* SBN_REMAP_ENABLED */
 
     Status = OS_MutSemCreate(&(SBN.RemapMutex), "sbn_remap_mutex", 0);
@@ -1380,14 +1459,24 @@ void SBN_AppMain(void)
 #endif /* SOFTWARE_BIG_BIT_ORDER */
         (int)SBN.AppID);
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-        "...SBN_IDENT=%s CMD_MID=0x%04X conf=%s)",
+        "...SBN_IDENT=%s CMD_MID=0x%04X conf=%s%s%s)",
         SBN_IDENT,
         SBN_CMD_MID,
 #ifdef CFE_ES_CONFLOADER
-        "cfe_es_conf"
+        "cfe_es_conf",
 #else /* !CFE_ES_CONFLOADER */
-        "scanf"
+        "scanf",
 #endif /* CFE_ES_CONFLOADER */
+#ifdef SBN_SEND_TASK
+        " SEND_TASK",
+#else /* !SBN_SEND_TASK */
+        " SEND_SCH",
+#endif /* SBN_SEND_TASK */
+#ifdef SBN_RECV_TASK
+        " RECV_TASK"
+#else /* !SBN_RECV_TASK */
+        " RECV_SCH"
+#endif /* SBN_RECV_TASK */
     );
 
     SBN_InitializeCounters();
@@ -1430,6 +1519,8 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
 
     if(!Peer)
     {
+        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
+            "unknown peer (CpuID=%d)", CpuID);
         return;
     }/* end if */
 

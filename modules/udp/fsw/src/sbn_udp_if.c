@@ -135,6 +135,8 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
         if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_PEER_HEARTBEAT)
         {
+            CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
+                "CPU %d - heartbeat", Peer->ProcessorID);
             return SBN_SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         }/* end if */
     }
@@ -162,8 +164,7 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
 
     SBN_PackMsg(&Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
-    static struct sockaddr_in s_addr;
-
+    struct sockaddr_in s_addr;
     memset(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = inet_addr(PeerData->Host);
