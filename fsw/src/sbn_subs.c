@@ -91,7 +91,7 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
         Pack_Data(&Pack, &SBN.Subs[i].QoS, sizeof(SBN.Subs[i].QoS));
     }/* end for */
 
-    SBN_SendNetMsg(SBN_SUBSCRIBE_MSG, Pack.BufUsed, Buf, Peer);
+    SBN_SendNetMsg(SBN_SUB_MSG, Pack.BufUsed, Buf, Peer);
 }/* end SBN_SendLocalSubsToPeer */
 
 /**
@@ -194,7 +194,7 @@ static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            SendLocalSubToPeer(SBN_SUBSCRIBE_MSG, MsgID, QoS, Peer);
+            SendLocalSubToPeer(SBN_SUB_MSG, MsgID, QoS, Peer);
         }/* end for */
     }/* end for */
 }/* end ProcessLocalSub */
@@ -248,8 +248,7 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            SendLocalSubToPeer(SBN_UN_SUBSCRIBE_MSG,
-                SBN.Subs[PeerIdx].MsgID,
+            SendLocalSubToPeer(SBN_UNSUB_MSG, SBN.Subs[PeerIdx].MsgID,
                 SBN.Subs[PeerIdx].QoS, Peer);
         }/* end for */
     }/* end for */
