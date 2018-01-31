@@ -150,8 +150,8 @@ void SBN_AppMain(void);
 void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     SBN_CpuID_t CpuID, SBN_MsgSz_t MsgSz, void *Msg);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
-void SBN_ReloadConfTbl(void);
-void SBN_ReloadRemapTbl(void);
+uint32 SBN_ReloadConfTbl(void);
+uint32 SBN_ReloadRemapTbl(void);
 
 #endif /* _sbn_app_ */
 /*****************************************************************************/

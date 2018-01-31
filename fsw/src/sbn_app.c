@@ -953,11 +953,13 @@ static uint32 LoadRemap(void)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to get conf table address");
-        CFE_TBL_Unregister(SBN.ConfTblHandle);
+        CFE_TBL_Unregister(SBN.RemapTblHandle);
         return Status;
     }/* end if */
 
     SBN_RemapTblSort(TblPtr);
+
+    CFE_TBL_Modified(SBN.RemapTblHandle);
 
     SBN.RemapTbl = TblPtr;
 
@@ -966,6 +968,16 @@ static uint32 LoadRemap(void)
 
 static uint32 UnloadRemap(void)
 {
+    SBN.RemapTbl = NULL;
+
+    uint32 Status;
+
+    if((Status = CFE_TBL_ReleaseAddress(SBN.RemapTblHandle)) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to release address for remap tbl");
+    }/* end if */
+
     return CFE_SUCCESS;
 }/* end UnloadRemap() */
 
@@ -1037,7 +1049,7 @@ static uint32 LoadRemapTbl(void)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to set notifybymessage for remap tbl");
-        CFE_TBL_Unregister(SBN.ConfTblHandle);
+        CFE_TBL_Unregister(SBN.RemapTblHandle);
         return Status;
     }/* end if */
 
@@ -1143,19 +1155,43 @@ static uint32 LoadConf(void)
          }/* end if */
     }/* end for */
 
+    /* address only needed at load time, release */
+    if((Status = CFE_TBL_ReleaseAddress(SBN.ConfTblHandle)) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
+            "unable to release address of conf tbl");
+        return Status;
+    }/* end if */
+
+    /* ...but we keep the handle so we can be notified of updates */
+
     return CFE_SUCCESS;
 }/* end LoadConf() */
 
 static uint32 UnloadConf(void)
 {
+    uint32 Status;
+
     int NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
-        Net->IfOps->UnloadNet(Net);
+        if((Status = Net->IfOps->UnloadNet(Net)) != SBN_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
+                "unable to unload network %d", NetIdx);
+            return Status;
+        }/* end if */
     }/* end for */
 
-    return UnloadModules();
+    if((Status = UnloadModules()) != SBN_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
+            "unable to unload modules");
+        return Status;
+    }/* end if */
+
+    return SBN_SUCCESS;
 }/* end if */
 
 static uint32 LoadConfTbl(void)
@@ -1524,18 +1560,38 @@ uint32 SBN_Disconnected(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end SBN_Disconnected() */
 
-void SBN_ReloadConfTbl(void)
+uint32 SBN_ReloadConfTbl(void)
 {
-    /** TODO: check return values */
-    UnloadConf();
-    CFE_TBL_Update(SBN.ConfTblHandle);
-    LoadConf();
+    uint32 Status;
+
+    if((Status = UnloadConf()) != SBN_SUCCESS)
+    {
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_Update(SBN.ConfTblHandle)) != CFE_SUCCESS)
+    {
+        return Status;
+    }/* end if */
+
+    return LoadConf();
 }/* end SBN_ReloadConfTbl() */
 
-void SBN_ReloadRemapTbl(void)
+uint32 SBN_ReloadRemapTbl(void)
 {
-    /** TODO: check return values */
-    UnloadRemap();
-    CFE_TBL_Update(SBN.RemapTblHandle);
-    LoadRemap();
-}/* end SBN_ReloadConfTbl() */
+    uint32 Status;
+
+    /* releases the table address */
+    if((Status = UnloadRemap()) != SBN_SUCCESS)
+    {
+        return Status;
+    }/* end if */
+
+    if((Status = CFE_TBL_Update(SBN.RemapTblHandle)) != CFE_SUCCESS)
+    {
+        return Status;
+    }/* end if */
+
+    /* gets the new address and loads config */
+    return LoadRemap();
+}/* end SBN_ReloadRemapTbl() */
