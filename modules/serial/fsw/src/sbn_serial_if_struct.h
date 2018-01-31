@@ -17,8 +17,6 @@ typedef struct
             ReceivingBody,
             /** \brief am I connected to the serial device? */
             SerialConn,
-            /** \brief Is this peer currently connected? */
-            Connected,
             BufNum;
     int RecvSz;
 

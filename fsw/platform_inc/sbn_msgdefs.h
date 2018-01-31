@@ -16,5 +16,6 @@
 #define SBN_HK_MYSUBS_CC        14
 
 #define SBN_SCH_WAKEUP_CC       100
+#define SBN_TBL_CC              110
 
 #endif /* _sbn_msgdefs_h_ */

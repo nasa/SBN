@@ -28,13 +28,6 @@ typedef struct
 {
     char Host[16];
     int Port;
-    
-    /**
-     * \brief TRUE if "connected" (I've sent subs, I have received messages
-     * in less than 
-     * data).
-     */
-    boolean ConnectedFlag;
 } SBN_UDP_Peer_t;
 
 typedef struct

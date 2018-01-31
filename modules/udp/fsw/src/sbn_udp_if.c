@@ -130,16 +130,15 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
     OS_time_t CurrentTime;
     OS_GetLocalTime(&CurrentTime);
 
-    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
-    
-    if(PeerData->ConnectedFlag)
+    if(Peer->Connected)
     {
         if(CurrentTime.seconds - Peer->LastRecv.seconds
             > SBN_UDP_PEER_TIMEOUT)
         {
             CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
                 "CPU %d disconnected", Peer->ProcessorID);
-            PeerData->ConnectedFlag = FALSE;
+
+            SBN_Disconnected(Peer);
             return 0;
         }/* end if */
 
@@ -241,13 +240,15 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
         return SBN_ERROR;
     }/* end if */
 
-    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
-
-    if(!PeerData->ConnectedFlag)
+    if(!Peer->Connected)
     {
         SBN_Connected(Peer);
-        PeerData->ConnectedFlag = TRUE;
     }/* end if */
+
+    if(*MsgTypePtr == SBN_UDP_DISCONN_MSG)
+    {
+        SBN_Disconnected(Peer);
+    }
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_Recv */
@@ -279,10 +280,11 @@ int SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
 
 int SBN_UDP_UnloadPeer(SBN_PeerInterface_t *Peer)
 {
-    SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
-
-    if(PeerData->ConnectedFlag)
+    if(Peer->Connected)
     {
+        CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
+                "peer%d - sending disconnect", Peer->ProcessorID);
+            return SBN_SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
         SBN_Disconnected(Peer);
     }/* end if */
 

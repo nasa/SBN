@@ -526,6 +526,34 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     CFE_SB_SendMsg((CFE_SB_Msg_t *) HKBuf);
 }/* end MySubsCmd */
 
+/** \brief Reloads a table.
+ *
+ *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *                       references the software bus message
+ *
+ *  \sa #SBN_TBL_CC
+ */
+static void ReloadTblCmd(CFE_SB_MsgPtr_t MsgPtr)
+{
+    if(!VerifyMsgLen(MsgPtr, sizeof(uint32), "reloadtbl"))
+    {   
+        return;
+    }/* end if */
+
+    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION, "reload tbl command");
+
+    SBN_ReloadTblCmd_t *CmdPtr = (SBN_ReloadTblCmd_t *)MsgPtr;
+    switch(CmdPtr->TblId)
+    {
+        case 0: /** TODO: make #define */
+            SBN_ReloadConfTbl();
+            break;
+        case 1:
+            SBN_ReloadRemapTbl();
+            break;
+    }/* end switch */
+}/* end MySubsCmd */
+
 /************************************************************************/
 /** \brief Send A Peer's Subscriptions
 **
@@ -653,10 +681,12 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
         case SBN_HK_MYSUBS_CC:
             MySubsCmd(MsgPtr);
             break;
-
         case SBN_SCH_WAKEUP_CC:
             CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
                 "wakeup");
+            break;
+        case SBN_TBL_CC:
+            ReloadTblCmd(MsgPtr);
             break;
         default:
             SBN.CmdErrCnt++;

@@ -8,8 +8,9 @@
 /**
  * UDP-specific message types.
  */
-#define SBN_UDP_HEARTBEAT_MSG 0xA0
-#define SBN_UDP_ANNOUNCE_MSG 0xA1
+#define SBN_UDP_HEARTBEAT_MSG   0xA0
+#define SBN_UDP_ANNOUNCE_MSG    0xA1
+#define SBN_UDP_DISCONN_MSG     0xA2
 
 int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 

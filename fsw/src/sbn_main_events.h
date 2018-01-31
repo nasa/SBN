@@ -15,7 +15,7 @@
 #define SBN_SB_EID          SBN_FIRST_EID + 0
 #define SBN_INIT_EID        SBN_FIRST_EID + 1
 #define SBN_MSG_EID         SBN_FIRST_EID + 2
-#define SBN_FILE_EID        SBN_FIRST_EID + 3
+#define SBN_TBL_EID         SBN_FIRST_EID + 3
 #define SBN_PEER_EID        SBN_FIRST_EID + 4
 #define SBN_PROTO_EID       SBN_FIRST_EID + 5
 #define SBN_CMD_EID         SBN_FIRST_EID + 6

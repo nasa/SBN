@@ -40,16 +40,11 @@ SBN_App_t SBN;
 #include <string.h>
 #include "sbn_app.h"
 
-#ifdef CFE_ES_CONFLOADER
-
-#include "cfe_es_conf.h"
-
-
-void SBN_UnloadModules(void)
+static uint32 UnloadModules(void)
 {
     int ProtocolID = 0;
 
-    for(ProtocolID = 0; ProtocolID < SBN_MAX_INTERFACE_TYPES; ProtocolID++)
+    for(ProtocolID = 0; ProtocolID < SBN_MAX_MOD_CNT; ProtocolID++)
     {
         if(SBN.ModuleIDs[ProtocolID])
         {
@@ -58,12 +53,12 @@ void SBN_UnloadModules(void)
                 /* TODO: send event? */
                 OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
                     SBN.ModuleIDs[ProtocolID], ProtocolID);
+                return SBN_ERROR;
             }/* end if */
         }/* end if */
     }/* end for */
-}/* end SBN_UnloadModules */
-
-#endif /* CFE_ES_CONFLOADER */
+    return SBN_SUCCESS;
+}/* end UnloadModules() */
 
 #if CFE_MAJOR_VERSION > 6 || CFE_MINOR_VERSION >= 6
 #define SECHDR Sec
@@ -792,13 +787,13 @@ static uint32 InitInterfaces(void)
         }/* end for */
     }/* end for */
 
-    CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+    CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "configured, %d nets",
         SBN.NetCnt);
 
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
             "net %d has %d peers", NetIdx, SBN.Nets[NetIdx].PeerCnt);
     }/* end for */
 
@@ -948,6 +943,32 @@ static int WaitForSBStartup(void)
     return TRUE;
 }/* end WaitForSBStartup */
 
+static uint32 LoadRemap(void)
+{
+    uint32 Status = CFE_SUCCESS;
+    SBN_RemapTbl_t *TblPtr;
+
+    if((Status = CFE_TBL_GetAddress((void **)&TblPtr, SBN.RemapTblHandle))
+        != CFE_TBL_INFO_UPDATED)
+    {
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to get conf table address");
+        CFE_TBL_Unregister(SBN.ConfTblHandle);
+        return Status;
+    }/* end if */
+
+    SBN_RemapTblSort(TblPtr);
+
+    SBN.RemapTbl = TblPtr;
+
+    return CFE_SUCCESS;
+}/* end LoadRemap() */
+
+static uint32 UnloadRemap(void)
+{
+    return CFE_SUCCESS;
+}/* end UnloadRemap() */
+
 static int32 RemapTblVal(void *TblPtr)
 {
     SBN_RemapTbl_t *r = (SBN_RemapTbl_t *)TblPtr;
@@ -961,7 +982,7 @@ static int32 RemapTblVal(void *TblPtr)
             break;
         /* otherwise, unknown! */
         default:
-            return 2;
+            return SBN_ERROR;
     }/* end switch */
 
     /* Find the first "empty" entry (with a 0x0000 "from") to determine table
@@ -977,120 +998,129 @@ static int32 RemapTblVal(void *TblPtr)
 
     r->EntryCnt = i;
 
-    SBN_RemapTblSort(r);
-
     return CFE_SUCCESS;
 }/* end RemapTblVal */
 
-static int32 LoadRemapTbl(SBN_RemapTbl_t **TblPtr)
+static uint32 LoadRemapTbl(void)
 {
-    CFE_TBL_Handle_t TblHandle;
     int32 Status = CFE_SUCCESS;
 
-    if((Status = CFE_TBL_Register(&TblHandle, "SBN_RemapTbl",
+    if((Status = CFE_TBL_Register(&SBN.RemapTblHandle, "SBN_RemapTbl",
         sizeof(SBN_RemapTbl_t), CFE_TBL_OPT_DEFAULT, &RemapTblVal))
         != CFE_SUCCESS)
     {
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to register remap tbl handle");
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Load(TblHandle, CFE_TBL_SRC_FILE,
+    if((Status = CFE_TBL_Load(SBN.RemapTblHandle, CFE_TBL_SRC_FILE,
             SBN_REMAP_TBL_FILENAME))
         != CFE_SUCCESS)
     {
-        CFE_TBL_Unregister(TblHandle);
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
+        CFE_TBL_Unregister(SBN.RemapTblHandle);
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Manage(TblHandle)) != CFE_SUCCESS)
+    if((Status = CFE_TBL_Manage(SBN.RemapTblHandle)) != CFE_SUCCESS)
     {
-        CFE_TBL_Unregister(TblHandle);
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to manage remap tbl");
+        CFE_TBL_Unregister(SBN.RemapTblHandle);
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_GetAddress((void **)TblPtr, TblHandle))
-        != CFE_TBL_INFO_UPDATED)
+    if((Status = CFE_TBL_NotifyByMessage(SBN.RemapTblHandle, SBN_CMD_MID,
+        SBN_TBL_CC, 1)) != CFE_SUCCESS)
     {
-        CFE_TBL_Unregister(TblHandle);
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to set notifybymessage for remap tbl");
+        CFE_TBL_Unregister(SBN.ConfTblHandle);
         return Status;
     }/* end if */
 
-    return CFE_SUCCESS;
-}/* end LoadTbl */
+    return LoadRemap();
+}/* end LoadRemapTbl */
 
 static int32 ConfTblVal(void *TblPtr)
 {
-    SBN_ConfTbl_t *t = (SBN_ConfTbl_t *)TblPtr;
-    int i = 0;
+    /** TODO: write */
+    return CFE_SUCCESS;
+}/* end ConfTblVal */
 
-    int32 Status = 0;
+static uint32 LoadConf(void)
+{
+    uint32 Status = CFE_SUCCESS;
+    SBN_ConfTbl_t *TblPtr;
 
-    uint32 ModuleID = 0;
-
-    cpuaddr StructAddr = 0;
-
-    for(i = 0; i < t->ModCnt; i++)
+    if((Status = CFE_TBL_GetAddress((void **)&TblPtr, SBN.ConfTblHandle))
+        != CFE_TBL_INFO_UPDATED)
     {
-    	SBN_Mod_Entry_t *e = &t->Mods[i];
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to get conf table address");
+        CFE_TBL_Unregister(SBN.ConfTblHandle);
+        return Status;
+    }/* end if */
 
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+    int i;
+
+    /* load modules */
+    for(i = 0; i < TblPtr->ModCnt; i++)
+    {
+        uint32 ModuleID = 0;
+        cpuaddr StructAddr = 0;
+
+        SBN_Mod_Entry_t *e = &TblPtr->Mods[i];
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
-
         if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
-        		!= OS_SUCCESS)
+                        != OS_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
                 "invalid module file (Name=%s LibFileName=%s)", e->Name,
                 e->LibFileName);
-
-        	return Status;
+                return Status;
         }/* end if */
-
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_INFORMATION,
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "linking symbol (%s)", e->LibSymbol);
-
         if((Status = OS_SymbolLookup(&StructAddr, e->LibSymbol)) != OS_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
                 "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
-				e->LibSymbol);
-
-        	return Status;
+                                e->LibSymbol);
+                return Status;
         }/* end if */
         SBN.IfOps[i] = (SBN_IfOps_t *)StructAddr;
         SBN.ModuleIDs[i] = ModuleID;
     }/* end for */
 
-    for(i = 0; i < t->PeerCnt; i++)
+    /* load nets and peers */
+    for(i = 0; i < TblPtr->PeerCnt; i++)
     {
-    	SBN_Peer_Entry_t *e = &t->Peers[i];
-
-    	if (e->ModIdx < 0 || e->ModIdx >= t->ModCnt)
-    	{
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+        SBN_Peer_Entry_t *e = &TblPtr->Peers[i];
+        if (e->ModIdx < 0 || e->ModIdx >= TblPtr->ModCnt)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
                 "invalid module idx (peeridx=%d, modidx=%d)", i, e->ModIdx);
             return OS_ERROR;
-    	}/* end if */
-
-    	if(e->NetNum < 0 || e->NetNum >= SBN_MAX_NETS)
-    	{
-            CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+        }/* end if */
+        if(e->NetNum < 0 || e->NetNum >= SBN_MAX_NETS)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
                 "too many networks.");
             return OS_ERROR;
-    	}/* end if */
-
+        }/* end if */
         if(e->NetNum + 1 > SBN.NetCnt)
         {
             SBN.NetCnt = e->NetNum + 1;
         }/* end if */
-
-    	SBN_NetInterface_t *Net = &SBN.Nets[e->NetNum];
-
+        SBN_NetInterface_t *Net = &SBN.Nets[e->NetNum];
         if(e->ProcessorID == CFE_PSP_GetProcessorId()
             && e->SpacecraftID == CFE_PSP_GetSpacecraftId())
          {
              Net->Configured = TRUE;
-
              Net->ProtocolID = e->ModIdx;
              Net->IfOps = SBN.IfOps[e->ModIdx];
              Net->IfOps->LoadNet(Net, (const char *)e->Address);
@@ -1099,17 +1129,13 @@ static int32 ConfTblVal(void *TblPtr)
          {
              if(Net->PeerCnt >= SBN_MAX_PEER_CNT)
              {
-                 CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_CRITICAL,
+                 CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
                      "too many peer entries (%d, max = %d)",
                      Net->PeerCnt, SBN_MAX_PEER_CNT);
-
                  return OS_ERROR;
              }/* end if */
-
              SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
-
              memset(Peer, 0, sizeof(*Peer));
-
              Peer->Net = Net;
              Peer->ProcessorID = e->ProcessorID;
              Peer->SpacecraftID = e->SpacecraftID;
@@ -1118,49 +1144,67 @@ static int32 ConfTblVal(void *TblPtr)
     }/* end for */
 
     return CFE_SUCCESS;
-}/* end RemapTblVal */
+}/* end LoadConf() */
 
-
-static int32 LoadConfTbl(SBN_ConfTbl_t **TblPtr)
+static uint32 UnloadConf(void)
 {
-    CFE_TBL_Handle_t TblHandle;
+    int NetIdx = 0;
+    for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
+    {
+        SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+        Net->IfOps->UnloadNet(Net);
+    }/* end for */
+
+    return UnloadModules();
+}/* end if */
+
+static uint32 LoadConfTbl(void)
+{
     int32 Status = CFE_SUCCESS;
 
-    if((Status = CFE_TBL_Register(&TblHandle, "SBN_ConfTbl",
+    if((Status = CFE_TBL_Register(&SBN.ConfTblHandle, "SBN_ConfTbl",
         sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, &ConfTblVal))
         != CFE_SUCCESS)
     {
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to register conf tbl handle");
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Load(TblHandle, CFE_TBL_SRC_FILE,
+    if((Status = CFE_TBL_Load(SBN.ConfTblHandle, CFE_TBL_SRC_FILE,
             SBN_CONF_TBL_FILENAME))
         != CFE_SUCCESS)
     {
-        CFE_TBL_Unregister(TblHandle);
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to load conf tbl %s", SBN_CONF_TBL_FILENAME);
+        CFE_TBL_Unregister(SBN.ConfTblHandle);
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Manage(TblHandle)) != CFE_SUCCESS)
+    if((Status = CFE_TBL_Manage(SBN.ConfTblHandle)) != CFE_SUCCESS)
     {
-        CFE_TBL_Unregister(TblHandle);
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to manage conf tbl");
+        CFE_TBL_Unregister(SBN.ConfTblHandle);
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_GetAddress((void **)TblPtr, TblHandle))
-        != CFE_TBL_INFO_UPDATED)
+    if((Status = CFE_TBL_NotifyByMessage(SBN.ConfTblHandle, SBN_CMD_MID,
+        SBN_TBL_CC, 0)) != CFE_SUCCESS)
     {
-        CFE_TBL_Unregister(TblHandle);
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+            "unable to set notifybymessage for conf tbl");
+        CFE_TBL_Unregister(SBN.ConfTblHandle);
         return Status;
     }/* end if */
 
-    return CFE_SUCCESS;
-}/* end LoadTbl */
+    return LoadConf();
+}/* end LoadConfTbl() */
 
 /** \brief SBN Main Routine */
 void SBN_AppMain(void)
 {
-    int     Status = CFE_SUCCESS;
+    uint32  Status = CFE_SUCCESS;
     uint32  RunStatus = CFE_ES_APP_RUN,
             AppID = 0;
 
@@ -1181,12 +1225,11 @@ void SBN_AppMain(void)
     uint32 TskId = OS_TaskGetId();
     CFE_SB_GetAppTskName(TskId, SBN.App_FullName);
 
-    Status = LoadConfTbl(&SBN.ConfTbl);
-    if (Status != CFE_SUCCESS)
+    if ((Status = LoadConfTbl()) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-            "SBN failed to load SBN.ConfTbl (%d)", Status);
-        SBN.ConfTbl = NULL;
+            "SBN failed to load SBN.ConfTblHandle (%d)", Status);
+        SBN.ConfTblHandle = 0;
     }/* end if */
 
     #ifdef SBN_SEND_TASK
@@ -1203,7 +1246,7 @@ void SBN_AppMain(void)
 
     if(InitInterfaces() == SBN_ERROR)
     {
-        CFE_EVS_SendEvent(SBN_FILE_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
             "unable to initialize interfaces");
         return;
     }/* end if */
@@ -1258,16 +1301,15 @@ void SBN_AppMain(void)
         return;
     }/* end if */
 
-    Status = LoadRemapTbl(&SBN.RemapTbl);
-    if (Status != CFE_SUCCESS)
+    #ifdef SBN_REMAP_ENABLED
+    if ((Status = LoadRemapTbl()) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-            "SBN failed to load SBN.RemapTbl (%d)", Status);
-        SBN.RemapTbl = NULL;
+            "SBN failed to load SBN.RemapTblHandle (%d)", Status);
+        SBN.RemapTblHandle = 0;
     }/* end if */
 
-    #ifdef SBN_REMAP_ENABLED
-    if(SBN.RemapTbl != NULL)
+    if(SBN.RemapTblHandle != 0)
     {
         SBN.RemapEnabled = 1;
     }/* end if */
@@ -1316,7 +1358,10 @@ void SBN_AppMain(void)
     if(Status != CFE_SUCCESS) RunStatus = CFE_ES_APP_ERROR;
 
     /* Loop Forever */
-    while(CFE_ES_RunLoop(&RunStatus)) WaitForWakeup(SBN_MAIN_LOOP_DELAY);
+    while(CFE_ES_RunLoop(&RunStatus))
+    {
+        WaitForWakeup(SBN_MAIN_LOOP_DELAY);
+    }/* end while */
 
     int NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
@@ -1325,7 +1370,7 @@ void SBN_AppMain(void)
         Net->IfOps->UnloadNet(Net);
     }/* end for */
 
-    /* SBN_UnloadModules(); */
+    UnloadModules();
 
     CFE_ES_ExitApp(RunStatus);
 }/* end SBN_AppMain */
@@ -1478,3 +1523,19 @@ uint32 SBN_Disconnected(SBN_PeerInterface_t *Peer)
 
     return SBN_SUCCESS;
 }/* end SBN_Disconnected() */
+
+void SBN_ReloadConfTbl(void)
+{
+    /** TODO: check return values */
+    UnloadConf();
+    CFE_TBL_Update(SBN.ConfTblHandle);
+    LoadConf();
+}/* end SBN_ReloadConfTbl() */
+
+void SBN_ReloadRemapTbl(void)
+{
+    /** TODO: check return values */
+    UnloadRemap();
+    CFE_TBL_Update(SBN.RemapTblHandle);
+    LoadRemap();
+}/* end SBN_ReloadConfTbl() */
