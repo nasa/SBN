@@ -13,6 +13,21 @@
 #include <sys/select.h>
 #endif
 
+int SBN_TCP_Init(int Major, int Minor, int Revision)
+{
+    if(Major != SBN_TCP_MAJOR || Minor != SBN_TCP_MINOR
+        || Revision != SBN_TCP_REVISION)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
+                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
+                SBN_TCP_MAJOR, SBN_TCP_MINOR, SBN_TCP_REVISION,
+                Major, Minor, Revision);
+        return SBN_ERROR;
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end SBN_TCP_Init() */
+
 static uint8 SendBufs[SBN_MAX_NETS][SBN_MAX_PACKED_MSG_SZ];
 static int SendBufCnt = 0;
 int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)

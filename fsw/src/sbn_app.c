@@ -1088,23 +1088,35 @@ static uint32 LoadConf(void)
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
         if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
-                        != OS_SUCCESS)
+            != OS_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
                 "invalid module file (Name=%s LibFileName=%s)", e->Name,
                 e->LibFileName);
-                return Status;
+            return Status;
         }/* end if */
+
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "linking symbol (%s)", e->LibSymbol);
         if((Status = OS_SymbolLookup(&StructAddr, e->LibSymbol)) != OS_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
                 "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
-                                e->LibSymbol);
-                return Status;
+                e->LibSymbol);
+            return Status;
         }/* end if */
-        SBN.IfOps[i] = (SBN_IfOps_t *)StructAddr;
+
+        SBN_IfOps_t *Ops = (SBN_IfOps_t *)StructAddr;
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
+            "calling init fn");
+        if((Status = Ops->InitModule(SBN_MAJOR_VERSION, SBN_MINOR_VERSION,
+            SBN_REVISION)) != SBN_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in init");
+            return Status;
+        }/* end if */
+
+        SBN.IfOps[i] = Ops;
         SBN.ModuleIDs[i] = ModuleID;
     }/* end for */
 

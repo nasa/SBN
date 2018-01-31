@@ -177,6 +177,9 @@ struct SBN_NetInterface_s {
  */
 struct SBN_IfOps_s {
     /** TODO: Document */
+    int (*InitModule)(int MajorVersion, int MinorVersion, int Revision);
+
+    /** TODO: Document */
     int (*LoadNet)(SBN_NetInterface_t *Net, const char *Address);
     /** TODO: Document */
     int (*LoadPeer)(SBN_PeerInterface_t *Peer, const char *Address);

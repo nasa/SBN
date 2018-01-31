@@ -5,6 +5,17 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
+/* The version #'s this module works with. If this doesn't match the core
+ * SBN application version #'s, this module should report and return an error.
+ * Note: these DEFINITELY should be hardcoded here, do not map them to
+ * the SBN version numbers.
+ */
+#define SBN_SERIAL_MAJOR 1
+#define SBN_SERIAL_MINOR 11
+#define SBN_SERIAL_REVISION 0
+
+int SBN_SERIAL_Init(int Major, int Minor, int Revision);
+
 int SBN_SERIAL_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
 int SBN_SERIAL_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
@@ -32,6 +43,7 @@ int SBN_SERIAL_UnloadPeer(SBN_PeerInterface_t *Peer);
 
 SBN_IfOps_t SBN_SERIAL_Ops =
 {
+    SBN_SERIAL_Init,
     SBN_SERIAL_LoadNet,
     SBN_SERIAL_LoadPeer,
     SBN_SERIAL_InitNet,

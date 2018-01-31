@@ -7,6 +7,21 @@
 #include <errno.h>
 #include <sys/select.h>
 
+int SBN_DTN_Init(int Major, int Minor, int Revision)
+{   
+    if(Major != SBN_DTN_MAJOR || Minor != SBN_DTN_MINOR
+        || Revision != SBN_DTN_REVISION)
+    {   
+        CFE_EVS_SendEvent(SBN_DTN_CONFIG_EID, CFE_EVS_ERROR,
+                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
+                SBN_DTN_MAJOR, SBN_DTN_MINOR, SBN_DTN_REVISION,
+                Major, Minor, Revision);
+        return SBN_ERROR;
+    }/* end if */
+    
+    return SBN_SUCCESS;
+}/* end SBN_DTN_Init() */
+
 int SBN_DTN_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_DTN_Net_t *NetData = (SBN_DTN_Net_t *)Net->ModulePvt;

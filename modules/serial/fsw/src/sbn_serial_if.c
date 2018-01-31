@@ -16,6 +16,21 @@
 #include <sys/select.h>
 #endif
 
+int SBN_SERIAL_Init(int Major, int Minor, int Revision)
+{   
+    if(Major != SBN_SERIAL_MAJOR || Minor != SBN_SERIAL_MINOR
+        || Revision != SBN_SERIAL_REVISION)
+    {   
+        CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
+                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
+                SBN_SERIAL_MAJOR, SBN_SERIAL_MINOR, SBN_SERIAL_REVISION,
+                Major, Minor, Revision);
+        return SBN_ERROR;
+    }/* end if */
+    
+    return SBN_SUCCESS;
+}/* end SBN_SERIAL_Init() */
+
 int SBN_SERIAL_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     /* this space intentionally left blank */

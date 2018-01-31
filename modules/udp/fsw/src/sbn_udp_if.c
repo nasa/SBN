@@ -13,6 +13,21 @@
 #include <sys/select.h>
 #endif
 
+int SBN_UDP_Init(int Major, int Minor, int Revision)
+{
+    if(Major != SBN_UDP_MAJOR || Minor != SBN_UDP_MINOR
+        || Revision != SBN_UDP_REVISION)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
+                SBN_UDP_MAJOR, SBN_UDP_MINOR, SBN_UDP_REVISION,
+                Major, Minor, Revision);
+        return SBN_ERROR;
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end SBN_UDP_Init() */
+
 int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
