@@ -282,20 +282,6 @@ struct SBN_IfOps_s {
     int (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *Buffer);
 
     /**
-     * Resets a specific peer.
-     * This function must be present, but can simply return SBN_NOT_IMPLEMENTED
-     * if it is not used by or not applicable to a module.
-     *
-     * @param Peer[in] Peer to reset
-     *
-     * @return  SBN_SUCCESS when the peer is reset correctly.
-     *          SBN_ERROR if the peer cannot be reset.
-     *          SBN_NOT_IMPLEMENTED if the module does not implement this
-     *          function.
-     */
-    int (*ResetPeer)(SBN_PeerInterface_t *Peer);
-
-    /**
      * Unload a network. This will unload all associated peers as well.
      *
      * @param Net[in] Network to unload.

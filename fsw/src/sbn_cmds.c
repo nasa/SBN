@@ -6,11 +6,25 @@
 #include "sbn_remap.h"
 #include "sbn_pack.h"
 
-/*******************************************************************/
-/*                                                                 */
-/* Reset telemetry counters                                        */
-/*                                                                 */
-/*******************************************************************/
+/**
+ * @brief Initializes the housekeeping counters for a peer.
+ *
+ * @param[in] Peer The peer interface for which to reset housekeeping.
+ */
+static void InitializePeerCounters(SBN_PeerInterface_t *Peer)
+{
+    Peer->LastSend = (OS_time_t){0, 0};
+    Peer->LastRecv = (OS_time_t){0, 0};
+    Peer->SendCnt = 0;
+    Peer->RecvCnt = 0;
+    Peer->SendErrCnt = 0;
+    Peer->RecvErrCnt = 0;
+}/* end InitializePeerCounters() */
+
+/**
+ * @brief Initializes the housekeeping counters both at the app level
+ *        and for each peer.
+ */
 void SBN_InitializeCounters(void)
 {
     SBN.CmdCnt = 0;
@@ -24,16 +38,13 @@ void SBN_InitializeCounters(void)
         for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            Peer->SendCnt = 0;
-            Peer->RecvCnt = 0;
-            Peer->SendErrCnt = 0;
-            Peer->RecvErrCnt = 0;
+            InitializePeerCounters(Peer);
         }/* end for */
     }/* end for */
 }/* end SBN_InitializeCounters */
 
 /************************************************************************/
-/** \brief Verify message length 
+/** \brief Verify message length.
 **
 **  \par Description
 **       Checks if the actual length of a software bus message matches
@@ -153,7 +164,7 @@ static void NoopCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \sa #SBN_RESET_CC
 **
 *************************************************************************/
-static void ResetCountersCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKResetCmd(CFE_SB_MsgPtr_t MsgPtr)
 {
     if(!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "reset counters"))
     {
@@ -166,13 +177,13 @@ static void ResetCountersCmd(CFE_SB_MsgPtr_t MsgPtr)
     ** Don't increment counter because we're resetting anyway
     */
     SBN_InitializeCounters();
-}/* end ResetCountersCmd */
+}/* end HKResetCmd */
 
 /************************************************************************/
-/** \brief Reset Peer
+/** \brief Reset Peer counters command
 **
 **  \par Description
-**       Reset a specified peer.
+**       Reset the counters for a specified peer.
 **
 **  \par Assumptions, External Events, and Notes:
 **       None
@@ -183,7 +194,7 @@ static void ResetCountersCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \sa #SBN_RESET_PEER_CC
 **
 *************************************************************************/
-static void ResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
 {
     if(!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "reset peer"))
     {
@@ -213,115 +224,12 @@ static void ResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
     CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-        "reset peer command (NetIdx=%d, PeerIdx=%d)",
+        "hk reset peer command (NetIdx=%d, PeerIdx=%d)",
         NetIdx, PeerIdx);
     SBN.CmdCnt++;
-    
-    if(Net->IfOps->ResetPeer(Peer) == SBN_NOT_IMPLEMENTED)
-    {
-        CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-            "reset peer not implemented for net");
-    }/* end if */
-}/* end ResetPeerCmd */
 
-/************************************************************************/
-/** \brief Configure Remapping behavior.
-**
-**  \par Description
-**       Configure the remapping behavior (enabling/disabling, defining
-**       default behavior for when a MID is not in the remap table.)
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
-**                       references the software bus message
-**
-**  \sa #SBN_REMAPCFG_CC
-**
-*************************************************************************/
-static void RemapCfgCmd(CFE_SB_MsgPtr_t MsgPtr)
-{
-    if(!VerifyMsgLen(MsgPtr, SBN_CMD_REMAPCFG_LEN, "remap cfg"))
-    {
-        return;
-    }/* end if */
-
-    uint8 *Ptr = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
-    SBN.RemapEnabled = *Ptr++;
-    SBN.RemapTbl->RemapDefaultFlag = *Ptr;
-
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-        "remap cfg (RemapEnabled=%d, RemapDefaultFlag=%d)",
-        SBN.RemapEnabled, SBN.RemapTbl->RemapDefaultFlag);
-}/* end RemapCfgCmd */
-
-/************************************************************************/
-/** \brief Add remapping behavior.
-**
-**  \par Description
-**       Adds a remapping to the remapping table.
-**
-**  \par Assumptions, External Events, and Notes:
-**       Will fail if there is insufficient space in the table.
-**
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
-**                       references the software bus message
-**
-**  \sa #SBN_REMAPADD_CC
-**
-*************************************************************************/
-static void RemapAddCmd(CFE_SB_MsgPtr_t MsgPtr)
-{
-    if(!VerifyMsgLen(MsgPtr, SBN_CMD_REMAPADD_LEN, "remap add"))
-    {
-        return;
-    }/* end if */
-
-    uint8 *Ptr = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
-    uint32 ProcessorID = *((uint32 *)Ptr); Ptr += sizeof(ProcessorID);
-    CFE_SB_MsgId_t FromMID = *((CFE_SB_MsgId_t *)Ptr); Ptr += sizeof(FromMID);
-    CFE_SB_MsgId_t ToMID = *((CFE_SB_MsgId_t *)Ptr);
-
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-        "remap add (ProcessorID=%d, FromMID=0x%04x, ToMID=0x%04x)",
-        ProcessorID, FromMID, ToMID);
-
-    SBN_RemapAdd(ProcessorID, FromMID, ToMID);
-}/* end RemapAddCmd */
-
-/************************************************************************/
-/** \brief Delete remapping behavior.
-**
-**  \par Description
-**       Deletes a remapping from the remapping table.
-**
-**  \par Assumptions, External Events, and Notes:
-**       Will do nothing if the entry does not exist in the table.
-**
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
-**                       references the software bus message
-**
-**  \sa #SBN_REMAPDEL_CC
-**
-*************************************************************************/
-static void RemapDelCmd(CFE_SB_MsgPtr_t MsgPtr)
-{
-    if(!VerifyMsgLen(MsgPtr, SBN_CMD_REMAPDEL_LEN, "remap del"))
-    {
-        return;
-    }/* end if */
-
-    uint8 *Ptr = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
-    uint32 ProcessorID = *((uint32 *)Ptr); Ptr += sizeof(ProcessorID);
-    CFE_SB_MsgId_t FromMID = *((CFE_SB_MsgId_t *)Ptr);
-
-    CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_INFORMATION,
-        "remap del (ProcessorID=%d, FromMID=0x%04x)",
-        ProcessorID, FromMID);
-
-    SBN_RemapDel(ProcessorID, FromMID);
-}/* end RemapDelCmd */
+    InitializePeerCounters(Peer);
+}/* end HKResetPeerCmd */
 
 /** \brief Housekeeping request command
  *
@@ -649,22 +557,6 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
         case SBN_NOOP_CC:
             NoopCmd(MsgPtr);
             break;
-        case SBN_RESET_CC:
-            ResetCountersCmd(MsgPtr);
-            break;
-        case SBN_RESET_PEER_CC:
-            ResetPeerCmd(MsgPtr);
-            break;
-
-        case SBN_REMAPCFG_CC:
-            RemapCfgCmd(MsgPtr);
-            break;
-        case SBN_REMAPADD_CC:
-            RemapAddCmd(MsgPtr);
-            break;
-        case SBN_REMAPDEL_CC:
-            RemapDelCmd(MsgPtr);
-            break;
 
         case SBN_HK_CC:
             HKCmd(MsgPtr);
@@ -681,6 +573,13 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
         case SBN_HK_MYSUBS_CC:
             MySubsCmd(MsgPtr);
             break;
+        case SBN_HK_RESET_CC:
+            HKResetCmd(MsgPtr);
+            break;
+        case SBN_HK_RESET_PEER_CC:
+            HKResetPeerCmd(MsgPtr);
+            break;
+
         case SBN_SCH_WAKEUP_CC:
             CFE_EVS_SendEvent(SBN_CMD_EID, CFE_EVS_DEBUG,
                 "wakeup");
