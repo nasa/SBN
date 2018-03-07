@@ -1,10 +1,10 @@
 core Flight System (cFS) Software Bus Network Application (SBN) 
 Open Source Release Readme
 
-SBN Release 1.0.0 
+SBN Release 1.11.0 
 
 Date: 
-February 27, 2015
+March 7, 2018
 
 Introduction:
   The Software Bus Network application (SBN) is a core Flight System (cFS) 
@@ -38,7 +38,7 @@ Introduction:
  
  
 Software Included:
-  Software Bus Network application (SBN) 1.0.0
+  Software Bus Network application (SBN) 1.11.0
   
  
 Software Required:
