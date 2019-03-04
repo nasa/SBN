@@ -147,10 +147,12 @@ int SBN_SERIAL_PollPeer(SBN_PeerInterface_t *Peer)
         CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_SERIAL_PEER_HEARTBEAT)
     {
+        OS_GetLocalTime(&Peer->LastSend);
+
         SBN_SERIAL_Send(Peer, SBN_SERIAL_HEARTBEAT_MSG, 0, NULL);
     }/* end if */
 
-    if(SBN_SERIAL_PEER_TIMEOUT > 0 &&
+    if(Peer->Connected == TRUE && SBN_SERIAL_PEER_TIMEOUT > 0 &&
         CurrentTime.seconds - Peer->LastRecv.seconds
             > SBN_SERIAL_PEER_TIMEOUT)
     {
@@ -178,7 +180,7 @@ int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
     SBN_PackMsg(&SendBuf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
     size_t sent_size = write(PeerData->FD, &SendBuf,
         MsgSz + SBN_PACKED_HDR_SZ);
-    if(sent_size < MsgSz + SBN_PACKED_HDR_SZ)
+    if(sent_size < MsgSz + SBN_PACKED_HDR_SZ && Peer->Connected == TRUE)
     {
         CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
             "CPU %d disconnected", Peer->ProcessorID);
@@ -304,10 +306,10 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     }/* end if */
 
     /* we have the complete body, decode! */
-    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSzPtr, MsgTypePtr, CpuIDPtr,
-        MsgBuf))
+    if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSzPtr, MsgTypePtr,
+        CpuIDPtr, MsgBuf))
     {
-        SBN_Connected(Peer);
+        if(Peer->Connected == FALSE) SBN_Connected(Peer);
     }
     else
     {
@@ -345,7 +347,7 @@ int SBN_SERIAL_UnloadPeer(SBN_PeerInterface_t *Peer)
         close(PeerData->FD);
     }/* end if */
 
-    if(Peer->Connected)
+    if(Peer->Connected == TRUE)
     {
         SBN_Disconnected(Peer);
     }/* end if */
