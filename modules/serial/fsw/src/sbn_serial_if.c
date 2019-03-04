@@ -38,7 +38,7 @@ int SBN_SERIAL_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 }/* end SBN_SERIAL_LoadNet */
 
 static uint8 SendBuf[SBN_MAX_PACKED_MSG_SZ],
-    RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
+    RecvBufs[SBN_MAX_NETS * SBN_MAX_PEER_CNT];
 static int BufCnt = 0;
 
 int SBN_SERIAL_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
@@ -158,7 +158,6 @@ int SBN_SERIAL_PollPeer(SBN_PeerInterface_t *Peer)
             "CPU %d disconnected", Peer->ProcessorID);
 
         close(PeerData->FD);
-        PeerData->Connected = FALSE;
 
         SBN_Disconnected(Peer);
     }/* end if */
@@ -185,7 +184,6 @@ int SBN_SERIAL_Send(SBN_PeerInterface_t *Peer,
             "CPU %d disconnected", Peer->ProcessorID);
 
         close(PeerData->FD);
-        PeerData->Connected = FALSE;
 
         SBN_Disconnected(Peer);
     }/* end if */
@@ -228,7 +226,6 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
                 OS_TaskGetId(), PeerData->FD, errno, Peer->ProcessorID);
 
             close(PeerData->FD);
-            PeerData->Connected = FALSE;
             PeerData->SerialConn = FALSE;
 
             SBN_Disconnected(Peer);
@@ -257,7 +254,6 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
                 PeerData->FD, errno, Peer->ProcessorID);
 
             close(PeerData->FD);
-            PeerData->Connected = FALSE;
             PeerData->SerialConn = FALSE;
 
             SBN_Disconnected(Peer);
@@ -265,11 +261,10 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
             return SBN_IF_EMPTY;
         }/* end if */
 
-        if(PeerData->Connected == FALSE)
+        if(Peer->Connected == FALSE)
         {
             CFE_EVS_SendEvent(SBN_SERIAL_DEBUG_EID, CFE_EVS_INFORMATION,
                 "CPU=%d connected", Peer->ProcessorID);
-            PeerData->Connected = TRUE;
 
             SBN_Connected(Peer);
         }/* end if */
@@ -312,7 +307,6 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
     if(SBN_UnpackMsg(&RecvBufs[PeerData->BufNum], MsgSzPtr, MsgTypePtr, CpuIDPtr,
         MsgBuf))
     {
-        PeerData->Connected = TRUE;
         SBN_Connected(Peer);
     }
     else
@@ -330,11 +324,6 @@ int SBN_SERIAL_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_SERIAL_ReportModuleStatus */
-
-int SBN_SERIAL_ResetPeer(SBN_PeerInterface_t *Peer)
-{
-    return SBN_NOT_IMPLEMENTED;
-}/* end SBN_SERIAL_ResetPeer */
 
 int SBN_SERIAL_UnloadNet(SBN_NetInterface_t *Net)
 {
@@ -356,7 +345,7 @@ int SBN_SERIAL_UnloadPeer(SBN_PeerInterface_t *Peer)
         close(PeerData->FD);
     }/* end if */
 
-    if(PeerData->Connected)
+    if(Peer->Connected)
     {
         SBN_Disconnected(Peer);
     }/* end if */

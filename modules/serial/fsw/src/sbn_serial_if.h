@@ -35,8 +35,6 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer,
 
 int SBN_SERIAL_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
-int SBN_SERIAL_ResetPeer(SBN_PeerInterface_t *Peer);
-
 int SBN_SERIAL_UnloadNet(SBN_NetInterface_t *Net);
 
 int SBN_SERIAL_UnloadPeer(SBN_PeerInterface_t *Peer);
@@ -53,7 +51,6 @@ SBN_IfOps_t SBN_SERIAL_Ops =
     SBN_SERIAL_Recv,
     NULL,
     SBN_SERIAL_ReportModuleStatus,
-    SBN_SERIAL_ResetPeer,
     SBN_SERIAL_UnloadNet,
     SBN_SERIAL_UnloadPeer
 };
