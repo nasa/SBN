@@ -28,7 +28,6 @@
 #include "sbn_app.h"
 #include "sbn_remap.h"
 #include "cfe_sb_events.h" /* For event message IDs */
-#include "cfe_sb_priv.h" /* For CFE_SB_SendMsgFull */
 #include "cfe_es.h" /* PerfLog */
 #include "cfe_platform_cfg.h"
 #include "cfe_msgids.h"
@@ -1465,13 +1464,12 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
             break;
         }/* end case */
         case SBN_APP_MSG:
-            Status = CFE_SB_SendMsgFull(Msg,
-                CFE_SB_DO_NOT_INCREMENT, CFE_SB_SEND_ONECOPY);
+            Status = CFE_SB_PassMsg(Msg);
 
             if(Status != CFE_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_SB_EID, CFE_EVS_ERROR,
-                    "CFE_SB_SendMsg error (Status=%d MsgType=0x%x)",
+                    "CFE_SB_PassMsg error (Status=%d MsgType=0x%x)",
                     Status, MsgType);
             }/* end if */
             break;
