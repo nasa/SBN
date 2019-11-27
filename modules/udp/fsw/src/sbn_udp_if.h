@@ -60,7 +60,6 @@ SBN_IfOps_t SBN_UDP_Ops =
     NULL,
     SBN_UDP_Recv,
     SBN_UDP_ReportModuleStatus,
-    SBN_UDP_ResetPeer,
     SBN_UDP_UnloadNet,
     SBN_UDP_UnloadPeer
 };
