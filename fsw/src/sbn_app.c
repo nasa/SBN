@@ -721,7 +721,7 @@ static uint32 InitInterfaces(void)
             snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recvs_%d", NetIdx);
             Status = CFE_ES_CreateChildTask(&(Net->RecvTaskID),
                 RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&RecvNetTask,
-                NULL, CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvNetTaskData_t),
+                NULL, CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvNetTaskData_t),
                 0, 0);
 
             if(Status != CFE_SUCCESS)
@@ -750,7 +750,7 @@ static uint32 InitInterfaces(void)
                 Status = CFE_ES_CreateChildTask(&(Peer->RecvTaskID),
                     RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&RecvPeerTask,
                     NULL,
-                    CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvPeerTaskData_t),
+                    CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvPeerTaskData_t),
                     0, 0);
                 /* TODO: more accurate stack size required */
 
@@ -772,7 +772,7 @@ static uint32 InitInterfaces(void)
                 Peer->ProcessorID);
             Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
                 SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
-                CFE_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
+                CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
 
             if(Status != CFE_SUCCESS)
             {
@@ -1251,6 +1251,7 @@ static uint32 LoadConfTbl(void)
 /** \brief SBN Main Routine */
 void SBN_AppMain(void)
 {
+    CFE_ES_TaskInfo_t TaskInfo;
     uint32  Status = CFE_SUCCESS;
     uint32  RunStatus = CFE_ES_APP_RUN,
             AppID = 0;
@@ -1268,9 +1269,16 @@ void SBN_AppMain(void)
 
     SBN.AppID = AppID;
 
-    /* load the App_FullName so I can ignore messages I send out to SB */
+    /* load my TaskName so I can ignore messages I send out to SB */
     uint32 TskId = OS_TaskGetId();
-    CFE_SB_GetAppTskName(TskId, SBN.App_FullName);
+    if ((Status = CFE_ES_GetTaskInfo(&TaskInfo, TskId)) != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,
+            "SBN failed to get task info (%d)", Status);
+        return;
+    }/* end if */
+
+    strncpy(SBN.App_FullName, (const char *)TaskInfo.TaskName, OS_MAX_API_NAME - 1);
 
     if ((Status = LoadConfTbl()) != CFE_SUCCESS)
     {
