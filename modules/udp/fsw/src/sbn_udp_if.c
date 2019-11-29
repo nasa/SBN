@@ -273,11 +273,6 @@ int SBN_UDP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_UDP_ReportModuleStatus */
 
-int SBN_UDP_ResetPeer(SBN_PeerInterface_t *Peer)
-{
-    return SBN_NOT_IMPLEMENTED;
-}/* end SBN_UDP_ResetPeer */
-
 int SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;

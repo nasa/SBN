@@ -63,7 +63,6 @@ int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 }/* end SBN_TCP_LoadNet */
 
 static uint8 RecvBufs[SBN_MAX_PEER_CNT][SBN_MAX_PACKED_MSG_SZ];
-static int RecvBufCnt = 0;
 int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
@@ -463,11 +462,6 @@ int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ReportModuleStatus */
-
-int SBN_TCP_ResetPeer(SBN_PeerInterface_t *Peer)
-{
-    return SBN_NOT_IMPLEMENTED;
-}/* end SBN_TCP_ResetPeer */
 
 int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
 {
