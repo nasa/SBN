@@ -611,8 +611,6 @@ static void CheckPeerPipes(void)
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
                 /* if peer data is not in use, go to next peer */
 
-                RcvMsg(Peer, &SBMsgPtr);
-
                 if(Peer->Connected == 0 ||
                     CFE_SB_RcvMsg(&SBMsgPtr, Peer->Pipe, CFE_SB_POLL)
                         != CFE_SUCCESS)
@@ -711,9 +709,9 @@ static uint32 InitInterfaces(void)
 
         Net->IfOps->InitNet(Net);
 
-        uint32 Status = 0;
-
 #ifdef SBN_RECV_TASK
+
+        uint32 Status = 0;
 
         if(Net->IfOps->RecvFromNet)
         {
