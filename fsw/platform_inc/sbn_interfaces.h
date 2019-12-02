@@ -105,15 +105,10 @@ typedef struct {
     /** @brief The pipe ID used to read messages destined for the peer. */
     CFE_SB_PipeId_t Pipe;
 
-    /** @brief The name of the pipe. */
-    /* TODO: do I need this? */
-    char PipeName[OS_MAX_API_NAME];
-
     /**
      * @brief A local table of subscriptions the peer has requested.
-     * Includes one extra byte for a null termination.
+     * Includes one extra entry for a null termination.
      */
-    /* TODO: do I need this? */
     SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
 
     OS_time_t LastSend, LastRecv;
