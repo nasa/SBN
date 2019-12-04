@@ -309,7 +309,7 @@ int32 SBN_CheckSubscriptionPipe(void)
 static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     CFE_SB_Qos_t QoS)
 {   
-    int idx = 0, FirstOpenSlot = Peer->SubCnt;
+    int idx = 0;
     uint32 Status = CFE_SUCCESS;
     
     /* if msg id already in the list, ignore */
@@ -336,8 +336,8 @@ static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     }/* end if */
     
     /* log the subscription in the peer table */ 
-    Peer->Subs[FirstOpenSlot].MsgID = MsgID;
-    Peer->Subs[FirstOpenSlot].QoS = QoS;
+    Peer->Subs[Peer->SubCnt].MsgID = MsgID;
+    Peer->Subs[Peer->SubCnt].QoS = QoS;
     
     Peer->SubCnt++;
 }/* end AddSub */

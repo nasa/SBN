@@ -1545,6 +1545,8 @@ uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
         "CPU %d connected", Peer->ProcessorID);
 
+    Peer->SubCnt = 0; /* reset sub count, in case this is a reconnection */
+
     uint8 ProtocolVer = SBN_PROTO_VER;
     SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
 
