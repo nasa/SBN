@@ -45,12 +45,11 @@ table-configured.)
 SBN Build and Configuration
 ---------------------------
 SBN is built like any other cFS application, either via specifying it in 
-the the `TGT#_APPLISTS` parameter in the targets.cmake (for the CMake build)
-or `THE_APPS` in the Makefile (for the "classic" build). Protocol modules
+the the `TGT#_APPLISTS` parameter in the targets.cmake. Protocol modules
 (`sbn_udp`, `sbn_tcp`, `sbn_dtn`, ...) should also be specified as an
 application in the build process (and the module should be linked or copied
 to the apps source directory). SBN must be defined as an application
-in the `cfe_es_startup.scr` script but Modules should *not* be defined there.
+in the `cfe_es_startup.scr` script but Modules must *not* be defined there.
 
 SBN uses two tables, the "conf" table for configuring which modules to load
 and which networks and peers to communicate with and the "remap" table for
