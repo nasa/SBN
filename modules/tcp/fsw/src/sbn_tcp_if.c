@@ -335,7 +335,7 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
 
     SBN_PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
     size_t sent_size = send(PeerData->Socket, &SendBufs[NetData->BufNum],
-        MsgSz + SBN_PACKED_HDR_SZ, MSG_NOSIGNAL);
+        MsgSz + SBN_PACKED_HDR_SZ, 0);
     if(sent_size < MsgSz + SBN_PACKED_HDR_SZ)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
