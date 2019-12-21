@@ -27,13 +27,14 @@
 typedef struct
 {
     char Host[16];
-    int Port;
+    uint16 Port;
 } SBN_UDP_Peer_t;
 
 typedef struct
 {
     char Host[16];
-    int Port, Socket;
+    uint16 Port;
+    uint32 Socket;
 } SBN_UDP_Net_t;
 
 #endif /* _sbn_udp_if_struct_h_ */

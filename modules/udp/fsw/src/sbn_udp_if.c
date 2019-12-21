@@ -97,31 +97,46 @@ int SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
  */
 int SBN_UDP_InitNet(SBN_NetInterface_t *Net)
 {
+    int32 Status = OS_SUCCESS;
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
     CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
         "creating socket (%s:%d)", NetData->Host, NetData->Port);
 
-    if((NetData->Socket
-        = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+    if((Status = OS_SocketOpen(&(NetData->Socket), OS_SocketDomain_INET, OS_SocketType_DATAGRAM)) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket call failed (errno=%d)", errno);
+            "socket call failed (status=%d)", Status);
         return SBN_ERROR;
     }/* end if */
 
-    static struct sockaddr_in my_addr;
-
-    my_addr.sin_addr.s_addr = inet_addr(NetData->Host);
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(NetData->Port);
-
-    if(bind(NetData->Socket, (struct sockaddr *) &my_addr,
-        sizeof(my_addr)) < 0)
+    OS_SockAddr_t Addr;
+    if((Status = OS_SocketAddrInit(&Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (%s:%d Socket=%d errno=%d)",
-            NetData->Host, NetData->Port, NetData->Socket, errno);
+            "socket addr init failed (status=%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrFromString(&Addr, NetData->Host)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "socket addr from str failed (str=%s, status=%d)", NetData->Host, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrSetPort(&Addr, NetData->Port)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "socket set port failed (port=%d, status=%d)", NetData->Port, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketBind(NetData->Socket, &Addr)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "bind call failed (%s:%d Socket=%d status=%d)",
+            NetData->Host, NetData->Port, NetData->Socket, Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -180,6 +195,7 @@ int SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
 int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload)
 {
+    int32 Status = OS_SUCCESS;
     size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ;
     uint8 Buf[BufSz];
 
@@ -189,14 +205,34 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
 
     SBN_PackMsg(&Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
-    struct sockaddr_in s_addr;
-    memset(&s_addr, 0, sizeof(s_addr));
-    s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = inet_addr(PeerData->Host);
-    s_addr.sin_port = htons(PeerData->Port);
+    OS_SockAddr_t Addr;
+    if((Status = OS_SocketAddrInit(&Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "socket addr init failed (status=%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
 
-    sendto(NetData->Socket, &Buf, BufSz, 0, (struct sockaddr *) &s_addr,
-        sizeof(s_addr));
+    if((Status = OS_SocketAddrFromString(&Addr, PeerData->Host)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "socket addr from str failed (str=%s, status=%d)", PeerData->Host, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrSetPort(&Addr, PeerData->Port)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "socket set port failed (port=%d, status=%d)", PeerData->Port, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &Addr)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "socket sendto failed (peer=%s:%d status=%d)", PeerData->Host, PeerData->Port, Status);
+        return SBN_ERROR;
+    }/* end if */
 
     return SBN_SUCCESS;
 }/* end SBN_UDP_Send */
@@ -217,15 +253,10 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 
     /* task-based peer connections block on reads, otherwise use select */
   
-    fd_set ReadFDs;
-    struct timeval Timeout;
+    uint32 StateFlags = 0;
 
-    FD_ZERO(&ReadFDs);
-    FD_SET(NetData->Socket, &ReadFDs);
-
-    memset(&Timeout, 0, sizeof(Timeout));
-
-    if(select(FD_SETSIZE, &ReadFDs, NULL, NULL, &Timeout) == 0)
+    /* timeout returns an OS error */
+    if(OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS)
     {
         /* nothing to receive */
         return SBN_IF_EMPTY;
@@ -233,8 +264,8 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 
 #endif /* !SBN_RECV_TASK */
 
-    int Received = recv(NetData->Socket, (char *)&RecvBuf,
-        CFE_SB_MAX_SB_MSG_SIZE, 0);
+    int Received = OS_SocketRecvFrom(NetData->Socket, (char *)&RecvBuf,
+        CFE_SB_MAX_SB_MSG_SIZE, NULL, 0);
 
     if(Received < 0)
     {
@@ -277,7 +308,7 @@ int SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    close(NetData->Socket);
+    OS_close(NetData->Socket);
 
     int PeerIdx = 0;
     for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
