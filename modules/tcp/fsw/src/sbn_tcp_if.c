@@ -28,38 +28,76 @@ int SBN_TCP_Init(int Major, int Minor, int Revision)
     return SBN_SUCCESS;
 }/* end SBN_TCP_Init() */
 
+static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
+{
+    int32 Status = OS_SUCCESS;
+
+    char AddrHost[OS_MAX_API_NAME];
+    int AddrLen;
+    char *Colon = strchr(Address, ':');
+
+    if(!Colon || (AddrLen = Colon - Address) >= OS_MAX_API_NAME)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR, "invalid net address");
+        return SBN_ERROR;
+    }/* end if */
+
+    strncpy(AddrHost, Address, AddrLen);
+    AddrHost[AddrLen] = '\0';
+    char *ValidatePtr = NULL;
+
+    uint32 Port = strtol(Colon + 1, &ValidatePtr, 0);
+
+    if(!ValidatePtr || ValidatePtr == Colon + 1)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR, "invalid port");
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrInit(Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "socket addr init failed (Status=%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrFromString(Addr, AddrHost)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "setting address host failed (AddrHost=%s, Status=%d)", AddrHost, Status);
+        return SBN_ERROR;
+    }/* end if */
+ 
+    if((Status = OS_SocketAddrSetPort(Addr, Port)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+            "setting address port failed (Port=%d, Status=%d)", Port, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end ConfAddr() */
+
 static uint8 SendBufs[SBN_MAX_NETS][SBN_MAX_PACKED_MSG_SZ];
 static int SendBufCnt = 0;
 int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
-    char *Colon = strchr(Address, ':');
-
-    if(!Colon)
-    {
-        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid net address (%s)", Address);
-        return SBN_ERROR;
-    }/* end if */
-
-    int AddrLen = Colon - Address;
-
-    strncpy(NetData->Host, Address, AddrLen);
-    char *ValidatePtr = NULL;
-    NetData->Port = strtol(Colon + 1, &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Colon + 1)
-    {
-        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid port");
-    }/* end if */
-
-    NetData->BufNum = SendBufCnt++;
-
     CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
-        "net configured (%s:%d)", NetData->Host, NetData->Port);
+        "configuring net 0x%lx -> %s", (unsigned long int)NetData, Address);
 
-    return SBN_SUCCESS;
+    int Status = ConfAddr(&NetData->Addr, Address);
+
+    if (Status == SBN_SUCCESS)
+    {
+        NetData->BufNum = SendBufCnt++;
+
+        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
+            "net 0x%lx configured", (unsigned long int)NetData);
+    }/* end if */
+
+    return Status;
 }/* end SBN_TCP_LoadNet */
 
 static uint8 RecvBufs[SBN_MAX_PEER_CNT][SBN_MAX_PACKED_MSG_SZ];
@@ -67,32 +105,20 @@ int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
-    char *Colon = strchr(Address, ':');
-
-    if(!Colon)
-    {
-        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid net address (%s)", Address);
-        return SBN_ERROR;
-    }/* end if */
-
-    int AddrLen = Colon - Address;
-
-    strncpy(PeerData->Host, Address, AddrLen);
-    char *ValidatePtr = NULL;
-    PeerData->Port = strtol(Colon + 1, &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Colon + 1)
-    {
-        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid port");
-    }/* end if */
-
-    PeerData->BufNum = SendBufCnt++;
-
     CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
-        "peer configured (%s:%d)", PeerData->Host, PeerData->Port);
+        "configuring peer 0x%lx -> %s", (unsigned long int)PeerData, Address);
 
-    return SBN_SUCCESS;
+    int Status = ConfAddr(&PeerData->Addr, Address);
+
+    if (Status == SBN_SUCCESS)
+    {
+        PeerData->BufNum = SendBufCnt++;
+
+        CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
+            "peer 0x%lx configured", (unsigned long int)PeerData);
+    }/* end if */
+
+    return Status;
 }/* end SBN_TCP_LoadEntry */
 
 /**
@@ -104,50 +130,26 @@ int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
  */
 int SBN_TCP_InitNet(SBN_NetInterface_t *Net)
 {
+    int32 Status = OS_SUCCESS;
+
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
-    struct sockaddr_in my_addr;
-    int OptVal = 0;
+    uint32 Socket = 0;
 
-    NetData->Socket = 0;
-    int Socket = 0;
-
-    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_DEBUG,
-        "creating socket for %s:%d", NetData->Host, NetData->Port);
-
-    if((Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    if((Status = OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM)) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "unable to create socket (errno=%d)", errno);
+            "unable to create socket (Status=%d)", Status);
         return SBN_ERROR;
     }/* end if */
 
-    OptVal = 1;
-    setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR,
-        (const void *)&OptVal, sizeof(int));
-
-    my_addr.sin_addr.s_addr = inet_addr(NetData->Host);
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(NetData->Port);
-
-    if(bind(Socket, (struct sockaddr *) &my_addr,
-        sizeof(my_addr)) < 0)
+    if((Status = OS_SocketBind(Socket, &NetData->Addr)) != OS_SUCCESS)
     {
-        close(Socket);
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (%s:%d Socket=%d errno=%d)",
-            NetData->Host, NetData->Port, Socket, errno);
+            "bind call failed (0x%lx Socket=%d status=%d)",
+            (unsigned long int)NetData, NetData->Socket, Status);
         return SBN_ERROR;
-    }/* end if */
-
-    if(listen(Socket, SBN_MAX_PEER_CNT) < 0)
-    {
-        close(Socket);
-        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "listen call failed (%s:%d Socket=%d errno=%d)",
-            NetData->Host, NetData->Port, Socket, errno);
-        return SBN_ERROR;
-    }/* end if */
+    }
 
     NetData->Socket = Socket;
 
@@ -174,60 +176,50 @@ int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
 
 static void CheckNet(SBN_NetInterface_t *Net)
 {
+    int32 Status = OS_SUCCESS;
+
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
-    fd_set ReadFDs;
-    struct timeval timeout;
-    struct sockaddr_in ClientAddr;
-    socklen_t ClientLen = sizeof(ClientAddr);
     int PeerIdx = 0;
 
-    /**
-     * Check for new connections.
-     */
-    memset(&timeout, 0, sizeof(timeout));
-    timeout.tv_usec = 100;
-
-    FD_ZERO(&ReadFDs);
-    FD_SET(NetData->Socket, &ReadFDs);
-
-    /* TODO: thread implementation? */
-    if(select(NetData->Socket + 1, &ReadFDs, 0, 0, &timeout) < 0)
+    uint32 ClientFd = 0;
+    OS_SockAddr_t Addr;
+    if ((Status = OS_SocketAccept(NetData->Socket, &ClientFd, &Addr, 0)) != OS_SUCCESS)
     {
         return;
     }/* end if */
 
-    if(FD_ISSET(NetData->Socket, &ReadFDs))
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
-        int ClientFd = 0;
-        if ((ClientFd
-            = accept(NetData->Socket,
-                (struct sockaddr *)&ClientAddr, &ClientLen)) < 0)
+        SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+        SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+        int i = 0;
+
+        /* shouldn't happen! */
+        if (PeerData->Addr.ActualLength != Addr.ActualLength)
         {
+            continue;
+        }/* end if */
+
+        for(i = 0; i < Addr.ActualLength && Addr.AddrData[i] == PeerData->Addr.AddrData[i]; i++);
+        /* no for body */
+
+        if(i >= Addr.ActualLength)
+        {
+            CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+                "CPU connected (PeerData=0x%lx, ProcessorID=%d)",
+                (unsigned long int)PeerData, Peer->ProcessorID);
+
+            PeerData->Socket = ClientFd;
+            PeerData->Connected = TRUE;
+
+            SBN_Connected(Peer);
+
             return;
         }/* end if */
-        
-        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
-        {
-            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
-            if(ClientAddr.sin_addr.s_addr
-                == inet_addr(PeerData->Host))
-            {
-                CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-                    "CPU %d connected", Peer->ProcessorID);
-
-                PeerData->Socket = ClientFd;
-                PeerData->Connected = TRUE;
- 
-                SBN_Connected(Peer);
-
-                return;
-            }/* end if */
-        }/* end for */
-        
-        /* invalid peer */
-        close(ClientFd);
-    }/* end if */
+    }/* end for */
+    
+    /* invalid peer */
+    close(ClientFd);
 
     /**
      * For peers I connect out to, and which are not currently connected,
@@ -237,6 +229,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
     {
         SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
         SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+
         if(PeerData->ConnectOut && !PeerData->Connected)
         {
             OS_time_t LocalTime;
@@ -244,38 +237,38 @@ static void CheckNet(SBN_NetInterface_t *Net)
             /* TODO: make a #define */
             if(LocalTime.seconds > PeerData->LastConnectTry.seconds + 5)
             {
-                int Socket = 0;
+                CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
+                    "connecting to peer (PeerData=0x%lx, ProcessorID=%d)",
+                    (unsigned long int)PeerData, Peer->ProcessorID);
 
-                if((Socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+                uint32 Socket = 0;
+
+                if((Status = OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM)) != OS_SUCCESS)
                 {
                     CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                        "unable to create socket (errno=%d)", errno);
+                        "unable to create socket (Status=%d)",  Status);
                     return;
                 }/* end if */
 
-                struct sockaddr_in ServerAddr;
-                memset(&ServerAddr, 0, sizeof(ServerAddr));
-                ServerAddr.sin_family = AF_INET;
-                ServerAddr.sin_addr.s_addr = inet_addr(PeerData->Host);
-                ServerAddr.sin_port = htons(PeerData->Port);
-
-                if((connect(Socket, (struct sockaddr *)&ServerAddr,
-                        sizeof(ServerAddr)))
-                    >= 0)
+                /* TODO: Make timeout configurable */
+                if((Status = OS_SocketConnect(Socket, &PeerData->Addr, 100)) != OS_SUCCESS)
                 {
-                    CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-                        "CPU %d connected", Peer->ProcessorID);
-
-                    PeerData->Socket = Socket;
-                    PeerData->Connected = TRUE;
-
-                    SBN_Connected(Peer);
-                }
-                else
-                {
-                    close(Socket);
-                    PeerData->LastConnectTry.seconds = LocalTime.seconds;
+                    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
+                        "unable to connect to peer (PeerData=0x%lx, Status=%d)",
+                        (unsigned long int)PeerData, Status);
+                    return;
                 }/* end if */
+
+                CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION, "CPU %d connected", Peer->ProcessorID);
+                PeerData->Socket = Socket;
+                PeerData->Connected = TRUE;
+
+                SBN_Connected(Peer);
+            }
+            else
+            {
+                close(PeerData->Socket);
+                PeerData->LastConnectTry.seconds = LocalTime.seconds;
             }/* end if */
         }/* end if */
     }/* end for */

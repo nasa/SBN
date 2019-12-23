@@ -28,65 +28,90 @@ int SBN_UDP_Init(int Major, int Minor, int Revision)
     return SBN_SUCCESS;
 }/* end SBN_UDP_Init() */
 
+static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
+{
+    int32 Status = OS_SUCCESS;
+
+    char AddrHost[OS_MAX_API_NAME];
+
+    char *Colon = strchr(Address, ':');
+    int ColonLen = 0;
+
+    if(!Colon || (ColonLen = Colon - Address) >= OS_MAX_API_NAME)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+                "invalid address (Address=%s)", Address);
+        return SBN_ERROR;
+    }/* end if */
+
+    strncpy(AddrHost, Address, ColonLen);
+
+    char *ValidatePtr = NULL;
+    long Port = strtol(Colon + 1, &ValidatePtr, 0);
+    if(!ValidatePtr || ValidatePtr == Colon + 1)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
+                "invalid port (Address=%s)", Address);
+    }/* end if */
+
+    if((Status = OS_SocketAddrInit(Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "addr init failed (Status=%d)", Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrFromString(Addr, AddrHost)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "addr host set failed (AddrHost=%s, Status=%d)", AddrHost, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    if((Status = OS_SocketAddrSetPort(Addr, Port)) != OS_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+            "addr port set failed (Port=%ld, Status=%d)", Port, Status);
+        return SBN_ERROR;
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end ConfAddr() */
+
 int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    char *Colon = strchr(Address, ':');
-
-    if(!Colon)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid net ('%s')", Address);
-        return SBN_ERROR;
-    }/* end if */
-
-    int ColonLen = Colon - Address;
-
-    strncpy(NetData->Host, Address, ColonLen);
-
-    char *ValidatePtr = NULL;
-    NetData->Port = strtol(Colon + 1, &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Colon + 1)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid port");
-    }/* end if */
-
     CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
-            "net configured (%s:%d)", NetData->Host, NetData->Port);
+        "configuring net (NetData=0x%lx, Address=%s)", (long unsigned int)NetData, Address);
 
-    return SBN_SUCCESS;
+    int Status = ConfAddr(&NetData->Addr, Address);
+
+    if(Status == SBN_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
+            "configured (NetData=0x%lx)", (long unsigned int)NetData);
+    }/* end if */
+
+    return Status;
 }/* end SBN_UDP_LoadNet */
 
 int SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
-    char *Colon = strchr(Address, ':');
-
-    if(!Colon)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid net ('%s')", Address);
-        return SBN_ERROR;
-    }/* end if */
-
-    int ColonLen = Colon - Address;
-
-    strncpy(PeerData->Host, Address, ColonLen);
-
-    char *ValidatePtr = NULL;
-    PeerData->Port = strtol(Colon + 1, &ValidatePtr, 0);
-    if(!ValidatePtr || ValidatePtr == Colon + 1)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR, "invalid port");
-    }/* end if */
-
     CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
-            "peer configured (%s:%d)", PeerData->Host, PeerData->Port);
+        "configuring peer (PeerData=0x%lx, Address=%s)", (long unsigned int)PeerData, Address);
 
-    return SBN_SUCCESS;
+    int Status = ConfAddr(&PeerData->Addr, Address);
+
+    if(Status == SBN_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
+            "configured (PeerData=0x%lx)", (long unsigned int)PeerData);
+    }/* end if */
+
+    return Status;
 }/* end SBN_UDP_LoadPeer */
 
 /**
@@ -101,7 +126,7 @@ int SBN_UDP_InitNet(SBN_NetInterface_t *Net)
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
     CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-        "creating socket (%s:%d)", NetData->Host, NetData->Port);
+        "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
 
     if((Status = OS_SocketOpen(&(NetData->Socket), OS_SocketDomain_INET, OS_SocketType_DATAGRAM)) != OS_SUCCESS)
     {
@@ -110,33 +135,11 @@ int SBN_UDP_InitNet(SBN_NetInterface_t *Net)
         return SBN_ERROR;
     }/* end if */
 
-    OS_SockAddr_t Addr;
-    if((Status = OS_SocketAddrInit(&Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
+    if((Status = OS_SocketBind(NetData->Socket, &NetData->Addr)) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket addr init failed (status=%d)", Status);
-        return SBN_ERROR;
-    }/* end if */
-
-    if((Status = OS_SocketAddrFromString(&Addr, NetData->Host)) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket addr from str failed (str=%s, status=%d)", NetData->Host, Status);
-        return SBN_ERROR;
-    }/* end if */
-
-    if((Status = OS_SocketAddrSetPort(&Addr, NetData->Port)) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket set port failed (port=%d, status=%d)", NetData->Port, Status);
-        return SBN_ERROR;
-    }/* end if */
-
-    if((Status = OS_SocketBind(NetData->Socket, &Addr)) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (%s:%d Socket=%d status=%d)",
-            NetData->Host, NetData->Port, NetData->Socket, Status);
+            "bind call failed (NetData=0x%lx, Socket=%d, Status=%d)",
+            (long unsigned int)NetData, NetData->Socket, Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -213,24 +216,10 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
         return SBN_ERROR;
     }/* end if */
 
-    if((Status = OS_SocketAddrFromString(&Addr, PeerData->Host)) != OS_SUCCESS)
+    if((Status = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &NetData->Addr)) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket addr from str failed (str=%s, status=%d)", PeerData->Host, Status);
-        return SBN_ERROR;
-    }/* end if */
-
-    if((Status = OS_SocketAddrSetPort(&Addr, PeerData->Port)) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket set port failed (port=%d, status=%d)", PeerData->Port, Status);
-        return SBN_ERROR;
-    }/* end if */
-
-    if((Status = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &Addr)) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "socket sendto failed (peer=%s:%d status=%d)", PeerData->Host, PeerData->Port, Status);
+            "socket sendto failed (PeerData=0x%lx, Status=%d)", (long unsigned int)PeerData, Status);
         return SBN_ERROR;
     }/* end if */
 

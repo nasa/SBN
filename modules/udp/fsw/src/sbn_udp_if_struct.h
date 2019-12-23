@@ -26,14 +26,12 @@
 
 typedef struct
 {
-    char Host[16];
-    uint16 Port;
+    OS_SockAddr_t Addr;
 } SBN_UDP_Peer_t;
 
 typedef struct
 {
-    char Host[16];
-    uint16 Port;
+    OS_SockAddr_t Addr;
     uint32 Socket;
 } SBN_UDP_Net_t;
 

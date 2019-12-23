@@ -22,16 +22,14 @@
 
 typedef struct
 {
-    char Host[16];
-    int Port;
+    OS_SockAddr_t Addr;
     uint8 BufNum;
     int Socket;
 } SBN_TCP_Net_t;
 
 typedef struct
 {
-    char Host[16];
-    int  Port;
+    OS_SockAddr_t Addr;
     int Socket;
     /* 0 = this peer connects to me, 1 = I connect to this peer */
     uint8 /** flags */
