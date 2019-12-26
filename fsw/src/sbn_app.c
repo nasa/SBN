@@ -1084,16 +1084,6 @@ static uint32 LoadConf(void)
         cpuaddr StructAddr = 0;
 
         SBN_Mod_Entry_t *e = &TblPtr->Mods[i];
-/*        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
-            "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
-        if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
-            != OS_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-                "invalid module file (Name=%s LibFileName=%s)", e->Name,
-                e->LibFileName);
-            return Status;
-        }/* end if */
 
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "linking symbol (%s)", e->LibSymbol);
