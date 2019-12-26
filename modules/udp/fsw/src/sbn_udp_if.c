@@ -216,7 +216,7 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
         return SBN_ERROR;
     }/* end if */
 
-    if((Status = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &NetData->Addr)) != OS_SUCCESS)
+    if((Status = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &PeerData->Addr)) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
             "socket sendto failed (PeerData=0x%lx, Status=%d)", (long unsigned int)PeerData, Status);
@@ -254,7 +254,7 @@ int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 #endif /* !SBN_RECV_TASK */
 
     int Received = OS_SocketRecvFrom(NetData->Socket, (char *)&RecvBuf,
-        CFE_SB_MAX_SB_MSG_SIZE, NULL, 0);
+        CFE_SB_MAX_SB_MSG_SIZE, NULL, OS_PEND);
 
     if(Received < 0)
     {
