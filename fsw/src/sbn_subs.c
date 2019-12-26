@@ -159,8 +159,11 @@ static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID,
  */
 static void ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 {
-    /* don't subscribe to event messages */
+    /* don't send event messages */
     if(MsgID == CFE_EVS_EVENT_MSG_MID) return;
+
+    /* don't send SBN messages */
+    if(MsgID == SBN_CMD_MID || MsgID == SBN_TLM_MID) return;
 
     if(SBN.SubCnt >= SBN_MAX_SUBS_PER_PEER)
     {

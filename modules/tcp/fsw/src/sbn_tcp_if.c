@@ -28,6 +28,13 @@ int SBN_TCP_Init(int Major, int Minor, int Revision)
     return SBN_SUCCESS;
 }/* end SBN_TCP_Init() */
 
+int32 SBN_TCP_LibInit()
+{
+    OS_printf("SBN_TCP Lib Initialized. Version %d.%d.%d",
+        SBN_TCP_MAJOR, SBN_TCP_MINOR, SBN_TCP_REVISION);
+    return CFE_SUCCESS;
+}/* end SBN_TCP_LibInit() */
+
 static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 {
     int32 Status = OS_SUCCESS;

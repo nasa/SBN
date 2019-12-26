@@ -459,10 +459,12 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
 
     Status = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
 
+    /* for clients that need a poll or heartbeat, update time even when failing */
+    OS_GetLocalTime(&Peer->LastSend);
+
     if(Status != -1)
     {
         Peer->SendCnt++;
-        OS_GetLocalTime(&Peer->LastSend);
     }
     else
     {
@@ -1082,7 +1084,7 @@ static uint32 LoadConf(void)
         cpuaddr StructAddr = 0;
 
         SBN_Mod_Entry_t *e = &TblPtr->Mods[i];
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
+/*        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
         if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
             != OS_SUCCESS)
@@ -1277,6 +1279,8 @@ void SBN_AppMain(void)
     }/* end if */
 
     strncpy(SBN.App_FullName, (const char *)TaskInfo.TaskName, OS_MAX_API_NAME - 1);
+
+    CFE_ES_WaitForStartupSync(10000);
 
     if ((Status = LoadConfTbl()) != CFE_SUCCESS)
     {

@@ -23,6 +23,8 @@
 
 int SBN_UDP_Init(int Major, int Minor, int Revision);
 
+int SBN_UDP_LibInit();
+
 int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
 int SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
