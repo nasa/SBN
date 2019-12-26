@@ -16,6 +16,8 @@
 
 int SBN_TCP_Init(int Major, int Minor, int Revision);
 
+int SBN_TCP_LibInit();
+
 int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
 int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);

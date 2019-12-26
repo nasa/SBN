@@ -28,6 +28,13 @@ int SBN_UDP_Init(int Major, int Minor, int Revision)
     return SBN_SUCCESS;
 }/* end SBN_UDP_Init() */
 
+int32 SBN_UDP_LibInit(void)
+{
+    OS_printf("SBN_UDP Lib Initialized. Version %d.%d.%d",
+        SBN_UDP_MAJOR, SBN_UDP_MINOR, SBN_UDP_REVISION);
+    return CFE_SUCCESS;
+}/* end SBN_UDP_LibInit() */
+
 static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 {
     int32 Status = OS_SUCCESS;
@@ -218,8 +225,9 @@ int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
 
     if((Status = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &PeerData->Addr)) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
+/*        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
             "socket sendto failed (PeerData=0x%lx, Status=%d)", (long unsigned int)PeerData, Status);
+            */
         return SBN_ERROR;
     }/* end if */
 
