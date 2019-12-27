@@ -1087,7 +1087,26 @@ static uint32 LoadConf(void)
 
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
             "linking symbol (%s)", e->LibSymbol);
-        if((Status = OS_SymbolLookup(&StructAddr, e->LibSymbol)) != OS_SUCCESS)
+        Status = OS_SymbolLookup(&StructAddr, e->LibSymbol);
+        if(Status != OS_SUCCESS && e->LibFileName[0] != '\0')
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
+                "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
+            if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
+                != OS_SUCCESS)
+            {
+                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+                    "invalid module file (Name=%s LibFileName=%s)", e->Name,
+                    e->LibFileName);
+                return Status;
+            }/* end if */
+
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
+                "trying symbol again (%s)", e->LibSymbol);
+            Status = OS_SymbolLookup(&StructAddr, e->LibSymbol);
+        }/* end if */
+
+        if (Status != OS_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
                 "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
