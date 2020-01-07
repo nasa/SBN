@@ -1,10 +1,15 @@
 -- LUA code for a Wireshark protocol dissector for SBN messages.
+-- TODO: would be nice to auto-decode CCSDS payloads in "app" messages.
+--
+-- For install instructions, see:
+--         https://www.wireshark.org/docs/wsdg_html_chunked/wsluarm.html
+
 -- change below or use "Decode As..." to decode SBN messages.
 
 local sbn_port_udp = 2234
 local sbn_port_tcp = 2234
 
-local proto_sbn = Proto("sbn", "Core Flight Software - Software Bus Networking")
+local proto_sbn = Proto("cfs_sbn", "Core Flight Software - Software Bus Networking")
 
 local proto_sbn_types = {
     [0] = "NOMSG",
@@ -14,21 +19,21 @@ local proto_sbn_types = {
     [4] = "PROTO"
 }
 
-local proto_sbn_msgsz = ProtoField.uint16("sbn.MsgSz", "MsgSz", base.DEC)
+local proto_sbn_msgsz = ProtoField.uint16("cfs_sbn.MsgSz", "MsgSz", base.DEC)
 
 local proto_sbn_type =
-    ProtoField.uint8("sbn.MsgType", "MsgType", base.DEC, proto_sbn_types)
+    ProtoField.uint8("cfs_sbn.MsgType", "MsgType", base.DEC, proto_sbn_types)
 
-local proto_sbn_cpuid = ProtoField.uint32("sbn.CPUID", "CPUID", base.DEC)
+local proto_sbn_cpuid = ProtoField.uint32("cfs_sbn.CPUID", "CPUID", base.DEC)
 
 local proto_sbn_version =
-    ProtoField.string("sbn.sub.Version", "Version", base.ASCII)
+    ProtoField.string("cfs_sbn.sub.Version", "Version", base.ASCII)
 
 local proto_sbn_sub_cnt =
-    ProtoField.uint16("sbn.sub.Cnt", "Sub Count", base.DEC)
+    ProtoField.uint16("cfs_sbn.sub.Cnt", "Sub Count", base.DEC)
 
 local proto_sbn_sub_mid =
-    ProtoField.uint16("sbn.sub.MID", "Subscription", base.HEX)
+    ProtoField.uint16("cfs_sbn.sub.MID", "Subscription", base.HEX)
 
 proto_sbn.fields = {
     proto_sbn_msgsz,
