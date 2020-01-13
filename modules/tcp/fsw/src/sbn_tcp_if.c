@@ -229,6 +229,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
 
     uint32 ClientFd = 0;
     OS_SockAddr_t Addr;
+    /* NOTE: OSAL currently has a bug that causes OS_SocketAccept to fail, see ticket #349. */
     while((Status = OS_SocketAccept(NetData->Socket, &ClientFd, &Addr, 0)) == OS_SUCCESS)
     {
         NewConn(NetData, ClientFd);
