@@ -12,36 +12,40 @@
  * messages will be generated.
  */
 #define SBN_TCP_PEER_HEARTBEAT 5
+/* #define SBN_TCP_PEER_HEARTBEAT 0 */
 
 /**
  * If I haven't received a message from a peer in SBN_TCP_PEER_TIMEOUT seconds,
  * consider the peer lost and disconnect. If this is set to 0, no timeout is
  * checked.
  */
-#define SBN_TCP_PEER_TIMEOUT 10
+/* #define SBN_TCP_PEER_TIMEOUT 10 */
+#define SBN_TCP_PEER_TIMEOUT 0
 
 typedef struct
 {
-    OS_SockAddr_t Addr;
-    uint8 BufNum;
-    int Socket;
-} SBN_TCP_Net_t;
-
-typedef struct
-{
-    OS_SockAddr_t Addr;
-    int Socket;
-    /* 0 = this peer connects to me, 1 = I connect to this peer */
-    uint8 /** flags */
-            /** \brief recv the header first */
-            ReceivingBody,
-            /** \brief Do I connect to this peer or do they connect to me? */
-            ConnectOut,
-            /** \brief Is this peer currently connected? */
-            Connected,
-            BufNum;
-    OS_time_t LastConnectTry;
+    bool InUse, ReceivingBody;
     int RecvSz;
+    int Socket;
+    uint8 BufNum;
+    SBN_PeerInterface_t *PeerInterface; /* affiliated peer, if known */
+} SBN_TCP_Conn_t;
+
+typedef struct
+{
+    OS_SockAddr_t Addr;
+    bool ConnectOut;
+    uint8 BufNum; /* incoming buffer */
+    OS_time_t LastConnectTry;
+    SBN_TCP_Conn_t *Conn; /* when connected and affiliated */
 } SBN_TCP_Peer_t;
+
+typedef struct
+{
+    OS_SockAddr_t Addr;
+    uint8 BufNum; /* outgoing buffer */
+    int Socket; /* server socket */
+    SBN_TCP_Conn_t Conns[SBN_MAX_PEER_CNT];
+} SBN_TCP_Net_t;
 
 #endif /* _sbn_tcp_if_struct_h_ */
