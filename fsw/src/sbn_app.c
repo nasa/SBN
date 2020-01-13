@@ -1561,6 +1561,9 @@ uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
     uint8 ProtocolVer = SBN_PROTO_VER;
     SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
 
+    /* set this to current time so we don't think we've already timed out */
+    OS_GetLocalTime(&Peer->LastRecv);
+
     SBN_SendLocalSubsToPeer(Peer);
 
     Peer->Connected = 1;
