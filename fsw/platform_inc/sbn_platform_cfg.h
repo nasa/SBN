@@ -91,7 +91,7 @@
 /** @brief Maximum number of protocol modules. */
 #define SBN_MAX_MOD_CNT		     8
 
-/** @brief Maximum number of protocol modules. */
+/** @brief Maximum number of peers. */
 #define SBN_MAX_PEER_CNT             16
 
 /**
