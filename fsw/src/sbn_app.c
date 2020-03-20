@@ -131,7 +131,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz,
 
     if(MsgType == SBN_APP_MSG)
     {
-        SwapCCSDS(SBNBuf + SBN_PACKED_HDR_SZ);
+        SwapCCSDS((void *)((uint8 *)SBNBuf + SBN_PACKED_HDR_SZ));
     }/* end if */
 }/* end SBN_PackMsg */
 

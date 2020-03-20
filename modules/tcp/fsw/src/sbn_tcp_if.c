@@ -21,7 +21,7 @@ int SBN_TCP_Init(int Major, int Minor, int Revision)
     return SBN_SUCCESS;
 }/* end SBN_TCP_Init() */
 
-int32 SBN_TCP_LibInit()
+int SBN_TCP_LibInit(void)
 {
     OS_printf("SBN_TCP Lib Initialized. Version %d.%d.%d",
         SBN_TCP_MAJOR, SBN_TCP_MINOR, SBN_TCP_REVISION);

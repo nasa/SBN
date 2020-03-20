@@ -50,7 +50,7 @@ static int BinarySearch(void *Entries, void *SearchEntry,
         )
     {
         midpoint = (end + start) / 2;
-        int c = EntryCompare(SearchEntry, Entries + EntrySz * midpoint);
+        int c = EntryCompare(SearchEntry, (uint8 *)Entries + EntrySz * midpoint);
         if (c == 0)
         {
             return midpoint;

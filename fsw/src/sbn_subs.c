@@ -61,7 +61,7 @@ static void SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
     uint8 Buf[SBN_PACKED_SUB_SZ];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
-    Pack_Data(&Pack, SBN_IDENT, SBN_IDENT_LEN);
+    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     Pack_UInt16(&Pack, 1);
 
     Pack_MsgID(&Pack, MsgID);
@@ -80,7 +80,7 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
     uint8 Buf[SBN_PACKED_SUB_SZ];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
-    Pack_Data(&Pack, SBN_IDENT, SBN_IDENT_LEN);
+    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     Pack_UInt16(&Pack, SBN.SubCnt);
 
     int i = 0;
