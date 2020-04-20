@@ -59,12 +59,6 @@ static uint32 UnloadModules(void)
     return SBN_SUCCESS;
 }/* end UnloadModules() */
 
-#if CFE_MAJOR_VERSION > 6 || CFE_MINOR_VERSION >= 6
-#define SECHDR Sec
-#else
-#define SECHDR SecHdr
-#endif
-
 static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
@@ -72,32 +66,25 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
     {
         CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
 
-        uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->SECHDR);
+        uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->Sec);
         Seconds = CFE_MAKE_BIG32(Seconds);
-        CCSDS_WR_SEC_HDR_SEC(TlmPktPtr->SECHDR, Seconds);
+        CCSDS_WR_SEC_HDR_SEC(TlmPktPtr->Sec, Seconds);
 
         /* SBN sends CCSDS telemetry messages with secondary headers in
          * big-endian order.
          */
         if(CCSDS_TIME_SIZE == 6)
         {
-            uint16 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR);
+            uint16 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->Sec);
             SubSeconds = CFE_MAKE_BIG16(SubSeconds);
-            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR, SubSeconds);
+            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->Sec, SubSeconds);
         }
         else
         {
-            uint32 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR);
+            uint32 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->Sec);
             SubSeconds = CFE_MAKE_BIG32(SubSeconds);
-            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->SECHDR, SubSeconds);
+            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->Sec, SubSeconds);
         }/* end if */
-    }
-    else if(CCSDSType == CCSDS_CMD)
-    {
-        CCSDS_CmdPkt_t *CmdPktPtr = (CCSDS_CmdPkt_t *)Msg;
-
-        CmdPktPtr->SECHDR.Command = CFE_MAKE_BIG16(CmdPktPtr->SECHDR.Command);;
-    /* else what? */
     }/* end if */
 }/* end SwapCCSDS */
 
