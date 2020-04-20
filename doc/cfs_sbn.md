@@ -199,7 +199,7 @@ fields in big-endian, packed (no alignment) format:
 
 Field    |Type    |Description
 ---------|--------|-----------
-`MsgSz`  |`uint16`|The total size of the message, including this header.
+`MsgSz`  |`uint16`|The total size of the message, excluding this header.
 `MsgType`|`uint8` |The type of the message (see below).
 `CpuID`  |`uint32`|The ProcessorID of the sender.
 
