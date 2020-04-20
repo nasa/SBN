@@ -66,6 +66,6 @@
 /** @brief Id is always the same len, plus \0 */
 #define SBN_IDENT_LEN       48
 
-#define SBN_PROTO_VER	10
+#define SBN_PROTO_VER	11
 
 #endif /* _sbn_constants_h_ */
