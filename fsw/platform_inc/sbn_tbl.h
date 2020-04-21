@@ -4,8 +4,6 @@
 #include "cfe.h"
 #include "sbn_platform_cfg.h"
 
-#define SBN_ADDR_SZ 16 /* TODO: move to constants.h? */
-
 /****
  * @brief The config table contains entries for peers (other CPU's),
  * modules (back-end libraries used to talk to peers), networks

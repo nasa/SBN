@@ -101,6 +101,13 @@
 #define SBN_MOD_STATUS_MSG_SZ         128
 
 /**
+ * @brief The number of characters for a "peer address", this can be
+ * an IP address, a device inode path, a DTN EIN, etc. The meaning
+ * of the address field is network module-dependent.
+ */
+#define SBN_ADDR_SZ                 48
+
+/**
  * @brief Define this to use one task per peer pipe to send messages (each
  * task blocks on read). Otherwise, pipes will be polled periodically.
  */
