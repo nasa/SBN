@@ -135,7 +135,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz,
  *       are in platform byte order.
  * \todo Use a type for SBNBuf.
  */
-boolean SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
+bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, void *Msg)
 {
     Unpack_t Unpack; Unpack_Init(&Unpack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);

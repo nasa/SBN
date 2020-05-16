@@ -66,7 +66,7 @@ void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz,
  *
  * @sa SBN_PackMsg
  */
-boolean SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
+bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
     SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, void *Msg);
 
 typedef struct SBN_IfOps_s SBN_IfOps_t;
@@ -139,7 +139,7 @@ void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID);
 
 struct SBN_NetInterface_s {
-    boolean Configured;
+    bool Configured;
 
     uint8 ProtocolID;
 

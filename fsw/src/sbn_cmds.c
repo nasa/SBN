@@ -70,7 +70,7 @@ void SBN_InitializeCounters(void)
 **  \sa #SBN_LEN_EID
 **
 *************************************************************************/
-static boolean VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen,
+static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen,
     const char *MsgName)
 {
     uint16 CommandCode = 0;

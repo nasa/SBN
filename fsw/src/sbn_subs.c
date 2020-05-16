@@ -354,7 +354,7 @@ static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
         return;
     }/* end if */
 
-    boolean RemappedFlag = FALSE;
+    bool RemappedFlag = FALSE;
 
     /** If there's a filter, ignore the sub request.  */
     int idx = 0;
