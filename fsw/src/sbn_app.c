@@ -856,7 +856,7 @@ static int WaitForSBStartup(void)
     uint32 Status = CFE_SUCCESS;
 
     /* Create event message pipe */
-    Status = CFE_SB_CreatePipe(&EventPipe, 100, "SBNEventPipe");
+    Status = CFE_SB_CreatePipe(&EventPipe, 20, "SBNEventPipe");
     if(Status != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_ERROR,

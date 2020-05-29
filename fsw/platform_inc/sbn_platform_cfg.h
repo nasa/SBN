@@ -67,14 +67,14 @@
  * @brief The maximum number of subscription messages that will be queued
  * between wakeups.
  */
-#define SBN_SUB_PIPE_DEPTH            256
+#define SBN_SUB_PIPE_DEPTH            32
 
 /**
  * @brief The maximum number of subscription messages for a single message ID
  * that will be queued between wakeups. (These are received when updates occur
  * after SBN starts up.)
  */
-#define SBN_MAX_ONESUB_PKTS_ON_PIPE   256
+#define SBN_MAX_ONESUB_PKTS_ON_PIPE   16
 
 /**
  * @brief The maximum number of subscription messages for all message IDs that
