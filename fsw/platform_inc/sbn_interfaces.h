@@ -17,7 +17,6 @@ typedef struct {
 } SBN_Subs_t;
 
 typedef uint16 SBN_MsgSz_t;
-typedef uint8 SBN_MsgType_t;
 typedef uint32 SBN_CpuID_t;
 
 /**
@@ -82,25 +81,19 @@ typedef struct {
     /** @brief A convenience pointer to the net that this peer belongs to. */
     SBN_NetInterface_t *Net;
 
-    #ifdef SBN_SEND_TASK
+    SBN_Task_Flag_t TaskFlags;
 
     /**
      * @brief The ID of the task created to pend on the pipe and send messages
-     * to the net as soon as they are read.
+     * to the net as soon as they are read. 0 if there is no send task.
      */
     uint32 SendTaskID;
 
-    #endif /* SBN_SEND_TASK */
-
-    #ifdef SBN_RECV_TASK
-
     /**
      * @brief The ID of the task created to pend on the net and send messages
-     * to the software bus as soon as they are read.
+     * to the software bus as soon as they are read. 0 if there is no recv task.
      */
     uint32 RecvTaskID; /* for mesh nets */
-
-    #endif /* SBN_RECV_TASK */
 
     /** @brief The pipe ID used to read messages destined for the peer. */
     CFE_SB_PipeId_t Pipe;
@@ -143,17 +136,15 @@ struct SBN_NetInterface_s {
 
     uint8 ProtocolID;
 
-    #ifdef SBN_SEND_TASK
+    SBN_Task_Flag_t TaskFlags;
 
-    uint32 SendTaskID, SendMutex; /* for star nets */
+    /* For some network topologies, this application only needs one connection
+     * to communicate to peers. These tasks are used for those networks. ID's
+     * are 0 if there is no task.
+     */
+    uint32 SendTaskID, SendMutex;
 
-    #endif /* SBN_SEND_TASK */
-
-    #ifdef SBN_RECV_TASK
-
-    uint32 RecvTaskID; /* for star nets */
-
-    #endif /* SBN_RECV_TASK */
+    uint32 RecvTaskID;
 
     SBN_IfOps_t *IfOps; /* convenience */
 

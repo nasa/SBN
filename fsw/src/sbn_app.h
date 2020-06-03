@@ -58,13 +58,9 @@
 void SBN_ShowPeerData(void);
 int32 SBN_GetPeerFileData(void);
 
-#ifndef SBN_RECV_TASK
 void SBN_RecvNetMsgs(void);
-#endif /* !SBN_RECV_TASK */
 
-#ifndef SBN_SEND_TASK
 void SBN_CheckPeerPipes(void);
-#endif /* !SBN_SEND_TASK */
 
 /**
  * \brief SBN global data structure definition
@@ -126,12 +122,8 @@ typedef struct
 
     SBN_ConfTbl_t *ConfTbl;
 
-#ifdef SBN_SEND_TASK
-
     /** Global mutex for Send Tasks. */
     uint32 SendMutex;
-
-#endif
 
     uint16 CmdCnt, CmdErrCnt;
 

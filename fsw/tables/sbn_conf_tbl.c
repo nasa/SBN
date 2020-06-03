@@ -22,21 +22,24 @@ SBN_ConfTbl_t SBN_ConfTbl =
 						42, /* SpacecraftID */
 						0, /* NetNum */
 						0, /* ModIdx */
-						"127.0.0.1:2234" /* Address */
+						"127.0.0.1:2234", /* Address */
+                                                SBN_TASK_POLL /* TaskFlags */
 				},
 				{ /* Peers[1] */
 						2, /* ProcessorID */
 						42, /* SpacecraftID */
 						0, /* NetNum */
 						0, /* ModIdx */
-						"127.0.0.1:2235" /* Address */
+						"127.0.0.1:2235", /* Address */
+                                                SBN_TASK_POLL /* TaskFlags */
 				},
 				{ /* Peers[2] */
 						3, /* ProcessorID */
 						42, /* SpacecraftID */
 						0, /* NetNum */
 						0, /* ModIdx */
-						"127.0.0.1:2236" /* Address */
+						"127.0.0.1:2236", /* Address */
+                                                SBN_TASK_POLL /* TaskFlags */
 				}
 		},
 		3 /* PeerCnt */
