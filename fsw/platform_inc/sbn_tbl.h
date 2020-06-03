@@ -3,6 +3,7 @@
 
 #include "cfe.h"
 #include "sbn_platform_cfg.h"
+#include "sbn_constants.h"
 
 /****
  * @brief The config table contains entries for peers (other CPU's),
@@ -13,18 +14,35 @@
  */
 typedef struct
 {
+    /** @brief the name for this protocol module */
     char Name[SBN_MAX_MOD_NAME_LEN];
+
+    /** @brief the file name to load the module from, if it's not already loaded by ES */
     char LibFileName[OS_MAX_PATH_LEN];
+
+    /** @brief the entry symbol to call when loaded */
     char LibSymbol[OS_MAX_API_NAME];
 } SBN_Mod_Entry_t;
 
 typedef struct
 {   
+    /** @brief needs to match the ProcessorID of the peer */
     uint32 ProcessorID;
+
+    /** @brief needs to match the SpacecraftID of the peer */
     uint32 SpacecraftID;
+
+    /** @brief network number indicating peers that inter-communicate using a common protocol */
     uint16 NetNum;
+
+    /** @brief the index into the Mods array for which protocol module to use for this */
     uint16 ModIdx;
+
+    /** @brief protocol-specific address, such as "127.0.0.1:1234" */
     uint8 Address[SBN_ADDR_SZ];
+
+    /** @brief indicates whether to spawn tasks for send/recv; for a given netnum, probably wise to use the same TaskFlags setting */
+    SBN_Task_Flag_t TaskFlags;
 } SBN_Peer_Entry_t;
 
 typedef struct

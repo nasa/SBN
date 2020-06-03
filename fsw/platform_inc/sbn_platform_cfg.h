@@ -55,7 +55,7 @@
  * subscribed to. The pipe should be deep enough to handle all messages that
  * will queue between wakeups.
  */
-#define SBN_PEER_PIPE_DEPTH           64
+#define SBN_PEER_PIPE_DEPTH           32
 
 /**
  * @brief The maximum number of messages that will be queued for a particular
@@ -106,19 +106,6 @@
  * of the address field is network module-dependent.
  */
 #define SBN_ADDR_SZ                 48
-
-/**
- * @brief Define this to use one task per peer pipe to send messages (each
- * task blocks on read). Otherwise, pipes will be polled periodically.
- */
-#define SBN_SEND_TASK
-
-/**
- * @brief Define this to use one task per peer to receive messages (each
- * task blocks on read). Otherwise, another method (e.g. select) must be used
- * to prevent blocking.
- */
-#define SBN_RECV_TASK
 
 /**
  * @brief If defined, remapping is enabled at boot time.
