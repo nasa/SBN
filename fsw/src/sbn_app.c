@@ -39,25 +39,27 @@ SBN_App_t SBN;
 #include <string.h>
 #include "sbn_app.h"
 
-static uint32 UnloadModules(void)
+static SBN_Status_t UnloadProtocols(void)
 {
     int ProtocolID = 0;
 
     for(ProtocolID = 0; ProtocolID < SBN_MAX_MOD_CNT; ProtocolID++)
     {
-        if(SBN.ModuleIDs[ProtocolID])
+        if(SBN.ProtocolModules[ProtocolID])
         {
-            if(OS_ModuleUnload(SBN.ModuleIDs[ProtocolID]) != OS_SUCCESS)
+            if(OS_ModuleUnload(SBN.ProtocolModules[ProtocolID]) != OS_SUCCESS)
             {
                 /* TODO: send event? */
                 OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
-                    SBN.ModuleIDs[ProtocolID], ProtocolID);
+                    SBN.ProtocolModules[ProtocolID], ProtocolID);
+
                 return SBN_ERROR;
             }/* end if */
         }/* end if */
     }/* end for */
+
     return SBN_SUCCESS;
-}/* end UnloadModules() */
+}/* end UnloadProtocols() */
 
 static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
@@ -95,18 +97,18 @@ static void SwapCCSDS(CFE_SB_Msg_t *Msg)
  * \param SBNBuf[out] The buffer to pack into.
  * \param MsgType[in] The SBN message type.
  * \param MsgSz[in] The size of the payload.
- * \param CpuID[in] The CpuID of the sender (should be CFE_CPU_ID)
+ * \param ProcessorID[in] The ProcessorID of the sender (should be CFE_CPU_ID)
  * \param Msg[in] The payload (CCSDS message or SBN sub/unsub.)
  */
-void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz,
-    SBN_MsgType_t MsgType, SBN_CpuID_t CpuID, void * Msg)
+void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType,
+    CFE_ProcessorID_t ProcessorID, void *Msg)
 {
     Pack_t Pack;
     Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, 0);
 
     Pack_UInt16(&Pack, MsgSz);
     Pack_UInt8(&Pack, MsgType);
-    Pack_UInt32(&Pack, CpuID);
+    Pack_UInt32(&Pack, ProcessorID);
 
     if(!Msg || !MsgSz)
     {
@@ -127,7 +129,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz,
  * \param SBNBuf[in] The buffer to unpack.
  * \param MsgTypePtr[out] The SBN message type.
  * \param MsgSzPtr[out] The payload size.
- * \param CpuID[out] The CpuID of the sender.
+ * \param ProcessorID[out] The ProcessorID of the sender.
  * \param Msg[out] The payload (a CCSDS message, or SBN sub/unsub).
  * \return TRUE if we were able to unpack the message.
  *
@@ -135,15 +137,15 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz,
  *       are in platform byte order.
  * \todo Use a type for SBNBuf.
  */
-bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
-    SBN_MsgType_t *MsgTypePtr, SBN_CpuID_t *CpuIDPtr, void *Msg)
+bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr,
+    CFE_ProcessorID_t *ProcessorIDPtr, void *Msg)
 {
     uint8 t = 0;
     Unpack_t Unpack; Unpack_Init(&Unpack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);
     Unpack_UInt16(&Unpack, MsgSzPtr);
     Unpack_UInt8(&Unpack, &t);
     *MsgTypePtr = t;
-    Unpack_UInt32(&Unpack, CpuIDPtr);
+    Unpack_UInt32(&Unpack, ProcessorIDPtr);
 
     if(!*MsgSzPtr)
     {
@@ -170,12 +172,13 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr,
 
 typedef struct
 {
-    int Status;
-    uint32 RecvTaskID;
-    int PeerIdx, NetIdx;
+    SBN_Status_t Status;
+    OS_TaskID_t RecvTaskID;
+    SBN_PeerIdx_t PeerIdx;
+    SBN_NetIdx_t NetIdx;
     SBN_PeerInterface_t *Peer;
     SBN_NetInterface_t *Net;
-    SBN_CpuID_t CpuID;
+    CFE_ProcessorID_t ProcessorID;
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
@@ -185,10 +188,10 @@ static void RecvPeerTask(void)
 {
     RecvPeerTaskData_t D;
     memset(&D, 0, sizeof(D));
-    if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
+    if(CFE_ES_RegisterChildTask() != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
-            "unable to register child task (%d)", D.Status);
+            "unable to register child task");
         return;
     }/* end if */
 
@@ -226,24 +229,25 @@ static void RecvPeerTask(void)
 
     while(1)
     {
-        D.Status = D.Net->IfOps->RecvFromPeer(D.Net, D.Peer,
-            &D.MsgType, &D.MsgSz, &D.CpuID, &D.Msg);
+        SBN_Status_t Status;
+        Status = D.Net->IfOps->RecvFromPeer(D.Net, D.Peer,
+            &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.Msg);
 
-        if(D.Status == SBN_IF_EMPTY)
+        if(Status == SBN_IF_EMPTY)
         {
             continue; /* no (more) messages */
         }/* end if */
 
-        if(D.Status == SBN_SUCCESS)
+        if(Status == SBN_SUCCESS)
         {
             OS_GetLocalTime(&D.Peer->LastRecv);
 
-            SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSz, &D.Msg);
+            SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.MsgSz, &D.Msg);
         }
         else
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
-                "recv error (%d)", D.Status);
+                "recv error (%d)", Status);
             D.Peer->RecvErrCnt++;
         }/* end if */
     }/* end while */
@@ -251,12 +255,12 @@ static void RecvPeerTask(void)
 
 typedef struct
 {
-    int NetIdx;
+    SBN_NetIdx_t NetIdx;
     SBN_NetInterface_t *Net;
     SBN_PeerInterface_t *Peer;
-    int Status;
-    uint32 RecvTaskID;
-    SBN_CpuID_t CpuID;
+    SBN_Status_t Status;
+    OS_TaskID_t RecvTaskID;
+    CFE_ProcessorID_t ProcessorID;
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
@@ -266,10 +270,9 @@ static void RecvNetTask(void)
 {
     RecvNetTaskData_t D;
     memset(&D, 0, sizeof(D));
-    if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
+    if(CFE_ES_RegisterChildTask() != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
-            "unable to register child task (%d)", D.Status);
+        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR, "unable to register child task");
         return;
     }/* end if */
 
@@ -293,30 +296,32 @@ static void RecvNetTask(void)
 
     while(1)
     {
-        D.Status = D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType,
-            &D.MsgSz, &D.CpuID, &D.Msg);
+        SBN_Status_t Status = SBN_SUCCESS;
 
-        if(D.Status == SBN_IF_EMPTY)
+        Status = D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType,
+            &D.MsgSz, &D.ProcessorID, &D.Msg);
+
+        if(Status == SBN_IF_EMPTY)
         {
             continue; /* no (more) messages */
         }/* end if */
 
-        if(D.Status != SBN_SUCCESS)
+        if(Status != SBN_SUCCESS)
         {
             return;
         }/* end if */
 
-        D.Peer = SBN_GetPeer(D.Net, D.CpuID);
+        D.Peer = SBN_GetPeer(D.Net, D.ProcessorID);
         if(!D.Peer)
         {
             CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
-                "unknown peer (CpuID=%d)", D.CpuID);
+                "unknown peer (ProcessorID=%d)", D.ProcessorID);
             return;
         }/* end if */
 
         OS_GetLocalTime(&D.Peer->LastRecv);
 
-        SBN_ProcessNetMsg(D.Net, D.MsgType, D.CpuID, D.MsgSz, &D.Msg);
+        SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.MsgSz, &D.Msg);
     }/* end while */
 }/* end RecvNetTask */
 
@@ -327,16 +332,16 @@ static void RecvNetTask(void)
  */
 void SBN_RecvNetMsgs(void)
 {
-    int Status = 0;
+    SBN_Status_t Status = 0;
     uint8 Msg[CFE_SB_MAX_SB_MSG_SIZE];
 
-    int NetIdx = 0;
+    SBN_NetIdx_t NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
         SBN_MsgType_t MsgType;
         SBN_MsgSz_t MsgSz;
-        SBN_CpuID_t CpuID;
+        CFE_ProcessorID_t ProcessorID;
 
         if(Net->TaskFlags | SBN_TASK_RECV)
         {
@@ -352,7 +357,7 @@ void SBN_RecvNetMsgs(void)
                 memset(Msg, 0, sizeof(Msg));
 
                 Status = Net->IfOps->RecvFromNet(
-                    Net, &MsgType, &MsgSz, &CpuID, Msg);
+                    Net, &MsgType, &MsgSz, &ProcessorID, Msg);
 
                 if(Status == SBN_IF_EMPTY)
                 {
@@ -362,7 +367,7 @@ void SBN_RecvNetMsgs(void)
                 /* for UDP, the message received may not be from the peer
                  * expected.
                  */
-                SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, CpuID);
+                SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID);
 
                 if(Peer)
                 {
@@ -371,15 +376,15 @@ void SBN_RecvNetMsgs(void)
                 else
                 {
                     CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
-                        "unknown peer (CpuID=%d)", CpuID);
+                        "unknown peer (ProcessorID=%d)", ProcessorID);
                 }/* end if */
 
-                SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSz, Msg);
+                SBN_ProcessNetMsg(Net, MsgType, ProcessorID, MsgSz, Msg);
             }
         }
         else if(Net->IfOps->RecvFromPeer)
         {
-            int PeerIdx = 0;
+            SBN_PeerIdx_t PeerIdx = 0;
             for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -387,17 +392,17 @@ void SBN_RecvNetMsgs(void)
                 /* Process up to 100 received messages
                  * TODO: make configurable
                  */
-                int i = 0;
-                for(i = 0; i < 100; i++)
+                int MsgCnt = 0;
+                for(MsgCnt = 0; MsgCnt < 100; MsgCnt++)
                 {
-                    SBN_CpuID_t CpuID = 0;
+                    CFE_ProcessorID_t ProcessorID = 0;
                     SBN_MsgType_t MsgType = 0;
                     SBN_MsgSz_t MsgSz = 0;
 
                     memset(Msg, 0, sizeof(Msg));
 
                     Status = Net->IfOps->RecvFromPeer(Net, Peer,
-                        &MsgType, &MsgSz, &CpuID, Msg);
+                        &MsgType, &MsgSz, &ProcessorID, Msg);
 
                     if(Status == SBN_IF_EMPTY)
                     {
@@ -406,7 +411,7 @@ void SBN_RecvNetMsgs(void)
 
                     OS_GetLocalTime(&Peer->LastRecv);
 
-                    SBN_ProcessNetMsg(Net, MsgType, CpuID, MsgSz, Msg);
+                    SBN_ProcessNetMsg(Net, MsgType, ProcessorID, MsgSz, Msg);
                 }/* end for */
             }/* end for */
         }
@@ -429,10 +434,9 @@ void SBN_RecvNetMsgs(void)
  * @return Number of characters sent on success, -1 on error.
  *
  */
-int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
-    void *Msg, SBN_PeerInterface_t *Peer)
+SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
 {
-    int Status = 0;
+    SBN_MsgSz_t SentSz = 0;
     SBN_NetInterface_t *Net = Peer->Net;
 
     if(Peer->SendTaskID)
@@ -440,16 +444,16 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
         if(OS_MutSemTake(SBN.SendMutex) != OS_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to take mutex");
-            return SBN_ERROR;
+            return -1;
         }/* end if */
     }/* end if */
 
-    Status = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
+    SentSz = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
 
     /* for clients that need a poll or heartbeat, update time even when failing */
     OS_GetLocalTime(&Peer->LastSend);
 
-    if(Status != -1)
+    if(SentSz != -1)
     {
         Peer->SendCnt++;
     }
@@ -463,17 +467,18 @@ int SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz,
         if(OS_MutSemGive(SBN.SendMutex) != OS_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR, "unable to give mutex");
-            return SBN_ERROR;
+            return -1;
         }/* end if */
     }/* end if */
 
-    return Status;
+    return SentSz;
 }/* end SBN_SendNetMsg */
 
 typedef struct
 {
-    int NetIdx, PeerIdx, Status;
-    uint32 SendTaskID;
+    SBN_NetIdx_t NetIdx;
+    SBN_PeerIdx_t PeerIdx;
+    OS_TaskID_t SendTaskID;
     CFE_SB_MsgPtr_t SBMsgPtr;
     CFE_SB_MsgId_t MsgID;
     CFE_SB_SenderId_t *LastSenderPtr;
@@ -491,10 +496,9 @@ static void SendTask(void)
 
     memset(&D, 0, sizeof(D));
 
-    if((D.Status = CFE_ES_RegisterChildTask()) != CFE_SUCCESS)
+    if(CFE_ES_RegisterChildTask() != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
-            "unable to register child task (%d)", D.Status);
+        CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR, "unable to register child task");
         return;
     }/* end if */
 
@@ -584,7 +588,7 @@ static void CheckPeerPipes(void)
     {
         ReceivedFlag = 0;
 
-        int NetIdx = 0;
+        SBN_NetIdx_t NetIdx = 0;
         for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
         {
             SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
@@ -594,7 +598,7 @@ static void CheckPeerPipes(void)
                 continue;
             }/* end if */
 
-            int PeerIdx = 0;
+            SBN_PeerIdx_t PeerIdx = 0;
             for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -649,7 +653,7 @@ static void CheckPeerPipes(void)
  */
 static void PeerPoll(void)
 {
-    int NetIdx = 0;
+    SBN_NetIdx_t NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
@@ -659,7 +663,7 @@ static void PeerPoll(void)
             continue;
         }/* end if */
 
-        int PeerIdx = 0;
+        SBN_PeerIdx_t PeerIdx = 0;
         for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -680,7 +684,7 @@ static void PeerPoll(void)
  * @return SBN_SUCCESS if interface is initialized successfully
  *         SBN_ERROR otherwise
  */
-static uint32 InitInterfaces(void)
+static SBN_Status_t InitInterfaces(void)
 {
     if(SBN.NetCnt < 1)
     {
@@ -690,7 +694,7 @@ static uint32 InitInterfaces(void)
         return SBN_ERROR;
     }/* end if */
 
-    int NetIdx = 0;
+    SBN_NetIdx_t NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
@@ -705,7 +709,7 @@ static uint32 InitInterfaces(void)
 
         Net->IfOps->InitNet(Net);
 
-        uint32 Status = 0;
+        SBN_Status_t Status = SBN_SUCCESS;
 
         if(Net->IfOps->RecvFromNet && Net->TaskFlags | SBN_TASK_RECV)
         {
@@ -724,7 +728,7 @@ static uint32 InitInterfaces(void)
             }/* end if */
         }/* end if */
 
-        int PeerIdx = 0;
+        SBN_PeerIdx_t PeerIdx = 0;
         for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -782,6 +786,7 @@ static uint32 InitInterfaces(void)
 
     return SBN_SUCCESS;
 }/* end InitInterfaces */
+
 /**
  * This function waits for the scheduler (SCH) to wake this code up, so that
  * nothing transpires until the cFE is fully operational.
@@ -789,9 +794,9 @@ static uint32 InitInterfaces(void)
  * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
  * @return CFE_SUCCESS on success, otherwise an error value.
  */
-static int32 WaitForWakeup(int32 iTimeOut)
+static CFE_Status_t WaitForWakeup(int32 iTimeOut)
 {
-    int32 Status = CFE_SUCCESS;
+    CFE_Status_t Status = CFE_SUCCESS;
     CFE_SB_MsgPtr_t Msg = 0;
 
     /* Wait for WakeUp messages from scheduler */
@@ -836,17 +841,16 @@ static int32 WaitForWakeup(int32 iTimeOut)
  * an event message that says SB has finished initializing. The latter message
  * means that SB was not started at the time SBN sent the "get subscriptions"
  * message, so that message will need to be sent again.
- * @return TRUE if message received was a initialization message and
- *      requests need to be sent again, or
- * @return FALSE if message received was a response
+ *
+ * @return SBN_SUCCESS or SBN_ERROR
  */
-static int WaitForSBStartup(void)
+static SBN_Status_t WaitForSBStartup(void)
 {
     CFE_EVS_Packet_t *EvsTlm = NULL;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     uint8 counter = 0;
     CFE_SB_PipeId_t EventPipe = 0;
-    uint32 Status = CFE_SUCCESS;
+    CFE_Status_t Status = SBN_SUCCESS;
 
     /* Create event message pipe */
     Status = CFE_SB_CreatePipe(&EventPipe, 20, "SBNEventPipe");
@@ -919,12 +923,12 @@ static int WaitForSBStartup(void)
     }/* end if */
 
     /* SBN needs to re-send request messages */
-    return TRUE;
+    return SBN_SUCCESS;
 }/* end WaitForSBStartup */
 
-static uint32 LoadRemap(void)
+static SBN_Status_t LoadRemap(void)
 {
-    uint32 Status = CFE_SUCCESS;
+    CFE_Status_t Status = CFE_SUCCESS;
     SBN_RemapTbl_t *TblPtr;
 
     if((Status = CFE_TBL_GetAddress((void **)&TblPtr, SBN.RemapTblHandle))
@@ -933,7 +937,7 @@ static uint32 LoadRemap(void)
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to get conf table address");
         CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
     SBN_RemapTblSort(TblPtr);
@@ -942,25 +946,26 @@ static uint32 LoadRemap(void)
 
     SBN.RemapTbl = TblPtr;
 
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 }/* end LoadRemap() */
 
-static uint32 UnloadRemap(void)
+static SBN_Status_t UnloadRemap(void)
 {
     SBN.RemapTbl = NULL;
 
-    uint32 Status;
+    CFE_Status_t Status;
 
     if((Status = CFE_TBL_ReleaseAddress(SBN.RemapTblHandle)) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to release address for remap tbl");
+        return SBN_ERROR;
     }/* end if */
 
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 }/* end UnloadRemap() */
 
-static int32 RemapTblVal(void *TblPtr)
+static int RemapTblVal(void *TblPtr)
 {
     SBN_RemapTbl_t *r = (SBN_RemapTbl_t *)TblPtr;
     int i = 0;
@@ -973,7 +978,7 @@ static int32 RemapTblVal(void *TblPtr)
             break;
         /* otherwise, unknown! */
         default:
-            return SBN_ERROR;
+            return -1;
     }/* end switch */
 
     /* Find the first "empty" entry (with a 0x0000 "from") to determine table
@@ -989,47 +994,41 @@ static int32 RemapTblVal(void *TblPtr)
 
     r->EntryCnt = i;
 
-    return CFE_SUCCESS;
+    return 0;
 }/* end RemapTblVal */
 
-static uint32 LoadRemapTbl(void)
+static SBN_Status_t LoadRemapTbl(void)
 {
-    int32 Status = CFE_SUCCESS;
-
-    if((Status = CFE_TBL_Register(&SBN.RemapTblHandle, "SBN_RemapTbl",
-        sizeof(SBN_RemapTbl_t), CFE_TBL_OPT_DEFAULT, &RemapTblVal))
-        != CFE_SUCCESS)
+    if(CFE_TBL_Register(&SBN.RemapTblHandle, "SBN_RemapTbl", sizeof(SBN_RemapTbl_t),
+        CFE_TBL_OPT_DEFAULT, &RemapTblVal) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to register remap tbl handle");
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
-    if((Status = CFE_TBL_Load(SBN.RemapTblHandle, CFE_TBL_SRC_FILE,
-            SBN_REMAP_TBL_FILENAME))
-        != CFE_SUCCESS)
+    if(CFE_TBL_Load(SBN.RemapTblHandle, CFE_TBL_SRC_FILE, SBN_REMAP_TBL_FILENAME) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
         CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
-    if((Status = CFE_TBL_Manage(SBN.RemapTblHandle)) != CFE_SUCCESS)
+    if(CFE_TBL_Manage(SBN.RemapTblHandle) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to manage remap tbl");
         CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
-    if((Status = CFE_TBL_NotifyByMessage(SBN.RemapTblHandle, SBN_CMD_MID,
-        SBN_TBL_CC, 1)) != CFE_SUCCESS)
+    if(CFE_TBL_NotifyByMessage(SBN.RemapTblHandle, SBN_CMD_MID, SBN_TBL_CC, 1) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to set notifybymessage for remap tbl");
         CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
     return LoadRemap();
@@ -1041,100 +1040,101 @@ static int32 ConfTblVal(void *TblPtr)
     return CFE_SUCCESS;
 }/* end ConfTblVal */
 
-static uint32 LoadConf(void)
+static SBN_Status_t LoadConf(void)
 {
-    uint32 Status = CFE_SUCCESS;
-    SBN_ConfTbl_t *TblPtr;
+    SBN_ConfTbl_t *TblPtr = NULL;
+    SBN_ProtocolIdx_t ProtocolIdx = 0;
+    SBN_PeerIdx_t PeerIdx = 0;
 
-    if((Status = CFE_TBL_GetAddress((void **)&TblPtr, SBN.ConfTblHandle))
-        != CFE_TBL_INFO_UPDATED)
+    if(CFE_TBL_GetAddress((void **)&TblPtr, SBN.ConfTblHandle) != CFE_TBL_INFO_UPDATED)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
             "unable to get conf table address");
         CFE_TBL_Unregister(SBN.ConfTblHandle);
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
-    int i;
-
     /* load modules */
-    for(i = 0; i < TblPtr->ModCnt; i++)
+    for(ProtocolIdx = 0; ProtocolIdx < TblPtr->ProtocolCnt; ProtocolIdx++)
     {
-        uint32 ModuleID = 0;
         cpuaddr StructAddr = 0;
+        CFE_ES_ModuleID_t ModuleID = 0;
 
-        SBN_Mod_Entry_t *e = &TblPtr->Mods[i];
+        SBN_Module_Entry_t *e = &TblPtr->ProtocolModules[ProtocolIdx];
 
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
-            "linking symbol (%s)", e->LibSymbol);
-        Status = OS_SymbolLookup(&StructAddr, e->LibSymbol);
-        if(Status != OS_SUCCESS && e->LibFileName[0] != '\0')
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "linking symbol (%s)", e->LibSymbol);
+        if(OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
         {
+            if(e->LibFileName[0] == '\0')
+            {
+                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+                    "invalid module (Name=%s)", e->Name);
+                return SBN_ERROR;
+            }
+
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
                 "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
-            if((Status = OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName))
-                != OS_SUCCESS)
+            if(OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName) != OS_SUCCESS)
             {
                 CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
                     "invalid module file (Name=%s LibFileName=%s)", e->Name,
                     e->LibFileName);
-                return Status;
+                return SBN_ERROR;
             }/* end if */
 
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
                 "trying symbol again (%s)", e->LibSymbol);
-            Status = OS_SymbolLookup(&StructAddr, e->LibSymbol);
-        }/* end if */
-
-        if (Status != OS_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-                "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
-                e->LibSymbol);
-            return Status;
+            if(OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS)
+            {
+                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+                    "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
+                    e->LibSymbol);
+                return SBN_ERROR;
+            }
         }/* end if */
 
         SBN_IfOps_t *Ops = (SBN_IfOps_t *)StructAddr;
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
-            "calling init fn");
-        if((Status = Ops->InitModule(SBN_MAJOR_VERSION, SBN_MINOR_VERSION,
-            SBN_REVISION)) != SBN_SUCCESS)
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "calling init fn");
+        if(Ops->InitModule(SBN_MAJOR_VERSION, SBN_MINOR_VERSION, SBN_REVISION) != SBN_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in init");
-            return Status;
+            return SBN_ERROR;
         }/* end if */
 
-        SBN.IfOps[i] = Ops;
-        SBN.ModuleIDs[i] = ModuleID;
+        SBN.IfOps[ProtocolIdx] = Ops;
+        SBN.ProtocolModules[ProtocolIdx] = ModuleID;
     }/* end for */
 
     /* load nets and peers */
-    for(i = 0; i < TblPtr->PeerCnt; i++)
+    for(PeerIdx = 0; PeerIdx < TblPtr->PeerCnt; PeerIdx++)
     {
-        SBN_Peer_Entry_t *e = &TblPtr->Peers[i];
-        if (e->ModIdx < 0 || e->ModIdx >= TblPtr->ModCnt)
+        SBN_Peer_Entry_t *e = &TblPtr->Peers[PeerIdx];
+
+        if (e->ProtocolIdx < 0 || e->ProtocolIdx >= TblPtr->ProtocolCnt)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-                "invalid module idx (peeridx=%d, modidx=%d)", i, e->ModIdx);
-            return OS_ERROR;
+                "invalid module idx (peeridx=%d, modidx=%d)", PeerIdx, e->ProtocolIdx);
+            return SBN_ERROR;
         }/* end if */
+
         if(e->NetNum < 0 || e->NetNum >= SBN_MAX_NETS)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
                 "too many networks.");
-            return OS_ERROR;
+            return SBN_ERROR;
         }/* end if */
+
         if(e->NetNum + 1 > SBN.NetCnt)
         {
             SBN.NetCnt = e->NetNum + 1;
         }/* end if */
+
         SBN_NetInterface_t *Net = &SBN.Nets[e->NetNum];
-        if(e->ProcessorID == CFE_PSP_GetProcessorId()
-            && e->SpacecraftID == CFE_PSP_GetSpacecraftId())
+        if(e->ProcessorID == CFE_PSP_GetProcessorId() && e->SpacecraftID == CFE_PSP_GetSpacecraftId())
          {
              Net->Configured = TRUE;
-             Net->ProtocolID = e->ModIdx;
-             Net->IfOps = SBN.IfOps[e->ModIdx];
+             Net->ProtocolIdx = e->ProtocolIdx;
+             Net->IfOps = SBN.IfOps[e->ProtocolIdx];
              Net->IfOps->LoadNet(Net, (const char *)e->Address);
 
              Net->TaskFlags = e->TaskFlags;
@@ -1146,30 +1146,28 @@ static uint32 LoadConf(void)
                  CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
                      "too many peer entries (%d, max = %d)",
                      Net->PeerCnt, SBN_MAX_PEER_CNT);
-                 return OS_ERROR;
+                 return SBN_ERROR;
              }/* end if */
              SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
              memset(Peer, 0, sizeof(*Peer));
              Peer->Net = Net;
              Peer->ProcessorID = e->ProcessorID;
              Peer->SpacecraftID = e->SpacecraftID;
-             SBN.IfOps[e->ModIdx]->LoadPeer(Peer, (const char *)e->Address);
+             SBN.IfOps[e->ProtocolIdx]->LoadPeer(Peer, (const char *)e->Address);
 
              Net->TaskFlags = Peer->TaskFlags;
          }/* end if */
     }/* end for */
 
     /* address only needed at load time, release */
-    if((Status = CFE_TBL_ReleaseAddress(SBN.ConfTblHandle)) != CFE_SUCCESS)
+    if(CFE_TBL_ReleaseAddress(SBN.ConfTblHandle) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-            "unable to release address of conf tbl");
-        return Status;
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL, "unable to release address of conf tbl");
+        return SBN_ERROR;
     }/* end if */
 
     /* ...but we keep the handle so we can be notified of updates */
-
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 }/* end LoadConf() */
 
 static uint32 UnloadConf(void)
@@ -1188,7 +1186,7 @@ static uint32 UnloadConf(void)
         }/* end if */
     }/* end for */
 
-    if((Status = UnloadModules()) != SBN_SUCCESS)
+    if((Status = UnloadProtocols()) != SBN_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
             "unable to unload modules");
@@ -1403,7 +1401,7 @@ void SBN_AppMain(void)
         Net->IfOps->UnloadNet(Net);
     }/* end for */
 
-    UnloadModules();
+    UnloadProtocols();
 
     CFE_ES_ExitApp(RunStatus);
 }/* end SBN_AppMain */
@@ -1411,21 +1409,21 @@ void SBN_AppMain(void)
 /**
  * Sends a message to a peer.
  * @param[in] MsgType The type of the message (application data, SBN protocol)
- * @param[in] CpuID The CpuID to send this message to.
+ * @param[in] ProcessorID The ProcessorID to send this message to.
  * @param[in] MsgSz The size of the message (in bytes).
  * @param[in] Msg The message contents.
  */
 void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
-    SBN_CpuID_t CpuID, SBN_MsgSz_t MsgSize, void *Msg)
+    CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSize, void *Msg)
 {
     int Status = 0;
 
-    SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, CpuID);
+    SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID);
 
     if(!Peer)
     {
         CFE_EVS_SendEvent(SBN_PEERTASK_EID, CFE_EVS_ERROR,
-            "unknown peer (CpuID=%d)", CpuID);
+            "unknown peer (ProcessorID=%d)", ProcessorID);
         return;
     }/* end if */
 
@@ -1476,14 +1474,14 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
 }/* end SBN_ProcessNetMsg */
 
 /**
- * Find the PeerIndex for a given CpuID and net.
+ * Find the PeerIndex for a given ProcessorID and net.
  * @param[in] Net The network interface to search.
- * @param[in] ProcessorID The CpuID of the peer being sought.
+ * @param[in] ProcessorID The ProcessorID of the peer being sought.
  * @return The Peer interface pointer, or NULL if not found.
  */
-SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, uint32 ProcessorID)
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID)
 {
-    int PeerIdx = 0;
+    SBN_PeerIdx_t PeerIdx = 0;
 
     for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
@@ -1539,7 +1537,7 @@ uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 } /* end SBN_Connected() */
 
-uint32 SBN_Disconnected(SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 {
     if(Peer->Connected == 0)
     {
@@ -1562,26 +1560,26 @@ uint32 SBN_Disconnected(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end SBN_Disconnected() */
 
-uint32 SBN_ReloadConfTbl(void)
+SBN_Status_t SBN_ReloadConfTbl(void)
 {
-    uint32 Status;
+    SBN_Status_t Status;
 
     if((Status = UnloadConf()) != SBN_SUCCESS)
     {
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Update(SBN.ConfTblHandle)) != CFE_SUCCESS)
+    if(CFE_TBL_Update(SBN.ConfTblHandle) != CFE_SUCCESS)
     {
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
     return LoadConf();
 }/* end SBN_ReloadConfTbl() */
 
-uint32 SBN_ReloadRemapTbl(void)
+SBN_Status_t SBN_ReloadRemapTbl(void)
 {
-    uint32 Status;
+    SBN_Status_t Status;
 
     /* releases the table address */
     if((Status = UnloadRemap()) != SBN_SUCCESS)
@@ -1589,9 +1587,9 @@ uint32 SBN_ReloadRemapTbl(void)
         return Status;
     }/* end if */
 
-    if((Status = CFE_TBL_Update(SBN.RemapTblHandle)) != CFE_SUCCESS)
+    if(CFE_TBL_Update(SBN.RemapTblHandle) != CFE_SUCCESS)
     {
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
     /* gets the new address and loads config */

@@ -6,7 +6,14 @@
 #include <string.h>
 #include <errno.h>
 
-int SBN_TCP_Init(int Major, int Minor, int Revision)
+CFE_Status_t SBN_TCP_LibInit(void)
+{
+    OS_printf("SBN_TCP Lib Initialized. Version %d.%d.%d",
+        SBN_TCP_MAJOR, SBN_TCP_MINOR, SBN_TCP_REVISION);
+    return CFE_SUCCESS;
+}/* end SBN_TCP_LibInit() */
+
+SBN_Status_t SBN_TCP_Init(int Major, int Minor, int Revision)
 {
     if(Major != SBN_TCP_MAJOR || Minor != SBN_TCP_MINOR
         || Revision != SBN_TCP_REVISION)
@@ -21,17 +28,8 @@ int SBN_TCP_Init(int Major, int Minor, int Revision)
     return SBN_SUCCESS;
 }/* end SBN_TCP_Init() */
 
-int SBN_TCP_LibInit(void)
+static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 {
-    OS_printf("SBN_TCP Lib Initialized. Version %d.%d.%d",
-        SBN_TCP_MAJOR, SBN_TCP_MINOR, SBN_TCP_REVISION);
-    return CFE_SUCCESS;
-}/* end SBN_TCP_LibInit() */
-
-static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
-{
-    int32 Status = OS_SUCCESS;
-
     char AddrHost[OS_MAX_API_NAME];
     int AddrLen;
     char *Colon = strchr(Address, ':');
@@ -46,7 +44,7 @@ static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     AddrHost[AddrLen] = '\0';
     char *ValidatePtr = NULL;
 
-    uint32 Port = strtol(Colon + 1, &ValidatePtr, 0);
+    OS_SocketPort_t Port = strtol(Colon + 1, &ValidatePtr, 0);
 
     if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
@@ -54,24 +52,23 @@ static int ConfAddr(OS_SockAddr_t *Addr, const char *Address)
         return SBN_ERROR;
     }/* end if */
 
-    if((Status = OS_SocketAddrInit(Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
+    if(OS_SocketAddrInit(Addr, OS_SocketDomain_INET) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "socket addr init failed (Status=%d)", Status);
+        CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR, "socket addr init failed");
         return SBN_ERROR;
     }/* end if */
 
-    if((Status = OS_SocketAddrFromString(Addr, AddrHost)) != OS_SUCCESS)
+    if(OS_SocketAddrFromString(Addr, AddrHost) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "setting address host failed (AddrHost=%s, Status=%d)", AddrHost, Status);
+            "setting address host failed (AddrHost=%s)", AddrHost);
         return SBN_ERROR;
     }/* end if */
  
-    if((Status = OS_SocketAddrSetPort(Addr, Port)) != OS_SUCCESS)
+    if(OS_SocketAddrSetPort(Addr, Port) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "setting address port failed (Port=%d, Status=%d)", Port, Status);
+            "setting address port failed (Port=%d)", Port);
         return SBN_ERROR;
     }/* end if */
 
@@ -122,14 +119,14 @@ static void Disconnected(SBN_PeerInterface_t *Peer)
     SBN_Disconnected(Peer);
 }/* end Disconnected() */
 
-int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
+SBN_Status_t SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
     CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
         "configuring net 0x%lx -> %s", (unsigned long int)NetData, Address);
 
-    int Status = ConfAddr(&NetData->Addr, Address);
+    SBN_Status_t Status = ConfAddr(&NetData->Addr, Address);
 
     if (Status == SBN_SUCCESS)
     {
@@ -145,14 +142,14 @@ int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
 static uint8 RecvBufs[SBN_MAX_PEER_CNT][SBN_MAX_PACKED_MSG_SZ];
 static uint8 RecvBufCnt = 0;
 
-int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
+SBN_Status_t SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
     CFE_EVS_SendEvent(SBN_TCP_CONFIG_EID, CFE_EVS_INFORMATION,
         "configuring peer 0x%lx -> %s", (unsigned long int)PeerData, Address);
 
-    int Status = ConfAddr(&PeerData->Addr, Address);
+    SBN_Status_t Status = ConfAddr(&PeerData->Addr, Address);
 
     if (Status == SBN_SUCCESS)
     {
@@ -172,26 +169,24 @@ int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
  */
-int SBN_TCP_InitNet(SBN_NetInterface_t *Net)
+SBN_Status_t SBN_TCP_InitNet(SBN_NetInterface_t *Net)
 {
-    int32 Status = OS_SUCCESS;
-
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
-    uint32 Socket = 0;
+    OS_SocketID_t Socket = 0;
 
-    if((Status = OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM)) != OS_SUCCESS)
+    if(OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "unable to create socket (Status=%d)", Status);
+            "unable to create socket");
         return SBN_ERROR;
     }/* end if */
 
-    if((Status = OS_SocketBind(Socket, &NetData->Addr)) != OS_SUCCESS)
+    if(OS_SocketBind(Socket, &NetData->Addr) != OS_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (0x%lx Socket=%d status=%d)",
-            (unsigned long int)NetData, NetData->Socket, Status);
+            "bind call failed (0x%lx Socket=%d)",
+            (unsigned long int)NetData, NetData->Socket);
         return SBN_ERROR;
     }
 
@@ -206,28 +201,25 @@ int SBN_TCP_InitNet(SBN_NetInterface_t *Net)
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
  */
-int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer)
 {
-    SBN_TCP_Peer_t *PeerData
-        = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+    SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
 
-    PeerData->ConnectOut =
-        (Peer->ProcessorID > CFE_PSP_GetProcessorId());
+    PeerData->ConnectOut = (Peer->ProcessorID > CFE_PSP_GetProcessorId());
 
     return SBN_SUCCESS;
 }/* end SBN_TCP_Init */
 
 static void CheckNet(SBN_NetInterface_t *Net)
 {
-    int32 Status = OS_SUCCESS;
-
+    CFE_Status_t Status = CFE_SUCCESS;
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
-    int PeerIdx = 0;
+    SBN_PeerIdx_t PeerIdx = 0;
 
     OS_time_t LocalTime;
     OS_GetLocalTime(&LocalTime);
 
-    uint32 ClientFd = 0;
+    OS_SockFileDes_t ClientFd = 0;
     OS_SockAddr_t Addr;
     /* NOTE: OSAL currently has a bug that causes OS_SocketAccept to fail, see ticket #349. */
     while((Status = OS_SocketAccept(NetData->Socket, &ClientFd, &Addr, 0)) == OS_SUCCESS)
@@ -237,8 +229,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
 
     if (Status != OS_ERROR_TIMEOUT)
     {
-        CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_ERROR,
-            "CPU accept error (status=%d)", Status);
+        CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_ERROR, "CPU accept error");
     }/* end if */
 
     /**
@@ -261,21 +252,20 @@ static void CheckNet(SBN_NetInterface_t *Net)
 
                 PeerData->LastConnectTry.seconds = LocalTime.seconds;
 
-                uint32 Socket = 0;
+                OS_SocketID_t Socket = 0;
 
-                if((Status = OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM)) != OS_SUCCESS)
+                if(OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM) != OS_SUCCESS)
                 {
-                    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                        "unable to create socket (Status=%d)",  Status);
+                    CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR, "unable to create socket");
                     return;
                 }/* end if */
 
                 /* TODO: Make timeout configurable */
-                if((Status = OS_SocketConnect(Socket, &PeerData->Addr, 100)) != OS_SUCCESS)
+                if(OS_SocketConnect(Socket, &PeerData->Addr, 100) != OS_SUCCESS)
                 {
                     CFE_EVS_SendEvent(SBN_TCP_SOCK_EID, CFE_EVS_ERROR,
-                        "unable to connect to peer (PeerData=0x%lx, Status=%d)",
-                        (unsigned long int)PeerData, Status);
+                        "unable to connect to peer (PeerData=0x%lx)",
+                        (unsigned long int)PeerData);
 
                     OS_close(Socket);
 
@@ -297,40 +287,34 @@ static void CheckNet(SBN_NetInterface_t *Net)
     }/* end for */
 }/* end CheckNet */
 
-int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer)
 {
     CheckNet(Peer->Net);
 
     if(!Peer->Connected)
     {
-        return 0;
+        return SBN_SUCCESS;
     }/* end if */
 
     OS_time_t CurrentTime;
     OS_GetLocalTime(&CurrentTime);
 
-    if(SBN_TCP_PEER_HEARTBEAT > 0 &&
-        CurrentTime.seconds - Peer->LastSend.seconds
-            > SBN_TCP_PEER_HEARTBEAT)
+    if(SBN_TCP_PEER_HEARTBEAT > 0 && CurrentTime.seconds - Peer->LastSend.seconds > SBN_TCP_PEER_HEARTBEAT)
     {
         SBN_TCP_Send(Peer, SBN_TCP_HEARTBEAT_MSG, 0, NULL);
     }/* end if */
 
-    if(SBN_TCP_PEER_TIMEOUT > 0 &&
-        CurrentTime.seconds - Peer->LastRecv.seconds
-            > SBN_TCP_PEER_TIMEOUT)
+    if(SBN_TCP_PEER_TIMEOUT > 0 && CurrentTime.seconds - Peer->LastRecv.seconds > SBN_TCP_PEER_TIMEOUT)
     {
-        CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
-            "CPU %d timeout, disconnected", Peer->ProcessorID);
+        CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION, "CPU %d timeout, disconnected", Peer->ProcessorID);
 
         Disconnected(Peer);
     }/* end if */
 
-    return 0;
+    return SBN_SUCCESS;
 }/* end SBN_TCP_PollPeer() */
 
-int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
-    SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
+SBN_MsgSz_t SBN_TCP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
     SBN_NetInterface_t *Net = Peer->Net;
@@ -339,28 +323,29 @@ int SBN_TCP_Send(SBN_PeerInterface_t *Peer,
     if (PeerData->Conn == NULL)
     {
         /* fail silently as the peer is not connected (yet) */
-        return SBN_SUCCESS;
+        return 0;
     }/* end if */
 
     SBN_PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
-    size_t sent_size = OS_write(PeerData->Conn->Socket, &SendBufs[NetData->BufNum], MsgSz + SBN_PACKED_HDR_SZ);
+    SBN_MsgSz_t sent_size = OS_write(PeerData->Conn->Socket, &SendBufs[NetData->BufNum], MsgSz + SBN_PACKED_HDR_SZ);
     if(sent_size < MsgSz + SBN_PACKED_HDR_SZ)
     {
         CFE_EVS_SendEvent(SBN_TCP_DEBUG_EID, CFE_EVS_INFORMATION,
             "CPU %d failed to write, disconnected", Peer->ProcessorID);
 
         Disconnected(Peer);
+        return 0;
     }/* end if */
 
-    return SBN_SUCCESS;
+    return sent_size;
 }/* end SBN_TCP_Send */
 
-int SBN_TCP_Recv(SBN_NetInterface_t *Net,
+SBN_Status_t SBN_TCP_Recv(SBN_NetInterface_t *Net,
     SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
-    SBN_CpuID_t *CpuIDPtr, void *MsgBuf)
+    CFE_ProcessorID_t *ProcessorIDPtr, void *MsgBuf)
 {
     OS_FdSet FdSet;
-    int32 timeout = 0;
+    OS_SelectTimeout_t timeout = 0;
     int ConnID = 0;
     #ifdef SBN_RECV_TASK
     timeout = 1000; /* if we are using tasks, block on select */
@@ -444,7 +429,7 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net,
 
                 if(Received <= 0)
                 {
-                    uint32 ProcessorID = -1;
+                    CFE_ProcessorID_t ProcessorID = -1;
                     if(Conn->PeerInterface != NULL)
                     {
                         ProcessorID = Conn->PeerInterface->ProcessorID;
@@ -466,7 +451,7 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net,
 
             /* we have the complete body, decode! */
             if(SBN_UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr,
-                CpuIDPtr, MsgBuf) == FALSE)
+                ProcessorIDPtr, MsgBuf) == FALSE)
             {
                 return SBN_ERROR;
             }/* end if */
@@ -480,7 +465,7 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net,
                 {
                     SBN_PeerInterface_t *PeerInterface = &Net->Peers[PeerInterfaceID];
 
-                    if(PeerInterface->ProcessorID == *CpuIDPtr)
+                    if(PeerInterface->ProcessorID == *ProcessorIDPtr)
                     {
                         SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)PeerInterface->ModulePvt;
 
@@ -499,15 +484,16 @@ int SBN_TCP_Recv(SBN_NetInterface_t *Net,
             Conn->RecvSz = 0;
         }/* end if */
     }/* end for */
+
     return SBN_SUCCESS;
 }/* end SBN_TCP_Recv */
 
-int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
+SBN_Status_t SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
 {
     return SBN_NOT_IMPLEMENTED;
 }/* end SBN_TCP_ReportModuleStatus */
 
-int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
+SBN_Status_t SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
 {
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
 
@@ -516,7 +502,7 @@ int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
         close(NetData->Socket);
     }/* end if */
 
-    int PeerIdx = 0;
+    SBN_PeerIdx_t PeerIdx = 0;
     for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_TCP_UnloadPeer(&Net->Peers[PeerIdx]);
@@ -525,7 +511,7 @@ int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net)
     return SBN_SUCCESS;
 }/* end SBN_TCP_ResetPeer */
 
-int SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer)
 {
     Disconnected(Peer);
 

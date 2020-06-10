@@ -1,7 +1,7 @@
 #ifndef _sbn_tcp_if_struct_h_
 #define _sbn_tcp_if_struct_h_
 
-#include "sbn_constants.h"
+#include "sbn_types.h"
 #include "sbn_interfaces.h"
 #include "sbn_platform_cfg.h"
 #include "cfe.h"

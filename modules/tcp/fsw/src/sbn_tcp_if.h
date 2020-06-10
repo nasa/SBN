@@ -1,7 +1,7 @@
 #ifndef _sbn_tcp_if_h_
 #define _sbn_tcp_if_h_
 
-#include "sbn_constants.h"
+#include "sbn_types.h"
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
@@ -11,35 +11,35 @@
  * the SBN version numbers.
  */
 #define SBN_TCP_MAJOR 1
-#define SBN_TCP_MINOR 11
+#define SBN_TCP_MINOR 13
 #define SBN_TCP_REVISION 0
 
-int SBN_TCP_Init(int Major, int Minor, int Revision);
+CFE_Status_t SBN_TCP_LibInit(void);
 
-int SBN_TCP_LibInit(void);
+SBN_Status_t SBN_TCP_Init(int Major, int Minor, int Revision);
 
-int SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
+SBN_Status_t SBN_TCP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
-int SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
+SBN_Status_t SBN_TCP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
 
-int SBN_TCP_InitNet(SBN_NetInterface_t *Net);
+SBN_Status_t SBN_TCP_InitNet(SBN_NetInterface_t *Net);
 
-int SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer);
+SBN_Status_t SBN_TCP_InitPeer(SBN_PeerInterface_t *Peer);
 
-int SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer);
+SBN_Status_t SBN_TCP_PollPeer(SBN_PeerInterface_t *Peer);
 
-int SBN_TCP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+SBN_MsgSz_t SBN_TCP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload);
 
-int SBN_TCP_Recv(SBN_NetInterface_t *Net,
+SBN_Status_t SBN_TCP_Recv(SBN_NetInterface_t *Net,
         SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
-        SBN_CpuID_t *CpuIDPtr, void *PayloadBuffer);
+        CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer);
 
-int SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
+SBN_Status_t SBN_TCP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
-int SBN_TCP_UnloadNet(SBN_NetInterface_t *Net);
+SBN_Status_t SBN_TCP_UnloadNet(SBN_NetInterface_t *Net);
 
-int SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer);
+SBN_Status_t SBN_TCP_UnloadPeer(SBN_PeerInterface_t *Peer);
 
 SBN_IfOps_t SBN_TCP_Ops =
 {

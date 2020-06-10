@@ -3,7 +3,7 @@
 
 #include "cfe.h"
 #include "sbn_platform_cfg.h"
-#include "sbn_constants.h"
+#include "sbn_types.h"
 
 /****
  * @brief The config table contains entries for peers (other CPU's),
@@ -22,21 +22,21 @@ typedef struct
 
     /** @brief the entry symbol to call when loaded */
     char LibSymbol[OS_MAX_API_NAME];
-} SBN_Mod_Entry_t;
+} SBN_Module_Entry_t;
 
 typedef struct
 {   
     /** @brief needs to match the ProcessorID of the peer */
-    uint32 ProcessorID;
+    CFE_ProcessorID_t ProcessorID;
 
     /** @brief needs to match the SpacecraftID of the peer */
-    uint32 SpacecraftID;
+    CFE_SpacecraftID_t SpacecraftID;
 
     /** @brief network number indicating peers that inter-communicate using a common protocol */
-    uint16 NetNum;
+    SBN_NetIdx_t NetNum;
 
-    /** @brief the index into the Mods array for which protocol module to use for this */
-    uint16 ModIdx;
+    /** @brief the index into the ProtocolModules array for which to use for this peer */
+    SBN_ProtocolIdx_t ProtocolIdx;
 
     /** @brief protocol-specific address, such as "127.0.0.1:1234" */
     uint8 Address[SBN_ADDR_SZ];
@@ -47,10 +47,10 @@ typedef struct
 
 typedef struct
 {
-    SBN_Mod_Entry_t Mods[SBN_MAX_MOD_CNT];
-    uint16 ModCnt;
+    SBN_Module_Entry_t ProtocolModules[SBN_MAX_MOD_CNT];
+    SBN_ProtocolIdx_t ProtocolCnt;
     SBN_Peer_Entry_t Peers[SBN_MAX_PEER_CNT];
-    uint16 PeerCnt;
+    SBN_PeerIdx_t PeerCnt;
 } SBN_ConfTbl_t;
 
 
@@ -75,12 +75,12 @@ typedef struct
 typedef struct
 {
     /** @brief The ProcessorID of the peer to remap this MID for. */
-    uint32 ProcessorID;
+    CFE_ProcessorID_t ProcessorID;
 
     /** @brief The local MID I'll receive from the pipe. */
     CFE_SB_MsgId_t FromMID;
 
-    /** @brief The MID to send to the peer. If 0x0000, filter the from MID. */
+    /** @brief The MID to send to the peer. If 0, filter the from MID. */
     CFE_SB_MsgId_t ToMID;
 }
 SBN_RemapTblEntry_t;

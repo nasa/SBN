@@ -1,7 +1,7 @@
 #ifndef _sbn_udp_if_h_
 #define _sbn_udp_if_h_
 
-#include "sbn_constants.h"
+#include "sbn_types.h"
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
@@ -11,7 +11,7 @@
  * the SBN version numbers.
  */
 #define SBN_UDP_MAJOR 1
-#define SBN_UDP_MINOR 11
+#define SBN_UDP_MINOR 13
 #define SBN_UDP_REVISION 0
 
 /**
@@ -21,32 +21,32 @@
 #define SBN_UDP_ANNOUNCE_MSG    0xA1
 #define SBN_UDP_DISCONN_MSG     0xA2
 
-int SBN_UDP_Init(int Major, int Minor, int Revision);
+SBN_Status_t SBN_UDP_Init(int Major, int Minor, int Revision);
 
-int SBN_UDP_LibInit(void);
+CFE_Status_t SBN_UDP_LibInit(void);
 
-int SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
+SBN_Status_t SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address);
 
-int SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
+SBN_Status_t SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address);
 
-int SBN_UDP_InitNet(SBN_NetInterface_t *NetInterface);
+SBN_Status_t SBN_UDP_InitNet(SBN_NetInterface_t *NetInterface);
 
-int SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface);
+SBN_Status_t SBN_UDP_InitPeer(SBN_PeerInterface_t *PeerInterface);
 
-int SBN_UDP_PollPeer(SBN_PeerInterface_t *PeerInterface);
+SBN_Status_t SBN_UDP_PollPeer(SBN_PeerInterface_t *PeerInterface);
 
-int SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+SBN_MsgSz_t SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload);
 
-int SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
-        SBN_MsgSz_t *MsgSzPtr, SBN_CpuID_t *CpuIDPtr,
+SBN_Status_t SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
+        SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr,
         void *PayloadBuffer);
 
-int SBN_UDP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
+SBN_Status_t SBN_UDP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet);
 
-int SBN_UDP_UnloadNet(SBN_NetInterface_t *NetInterface);
+SBN_Status_t SBN_UDP_UnloadNet(SBN_NetInterface_t *NetInterface);
 
-int SBN_UDP_UnloadPeer(SBN_PeerInterface_t *PeerInterface);
+SBN_Status_t SBN_UDP_UnloadPeer(SBN_PeerInterface_t *PeerInterface);
 
 SBN_IfOps_t SBN_UDP_Ops =
 {

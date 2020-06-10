@@ -262,9 +262,9 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
  *        if there are any (new)subscriptions.
  * @return TRUE if subscriptions received.
  */
-int32 SBN_CheckSubscriptionPipe(void)
+bool SBN_CheckSubscriptionPipe(void)
 {
-    int32 RecvSub = FALSE;
+    bool RecvSub = FALSE;
     CFE_SB_MsgPtr_t SBMsgPtr;
     CFE_SB_SubRprtMsg_t *SubRprtMsgPtr;
 

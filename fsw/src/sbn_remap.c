@@ -20,7 +20,7 @@
 #include "sbn_app.h"
 #include "sbn_remap.h"
 #include "sbn_tbl.h"
-#include "sbn_constants.h"
+#include "sbn_types.h"
 #include "sbn_main_events.h"
 
 #include <string.h> /* memcpy */

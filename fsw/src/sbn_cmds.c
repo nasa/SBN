@@ -314,7 +314,7 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
         SBN_HKNET_LEN - CFE_SB_TLM_HDR_SIZE, 1);
 
     Pack_UInt8(&Pack, SBN_HK_NET_CC);
-    Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolID);
+    Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolIdx);
     Pack_UInt16(&Pack, SBN.Nets[NetIdx].PeerCnt);
 
     /* 
