@@ -20,12 +20,18 @@ SBN_ConfTbl_t SBN_ConfTbl =
     .FilterModules =
     {
         { /* [0] */
-            .Name = "Filter_Test",
+            .Name = "Test Out",
             .LibFileName = "/cf/sbn_filt_test.so",
-            .LibSymbol = "SBN_Filter_Test"
-        }
+            .LibSymbol = "SBN_Filter_Out"
+        },
+        { /* [1] */
+            .Name = "Test In",
+            /* yes you can have the same file, different symbol */
+            .LibFileName = "/cf/sbn_filt_test.so",
+            .LibSymbol = "SBN_Filter_In"
+        },
     },
-    .FilterCnt = 1,
+    .FilterCnt = 2,
     .Peers = {
         { /* [0] */
             .ProcessorID = 1,
@@ -33,9 +39,10 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .InFilters = {{
+                /* "Test In" */
             }},
             .OutFilters = {{
-                /* "Filter_Test" */
+                /* "Test Out" */
             }},
             .Address = "127.0.0.1:2234",
             .TaskFlags = SBN_TASK_POLL
@@ -46,9 +53,10 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .InFilters = {{
+                /* "Test In" */
             }},
             .OutFilters = {{
-                /* "Filter_Test" */
+                /* "Test Out" */
             }},
             .Address = "127.0.0.1:2235",
             .TaskFlags = SBN_TASK_POLL
@@ -59,9 +67,10 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .InFilters = {{
+                /* "Test In" */
             }},
             .OutFilters = {{
-                /* "Filter_Test" */
+                /* "Test Out" */
             }},
             .Address = "127.0.0.1:2236",
             .TaskFlags = SBN_TASK_POLL
