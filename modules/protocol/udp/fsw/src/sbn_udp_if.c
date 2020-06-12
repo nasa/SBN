@@ -238,20 +238,17 @@ SBN_Status_t SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
 
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-#ifndef SBN_RECV_TASK
-
     /* task-based peer connections block on reads, otherwise use select */
   
-    uint32 StateFlags = 0;
+    uint32 StateFlags = OS_STREAM_STATE_READABLE;
 
     /* timeout returns an OS error */
-    if(OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS)
+    if(OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS
+        || !(StateFlags & OS_STREAM_STATE_READABLE))
     {
         /* nothing to receive */
         return SBN_IF_EMPTY;
     }/* end if */
-
-#endif /* !SBN_RECV_TASK */
 
     int Received = OS_SocketRecvFrom(NetData->Socket, (char *)&RecvBuf,
         CFE_SB_MAX_SB_MSG_SIZE, NULL, OS_PEND);

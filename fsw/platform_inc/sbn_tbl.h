@@ -14,41 +14,53 @@
  */
 typedef struct
 {
-    /** @brief the name for this protocol module */
+    /** @brief The name for this protocol module. */
     char Name[SBN_MAX_MOD_NAME_LEN];
 
-    /** @brief the file name to load the module from, if it's not already loaded by ES */
+    /** @brief The file name to load the module from, if it's not already loaded by ES. */
     char LibFileName[OS_MAX_PATH_LEN];
 
-    /** @brief the entry symbol to call when loaded */
+    /** @brief The entry symbol to call when loaded. For protocol modules, this is the initialization fn.
+     * For filter modules, this is the filter function symbol name.
+     */
     char LibSymbol[OS_MAX_API_NAME];
 } SBN_Module_Entry_t;
 
 typedef struct
 {   
-    /** @brief needs to match the ProcessorID of the peer */
+    /** @brief Needs to match the ProcessorID of the peer. */
     CFE_ProcessorID_t ProcessorID;
 
-    /** @brief needs to match the SpacecraftID of the peer */
+    /** @brief Needs to match the SpacecraftID of the peer. */
     CFE_SpacecraftID_t SpacecraftID;
 
-    /** @brief network number indicating peers that inter-communicate using a common protocol */
+    /** @brief Network number indicating peers that inter-communicate using a common protocol. */
     SBN_NetIdx_t NetNum;
 
-    /** @brief the index into the ProtocolModules array for which to use for this peer */
-    SBN_ProtocolIdx_t ProtocolIdx;
+    /** @brief The name of the protocol module for which to use for this peer. */
+    const char ProtocolName[SBN_MAX_MOD_NAME_LEN];
 
-    /** @brief protocol-specific address, such as "127.0.0.1:1234" */
+    /** @brief The modules names for the input filtering for this peer. */
+    const char InFilters[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN];
+
+    /** @brief The modules names for the output filtering for this peer. */
+    const char OutFilters[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN];
+
+    /** @brief Protocol-specific address, such as "127.0.0.1:1234". */
     uint8 Address[SBN_ADDR_SZ];
 
-    /** @brief indicates whether to spawn tasks for send/recv; for a given netnum, probably wise to use the same TaskFlags setting */
+    /** @brief Indicates whether to spawn tasks for send/recv; for a given netnum, probably wise to use the same
+     *         TaskFlags setting.
+     */
     SBN_Task_Flag_t TaskFlags;
 } SBN_Peer_Entry_t;
 
 typedef struct
 {
     SBN_Module_Entry_t ProtocolModules[SBN_MAX_MOD_CNT];
-    SBN_ProtocolIdx_t ProtocolCnt;
+    SBN_ModuleIdx_t ProtocolCnt;
+    SBN_Module_Entry_t FilterModules[SBN_MAX_MOD_CNT];
+    SBN_ModuleIdx_t FilterCnt;
     SBN_Peer_Entry_t Peers[SBN_MAX_PEER_CNT];
     SBN_PeerIdx_t PeerCnt;
 } SBN_ConfTbl_t;

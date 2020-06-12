@@ -19,7 +19,7 @@
 #define _sbn_version_
 
 #define SBN_MAJOR_VERSION   1
-#define SBN_MINOR_VERSION   13
+#define SBN_MINOR_VERSION   14
 #define SBN_REVISION        0
 
 #endif /*_sbn_version_*/

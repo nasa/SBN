@@ -45,6 +45,14 @@ void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_
 bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr,
     CFE_ProcessorID_t *ProcessorIDPtr, void *Msg);
 
+/**
+ * Filters modify messages in place, doing such things as byte swapping, packing/unpacking, etc.
+ *
+ * @return SBN_SUCCESS if processing nominal, SBN_IF_EMPTY if the message should not be transmitted, SBN_ERROR for 
+ * other error conditions.
+ */
+typedef SBN_Status_t (*SBN_Filter_t)(void *MsgBuf);
+
 typedef struct SBN_IfOps_s SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
 
@@ -81,6 +89,20 @@ typedef struct {
      */
     SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
 
+    /**
+     * @brief Before publishing a message from a peer on the local bus, call all in filters.
+     *        This is populated by filter modules.
+     */
+    SBN_Filter_t InFilters[SBN_MAX_FILTERS];
+    SBN_ModuleIdx_t InFilterCnt;
+
+    /**
+     * @brief Before sending a local bus message to a peer, call all out filters.
+     *        This is populated by filter modules.
+     */
+    SBN_Filter_t OutFilters[SBN_MAX_FILTERS];
+    SBN_ModuleIdx_t OutFilterCnt;
+
     OS_time_t LastSend, LastRecv;
     SBN_HKTlm_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
 
@@ -111,7 +133,7 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t Proc
 struct SBN_NetInterface_s {
     bool Configured;
 
-    SBN_ProtocolIdx_t ProtocolIdx;
+    SBN_ModuleIdx_t ProtocolIdx;
 
     SBN_Task_Flag_t TaskFlags;
 
@@ -129,6 +151,20 @@ struct SBN_NetInterface_s {
     SBN_PeerIdx_t PeerCnt;
 
     SBN_PeerInterface_t Peers[SBN_MAX_PEER_CNT];
+
+    /**
+     * @brief Before publishing a message from a peer on the local bus, call all in filters.
+     *        This is populated by filter modules.
+     */
+    SBN_Filter_t InFilters[SBN_MAX_FILTERS];
+    SBN_ModuleIdx_t InFilterCnt;
+
+    /**
+     * @brief Before sending a local bus message to a peer, call all out filters.
+     *        This is populated by filter modules.
+     */
+    SBN_Filter_t OutFilters[SBN_MAX_FILTERS];
+    SBN_ModuleIdx_t OutFilterCnt;
 
     /** @brief generic blob of bytes, module-specific */
     uint8  ModulePvt[128];

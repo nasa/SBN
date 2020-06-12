@@ -347,11 +347,13 @@ SBN_Status_t SBN_TCP_Recv(SBN_NetInterface_t *Net,
     OS_FdSet FdSet;
     OS_SelectTimeout_t timeout = 0;
     int ConnID = 0;
-    #ifdef SBN_RECV_TASK
-    timeout = 1000; /* if we are using tasks, block on select */
-    #endif /* SBN_RECV_TASK */
 
     SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+
+    if (Net->TaskFlags & SBN_TASK_RECV)
+    {
+        timeout = 1000;
+    }/* end if */
 
     OS_SelectFdZero(&FdSet);
 

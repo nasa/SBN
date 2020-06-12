@@ -32,7 +32,7 @@
 #define SBN_HKPEER_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) + sizeof(SBN_SubCnt_t) + sizeof(CFE_ProcessorID_t) + sizeof(OS_time_t) * 2 + sizeof(SBN_HKTlm_t) * 4)
 
 /** @brief CC, ProtocolID, PeerCnt */
-#define SBN_HKNET_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) + sizeof(SBN_ProtocolIdx_t) + sizeof(SBN_PeerIdx_t))
+#define SBN_HKNET_LEN (CFE_SB_TLM_HDR_SIZE + sizeof(uint8) + sizeof(SBN_ModuleIdx_t) + sizeof(SBN_PeerIdx_t))
 
 /**
  * @brief Module status response packet structure
@@ -43,7 +43,7 @@ typedef struct {
      */
     uint8   TlmHeader[CFE_SB_TLM_HDR_SIZE];
     /** @brief The Protocol ID being queried. */
-    SBN_ProtocolIdx_t  ProtocolIdx;
+    SBN_ModuleIdx_t  ProtocolIdx;
     /** @brief The module status as returned by the module. */
     uint8   ModuleStatus[SBN_MOD_STATUS_MSG_SZ];
 } SBN_ModuleStatusPacket_t;

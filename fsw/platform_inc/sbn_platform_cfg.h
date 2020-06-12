@@ -29,6 +29,12 @@
 /** @brief Maximum number of subscriptions allowed per peer allowed. */
 #define SBN_MAX_SUBS_PER_PEER       256 
 
+/** @brief Maximum number of incoming and outgoing message filters. */
+#define SBN_MAX_FILTERS 16
+
+/** @brief Maximum number of outgoing and incoming message filters for each peer. */
+#define SBN_MAX_FILTERS_PER_PEER    8
+
 /**
  * @brief At most process this many SB messages per peer per wakeup.
  * (To prevent starvation if a peer is babbling.)

@@ -92,7 +92,7 @@ typedef struct {
 /* most/all scalars should be typedef'd for readability and type checking */
 typedef uint16 SBN_MsgSz_t;
 typedef uint8 SBN_MsgType_t;
-typedef uint8 SBN_ProtocolIdx_t;
+typedef uint8 SBN_ModuleIdx_t;
 typedef uint8 SBN_NetIdx_t;
 typedef uint16 SBN_PeerIdx_t;
 typedef uint32 CFE_ProcessorID_t;

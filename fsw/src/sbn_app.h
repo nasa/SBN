@@ -112,10 +112,11 @@ typedef struct
      */
     SBN_IfOps_t *IfOps[SBN_MAX_MOD_CNT];
 
-    /**
-     * Retain the module ID's for each interface.
-     */
+    /** @brief Retain the module ID's for each interface in case we need to unload. */
     CFE_ES_ModuleID_t ProtocolModules[SBN_MAX_MOD_CNT];
+
+    /** @brief Retain the module ID's for each interface in case we need to unload. */
+    CFE_ES_ModuleID_t FilterModules[SBN_MAX_MOD_CNT];
 
     SBN_RemapTbl_t *RemapTbl;
     uint8 RemapEnabled; /* !0 == enabled */

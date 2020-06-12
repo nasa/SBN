@@ -39,27 +39,31 @@ SBN_App_t SBN;
 #include <string.h>
 #include "sbn_app.h"
 
-static SBN_Status_t UnloadProtocols(void)
+static SBN_Status_t UnloadModules(void)
 {
-    int ProtocolID = 0;
+    SBN_ModuleIdx_t i = 0;
 
-    for(ProtocolID = 0; ProtocolID < SBN_MAX_MOD_CNT; ProtocolID++)
+    for(i = 0; i < SBN_MAX_MOD_CNT; i++)
+    for(i = 0; SBN.ProtocolModules[i] != 0 && i < SBN_MAX_MOD_CNT; i++)
     {
-        if(SBN.ProtocolModules[ProtocolID])
+        if(OS_ModuleUnload(SBN.ProtocolModules[i]) != OS_SUCCESS)
         {
-            if(OS_ModuleUnload(SBN.ProtocolModules[ProtocolID]) != OS_SUCCESS)
-            {
-                /* TODO: send event? */
-                OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
-                    SBN.ProtocolModules[ProtocolID], ProtocolID);
+            OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
+                SBN.ProtocolModules[i], i);
+        }/* end if */
+    }/* end for */
 
-                return SBN_ERROR;
-            }/* end if */
+    for(i = 0; SBN.FilterModules[i] != 0 && i < SBN_MAX_MOD_CNT; i++)
+    {
+        if(OS_ModuleUnload(SBN.FilterModules[i]) != OS_SUCCESS)
+        {
+            OS_printf("Unable to unload module ID %d for Filter ID %d\n",
+                SBN.FilterModules[i], i);
         }/* end if */
     }/* end for */
 
     return SBN_SUCCESS;
-}/* end UnloadProtocols() */
+}/* end UnloadModules() */
 
 static void SwapCCSDS(CFE_SB_Msg_t *Msg)
 {
@@ -343,7 +347,7 @@ void SBN_RecvNetMsgs(void)
         SBN_MsgSz_t MsgSz;
         CFE_ProcessorID_t ProcessorID;
 
-        if(Net->TaskFlags | SBN_TASK_RECV)
+        if(Net->TaskFlags & SBN_TASK_RECV)
         {
             continue;
         }/* end if */
@@ -438,6 +442,7 @@ SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, 
 {
     SBN_MsgSz_t SentSz = 0;
     SBN_NetInterface_t *Net = Peer->Net;
+    SBN_ModuleIdx_t FilterIdx;
 
     if(Peer->SendTaskID)
     {
@@ -447,6 +452,11 @@ SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, 
             return -1;
         }/* end if */
     }/* end if */
+
+    for(FilterIdx = 0; FilterIdx < Peer->OutFilterCnt; FilterIdx++)
+    {
+        (Peer->OutFilters[FilterIdx])(Msg);
+    }
 
     SentSz = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
 
@@ -531,6 +541,8 @@ static void SendTask(void)
 
     while(1)
     {
+        SBN_ModuleIdx_t FilterIdx = 0;
+
         if(!D.Peer->Connected)
         {
             OS_TaskDelay(SBN_MAIN_LOOP_DELAY);
@@ -552,6 +564,12 @@ static void SendTask(void)
             continue;
         }/* end if */
 
+        for(FilterIdx = 0; FilterIdx < D.Peer->OutFilterCnt; FilterIdx++)
+        {
+            (D.Peer->OutFilters[FilterIdx])(D.SBMsgPtr);
+        }/* end for */
+
+        /* TODO: externalize this as a filter */
         if(SBN.RemapEnabled)
         {
             D.MsgID = SBN_RemapMsgID(D.Peer->ProcessorID,
@@ -601,6 +619,7 @@ static void CheckPeerPipes(void)
             SBN_PeerIdx_t PeerIdx = 0;
             for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
+                SBN_ModuleIdx_t FilterIdx = 0;
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
                 /* if peer data is not in use, go to next peer */
@@ -620,6 +639,11 @@ static void CheckPeerPipes(void)
                 {
                     continue;
                 }/* end if */
+
+                for(FilterIdx = 0; FilterIdx < Peer->OutFilterCnt; FilterIdx++)
+                {
+                    (Peer->OutFilters[FilterIdx])(SBMsgPtr);
+                }/* end for */
 
                 if(SBN.RemapEnabled)
                 {
@@ -711,7 +735,7 @@ static SBN_Status_t InitInterfaces(void)
 
         SBN_Status_t Status = SBN_SUCCESS;
 
-        if(Net->IfOps->RecvFromNet && Net->TaskFlags | SBN_TASK_RECV)
+        if(Net->IfOps->RecvFromNet && Net->TaskFlags & SBN_TASK_RECV)
         {
             char RecvTaskName[32];
             snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recvs_%d", NetIdx);
@@ -735,7 +759,7 @@ static SBN_Status_t InitInterfaces(void)
 
             Net->IfOps->InitPeer(Peer);
 
-            if(Net->IfOps->RecvFromPeer && Peer->TaskFlags | SBN_TASK_RECV)
+            if(Net->IfOps->RecvFromPeer && Peer->TaskFlags & SBN_TASK_RECV)
             {
                 char RecvTaskName[32];
                 snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recv_%d", PeerIdx);
@@ -754,7 +778,7 @@ static SBN_Status_t InitInterfaces(void)
                 }/* end if */
             }/* end if */
 
-            if(Peer->TaskFlags | SBN_TASK_SEND)
+            if(Peer->TaskFlags & SBN_TASK_SEND)
             {
                 char SendTaskName[32];
 
@@ -1040,11 +1064,91 @@ static int32 ConfTblVal(void *TblPtr)
     return CFE_SUCCESS;
 }/* end ConfTblVal */
 
+static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleIDPtr)
+{
+    cpuaddr StructAddr;
+
+    CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "linking symbol (%s)", e->LibSymbol);
+    if(OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
+    {
+        if(e->LibFileName[0] == '\0')
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+                "invalid module (Name=%s)", e->Name);
+            return 0;
+        }
+
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
+            "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
+        if(OS_ModuleLoad(ModuleIDPtr, e->Name, e->LibFileName) != OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+                "invalid module file (Name=%s LibFileName=%s)", e->Name,
+                e->LibFileName);
+            return 0;
+        }/* end if */
+
+        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
+            "trying symbol again (%s)", e->LibSymbol);
+        if(OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
+                "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
+                e->LibSymbol);
+            return 0;
+        }
+    }/* end if */
+
+    return StructAddr;
+}/* end LoadConf_Module */
+
+/**
+ * Load the filters from the table.
+ * @param FilterModules[in] - The filter module entries in the table.
+ * @param FilterModuleCnt[in] - The number of entries in FilterModules.
+ * @param ModuleNames[in] - The array of filters this peer/net wishes to use.
+ * @param FilterFns[out] - The function pointers for the filters requested.
+ * @return The number of entries in FilterFns.
+ */
+static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t *FilterModules,
+    SBN_ModuleIdx_t FilterModuleCnt, SBN_Filter_t *ConfFilterFns,
+    const char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
+    SBN_Filter_t *FilterFns)
+{
+    int i = 0;
+    SBN_ModuleIdx_t FilterCnt = 0;
+
+    for (i = 0; *ModuleNames[i] && i < SBN_MAX_FILTERS_PER_PEER; i++)
+    {
+        SBN_ModuleIdx_t FilterIdx = 0;
+        for (FilterIdx = 0; FilterIdx < FilterModuleCnt; FilterIdx++)
+        {
+            if(strcmp(ModuleNames[i], FilterModules[FilterIdx].Name) == 0)
+            {
+                break;
+            }/* end if */
+        }/* end for */
+
+        if(FilterIdx == FilterModuleCnt)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "Invalid filter name: %s", ModuleNames[i]);
+            continue;
+        }/* end if */
+
+        FilterFns[FilterCnt++] = ConfFilterFns[FilterIdx];
+    }/* end for */
+
+    return FilterCnt;
+}/* end LoadConf_Filters() */
+
 static SBN_Status_t LoadConf(void)
 {
     SBN_ConfTbl_t *TblPtr = NULL;
-    SBN_ProtocolIdx_t ProtocolIdx = 0;
+    SBN_ModuleIdx_t ModuleIdx = 0;
     SBN_PeerIdx_t PeerIdx = 0;
+    SBN_Filter_t Filters[SBN_MAX_MOD_CNT];
+
+    memset(Filters, 0, sizeof(Filters));
 
     if(CFE_TBL_GetAddress((void **)&TblPtr, SBN.ConfTblHandle) != CFE_TBL_INFO_UPDATED)
     {
@@ -1054,46 +1158,20 @@ static SBN_Status_t LoadConf(void)
         return SBN_ERROR;
     }/* end if */
 
-    /* load modules */
-    for(ProtocolIdx = 0; ProtocolIdx < TblPtr->ProtocolCnt; ProtocolIdx++)
+    /* load protocol modules */
+    for(ModuleIdx = 0; ModuleIdx < TblPtr->ProtocolCnt; ModuleIdx++)
     {
-        cpuaddr StructAddr = 0;
         CFE_ES_ModuleID_t ModuleID = 0;
 
-        SBN_Module_Entry_t *e = &TblPtr->ProtocolModules[ProtocolIdx];
+        SBN_IfOps_t *Ops = (SBN_IfOps_t *)LoadConf_Module(
+            &TblPtr->ProtocolModules[ModuleIdx], &ModuleID);
 
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "linking symbol (%s)", e->LibSymbol);
-        if(OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
+        if (Ops == NULL)
         {
-            if(e->LibFileName[0] == '\0')
-            {
-                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-                    "invalid module (Name=%s)", e->Name);
-                return SBN_ERROR;
-            }
-
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
-                "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
-            if(OS_ModuleLoad(&ModuleID, e->Name, e->LibFileName) != OS_SUCCESS)
-            {
-                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-                    "invalid module file (Name=%s LibFileName=%s)", e->Name,
-                    e->LibFileName);
-                return SBN_ERROR;
-            }/* end if */
-
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION,
-                "trying symbol again (%s)", e->LibSymbol);
-            if(OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS)
-            {
-                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-                    "invalid symbol (Name=%s LibSymbol=%s)", e->Name,
-                    e->LibSymbol);
-                return SBN_ERROR;
-            }
+            /* LoadConf_Module already generated an event */
+            return SBN_ERROR;
         }/* end if */
 
-        SBN_IfOps_t *Ops = (SBN_IfOps_t *)StructAddr;
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "calling init fn");
         if(Ops->InitModule(SBN_MAJOR_VERSION, SBN_MINOR_VERSION, SBN_REVISION) != SBN_SUCCESS)
         {
@@ -1101,8 +1179,18 @@ static SBN_Status_t LoadConf(void)
             return SBN_ERROR;
         }/* end if */
 
-        SBN.IfOps[ProtocolIdx] = Ops;
-        SBN.ProtocolModules[ProtocolIdx] = ModuleID;
+        SBN.IfOps[ModuleIdx] = Ops;
+        SBN.ProtocolModules[ModuleIdx] = ModuleID;
+    }/* end for */
+
+    /* load filter modules */
+    for(ModuleIdx = 0; ModuleIdx < TblPtr->FilterCnt; ModuleIdx++)
+    {
+        CFE_ES_ModuleID_t ModuleID = 0;
+
+        Filters[ModuleIdx] = (SBN_Filter_t)LoadConf_Module(
+            &TblPtr->FilterModules[ModuleIdx], &ModuleID);
+        SBN.FilterModules[ModuleIdx] = ModuleID;
     }/* end for */
 
     /* load nets and peers */
@@ -1110,10 +1198,18 @@ static SBN_Status_t LoadConf(void)
     {
         SBN_Peer_Entry_t *e = &TblPtr->Peers[PeerIdx];
 
-        if (e->ProtocolIdx < 0 || e->ProtocolIdx >= TblPtr->ProtocolCnt)
+        for(ModuleIdx = 0; ModuleIdx < TblPtr->ProtocolCnt; ModuleIdx++)
+        {
+            if(strcmp(TblPtr->ProtocolModules[ModuleIdx].Name, e->ProtocolName) == 0)
+            {
+                break;
+            }
+        }
+        
+        if(ModuleIdx == TblPtr->ProtocolCnt)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-                "invalid module idx (peeridx=%d, modidx=%d)", PeerIdx, e->ProtocolIdx);
+                "invalid module idx (peeridx=%d, modname=%s)", PeerIdx, e->ProtocolName);
             return SBN_ERROR;
         }/* end if */
 
@@ -1131,32 +1227,43 @@ static SBN_Status_t LoadConf(void)
 
         SBN_NetInterface_t *Net = &SBN.Nets[e->NetNum];
         if(e->ProcessorID == CFE_PSP_GetProcessorId() && e->SpacecraftID == CFE_PSP_GetSpacecraftId())
-         {
-             Net->Configured = TRUE;
-             Net->ProtocolIdx = e->ProtocolIdx;
-             Net->IfOps = SBN.IfOps[e->ProtocolIdx];
-             Net->IfOps->LoadNet(Net, (const char *)e->Address);
+        {
+            Net->Configured = TRUE;
+            Net->ProtocolIdx = ModuleIdx;
+            Net->IfOps = SBN.IfOps[ModuleIdx];
+            Net->IfOps->LoadNet(Net, (const char *)e->Address);
 
-             Net->TaskFlags = e->TaskFlags;
-         }
-         else
-         {
-             if(Net->PeerCnt >= SBN_MAX_PEER_CNT)
-             {
-                 CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-                     "too many peer entries (%d, max = %d)",
-                     Net->PeerCnt, SBN_MAX_PEER_CNT);
-                 return SBN_ERROR;
-             }/* end if */
-             SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
-             memset(Peer, 0, sizeof(*Peer));
-             Peer->Net = Net;
-             Peer->ProcessorID = e->ProcessorID;
-             Peer->SpacecraftID = e->SpacecraftID;
-             SBN.IfOps[e->ProtocolIdx]->LoadPeer(Peer, (const char *)e->Address);
+            Net->InFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
+                Filters, e->InFilters, Net->InFilters);
+            Net->OutFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
+                Filters, e->OutFilters, Net->OutFilters);
 
-             Net->TaskFlags = Peer->TaskFlags;
-         }/* end if */
+            Net->TaskFlags = e->TaskFlags;
+        }
+        else
+        {
+            if(Net->PeerCnt >= SBN_MAX_PEER_CNT)
+            {
+                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
+                    "too many peer entries (%d, max = %d)",
+                    Net->PeerCnt, SBN_MAX_PEER_CNT);
+                return SBN_ERROR;
+            }/* end if */
+            SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
+            memset(Peer, 0, sizeof(*Peer));
+            Peer->Net = Net;
+            Peer->ProcessorID = e->ProcessorID;
+            Peer->SpacecraftID = e->SpacecraftID;
+
+            Peer->InFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
+                Filters, e->InFilters, Peer->InFilters);
+            Peer->OutFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
+                Filters, e->OutFilters, Peer->OutFilters);
+
+            SBN.IfOps[ModuleIdx]->LoadPeer(Peer, (const char *)e->Address);
+
+            Net->TaskFlags = Peer->TaskFlags;
+        }/* end if */
     }/* end for */
 
     /* address only needed at load time, release */
@@ -1186,7 +1293,7 @@ static uint32 UnloadConf(void)
         }/* end if */
     }/* end for */
 
-    if((Status = UnloadProtocols()) != SBN_SUCCESS)
+    if((Status = UnloadModules()) != SBN_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
             "unable to unload modules");
@@ -1401,7 +1508,7 @@ void SBN_AppMain(void)
         Net->IfOps->UnloadNet(Net);
     }/* end for */
 
-    UnloadProtocols();
+    UnloadModules();
 
     CFE_ES_ExitApp(RunStatus);
 }/* end SBN_AppMain */
@@ -1448,6 +1555,14 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
             break;
         }/* end case */
         case SBN_APP_MSG:
+        {
+            SBN_ModuleIdx_t FilterIdx = 0;
+
+            for(FilterIdx = 0; FilterIdx < Peer->InFilterCnt; FilterIdx++)
+            {
+                (Peer->InFilters[FilterIdx])(Msg);
+            }/* end for */
+
             Status = CFE_SB_PassMsg(Msg);
 
             if(Status != CFE_SUCCESS)
@@ -1457,7 +1572,7 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
                     Status, MsgType);
             }/* end if */
             break;
-
+        }/* end case */
         case SBN_SUB_MSG:
             SBN_ProcessSubsFromPeer(Peer, Msg);
             break;
