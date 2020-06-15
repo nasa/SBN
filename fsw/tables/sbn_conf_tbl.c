@@ -20,18 +20,24 @@ SBN_ConfTbl_t SBN_ConfTbl =
     .FilterModules =
     {
         { /* [0] */
-            .Name = "Test Out",
-            .LibFileName = "/cf/sbn_filt_test.so",
-            .LibSymbol = "SBN_Filter_Out"
+            .Name = "CCSDS Endian",
+            .LibFileName = "/cf/sbn_f_ccsds_end.so",
+            .LibSymbol = "SBN_F_CCSDS_End"
         },
         { /* [1] */
+            .Name = "Test Out",
+            .LibFileName = "/cf/sbn_f_test.so",
+            .LibSymbol = "SBN_F_Test_Out"
+        },
+        { /* [2] */
             .Name = "Test In",
             /* yes you can have the same file, different symbol */
-            .LibFileName = "/cf/sbn_filt_test.so",
-            .LibSymbol = "SBN_Filter_In"
-        },
+            .LibFileName = "/cf/sbn_f_test.so",
+            .LibSymbol = "SBN_F_Test_In"
+        }
     },
-    .FilterCnt = 2,
+    .FilterCnt = 3,
+
     .Peers = {
         { /* [0] */
             .ProcessorID = 1,
@@ -39,9 +45,11 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .InFilters = {{
+                "CCSDS Endian"
                 /* "Test In" */
             }},
             .OutFilters = {{
+                "CCSDS Endian"
                 /* "Test Out" */
             }},
             .Address = "127.0.0.1:2234",
@@ -53,9 +61,11 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .InFilters = {{
+                "CCSDS Endian"
                 /* "Test In" */
             }},
             .OutFilters = {{
+                "CCSDS Endian"
                 /* "Test Out" */
             }},
             .Address = "127.0.0.1:2235",
@@ -67,9 +77,11 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .InFilters = {{
+                "CCSDS Endian"
                 /* "Test In" */
             }},
             .OutFilters = {{
+                "CCSDS Endian"
                 /* "Test Out" */
             }},
             .Address = "127.0.0.1:2236",

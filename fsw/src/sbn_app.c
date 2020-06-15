@@ -65,35 +65,6 @@ static SBN_Status_t UnloadModules(void)
     return SBN_SUCCESS;
 }/* end UnloadModules() */
 
-static void SwapCCSDS(CFE_SB_Msg_t *Msg)
-{
-    int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
-    if(CCSDSType == CCSDS_TLM)
-    {
-        CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
-
-        uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->Sec);
-        Seconds = CFE_MAKE_BIG32(Seconds);
-        CCSDS_WR_SEC_HDR_SEC(TlmPktPtr->Sec, Seconds);
-
-        /* SBN sends CCSDS telemetry messages with secondary headers in
-         * big-endian order.
-         */
-        if(CCSDS_TIME_SIZE == 6)
-        {
-            uint16 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->Sec);
-            SubSeconds = CFE_MAKE_BIG16(SubSeconds);
-            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->Sec, SubSeconds);
-        }
-        else
-        {
-            uint32 SubSeconds = CCSDS_RD_SEC_HDR_SUBSEC(TlmPktPtr->Sec);
-            SubSeconds = CFE_MAKE_BIG32(SubSeconds);
-            CCSDS_WR_SEC_HDR_SUBSEC(TlmPktPtr->Sec, SubSeconds);
-        }/* end if */
-    }/* end if */
-}/* end SwapCCSDS */
-
 /**
  * \brief Packs a CCSDS message with an SBN message header.
  * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
@@ -121,11 +92,6 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType,
     }/* end if */
 
     Pack_Data(&Pack, Msg, MsgSz);
-
-    if(MsgType == SBN_APP_MSG)
-    {
-        SwapCCSDS((void *)((uint8 *)SBNBuf + SBN_PACKED_HDR_SZ));
-    }/* end if */
 }/* end SBN_PackMsg */
 
 /**
@@ -163,10 +129,6 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
 
     Unpack_Data(&Unpack, Msg, *MsgSzPtr);
 
-    if(*MsgTypePtr == SBN_APP_MSG)
-    {
-        SwapCCSDS((CFE_SB_Msg_t *)Msg);
-    }/* end if */
     return TRUE;
 }/* end SBN_UnpackMsg */
 
@@ -442,7 +404,6 @@ SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, 
 {
     SBN_MsgSz_t SentSz = 0;
     SBN_NetInterface_t *Net = Peer->Net;
-    SBN_ModuleIdx_t FilterIdx;
 
     if(Peer->SendTaskID)
     {
@@ -452,11 +413,6 @@ SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, 
             return -1;
         }/* end if */
     }/* end if */
-
-    for(FilterIdx = 0; FilterIdx < Peer->OutFilterCnt; FilterIdx++)
-    {
-        (Peer->OutFilters[FilterIdx])(Msg);
-    }
 
     SentSz = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
 
@@ -1118,6 +1074,8 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t *FilterModules,
     int i = 0;
     SBN_ModuleIdx_t FilterCnt = 0;
 
+    memset(FilterModules, 0, sizeof(*FilterModules) * FilterCnt);
+
     for (i = 0; *ModuleNames[i] && i < SBN_MAX_FILTERS_PER_PEER; i++)
     {
         SBN_ModuleIdx_t FilterIdx = 0;
@@ -1190,6 +1148,13 @@ static SBN_Status_t LoadConf(void)
 
         Filters[ModuleIdx] = (SBN_Filter_t)LoadConf_Module(
             &TblPtr->FilterModules[ModuleIdx], &ModuleID);
+
+        if (Filters[ModuleIdx] == NULL)
+        {
+            /* LoadConf_Module already generated an event */
+            return SBN_ERROR;
+        }
+
         SBN.FilterModules[ModuleIdx] = ModuleID;
     }/* end for */
 
