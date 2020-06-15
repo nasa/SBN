@@ -522,8 +522,24 @@ static void SendTask(void)
 
         for(FilterIdx = 0; FilterIdx < D.Peer->OutFilterCnt; FilterIdx++)
         {
-            (D.Peer->OutFilters[FilterIdx])(D.SBMsgPtr);
+            SBN_Status_T Status = (D.Peer->OutFilters[FilterIdx])(D.SBMsgPtr);
+            if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
+            {
+                break;
+            }/* end if */
+
+            if(Status != SBN_SUCCESS)
+            {
+                /* something fatal happened, exit */
+                return;
+            }/* end if */
         }/* end for */
+
+        if(FilterIdx < D.Peer->OutFilterCnt)
+        {
+            /* one of the above filters suggested rejecting this message */
+            continue;
+        }/* end if */
 
         /* TODO: externalize this as a filter */
         if(SBN.RemapEnabled)
@@ -598,8 +614,24 @@ static void CheckPeerPipes(void)
 
                 for(FilterIdx = 0; FilterIdx < Peer->OutFilterCnt; FilterIdx++)
                 {
-                    (Peer->OutFilters[FilterIdx])(SBMsgPtr);
+                    SBN_Status_T Status = (Peer->OutFilters[FilterIdx])(SBMsgPtr);
+                    if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
+                    {
+                        break;
+                    }/* end if */
+
+                    if(Status != SBN_SUCCESS)
+                    {
+                        /* something fatal happened, exit */
+                        return;
+                    }/* end if */
                 }/* end for */
+
+                if(FilterIdx < Peer->OutFilterCnt)
+                {
+                    /* one of the above filters suggested rejecting this message */
+                    continue;
+                }/* end if */
 
                 if(SBN.RemapEnabled)
                 {
@@ -1525,8 +1557,25 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
 
             for(FilterIdx = 0; FilterIdx < Peer->InFilterCnt; FilterIdx++)
             {
-                (Peer->InFilters[FilterIdx])(Msg);
+                SBN_Status_t Status = (Peer->InFilters[FilterIdx])(Msg);
+
+                if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
+                {
+                    break;
+                }/* end if */
+
+                if(Status != SBN_SUCCESS)
+                {
+                    /* something fatal happened, exit */
+                    return;
+                }/* end if */
             }/* end for */
+
+            if(FilterIdx < Peer->InFilterCnt)
+            {
+                /* one of the above filters suggested rejecting this message */
+                continue;
+            }/* end if */
 
             Status = CFE_SB_PassMsg(Msg);
 
