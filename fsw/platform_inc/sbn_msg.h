@@ -48,9 +48,4 @@ typedef struct {
     uint8   ModuleStatus[SBN_MOD_STATUS_MSG_SZ];
 } SBN_ModuleStatusPacket_t;
 
-typedef struct {
-    uint8   CmdHeader[CFE_SB_CMD_HDR_SIZE];
-    uint32  TblId;
-} SBN_ReloadTblCmd_t;
-
 #endif /* _sbn_msg_h_ */

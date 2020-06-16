@@ -26,7 +26,6 @@
 
 #include "sbn_pack.h"
 #include "sbn_app.h"
-#include "sbn_remap.h"
 #include "cfe_sb_events.h" /* For event message IDs */
 #include "cfe_es.h" /* PerfLog */
 #include "cfe_platform_cfg.h"
@@ -459,6 +458,10 @@ typedef struct
 static void SendTask(void)
 {
     SendTaskData_t D;
+    SBN_Filter_Ctx_t Filter_Context;
+
+    Filter_Context.MyProcessorID = CFE_PSP_GetProcessorId();
+    Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
 
     memset(&D, 0, sizeof(D));
 
@@ -520,9 +523,19 @@ static void SendTask(void)
             continue;
         }/* end if */
 
-        for(FilterIdx = 0; FilterIdx < D.Peer->OutFilterCnt; FilterIdx++)
+        Filter_Context.PeerProcessorID = D.Peer->ProcessorID;
+        Filter_Context.PeerSpacecraftID = D.Peer->SpacecraftID;
+
+        for(FilterIdx = 0; FilterIdx < D.Peer->FilterCnt; FilterIdx++)
         {
-            SBN_Status_T Status = (D.Peer->OutFilters[FilterIdx])(D.SBMsgPtr);
+            SBN_Status_t Status;
+
+            if(D.Peer->Filters[FilterIdx]->FilterSend == NULL)
+            {
+                continue;
+            }/* end if */
+            
+            Status = (D.Peer->Filters[FilterIdx]->FilterSend)(D.SBMsgPtr, &Filter_Context);
             if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
             {
                 break;
@@ -535,22 +548,10 @@ static void SendTask(void)
             }/* end if */
         }/* end for */
 
-        if(FilterIdx < D.Peer->OutFilterCnt)
+        if(FilterIdx < D.Peer->FilterCnt)
         {
             /* one of the above filters suggested rejecting this message */
             continue;
-        }/* end if */
-
-        /* TODO: externalize this as a filter */
-        if(SBN.RemapEnabled)
-        {
-            D.MsgID = SBN_RemapMsgID(D.Peer->ProcessorID,
-                CFE_SB_GetMsgId(D.SBMsgPtr));
-            if(D.MsgID == 0x0000)
-            {
-                continue; /* don't send message, filtered out */
-            }/* end if */
-            CFE_SB_SetMsgId(D.SBMsgPtr, D.MsgID);
         }/* end if */
 
         SBN_SendNetMsg(SBN_APP_MSG,
@@ -568,6 +569,10 @@ static void CheckPeerPipes(void)
     int ReceivedFlag = 0, iter = 0;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     CFE_SB_SenderId_t *LastSenderPtr = NULL;
+    SBN_Filter_Ctx_t Filter_Context;
+
+    Filter_Context.MyProcessorID = CFE_PSP_GetProcessorId();
+    Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
 
     /**
      * \note This processes one message per peer, then start again until no
@@ -612,9 +617,20 @@ static void CheckPeerPipes(void)
                     continue;
                 }/* end if */
 
-                for(FilterIdx = 0; FilterIdx < Peer->OutFilterCnt; FilterIdx++)
+                Filter_Context.PeerProcessorID = Peer->ProcessorID;
+                Filter_Context.PeerSpacecraftID = Peer->SpacecraftID;
+
+                for(FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
                 {
-                    SBN_Status_T Status = (Peer->OutFilters[FilterIdx])(SBMsgPtr);
+                    SBN_Status_t Status;
+                    
+                    if(Peer->Filters[FilterIdx]->FilterSend == NULL)
+                    {
+                        continue;
+                    }/* end if */
+                    
+                    Status = (Peer->Filters[FilterIdx]->FilterSend)(SBMsgPtr, &Filter_Context);
+
                     if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
                     {
                         break;
@@ -627,23 +643,10 @@ static void CheckPeerPipes(void)
                     }/* end if */
                 }/* end for */
 
-                if(FilterIdx < Peer->OutFilterCnt)
+                if(FilterIdx < Peer->FilterCnt)
                 {
                     /* one of the above filters suggested rejecting this message */
                     continue;
-                }/* end if */
-
-                if(SBN.RemapEnabled)
-                {
-                    CFE_SB_MsgId_t MsgID =
-                        SBN_RemapMsgID(Peer->ProcessorID,
-                        CFE_SB_GetMsgId(SBMsgPtr));
-                    if(!MsgID)
-                    {
-                        continue; /* don't send message, filtered out */
-                    }/* end if */
-
-                    CFE_SB_SetMsgId(SBMsgPtr, MsgID);
                 }/* end if */
 
                 SBN_SendNetMsg(SBN_APP_MSG,
@@ -938,114 +941,6 @@ static SBN_Status_t WaitForSBStartup(void)
     return SBN_SUCCESS;
 }/* end WaitForSBStartup */
 
-static SBN_Status_t LoadRemap(void)
-{
-    CFE_Status_t Status = CFE_SUCCESS;
-    SBN_RemapTbl_t *TblPtr;
-
-    if((Status = CFE_TBL_GetAddress((void **)&TblPtr, SBN.RemapTblHandle))
-        != CFE_TBL_INFO_UPDATED)
-    {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-            "unable to get conf table address");
-        CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return SBN_ERROR;
-    }/* end if */
-
-    SBN_RemapTblSort(TblPtr);
-
-    CFE_TBL_Modified(SBN.RemapTblHandle);
-
-    SBN.RemapTbl = TblPtr;
-
-    return SBN_SUCCESS;
-}/* end LoadRemap() */
-
-static SBN_Status_t UnloadRemap(void)
-{
-    SBN.RemapTbl = NULL;
-
-    CFE_Status_t Status;
-
-    if((Status = CFE_TBL_ReleaseAddress(SBN.RemapTblHandle)) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-            "unable to release address for remap tbl");
-        return SBN_ERROR;
-    }/* end if */
-
-    return SBN_SUCCESS;
-}/* end UnloadRemap() */
-
-static int RemapTblVal(void *TblPtr)
-{
-    SBN_RemapTbl_t *r = (SBN_RemapTbl_t *)TblPtr;
-    int i = 0;
-
-    switch(r->RemapDefaultFlag)
-    {
-        /* all valid values */
-        case SBN_REMAP_DEFAULT_IGNORE:
-        case SBN_REMAP_DEFAULT_SEND:
-            break;
-        /* otherwise, unknown! */
-        default:
-            return -1;
-    }/* end switch */
-
-    /* Find the first "empty" entry (with a 0x0000 "from") to determine table
-     * size.
-     */
-    for(i = 0; i < SBN_REMAP_TABLE_SIZE; i++)
-    {
-        if (r->Entries[i].FromMID == 0x0000)
-        {
-            break;
-        }/* end if */
-    }/* end for */
-
-    r->EntryCnt = i;
-
-    return 0;
-}/* end RemapTblVal */
-
-static SBN_Status_t LoadRemapTbl(void)
-{
-    if(CFE_TBL_Register(&SBN.RemapTblHandle, "SBN_RemapTbl", sizeof(SBN_RemapTbl_t),
-        CFE_TBL_OPT_DEFAULT, &RemapTblVal) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-            "unable to register remap tbl handle");
-        return SBN_ERROR;
-    }/* end if */
-
-    if(CFE_TBL_Load(SBN.RemapTblHandle, CFE_TBL_SRC_FILE, SBN_REMAP_TBL_FILENAME) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-            "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
-        CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return SBN_ERROR;
-    }/* end if */
-
-    if(CFE_TBL_Manage(SBN.RemapTblHandle) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-            "unable to manage remap tbl");
-        CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return SBN_ERROR;
-    }/* end if */
-
-    if(CFE_TBL_NotifyByMessage(SBN.RemapTblHandle, SBN_CMD_MID, SBN_TBL_CC, 1) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR,
-            "unable to set notifybymessage for remap tbl");
-        CFE_TBL_Unregister(SBN.RemapTblHandle);
-        return SBN_ERROR;
-    }/* end if */
-
-    return LoadRemap();
-}/* end LoadRemapTbl */
-
 static int32 ConfTblVal(void *TblPtr)
 {
     /** TODO: write */
@@ -1099,9 +994,9 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleI
  * @return The number of entries in FilterFns.
  */
 static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t *FilterModules,
-    SBN_ModuleIdx_t FilterModuleCnt, SBN_Filter_t *ConfFilterFns,
+    SBN_ModuleIdx_t FilterModuleCnt, SBN_FilterInterface_t **ConfFilters,
     const char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
-    SBN_Filter_t *FilterFns)
+    SBN_FilterInterface_t **Filters)
 {
     int i = 0;
     SBN_ModuleIdx_t FilterCnt = 0;
@@ -1125,7 +1020,7 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t *FilterModules,
             continue;
         }/* end if */
 
-        FilterFns[FilterCnt++] = ConfFilterFns[FilterIdx];
+        Filters[FilterCnt++] = ConfFilters[FilterIdx];
     }/* end for */
 
     return FilterCnt;
@@ -1136,7 +1031,7 @@ static SBN_Status_t LoadConf(void)
     SBN_ConfTbl_t *TblPtr = NULL;
     SBN_ModuleIdx_t ModuleIdx = 0;
     SBN_PeerIdx_t PeerIdx = 0;
-    SBN_Filter_t Filters[SBN_MAX_MOD_CNT];
+    SBN_FilterInterface_t *Filters[SBN_MAX_MOD_CNT];
 
     memset(Filters, 0, sizeof(Filters));
 
@@ -1178,7 +1073,7 @@ static SBN_Status_t LoadConf(void)
     {
         CFE_ES_ModuleID_t ModuleID = 0;
 
-        Filters[ModuleIdx] = (SBN_Filter_t)LoadConf_Module(
+        Filters[ModuleIdx] = (SBN_FilterInterface_t *)LoadConf_Module(
             &TblPtr->FilterModules[ModuleIdx], &ModuleID);
 
         if (Filters[ModuleIdx] == NULL)
@@ -1230,10 +1125,8 @@ static SBN_Status_t LoadConf(void)
             Net->IfOps = SBN.IfOps[ModuleIdx];
             Net->IfOps->LoadNet(Net, (const char *)e->Address);
 
-            Net->InFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
-                Filters, e->InFilters, Net->InFilters);
-            Net->OutFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
-                Filters, e->OutFilters, Net->OutFilters);
+            Net->FilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
+                Filters, e->Filters, Net->Filters);
 
             Net->TaskFlags = e->TaskFlags;
         }
@@ -1252,10 +1145,8 @@ static SBN_Status_t LoadConf(void)
             Peer->ProcessorID = e->ProcessorID;
             Peer->SpacecraftID = e->SpacecraftID;
 
-            Peer->InFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
-                Filters, e->InFilters, Peer->InFilters);
-            Peer->OutFilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
-                Filters, e->OutFilters, Peer->OutFilters);
+            Peer->FilterCnt = LoadConf_Filters(TblPtr->FilterModules, TblPtr->FilterCnt,
+                Filters, e->Filters, Peer->Filters);
 
             SBN.IfOps[ModuleIdx]->LoadPeer(Peer, (const char *)e->Address);
 
@@ -1451,22 +1342,6 @@ void SBN_AppMain(void)
         return;
     }/* end if */
 
-    #ifdef SBN_REMAP_ENABLED
-    if ((Status = LoadRemapTbl()) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-            "SBN failed to load SBN.RemapTblHandle (%d)", Status);
-        SBN.RemapTblHandle = 0;
-    }/* end if */
-
-    if(SBN.RemapTblHandle != 0)
-    {
-        SBN.RemapEnabled = 1;
-    }/* end if */
-    #endif /* SBN_REMAP_ENABLED */
-
-    Status = OS_MutSemCreate(&(SBN.RemapMutex), "sbn_remap_mutex", 0);
-
     CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
         "initialized (CFE_CPU_NAME='%s' ProcessorID=%d SpacecraftId=%d %s "
         "SBN.AppID=%d...",
@@ -1521,7 +1396,6 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSize, void *Msg)
 {
     int Status = 0;
-
     SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID);
 
     if(!Peer)
@@ -1554,10 +1428,23 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
         case SBN_APP_MSG:
         {
             SBN_ModuleIdx_t FilterIdx = 0;
+            SBN_Filter_Ctx_t Filter_Context;
 
-            for(FilterIdx = 0; FilterIdx < Peer->InFilterCnt; FilterIdx++)
+            Filter_Context.MyProcessorID = CFE_PSP_GetProcessorId();
+            Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
+            Filter_Context.PeerProcessorID = Peer->ProcessorID;
+            Filter_Context.PeerSpacecraftID = Peer->SpacecraftID;
+
+            for(FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
             {
-                SBN_Status_t Status = (Peer->InFilters[FilterIdx])(Msg);
+                SBN_Status_t Status;
+
+                if(Peer->Filters[FilterIdx]->FilterRecv == NULL)
+                {
+                    continue;
+                }/* end if */
+
+                Status = (Peer->Filters[FilterIdx]->FilterRecv)(Msg, &Filter_Context);
 
                 if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
                 {
@@ -1571,10 +1458,10 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
                 }/* end if */
             }/* end for */
 
-            if(FilterIdx < Peer->InFilterCnt)
+            if(FilterIdx < Peer->FilterCnt)
             {
                 /* one of the above filters suggested rejecting this message */
-                continue;
+                break;
             }/* end if */
 
             Status = CFE_SB_PassMsg(Msg);
@@ -1705,22 +1592,3 @@ SBN_Status_t SBN_ReloadConfTbl(void)
 
     return LoadConf();
 }/* end SBN_ReloadConfTbl() */
-
-SBN_Status_t SBN_ReloadRemapTbl(void)
-{
-    SBN_Status_t Status;
-
-    /* releases the table address */
-    if((Status = UnloadRemap()) != SBN_SUCCESS)
-    {
-        return Status;
-    }/* end if */
-
-    if(CFE_TBL_Update(SBN.RemapTblHandle) != CFE_SUCCESS)
-    {
-        return SBN_ERROR;
-    }/* end if */
-
-    /* gets the new address and loads config */
-    return LoadRemap();
-}/* end SBN_ReloadRemapTbl() */

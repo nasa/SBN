@@ -1,7 +1,7 @@
-#include "sbn_types.h"
+#include "sbn_interfaces.h"
 #include "cfe.h"
 
-SBN_Status_t SBN_F_CCSDS_End(void *Msg)
+static SBN_Status_t End(void *Msg, SBN_Filter_Ctx_t *Context)
 {
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
     if(CCSDSType == CCSDS_TLM)
@@ -32,8 +32,13 @@ SBN_Status_t SBN_F_CCSDS_End(void *Msg)
     return SBN_SUCCESS;
 }/* SBN_F_CCSDS_End() */
 
-CFE_Status_t SBN_F_CCSDS_End_LibInit(void)
+CFE_Status_t SBN_F_CCSDS_End_Init(void)
 {
     OS_printf("SBN_F_CCSDS_End Lib Initialized.");
     return CFE_SUCCESS;
-}/* end SBN_F_CCSDS_End_LibInit() */
+}/* end SBN_F_CCSDS_End_Init() */
+
+SBN_FilterInterface_t SBN_F_CCSDS_End =
+{
+    End, End, NULL
+};

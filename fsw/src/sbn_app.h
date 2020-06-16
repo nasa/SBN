@@ -118,10 +118,6 @@ typedef struct
     /** @brief Retain the module ID's for each interface in case we need to unload. */
     CFE_ES_ModuleID_t FilterModules[SBN_MAX_MOD_CNT];
 
-    SBN_RemapTbl_t *RemapTbl;
-    uint8 RemapEnabled; /* !0 == enabled */
-    CFE_ES_MutexID_t RemapMutex;
-
     SBN_ConfTbl_t *ConfTbl;
 
     /** Global mutex for Send Tasks. */
@@ -129,7 +125,7 @@ typedef struct
 
     SBN_HKTlm_t CmdCnt, CmdErrCnt;
 
-    CFE_TBL_Handle_t RemapTblHandle, ConfTblHandle;
+    CFE_TBL_Handle_t ConfTblHandle;
 } SBN_App_t;
 
 /**
@@ -145,7 +141,6 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSz, void *Msg);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
 uint32 SBN_ReloadConfTbl(void);
-uint32 SBN_ReloadRemapTbl(void);
 
 #endif /* _sbn_app_ */
 /*****************************************************************************/

@@ -1,22 +1,27 @@
-#include "sbn_types.h"
+#include "sbn_interfaces.h"
 #include "cfe.h"
 
-SBN_Status_t SBN_F_Test_Out(void *msg)
-{
-    CCSDS_PriHdr_t *PriHdrPtr = msg;
-    OS_printf("msg out StreamId=%d\n", CCSDS_RD_SID(*PriHdrPtr));
-    return SBN_SUCCESS;
-}/* end SBN_F_Test_Out() */
-
-SBN_Status_t SBN_F_Test_In(void *msg)
+static SBN_Status_t In(void *msg, SBN_Filter_Ctx_t *Context)
 {
     CCSDS_PriHdr_t *PriHdrPtr = msg;
     OS_printf("msg in StreamId=%d\n", CCSDS_RD_SID(*PriHdrPtr));
     return SBN_SUCCESS;
-}/* end SBN_F_Test_In() */
+}/* end In() */
 
-CFE_Status_t SBN_F_Test_LibInit(void)
+static SBN_Status_t Out(void *msg, SBN_Filter_Ctx_t *Context)
+{
+    CCSDS_PriHdr_t *PriHdrPtr = msg;
+    OS_printf("msg out StreamId=%d\n", CCSDS_RD_SID(*PriHdrPtr));
+    return SBN_SUCCESS;
+}/* end Out() */
+
+CFE_Status_t SBN_F_Test_Init(void)
 {
     OS_printf("SBN_F_Test Lib Initialized.");
     return CFE_SUCCESS;
-}/* end SBN_F_Test_LibInit() */
+}/* end Init() */
+
+SBN_FilterInterface_t SBN_F_Test =
+{
+    In, Out, NULL
+};

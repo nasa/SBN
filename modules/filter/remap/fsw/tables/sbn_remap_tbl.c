@@ -1,4 +1,4 @@
-#include "sbn_tbl.h"
+#include "sbn_remap_tbl.h"
 #include "cfe_tbl_filedef.h"
 
 SBN_RemapTbl_t SBN_RemapTbl =

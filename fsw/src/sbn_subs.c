@@ -348,54 +348,31 @@ static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
 static void ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
     CFE_SB_Qos_t QoS)
 {
-    if(OS_MutSemTake(SBN.RemapMutex) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR, "unable to take mutex");
-        return;
-    }/* end if */
+    SBN_ModuleIdx_t FilterIdx;
+    SBN_Filter_Ctx_t Filter_Context;
+    SBN_Status_t Status;
 
-    bool RemappedFlag = FALSE;
+    Filter_Context.MyProcessorID = CFE_PSP_GetProcessorId();
+    Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
+    Filter_Context.PeerProcessorID = Peer->ProcessorID;
+    Filter_Context.MySpacecraftID = Peer->SpacecraftID;
 
-    /** If there's a filter, ignore the sub request.  */
-    int idx = 0;
-    for(idx = 0; !RemappedFlag && idx < SBN.RemapTbl->EntryCnt; idx++)
+    for(FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
     {
-        if(SBN.RemapTbl->Entries[idx].ProcessorID == Peer->ProcessorID
-            && SBN.RemapTbl->Entries[idx].FromMID == MsgID
-            && SBN.RemapTbl->Entries[idx].ToMID == 0x0000)
+        if(Peer->Filters[FilterIdx]->RemapMID == NULL)
         {
-            RemappedFlag = TRUE;
+            continue;
+        }/* end if */
+
+        Status = (Peer->Filters[FilterIdx]->RemapMID)(&MsgID, &Filter_Context);
+
+        if(Status != SBN_SUCCESS)
+        {
+            return;
         }/* end if */
     }/* end for */
 
-    /*****
-     * If there's a remap that would generate that
-     * MID, I need to subscribe locally to the "from". Usually this will
-     * only be one "from" but it's possible that multiple "from"s map to
-     * the same "to".
-     */
-    for(idx = 0; idx < SBN.RemapTbl->EntryCnt; idx++)
-    {
-        if(SBN.RemapTbl->Entries[idx].ProcessorID
-                == Peer->ProcessorID
-            && SBN.RemapTbl->Entries[idx].ToMID == MsgID)
-        {
-            AddSub(Peer, SBN.RemapTbl->Entries[idx].FromMID, QoS);
-            RemappedFlag = TRUE;
-        }/* end if */
-    }/* end for */
-
-    /* if there's no remap ID's, subscribe to the original MID. */
-    if(!RemappedFlag)
-    {
-        AddSub(Peer, MsgID, QoS);
-    }/* end if */
-
-    if(OS_MutSemGive(SBN.RemapMutex) != OS_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR,
-            "unable to give mutex");
-    }/* end if */
+    AddSub(Peer, MsgID, QoS);
 }/* ProcessSubFromPeer */
 
 /**
@@ -438,8 +415,31 @@ void SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     CFE_SB_MsgId_t MsgID)
 {
+    SBN_ModuleIdx_t FilterIdx;
+    SBN_Filter_Ctx_t Filter_Context;
+    SBN_Status_t Status;
+
     int i = 0, idx = 0;
-    uint32 Status = CFE_SUCCESS;
+
+    Filter_Context.MyProcessorID = CFE_PSP_GetProcessorId();
+    Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
+    Filter_Context.PeerProcessorID = Peer->ProcessorID;
+    Filter_Context.MySpacecraftID = Peer->SpacecraftID;
+
+    for(FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
+    {
+        if(Peer->Filters[FilterIdx]->RemapMID == NULL)
+        {
+            continue;
+        }/* end if */
+
+        Status = (Peer->Filters[FilterIdx]->RemapMID)(&MsgID, &Filter_Context);
+
+        if(Status != SBN_SUCCESS)
+        {
+            return;
+        }/* end if */
+    }/* end for */
 
     if(IsPeerSubMsgID(&idx, MsgID, Peer))
     {
@@ -466,8 +466,7 @@ static void ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer,
     Peer->SubCnt--;
 
     /* unsubscribe to the msg id on the peer pipe */
-    Status = CFE_SB_UnsubscribeLocal(MsgID, Peer->Pipe);
-    if(Status != CFE_SUCCESS)
+    if(CFE_SB_UnsubscribeLocal(MsgID, Peer->Pipe) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(SBN_SUB_EID, CFE_EVS_ERROR,
             "Unable to unsubscribe from MID 0x%04X", htons(MsgID));
@@ -509,58 +508,7 @@ void SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         CFE_SB_Qos_t QoS;
         Unpack_Data(&Unpack, &QoS, sizeof(QoS));
 
-        int idx, RemappedFlag = 0;
-
-        if(OS_MutSemTake(SBN.RemapMutex) != OS_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR,
-                "unable to take mutex");
-            continue;
-        }/* end if */
-
-        /** If there's a filter, ignore this unsub. */
-        for(idx = 0; RemappedFlag == 0 && idx < SBN.RemapTbl->EntryCnt; idx++)
-        {   
-            if(SBN.RemapTbl->Entries[idx].ProcessorID
-                    == Peer->ProcessorID
-                && SBN.RemapTbl->Entries[idx].FromMID == MsgID
-                && SBN.RemapTbl->Entries[idx].ToMID == 0x0000)
-            {   
-                RemappedFlag = 1;
-            }/* end if */
-        }/* end for */
-
-        /*****
-         * If there's a remap that would generate that
-         * MID, I need to unsubscribe locally to the "from". Usually this will
-         * only be one "from" but it's possible that multiple "from"s map to
-         * the same "to".
-         */
-        for(idx = 0; idx < SBN.RemapTbl->EntryCnt; idx++)
-        {   
-            if(SBN.RemapTbl->Entries[idx].ProcessorID
-                    == Peer->ProcessorID
-                && SBN.RemapTbl->Entries[idx].ToMID == MsgID)
-            {   
-                /* Unsubscribe from each "ToMID" match. */
-                ProcessUnsubFromPeer(Peer,
-                    SBN.RemapTbl->Entries[idx].FromMID);
-
-                RemappedFlag = 1;
-            }/* end if */
-        }/* end for */
-
-        /* if there's no remap ID's, unsubscribe from the original MID. */
-        if(!RemappedFlag)
-        {
-            ProcessUnsubFromPeer(Peer, MsgID);
-        }/* end if */
-
-        if(OS_MutSemGive(SBN.RemapMutex) != OS_SUCCESS)
-        {
-            CFE_EVS_SendEvent(SBN_REMAP_EID, CFE_EVS_ERROR,
-                "unable to give mutex");
-        }/* end if */
+        ProcessUnsubFromPeer(Peer, MsgID);
     }/* end for */
 }/* end SBN_ProcessUnsubFromPeer */
 

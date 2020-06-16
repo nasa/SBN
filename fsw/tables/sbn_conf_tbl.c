@@ -25,18 +25,12 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .LibSymbol = "SBN_F_CCSDS_End"
         },
         { /* [1] */
-            .Name = "Test Out",
+            .Name = "Test",
             .LibFileName = "/cf/sbn_f_test.so",
-            .LibSymbol = "SBN_F_Test_Out"
-        },
-        { /* [2] */
-            .Name = "Test In",
-            /* yes you can have the same file, different symbol */
-            .LibFileName = "/cf/sbn_f_test.so",
-            .LibSymbol = "SBN_F_Test_In"
+            .LibSymbol = "SBN_F_Test"
         }
     },
-    .FilterCnt = 3,
+    .FilterCnt = 2,
 
     .Peers = {
         { /* [0] */
@@ -44,14 +38,10 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .SpacecraftID = 42,
             .NetNum = 0,
             .ProtocolName = "UDP",
-            .InFilters = {{
-                "CCSDS Endian"
-                /* "Test In" */
-            }},
-            .OutFilters = {{
-                "CCSDS Endian"
-                /* "Test Out" */
-            }},
+            .Filters = {
+                "CCSDS Endian",
+                "Test"
+            },
             .Address = "127.0.0.1:2234",
             .TaskFlags = SBN_TASK_POLL
         },
@@ -60,14 +50,10 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .SpacecraftID = 42,
             .NetNum = 0,
             .ProtocolName = "UDP",
-            .InFilters = {{
-                "CCSDS Endian"
-                /* "Test In" */
-            }},
-            .OutFilters = {{
-                "CCSDS Endian"
-                /* "Test Out" */
-            }},
+            .Filters = {
+                "CCSDS Endian",
+                "Test"
+            },
             .Address = "127.0.0.1:2235",
             .TaskFlags = SBN_TASK_POLL
         },
@@ -76,14 +62,10 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .SpacecraftID = 42,
             .NetNum = 0,
             .ProtocolName = "UDP",
-            .InFilters = {{
+            .Filters = {
                 "CCSDS Endian"
-                /* "Test In" */
-            }},
-            .OutFilters = {{
-                "CCSDS Endian"
-                /* "Test Out" */
-            }},
+                /* "Test" */
+            },
             .Address = "127.0.0.1:2236",
             .TaskFlags = SBN_TASK_POLL
         },

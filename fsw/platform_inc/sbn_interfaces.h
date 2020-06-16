@@ -51,7 +51,60 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
  * @return SBN_SUCCESS if processing nominal, SBN_IF_EMPTY if the message should not be transmitted, SBN_ERROR for 
  * other error conditions.
  */
-typedef SBN_Status_t (*SBN_Filter_t)(void *MsgBuf);
+typedef struct
+{
+    CFE_ProcessorID_t MyProcessorID;
+    CFE_SpacecraftID_t MySpacecraftID;
+
+    CFE_ProcessorID_t PeerProcessorID;
+    CFE_SpacecraftID_t PeerSpacecraftID;
+} SBN_Filter_Ctx_t;
+
+typedef struct
+{
+    /**
+     * Interface is called to apply a filter algorithm on an SB (CCSDS) message
+     * header and body.
+     *
+     * @param MsgBuf[inout] The message buffer to alter in-place.
+     * @param Context[in] The context information for this message (particularly peer info.)
+     *
+     * @return SBN_SUCCESS when the filter feels it processed the message successfully
+     *         (this doesn't necessarily mean the message was altered.)
+     *         SBN_IF_EMPTY if the filter believes the message should not be relayed.
+     *         SBN_ERROR for all other error conditions.
+     */
+    SBN_Status_t (*FilterRecv)(void *MsgBuf, SBN_Filter_Ctx_t *Context);
+
+    /**
+     * Interface is called to apply a filter algorithm on an SB (CCSDS) message
+     * header and body.
+     *
+     * @param MsgBuf[inout] The message buffer to alter in-place.
+     * @param Context[in] The context information for this message (particularly peer info.)
+     *
+     * @return SBN_SUCCESS when the filter feels it processed the message successfully
+     *         (this doesn't necessarily mean the message was altered.)
+     *         SBN_IF_EMPTY if the filter believes the message should not be relayed.
+     *         SBN_ERROR for all other error conditions.
+     */
+    SBN_Status_t (*FilterSend)(void *MsgBuf, SBN_Filter_Ctx_t *Context);
+
+    /**
+     * Some filter interfaces may alter the message ID of the messages it processes.
+     * SBN needs to know this when it relays subscription information to peers.
+     *
+     * @param FromToMidPtr[inout] A pointer to the message id to be altered, and the resulting
+     *        message id when it has been altered.
+     * @param Context[in] The context information for this request (particularly peer info.)
+     *
+     * @return SBN_SUCCESS when the function feels it processed the message remapping successfully
+     *         (this doesn't necessarily mean the id was altered.)
+     *         SBN_IF_EMPTY if the filter believes the subscription should not be relayed.
+     *         SBN_ERROR for all other error conditions.
+     */
+    SBN_Status_t (*RemapMID)(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context);
+} SBN_FilterInterface_t;
 
 typedef struct SBN_IfOps_s SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
@@ -90,18 +143,11 @@ typedef struct {
     SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
 
     /**
-     * @brief Before publishing a message from a peer on the local bus, call all in filters.
-     *        This is populated by filter modules.
+     * @brief Filters alter message headers/bodies before sending to a peer or after
+     *        receiving from the peer.
      */
-    SBN_Filter_t InFilters[SBN_MAX_FILTERS];
-    SBN_ModuleIdx_t InFilterCnt;
-
-    /**
-     * @brief Before sending a local bus message to a peer, call all out filters.
-     *        This is populated by filter modules.
-     */
-    SBN_Filter_t OutFilters[SBN_MAX_FILTERS];
-    SBN_ModuleIdx_t OutFilterCnt;
+    SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
+    SBN_ModuleIdx_t FilterCnt;
 
     OS_time_t LastSend, LastRecv;
     SBN_HKTlm_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
@@ -153,18 +199,11 @@ struct SBN_NetInterface_s {
     SBN_PeerInterface_t Peers[SBN_MAX_PEER_CNT];
 
     /**
-     * @brief Before publishing a message from a peer on the local bus, call all in filters.
-     *        This is populated by filter modules.
+     * @brief Filters alter message headers/bodies before sending to a peer or after
+     *        receiving from the peer.
      */
-    SBN_Filter_t InFilters[SBN_MAX_FILTERS];
-    SBN_ModuleIdx_t InFilterCnt;
-
-    /**
-     * @brief Before sending a local bus message to a peer, call all out filters.
-     *        This is populated by filter modules.
-     */
-    SBN_Filter_t OutFilters[SBN_MAX_FILTERS];
-    SBN_ModuleIdx_t OutFilterCnt;
+    SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
+    SBN_ModuleIdx_t FilterCnt;
 
     /** @brief generic blob of bytes, module-specific */
     uint8  ModulePvt[128];

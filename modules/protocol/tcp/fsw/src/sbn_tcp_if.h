@@ -11,7 +11,7 @@
  * the SBN version numbers.
  */
 #define SBN_TCP_MAJOR 1
-#define SBN_TCP_MINOR 14
+#define SBN_TCP_MINOR 15
 #define SBN_TCP_REVISION 0
 
 CFE_Status_t SBN_TCP_LibInit(void);

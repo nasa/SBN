@@ -11,7 +11,7 @@
  * the SBN version numbers.
  */
 #define SBN_UDP_MAJOR 1
-#define SBN_UDP_MINOR 14
+#define SBN_UDP_MINOR 15
 #define SBN_UDP_REVISION 0
 
 /**
