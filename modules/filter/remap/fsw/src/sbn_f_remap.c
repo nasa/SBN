@@ -8,9 +8,10 @@
 
 #include "sbn_f_remap_events.h"
 
-CFE_TBL_Handle_t RemapTblHandle;
-OS_MutexID_t RemapMutex;
-SBN_RemapTbl_t *RemapTbl;
+CFE_TBL_Handle_t RemapTblHandle = 0;
+OS_MutexID_t RemapMutex = 0;
+SBN_RemapTbl_t *RemapTbl = NULL;
+int RemapTblCnt = 0;
 
 CFE_EVS_EventID_t SBN_F_REMAP_FIRST_EID;
 
@@ -41,7 +42,7 @@ static int RemapTblVal(void *TblPtr)
         }/* end if */
     }/* end for */
 
-    r->EntryCnt = i;
+    RemapTblCnt = i;
 
     return 0;
 }/* end RemapTblVal() */
@@ -58,18 +59,6 @@ static int RemapTblCompar(const void *a, const void *b)
     return aEntry->FromMID - bEntry->FromMID;
 }/* end RemapTblCompar() */
 
-static void RemapTblSort(SBN_RemapTbl_t *Tbl)
-{
-    /* sort the entries on ProcessorID and from MID */
-    /* note: qsort is recursive, so it will use some stack space
-     * (O[N log N] * <some small amount of stack>). If this is a concern,
-     * consider using a non-recursive (insertion, bubble, etc) sort algorithm.
-     */
-
-    qsort(Tbl->Entries, Tbl->EntryCnt, sizeof(SBN_RemapTblEntry_t),
-        RemapTblCompar);
-}/* end RemapTblSort() */
-
 static SBN_Status_t LoadRemap(void)
 {
     CFE_Status_t Status = CFE_SUCCESS;
@@ -84,7 +73,13 @@ static SBN_Status_t LoadRemap(void)
         return SBN_ERROR;
     }/* end if */
 
-    RemapTblSort(TblPtr);
+    /* sort the entries on ProcessorID and from MID */
+    /* note: qsort is recursive, so it will use some stack space
+     * (O[N log N] * <some small amount of stack>). If this is a concern,
+     * consider using a non-recursive (insertion, bubble, etc) sort algorithm.
+     */
+
+    qsort(RemapTbl->Entries, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
 
     CFE_TBL_Modified(RemapTblHandle);
 
@@ -258,6 +253,18 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 
 static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *Context)
 {
+    int i = 0;
+
+    for(i = 0; i < RemapTbl->EntryCnt; i++)
+    {
+        if(RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID
+            && RemapTbl->Entries[i].ToMID == *InOutMsgIdPtr)
+        {
+            *InOutMsgIdPtr = RemapTbl->Entries[i].FromMID;
+            return SBN_SUCCESS;
+        }/* end if */
+    }/* end for */
+
     return SBN_SUCCESS;
 }/* end Remap_MID() */
 

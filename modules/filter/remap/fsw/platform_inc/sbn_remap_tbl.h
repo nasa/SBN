@@ -11,6 +11,8 @@
  * published locally with the "from" MID, it is sent to the peer with the "to"
  * MID.)
  *
+ * Note that there should only be one "to" for any "from". One-to-many is not supported by the module.
+ *
  * The RemapTbl must be sorted and unique for ProcessorID + from
  * Logic is as follows:
  * for each message->
