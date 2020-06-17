@@ -1,5 +1,8 @@
 #include "sbn_interfaces.h"
+#include "sbn_f_ccsds_end_events.h"
 #include "cfe.h"
+
+CFE_EVS_EventID_t SBN_F_CCSDS_END_FIRST_EID;
 
 static SBN_Status_t End(void *Msg, SBN_Filter_Ctx_t *Context)
 {
@@ -32,13 +35,21 @@ static SBN_Status_t End(void *Msg, SBN_Filter_Ctx_t *Context)
     return SBN_SUCCESS;
 }/* SBN_F_CCSDS_End() */
 
-CFE_Status_t SBN_F_CCSDS_End_Init(void)
+static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 {
-    OS_printf("SBN_F_CCSDS_End Lib Initialized.");
+    SBN_F_CCSDS_END_FIRST_EID = BaseEID;
+
+    if(Version != 1) /* TODO: define */
+    {
+        OS_printf("SBN_F_CCSDS_End version mismatch: expected %d, got %d\n", 1, Version);
+        return CFE_ES_APP_ERROR;
+    }/* end if */
+
+    OS_printf("SBN_F_CCSDS_End Lib Initialized.\n");
     return CFE_SUCCESS;
-}/* end SBN_F_CCSDS_End_Init() */
+}/* end Init() */
 
 SBN_FilterInterface_t SBN_F_CCSDS_End =
 {
-    End, End, NULL
+    Init, End, End, NULL
 };

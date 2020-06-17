@@ -7,15 +7,13 @@
 #include <errno.h>
 #include <sys/select.h>
 
-int SBN_DTN_Init(int Major, int Minor, int Revision)
+int SBN_DTN_Init(int Version)
 {   
-    if(Major != SBN_DTN_MAJOR || Minor != SBN_DTN_MINOR
-        || Revision != SBN_DTN_REVISION)
+    if(Version != 1)
     {   
         CFE_EVS_SendEvent(SBN_DTN_CONFIG_EID, CFE_EVS_ERROR,
-                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
-                SBN_DTN_MAJOR, SBN_DTN_MINOR, SBN_DTN_REVISION,
-                Major, Minor, Revision);
+                "mismatching version %d (SBN app reports %d)",
+                Version, 1);
         return SBN_ERROR;
     }/* end if */
     

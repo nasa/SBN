@@ -1,40 +1,63 @@
-#include "sbn_udp_if_struct.h"
-#include "sbn_udp_if.h"
 #include "sbn_udp_events.h"
-#include "sbn_types.h"
-#include "cfe.h"
+#include "sbn_platform_cfg.h"
 #include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 
-/* at some point this will be replaced by the OSAL network interface */
-#ifdef _VXWORKS_OS_
-#include "selectLib.h"
-#else
-#include <sys/select.h>
-#endif
+#include "sbn_interfaces.h"
+#include "cfe.h"
 
-SBN_Status_t SBN_UDP_Init(int Major, int Minor, int Revision)
+CFE_EVS_EventID_t SBN_UDP_FIRST_EID;
+
+/**
+ * UDP-specific message types.
+ */
+#define SBN_UDP_HEARTBEAT_MSG   0xA0
+#define SBN_UDP_ANNOUNCE_MSG    0xA1
+#define SBN_UDP_DISCONN_MSG     0xA2
+
+/**
+ * \brief Number of seconds since last I've sent the peer a message when
+ * I send an empty heartbeat message.
+ */
+#define SBN_UDP_PEER_HEARTBEAT 5
+
+/**
+ * \brief Number of seconds since I've last heard from the peer when I consider
+ * the peer connection to be dropped.
+ */
+#define SBN_UDP_PEER_TIMEOUT 10
+
+/**
+ * \brief If we're not connected, send peer occasional messages to wake
+ * them up and tell them "I'm here".
+ */
+#define SBN_UDP_ANNOUNCE_TIMEOUT 10
+
+typedef struct
 {
-    if(Major != SBN_UDP_MAJOR || Minor != SBN_UDP_MINOR
-        || Revision != SBN_UDP_REVISION)
+    OS_SockAddr_t Addr;
+} SBN_UDP_Peer_t;
+
+typedef struct
+{
+    OS_SockAddr_t Addr;
+    uint32 Socket;
+} SBN_UDP_Net_t;
+
+static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
+{
+    SBN_UDP_FIRST_EID = BaseEID;
+
+    if(Version != 1) /* TODO: define */
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
-                SBN_UDP_MAJOR, SBN_UDP_MINOR, SBN_UDP_REVISION,
-                Major, Minor, Revision);
-        return SBN_ERROR;
+        OS_printf("SBN_UDP version mismatch: expected %d, got %d\n", 1, Version);
+        return CFE_ES_ERR_APP_CREATE;
     }/* end if */
 
-    return SBN_SUCCESS;
-}/* end SBN_UDP_Init() */
-
-CFE_Status_t SBN_UDP_LibInit(void)
-{
-    OS_printf("SBN_UDP Lib Initialized. Version %d.%d.%d",
-        SBN_UDP_MAJOR, SBN_UDP_MINOR, SBN_UDP_REVISION);
+    OS_printf("SBN_UDP Lib Initialized.\n");
     return CFE_SUCCESS;
-}/* end SBN_UDP_LibInit() */
+}/* end Init() */
 
 static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 {
@@ -86,7 +109,7 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     return SBN_SUCCESS;
 }/* end ConfAddr() */
 
-SBN_Status_t SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
+static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
@@ -102,9 +125,9 @@ SBN_Status_t SBN_UDP_LoadNet(SBN_NetInterface_t *Net, const char *Address)
     }/* end if */
 
     return Status;
-}/* end SBN_UDP_LoadNet */
+}/* end LoadNet */
 
-SBN_Status_t SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
+static SBN_Status_t LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
@@ -120,7 +143,7 @@ SBN_Status_t SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
     }/* end if */
 
     return Status;
-}/* end SBN_UDP_LoadPeer */
+}/* end LoadPeer() */
 
 /**
  * Initializes an UDP host.
@@ -128,7 +151,7 @@ SBN_Status_t SBN_UDP_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
  */
-SBN_Status_t SBN_UDP_InitNet(SBN_NetInterface_t *Net)
+static SBN_Status_t InitNet(SBN_NetInterface_t *Net)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
@@ -150,7 +173,7 @@ SBN_Status_t SBN_UDP_InitNet(SBN_NetInterface_t *Net)
     }/* end if */
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_InitNet */
+}/* end InitNet() */
 
 /**
  * Initializes an UDP host or peer data struct depending on the
@@ -159,12 +182,12 @@ SBN_Status_t SBN_UDP_InitNet(SBN_NetInterface_t *Net)
  * @param  Interface data structure containing the file entry
  * @return SBN_SUCCESS on success, error code otherwise
  */
-SBN_Status_t SBN_UDP_InitPeer(SBN_PeerInterface_t *Peer)
+static SBN_Status_t InitPeer(SBN_PeerInterface_t *Peer)
 {
     return SBN_SUCCESS;
-}/* end SBN_UDP_InitPeer */
+}/* end InitPeer() */
 
-SBN_Status_t SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
+static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
 {
     OS_time_t CurrentTime;
     OS_GetLocalTime(&CurrentTime);
@@ -200,9 +223,9 @@ SBN_Status_t SBN_UDP_PollPeer(SBN_PeerInterface_t *Peer)
     }/* end if */
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_PollPeer */
+}/* end PollPeer() */
 
-SBN_MsgSz_t SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+static SBN_MsgSz_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload)
 {
     size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ;
@@ -224,13 +247,13 @@ SBN_MsgSz_t SBN_UDP_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     OS_SocketSendTo(NetData->Socket, Buf, BufSz, &PeerData->Addr);
 
     return BufSz;
-}/* end SBN_UDP_Send */
+}/* end Send() */
 
 /* Note that this Recv function is indescriminate, packets will be received
  * from all peers but that's ok, I just inject them into the SB and all is
  * good!
  */
-SBN_Status_t SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
+static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
         SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr,
         void *Payload)
 {
@@ -283,29 +306,9 @@ SBN_Status_t SBN_UDP_Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
     }
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_Recv */
+}/* end Recv() */
 
-SBN_Status_t SBN_UDP_ReportModuleStatus(SBN_ModuleStatusPacket_t *Packet)
-{
-    return SBN_NOT_IMPLEMENTED;
-}/* end SBN_UDP_ReportModuleStatus */
-
-SBN_Status_t SBN_UDP_UnloadNet(SBN_NetInterface_t *Net)
-{
-    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
-
-    OS_close(NetData->Socket);
-
-    SBN_PeerIdx_t PeerIdx = 0;
-    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
-    {
-        SBN_UDP_UnloadPeer(&Net->Peers[PeerIdx]);
-    }/* end if */
-
-    return SBN_SUCCESS;
-}/* end SBN_UDP_UnloadNet */
-
-SBN_Status_t SBN_UDP_UnloadPeer(SBN_PeerInterface_t *Peer)
+static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 {
     if(Peer->Connected)
     {
@@ -316,4 +319,34 @@ SBN_Status_t SBN_UDP_UnloadPeer(SBN_PeerInterface_t *Peer)
     }/* end if */
 
     return SBN_SUCCESS;
-}/* end SBN_UDP_UnloadPeer */
+}/* end UnloadPeer() */
+
+static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
+{
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
+
+    OS_close(NetData->Socket);
+
+    SBN_PeerIdx_t PeerIdx = 0;
+    for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
+    {
+        UnloadPeer(&Net->Peers[PeerIdx]);
+    }/* end if */
+
+    return SBN_SUCCESS;
+}/* end UnloadNet() */
+
+SBN_IfOps_t SBN_UDP_Ops =
+{
+    Init,
+    LoadNet,
+    LoadPeer,
+    InitNet,
+    InitPeer,
+    PollPeer,
+    Send,
+    NULL,
+    Recv,
+    UnloadNet,
+    UnloadPeer
+};

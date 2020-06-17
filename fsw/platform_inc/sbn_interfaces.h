@@ -63,6 +63,16 @@ typedef struct
 typedef struct
 {
     /**
+     * Initializes the filter module.
+     *
+     * @param FilterVersion[in] The version # of the filter API.
+     * @param BaseEID[in] The start of the Event ID's for this module.
+     *
+     * @return CFE_SUCCESS on successful initialization, otherwise error specific to failure.
+     */
+    CFE_Status_t (*InitModule)(int FilterVersion, CFE_EVS_EventID_t BaseEID);
+
+    /**
      * Interface is called to apply a filter algorithm on an SB (CCSDS) message
      * header and body.
      *
@@ -215,8 +225,15 @@ struct SBN_NetInterface_s {
  * structure that points to the approprate functions for that interface.
  */
 struct SBN_IfOps_s {
-    /** TODO: Document */
-    SBN_Status_t (*InitModule)(int MajorVersion, int MinorVersion, int Revision);
+    /**
+     * Initializes the protocol module.
+     *
+     * @param FilterVersion[in] The version # of the protocol API.
+     * @param BaseEID[in] The start of the Event ID's for this module.
+     *
+     * @return CFE_SUCCESS on successful initialization, otherwise error specific to failure.
+     */
+    CFE_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID);
 
     /** TODO: Document */
     SBN_Status_t (*LoadNet)(SBN_NetInterface_t *Net, const char *Address);
@@ -302,22 +319,6 @@ struct SBN_IfOps_s {
     SBN_Status_t (*RecvFromNet)(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
         SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr,
         void *PayloadBuffer);
-
-    /**
-     * Reports the status of the module.  The status can be in a module-specific
-     * format but must be no larger than SBN_MOD_STATUS_MSG_SZ bytes (as
-     * defined in sbn_platform_cfg.h).  The status packet is passed in
-     * initialized (with message ID and size), the module fills it, and upon
-     * return the SBN application sends the message over the software bus.
-     *
-     * @param Buffer[out] Status packet to fill
-     * @param Peer[in] Peer to report status
-     *
-     * @return SBN_NOT_IMPLEMENTED if the module does not implement this
-     *         function
-     *         SBN_SUCCESS otherwise
-     */
-    SBN_Status_t (*ReportModuleStatus)(SBN_ModuleStatusPacket_t *Buffer);
 
     /**
      * Unload a network. This will unload all associated peers as well.

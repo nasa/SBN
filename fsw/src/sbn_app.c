@@ -1058,7 +1058,7 @@ static SBN_Status_t LoadConf(void)
         }/* end if */
 
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "calling init fn");
-        if(Ops->InitModule(SBN_MAJOR_VERSION, SBN_MINOR_VERSION, SBN_REVISION) != SBN_SUCCESS)
+        if(Ops->InitModule(SBN_PROTOCOL_VERSION, TblPtr->ProtocolModules[ModuleIdx].BaseEID) != CFE_SUCCESS)
         {
             CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in init");
             return SBN_ERROR;
@@ -1076,11 +1076,17 @@ static SBN_Status_t LoadConf(void)
         Filters[ModuleIdx] = (SBN_FilterInterface_t *)LoadConf_Module(
             &TblPtr->FilterModules[ModuleIdx], &ModuleID);
 
-        if (Filters[ModuleIdx] == NULL)
+        if(Filters[ModuleIdx] == NULL)
         {
             /* LoadConf_Module already generated an event */
             return SBN_ERROR;
-        }
+        }/* end if */
+
+        if(Filters[ModuleIdx]->InitModule(SBN_FILTER_VERSION, TblPtr->FilterModules[ModuleIdx].BaseEID) != CFE_SUCCESS)
+        {
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in init");
+            return SBN_ERROR;
+        }/* end if */
 
         SBN.FilterModules[ModuleIdx] = ModuleID;
     }/* end for */

@@ -24,6 +24,8 @@ typedef struct
      * For filter modules, this is the filter function symbol name.
      */
     char LibSymbol[OS_MAX_API_NAME];
+
+    CFE_EVS_EventID_t BaseEID;
 } SBN_Module_Entry_t;
 
 typedef struct

@@ -16,15 +16,13 @@
 #include <sys/select.h>
 #endif
 
-int SBN_SERIAL_Init(int Major, int Minor, int Revision)
+int SBN_SERIAL_Init(int Version)
 {   
-    if(Major != SBN_SERIAL_MAJOR || Minor != SBN_SERIAL_MINOR
-        || Revision != SBN_SERIAL_REVISION)
+    if(Version != 1)
     {   
         CFE_EVS_SendEvent(SBN_SERIAL_CONFIG_EID, CFE_EVS_ERROR,
-                "mismatching version %d.%d.%d (SBN app reports %d.%d.%d)",
-                SBN_SERIAL_MAJOR, SBN_SERIAL_MINOR, SBN_SERIAL_REVISION,
-                Major, Minor, Revision);
+                "mismatching version %d (SBN app reports %d)",
+                Version, 1);
         return SBN_ERROR;
     }/* end if */
     

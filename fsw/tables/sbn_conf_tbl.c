@@ -8,12 +8,14 @@ SBN_ConfTbl_t SBN_ConfTbl =
         { /* [0] */
             .Name = "UDP",
             .LibFileName = "/cf/sbn_udp.so",
-            .LibSymbol = "SBN_UDP_Ops"
+            .LibSymbol = "SBN_UDP_Ops",
+            .BaseEID = 0x0100
         },
         { /* [1] */
             .Name = "TCP",
             .LibFileName = "/cf/sbn_tcp.so",
-            .LibSymbol = "SBN_TCP_Ops"
+            .LibSymbol = "SBN_TCP_Ops",
+            .BaseEID = 0x0200
         }
     },
     .ProtocolCnt = 2,
@@ -22,12 +24,14 @@ SBN_ConfTbl_t SBN_ConfTbl =
         { /* [0] */
             .Name = "CCSDS Endian",
             .LibFileName = "/cf/sbn_f_ccsds_end.so",
-            .LibSymbol = "SBN_F_CCSDS_End"
+            .LibSymbol = "SBN_F_CCSDS_End",
+            .BaseEID = 0x1000
         },
         { /* [1] */
             .Name = "Test",
             .LibFileName = "/cf/sbn_f_test.so",
-            .LibSymbol = "SBN_F_Test"
+            .LibSymbol = "SBN_F_Test",
+            .BaseEID = 0x1100
         }
     },
     .FilterCnt = 2,
@@ -39,8 +43,7 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .Filters = {
-                "CCSDS Endian",
-                "Test"
+                "CCSDS Endian"
             },
             .Address = "127.0.0.1:2234",
             .TaskFlags = SBN_TASK_POLL
@@ -51,8 +54,7 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .NetNum = 0,
             .ProtocolName = "UDP",
             .Filters = {
-                "CCSDS Endian",
-                "Test"
+                "CCSDS Endian"
             },
             .Address = "127.0.0.1:2235",
             .TaskFlags = SBN_TASK_POLL
@@ -64,7 +66,6 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .ProtocolName = "UDP",
             .Filters = {
                 "CCSDS Endian"
-                /* "Test" */
             },
             .Address = "127.0.0.1:2236",
             .TaskFlags = SBN_TASK_POLL
