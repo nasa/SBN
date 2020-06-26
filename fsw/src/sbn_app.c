@@ -446,7 +446,6 @@ typedef struct
     OS_TaskID_t SendTaskID;
     CFE_SB_MsgPtr_t SBMsgPtr;
     CFE_SB_MsgId_t MsgID;
-    CFE_SB_SenderId_t *LastSenderPtr;
     SBN_NetInterface_t *Net;
     SBN_PeerInterface_t *Peer;
 } SendTaskData_t;
@@ -514,15 +513,6 @@ static void SendTask(void)
             break;
         }/* end if */
 
-        /* don't re-send what SBN sent */
-        CFE_SB_GetLastSenderId(&D.LastSenderPtr, D.Peer->Pipe);
-
-        if(!strncmp(SBN.App_FullName, D.LastSenderPtr->AppName,
-            strlen(SBN.App_FullName)))
-        {
-            continue;
-        }/* end if */
-
         Filter_Context.PeerProcessorID = D.Peer->ProcessorID;
         Filter_Context.PeerSpacecraftID = D.Peer->SpacecraftID;
 
@@ -568,7 +558,6 @@ static void CheckPeerPipes(void)
 {
     int ReceivedFlag = 0, iter = 0;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
-    CFE_SB_SenderId_t *LastSenderPtr = NULL;
     SBN_Filter_Ctx_t Filter_Context;
 
     Filter_Context.MyProcessorID = CFE_PSP_GetProcessorId();
@@ -608,14 +597,6 @@ static void CheckPeerPipes(void)
                 }/* end if */
 
                 ReceivedFlag = 1;
-
-                /* don't re-send what SBN sent */
-                CFE_SB_GetLastSenderId(&LastSenderPtr, Peer->Pipe);
-                if(!strncmp(SBN.App_FullName, LastSenderPtr->AppName,
-                    strlen(SBN.App_FullName)))
-                {
-                    continue;
-                }/* end if */
 
                 Filter_Context.PeerProcessorID = Peer->ProcessorID;
                 Filter_Context.PeerSpacecraftID = Peer->SpacecraftID;
@@ -1542,6 +1523,15 @@ uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
 
     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
         "pipe created '%s'", PipeName);
+
+    Status = CFE_SB_SetPipeOpts(Peer->Pipe, CFE_SB_PIPEOPTS_IGNOREMINE);
+    if(Status != CFE_SUCCESS)
+    {
+        CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_ERROR,
+            "failed to set pipe options '%s'", PipeName);
+
+        return Status;
+    }/* end if */
 
     CFE_EVS_SendEvent(SBN_PEER_EID, CFE_EVS_INFORMATION,
         "CPU %d connected", Peer->ProcessorID);
