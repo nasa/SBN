@@ -13,3 +13,8 @@ add_cfe_app(sbn ${APP_SRC_FILES})
 
 aux_source_directory(fsw/tables APP_TBL_FILES)
 add_cfe_tables(sbn ${APP_TBL_FILES})
+
+if (ENABLE_UNIT_TESTS)
+  add_subdirectory(ut-stubs)
+  add_subdirectory(unit-test)
+endif (ENABLE_UNIT_TESTS)

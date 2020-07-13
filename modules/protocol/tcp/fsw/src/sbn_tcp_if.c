@@ -53,12 +53,14 @@ typedef struct
 
 CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
 
+#define EXP_VERSION 3
+
 static CFE_Status_t Init(int Version, CFE_EVS_EventID_t EID)
 {
     SBN_TCP_FIRST_EID = EID;
-    if(Version != 1) /* TODO: define */
+    if(Version != EXP_VERSION) /* TODO: define */
     {
-        OS_printf("SBN_TCP version mismatch: expected %d, got %d\n", 1, Version);
+        OS_printf("SBN_TCP version mismatch: expected %d, got %d\n", EXP_VERSION, Version);
         return CFE_ES_ERR_APP_CREATE;
     }/* end if */
 
@@ -556,10 +558,10 @@ static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
 SBN_IfOps_t SBN_TCP_Ops =
 {
     Init,
-    LoadNet,
-    LoadPeer,
     InitNet,
     InitPeer,
+    LoadNet,
+    LoadPeer,
     PollPeer,
     Send,
     NULL,

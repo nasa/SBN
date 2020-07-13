@@ -80,7 +80,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType,
     Pack_t Pack;
     Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, 0);
 
-    Pack_UInt16(&Pack, MsgSz);
+    Pack_Int16(&Pack, MsgSz);
     Pack_UInt8(&Pack, MsgType);
     Pack_UInt32(&Pack, ProcessorID);
 
@@ -111,7 +111,7 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
 {
     uint8 t = 0;
     Unpack_t Unpack; Unpack_Init(&Unpack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);
-    Unpack_UInt16(&Unpack, MsgSzPtr);
+    Unpack_Int16(&Unpack, MsgSzPtr);
     Unpack_UInt8(&Unpack, &t);
     *MsgTypePtr = t;
     Unpack_UInt32(&Unpack, ProcessorIDPtr);
@@ -121,7 +121,7 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
         return TRUE;
     }/* end if */
 
-    if(*MsgSzPtr > CFE_SB_MAX_SB_MSG_SIZE)
+    if(*MsgSzPtr < 0 || *MsgSzPtr > CFE_SB_MAX_SB_MSG_SIZE)
     {
         return FALSE;
     }/* end if */

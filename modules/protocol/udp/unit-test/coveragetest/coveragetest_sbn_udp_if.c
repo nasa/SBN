@@ -1,0 +1,806 @@
+/*
+**  GSC-18128-1, "Core Flight Executive Version 6.7"
+**
+**  Copyright (c) 2006-2020 United States Government as represented by
+**  the Administrator of the National Aeronautics and Space Administration.
+**  All Rights Reserved.
+**
+**  Licensed under the Apache License, Version 2.0 (the "License");
+**  you may not use this file except in compliance with the License.
+**  You may obtain a copy of the License at
+**
+**    http://www.apache.org/licenses/LICENSE-2.0
+**
+**  Unless required by applicable law or agreed to in writing, software
+**  distributed under the License is distributed on an "AS IS" BASIS,
+**  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**  See the License for the specific language governing permissions and
+**  limitations under the License.
+*/
+
+/*
+** File: coveragetest_sbn_udp.c
+**
+** Purpose:
+** Coverage Unit Test cases for the SBN UDP protocol module
+**
+** Notes:
+** This implements various test cases to exercise all code
+** paths through all functions defined in the SBN UDP module.
+**
+** It is primarily focused at providing examples of the various
+** stub configurations, hook functions, and wrapper calls that
+** are often needed when coercing certain code paths through
+** complex functions.
+*/
+
+
+#include "sbn_stubs.h"
+#include "sbn_udp_if_coveragetest_common.h"
+#include "sbn_udp_if.h"
+
+extern SBN_IfOps_t SBN_UDP_Ops;
+
+typedef struct
+{
+    uint16 ExpectedEvent;
+    int MatchCount;
+    const char *ExpectedText;
+} UT_CheckEvent_t;
+
+/*
+ * An example hook function to check for a specific event.
+ */
+static int32 UT_CheckEvent_Hook(void *UserObj, int32 StubRetcode,
+        uint32 CallCount, const UT_StubContext_t *Context, va_list va)
+{
+    UT_CheckEvent_t *State = UserObj;
+    char TestText[CFE_MISSION_EVS_MAX_MESSAGE_LENGTH];
+    uint16 EventId;
+    const char *Spec;
+
+    /*
+     * The CFE_EVS_SendEvent stub passes the EventID as the
+     * first context argument.
+     */
+    if (Context->ArgCount > 0)
+    {
+        EventId = UT_Hook_GetArgValueByName(Context, "EventID", uint16);
+        if (EventId == State->ExpectedEvent)
+        {
+            /*
+             * Example of how to validate the full argument set.
+             * If reference text was supplied, also check against this.
+             *
+             * NOTE: While this can be done, use with discretion - This isn't really
+             * verifying that the FSW code unit generated the correct event text,
+             * rather it is validating what the system snprintf() library function
+             * produces when passed the format string and args.
+             *
+             * __This derived string is not an actual output of the unit under test__
+             */
+            if (State->ExpectedText != NULL)
+            {
+                Spec = UT_Hook_GetArgValueByName(Context, "Spec", const char *);
+                if (Spec != NULL)
+                {
+                    vsnprintf(TestText, sizeof(TestText), Spec, va);
+                    if (strncmp(TestText,State->ExpectedText,strlen(State->ExpectedText)) == 0)
+                    {
+                        ++State->MatchCount;
+                    }
+                }
+            }
+            else
+            {
+                ++State->MatchCount;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * Helper function to set up for event checking
+ * This attaches the hook function to CFE_EVS_SendEvent
+ */
+static void UT_CheckEvent_Setup(UT_CheckEvent_t *Evt, uint16 ExpectedEvent, const char *ExpectedText)
+{
+    memset(Evt, 0, sizeof(*Evt));
+    Evt->ExpectedEvent = ExpectedEvent;
+    Evt->ExpectedText = ExpectedText;
+    UT_SetVaHookFunction(UT_KEY(CFE_EVS_SendEvent), UT_CheckEvent_Hook, Evt);
+}
+
+static void Init_VerErr(void)
+{
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(-1, 0), CFE_ES_ERR_APP_CREATE);
+}/* end Init_VerErr() */
+
+static void Init_Nominal(void)
+{
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(2, 0), CFE_SUCCESS);
+}/* end Init_Nominal() */
+
+void Test_SBN_UDP_Init(void)
+{
+    Init_VerErr();
+    Init_Nominal();
+}/* end Test_SBN_UDP_Init() */
+
+static void InitNet_OpenErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketOpen), 1, OS_ERROR);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketBind), 1, OS_SUCCESS);
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_SOCK_EID, "socket call failed");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitNet(&Net), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_SOCK_EID generated (%d)", EventTest.MatchCount);
+}/* end InitNet_OpenErr() */
+
+static void InitNet_BindErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketOpen), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketBind), 1, OS_ERROR);
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_SOCK_EID, "bind call failed (NetData=0x");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitNet(&Net), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_SOCK_EID generated (%d)", EventTest.MatchCount);
+}/* end InitNet_OpenErr() */
+
+static void InitNet_Nominal(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketOpen), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketBind), 1, OS_SUCCESS);
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_SOCK_EID, "creating socket (NetData=0x");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitNet(&Net), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_SOCK_EID generated (%d)", EventTest.MatchCount);
+}/* end InitNet_Nominal() */
+
+void Test_SBN_UDP_InitNet(void)
+{
+    InitNet_OpenErr();
+    InitNet_BindErr();
+    InitNet_Nominal();
+}/* end Test_SBN_UDP_InitNet() */
+
+void Test_SBN_UDP_InitPeer(void)
+{
+    SBN_PeerInterface_t Peer;
+
+    memset(&Peer, 0, sizeof(Peer));
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitPeer(&Peer), SBN_SUCCESS);
+}/* end Test_SBN_UDP_InitPeer() */
+
+static void LoadNet_AddrErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "invalid address (Address=");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "no colon"), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_CONFIG_EID generated (%d)", EventTest.MatchCount);
+}/* end LoadNet_AddrErr() */
+
+static void LoadNet_InitErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_ERROR);
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "addr init failed (Status=");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "localhost:1234"), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_CONFIG_EID generated (%d)", EventTest.MatchCount);
+}/* end LoadNet_InitErr() */
+
+static void LoadNet_HostErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrFromString), 1, OS_ERROR);
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "addr host set failed (AddrHost=");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "localhost:1234"), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_CONFIG_EID generated (%d)", EventTest.MatchCount);
+}/* end LoadNet_HostErr() */
+
+static void LoadNet_PortErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrSetPort), 1, OS_ERROR);
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "addr port set failed (Port=");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "localhost:1234"), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_CONFIG_EID generated (%d)", EventTest.MatchCount);
+}/* end LoadNet_PortErr() */
+
+static void LoadNet_Nominal(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "configured (NetData=");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "localhost:1234"), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_CONFIG_EID generated (%d)", EventTest.MatchCount);
+}/* end LoadNet_Nominal() */
+
+void Test_SBN_UDP_LoadNet(void)
+{
+    LoadNet_AddrErr();
+    LoadNet_InitErr();
+    LoadNet_HostErr();
+    LoadNet_PortErr();
+    LoadNet_Nominal();
+}/* end Test_SBN_UDP_LoadNet() */
+
+static void LoadPeer_Nominal(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_PeerInterface_t Peer;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "configured (PeerData=");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadPeer(&Peer, "localhost:1234"), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_CONFIG_EID generated (%d)", EventTest.MatchCount);
+}/* end LoadPeer_Nominal() */
+
+void Test_SBN_UDP_LoadPeer(void)
+{
+    /* LoadPeer() uses the same internal ConfAddr() fn as LoadNet(), so we need not cover errs there */
+    LoadPeer_Nominal();
+}/* end Test_SBN_UDP_LoadNet() */
+
+static void PollPeer_ConnTimeout(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_PeerInterface_t Peer;
+    OS_time_t tm;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&tm, 0, sizeof(tm));
+
+    Peer.Connected = true;
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_DEBUG_EID, "disconnected CPU ");
+
+    tm.seconds = SBN_UDP_PEER_TIMEOUT + 1;
+    UT_SetDataBuffer(UT_KEY(OS_GetLocalTime), &tm, sizeof(tm), false);
+    UT_SetDeferredRetcode(UT_KEY(OS_GetLocalTime), 1, OS_SUCCESS);
+
+    UT_SetDeferredRetcode(UT_KEY(SBN_Disconnected), 1, SBN_SUCCESS);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.PollPeer(&Peer), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_DEBUG_EID generated (%d)", EventTest.MatchCount);
+}/* end PollPeer_ConnTimeout() */
+
+static void PollPeer_HeartbeatTimeout(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_PeerInterface_t Peer;
+    OS_time_t tm;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&tm, 0, sizeof(tm));
+
+    Peer.Connected = true;
+    Peer.LastSend.seconds = 0;
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_DEBUG_EID, "heartbeat CPU ");
+
+    tm.seconds = SBN_UDP_PEER_HEARTBEAT + 1;
+    UT_SetDataBuffer(UT_KEY(OS_GetLocalTime), &tm, sizeof(tm), false);
+    UT_SetDeferredRetcode(UT_KEY(OS_GetLocalTime), 1, OS_SUCCESS);
+
+    UT_SetDeferredRetcode(UT_KEY(SBN_SendNetMsg), 1, SBN_SUCCESS);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.PollPeer(&Peer), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_DEBUG_EID generated (%d)", EventTest.MatchCount);
+}/* end PollPeer_HeartbeatTimeout() */
+
+static void PollPeer_AnnTimeout(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_PeerInterface_t Peer;
+    OS_time_t tm;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&tm, 0, sizeof(tm));
+
+    Peer.Connected = false;
+    Peer.ProcessorID = 0;
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_DEBUG_EID, "announce CPU ");
+
+    tm.seconds = SBN_UDP_ANNOUNCE_MSG + 1;
+    UT_SetDataBuffer(UT_KEY(OS_GetLocalTime), &tm, sizeof(tm), false);
+    UT_SetDeferredRetcode(UT_KEY(OS_GetLocalTime), 1, OS_SUCCESS);
+
+    UT_SetDeferredRetcode(UT_KEY(SBN_SendNetMsg), 1, SBN_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.PollPeer(&Peer), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_DEBUG_EID generated (%d)", EventTest.MatchCount);
+}/* end PollPeer_AnnTimeout() */
+
+static void PollPeer_Nominal(void)
+{
+    SBN_PeerInterface_t Peer;
+    OS_time_t tm;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&tm, 0, sizeof(tm));
+
+    Peer.Connected = true;
+    Peer.ProcessorID = 0;
+
+    UT_SetDataBuffer(UT_KEY(OS_GetLocalTime), &tm, sizeof(tm), false);
+    UT_SetDeferredRetcode(UT_KEY(OS_GetLocalTime), 1, OS_SUCCESS);
+
+    UT_SetDeferredRetcode(UT_KEY(SBN_SendNetMsg), 1, SBN_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.PollPeer(&Peer), SBN_SUCCESS);
+}/* end PollPeer_Nominal() */
+
+void Test_SBN_UDP_PollPeer(void)
+{
+    PollPeer_ConnTimeout();
+    PollPeer_HeartbeatTimeout();
+    PollPeer_AnnTimeout();
+    PollPeer_Nominal();
+}/* end Test_SBN_UDP_LoadNet() */
+
+static void Send_AddrInitErr(void)
+{
+    UT_CheckEvent_t EventTest;
+    SBN_PeerInterface_t Peer;
+    SBN_NetInterface_t Net;
+    CFE_SB_MsgPtr_t SBMsgPtr;
+    CCSDS_TelemetryPacket_t TlmPkt;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&Net, 0, sizeof(Net));
+
+    Peer.Net = &Net;
+
+    Peer.Connected = false;
+    Peer.ProcessorID = 0;
+
+    SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
+    CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_SOCK_EID, "socket addr init failed");
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_ERROR);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(&Peer, SBN_APP_MSG, CFE_SB_TLM_HDR_SIZE, SBMsgPtr), -1);
+
+    UtAssert_True(EventTest.MatchCount == 1, "SBN_UDP_SOCK_EID generated (%d)", EventTest.MatchCount);
+}/* end Send_AddrInitErr() */
+
+static void Send_SendErr(void)
+{
+    SBN_PeerInterface_t Peer;
+    SBN_NetInterface_t Net;
+    CFE_SB_MsgPtr_t SBMsgPtr;
+    CCSDS_TelemetryPacket_t TlmPkt;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&Net, 0, sizeof(Net));
+
+    Peer.Net = &Net;
+
+    Peer.Connected = false;
+    Peer.ProcessorID = 0;
+
+    SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
+    CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketSendTo), 1, -2);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(&Peer, SBN_APP_MSG, CFE_SB_TLM_HDR_SIZE, SBMsgPtr), -2);
+}/* end Send_SendErr() */
+
+static void Send_Nominal(void)
+{
+    SBN_PeerInterface_t Peer;
+    SBN_NetInterface_t Net;
+    CFE_SB_MsgPtr_t SBMsgPtr;
+    CCSDS_TelemetryPacket_t TlmPkt;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+    memset(&Net, 0, sizeof(Net));
+
+    Peer.Net = &Net;
+
+    Peer.Connected = false;
+    Peer.ProcessorID = 0;
+
+    SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
+    CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
+
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketSendTo), 1, CFE_SB_TLM_HDR_SIZE);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(&Peer, SBN_APP_MSG, CFE_SB_TLM_HDR_SIZE, SBMsgPtr), CFE_SB_TLM_HDR_SIZE);
+}/* end Send_Nominal() */
+
+void Test_SBN_UDP_Send(void)
+{
+    Send_AddrInitErr();
+    Send_SendErr();
+    Send_Nominal();
+}/* end Test_SBN_UDP_LoadNet() */
+
+static int32 NoDataHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
+{
+    *((uint32 *)Context->ArgPtr[0]) = 0;
+    return OS_SUCCESS;
+}/* end NoDataHook() */
+
+static void Recv_NoData(void)
+{
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), NoDataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, NULL, NULL, NULL, NULL), SBN_IF_EMPTY);
+}/* end Recv_NoData() */
+
+static int32 DataHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
+{
+    *((uint32 *)Context->ArgPtr[0]) = OS_STREAM_STATE_READABLE;
+    return OS_SUCCESS;
+}/* end DataHook() */
+
+static void Recv_SockRecvErr(void)
+{
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, -1);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, NULL, NULL, NULL, NULL), SBN_ERROR);
+}/* end Recv_SockRecvErr() */
+
+static void Recv_UnpackErr(void)
+{
+    SBN_NetInterface_t Net;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, 1);
+    UT_SetDeferredRetcode(UT_KEY(SBN_UnpackMsg), 1, FALSE);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, NULL, NULL, NULL, NULL), SBN_ERROR);
+}/* end Recv_UnpackErr() */
+
+static void Recv_GetPeerErr(void)
+{
+    SBN_NetInterface_t Net;
+    SBN_MsgType_t MsgType;
+    SBN_MsgSz_t MsgSz;
+    CFE_ProcessorID_t ProcessorID;
+    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    SBN_Unpack_Buf_t UnpackBuf;
+    SBN_PeerInterface_t *PeerPtr = NULL;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    UnpackBuf.MsgSz = 16;
+    UnpackBuf.MsgType = SBN_APP_MSG;
+    UnpackBuf.ProcessorID = 1234;
+    strncpy((char *)UnpackBuf.MsgBuf, "deadbeef", 9);
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, 1);
+    UT_SetDataBuffer(UT_KEY(SBN_UnpackMsg), &UnpackBuf, sizeof(UnpackBuf), false);
+    UT_SetDataBuffer(UT_KEY(SBN_GetPeer), &PeerPtr, sizeof(PeerPtr), false);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), SBN_ERROR);
+}/* end Recv_GetPeerErr() */
+
+static void Recv_NewConn(void)
+{
+    SBN_PeerInterface_t Peer;
+    SBN_PeerInterface_t *PeerPtr = &Peer;
+    SBN_NetInterface_t Net;
+    SBN_MsgType_t MsgType;
+    SBN_MsgSz_t MsgSz;
+    CFE_ProcessorID_t ProcessorID;
+    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    SBN_Unpack_Buf_t UnpackBuf;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+    memset(&Peer, 0, sizeof(Peer));
+
+    Peer.Net = &Net;
+    Peer.Connected = false;
+
+    UnpackBuf.MsgSz = 16;
+    UnpackBuf.MsgType = SBN_APP_MSG;
+    UnpackBuf.ProcessorID = 1234;
+    strncpy((char *)UnpackBuf.MsgBuf, "deadbeef", 9);
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, 1);
+    UT_SetDataBuffer(UT_KEY(SBN_UnpackMsg), &UnpackBuf, sizeof(UnpackBuf), false);
+    UT_SetDataBuffer(UT_KEY(SBN_GetPeer), &PeerPtr, sizeof(PeerPtr), false);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), CFE_SUCCESS);
+
+    /* TODO: check peer is marked as connected */
+}/* end Recv_NewConn() */
+
+static void Recv_Disconn(void)
+{
+    SBN_PeerInterface_t Peer;
+    SBN_PeerInterface_t *PeerPtr = &Peer;
+    SBN_NetInterface_t Net;
+    SBN_MsgType_t MsgType;
+    SBN_MsgSz_t MsgSz;
+    CFE_ProcessorID_t ProcessorID;
+    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    SBN_Unpack_Buf_t UnpackBuf;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+    memset(&Peer, 0, sizeof(Peer));
+
+    Peer.Net = &Net;
+    Peer.Connected = true;
+
+    UnpackBuf.MsgSz = 16;
+    UnpackBuf.MsgType = SBN_UDP_DISCONN_MSG;
+    UnpackBuf.ProcessorID = 1234;
+    strncpy((char *)UnpackBuf.MsgBuf, "deadbeef", 9);
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, 1);
+    UT_SetDataBuffer(UT_KEY(SBN_UnpackMsg), &UnpackBuf, sizeof(UnpackBuf), false);
+    UT_SetDataBuffer(UT_KEY(SBN_GetPeer), &PeerPtr, sizeof(PeerPtr), false);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), CFE_SUCCESS);
+
+    /* TODO: check peer is marked as connected */
+}/* end Recv_NewConn() */
+
+static void Recv_Nominal(void)
+{
+    SBN_PeerInterface_t Peer;
+    SBN_PeerInterface_t *PeerPtr = &Peer;
+    SBN_NetInterface_t Net;
+    SBN_MsgType_t MsgType;
+    SBN_MsgSz_t MsgSz;
+    CFE_ProcessorID_t ProcessorID;
+    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    SBN_Unpack_Buf_t UnpackBuf;
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+    memset(&Peer, 0, sizeof(Peer));
+
+    Peer.Net = &Net;
+    Peer.Connected = true;
+
+    UnpackBuf.MsgSz = 16;
+    UnpackBuf.MsgType = SBN_APP_MSG;
+    UnpackBuf.ProcessorID = 1234;
+    strncpy((char *)UnpackBuf.MsgBuf, "deadbeef", 9);
+
+    UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
+    UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, 1);
+    UT_SetDataBuffer(UT_KEY(SBN_UnpackMsg), &UnpackBuf, sizeof(UnpackBuf), false);
+    UT_SetDataBuffer(UT_KEY(SBN_GetPeer), &PeerPtr, sizeof(PeerPtr), false);
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), CFE_SUCCESS);
+
+    /* TODO: check out variables */
+}/* end Recv_Nominal() */
+
+void Test_SBN_UDP_Recv(void)
+{
+    Recv_NoData();
+    Recv_SockRecvErr();
+    Recv_UnpackErr();
+    Recv_GetPeerErr();
+    Recv_NewConn();
+    Recv_Disconn();
+    Recv_Nominal();
+}/* end Test_SBN_UDP_Recv() */
+
+static void UnloadPeer_Disconn(void)
+{
+    SBN_PeerInterface_t Peer;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+
+    Peer.ProcessorID = 1234;
+    Peer.Connected = TRUE;
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadPeer(&Peer), CFE_SUCCESS);
+
+    /* TODO: check out variables */
+}/* end UnloadPeer_Disconn() */
+
+static void UnloadPeer_Nominal(void)
+{
+    SBN_PeerInterface_t Peer;
+
+    UT_ResetState(0);
+
+    memset(&Peer, 0, sizeof(Peer));
+
+    Peer.ProcessorID = 1234;
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadPeer(&Peer), CFE_SUCCESS);
+
+    /* TODO: check out variables */
+}/* end UnloadPeer_Nominal() */
+
+void Test_SBN_UDP_UnloadPeer(void)
+{
+    UnloadPeer_Disconn();
+    UnloadPeer_Nominal();
+}/* end Test_SBN_UDP_UnloadPeer() */
+
+static void UnloadNet_Nominal(void)
+{
+    SBN_NetInterface_t Net;
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)&(Net.ModulePvt);
+
+    UT_ResetState(0);
+
+    memset(&Net, 0, sizeof(Net));
+
+    Net.PeerCnt = 1;
+
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].Connected = TRUE;
+
+    NetData->Socket = OS_open(NULL, 0, 0);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadNet(&Net), CFE_SUCCESS);
+
+    /* TODO: check out variables */
+}/* end UnloadNet_Nominal() */
+
+void Test_SBN_UDP_UnloadNet(void)
+{
+    UnloadNet_Nominal();
+}/* end Test_SBN_UDP_UnloadPeer() */
+
+/*
+ * Setup function prior to every test
+ */
+void UT_Setup(void)
+{
+    UT_ResetState(0);
+}
+
+/*
+ * Teardown function after every test
+ */
+void UT_TearDown(void)
+{
+}
+
+void UtTest_Setup(void)
+{
+    ADD_TEST(SBN_UDP_Init);
+    ADD_TEST(SBN_UDP_InitNet);
+    ADD_TEST(SBN_UDP_InitPeer);
+    ADD_TEST(SBN_UDP_LoadNet);
+    ADD_TEST(SBN_UDP_LoadPeer);
+    ADD_TEST(SBN_UDP_PollPeer);
+    ADD_TEST(SBN_UDP_Send);
+    ADD_TEST(SBN_UDP_Recv);
+    ADD_TEST(SBN_UDP_UnloadPeer);
+    ADD_TEST(SBN_UDP_UnloadNet);
+}

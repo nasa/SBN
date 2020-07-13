@@ -10,15 +10,9 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .LibFileName = "/cf/sbn_udp.so",
             .LibSymbol = "SBN_UDP_Ops",
             .BaseEID = 0x0100
-        },
-        { /* [1] */
-            .Name = "TCP",
-            .LibFileName = "/cf/sbn_tcp.so",
-            .LibSymbol = "SBN_TCP_Ops",
-            .BaseEID = 0x0200
         }
     },
-    .ProtocolCnt = 2,
+    .ProtocolCnt = 1,
     .FilterModules =
     {
         { /* [0] */
@@ -26,15 +20,9 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .LibFileName = "/cf/sbn_f_ccsds_end.so",
             .LibSymbol = "SBN_F_CCSDS_End",
             .BaseEID = 0x1000
-        },
-        { /* [1] */
-            .Name = "Test",
-            .LibFileName = "/cf/sbn_f_test.so",
-            .LibSymbol = "SBN_F_Test",
-            .BaseEID = 0x1100
         }
     },
-    .FilterCnt = 2,
+    .FilterCnt = 1,
 
     .Peers = {
         { /* [0] */

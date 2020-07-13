@@ -235,11 +235,6 @@ struct SBN_IfOps_s {
      */
     CFE_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID);
 
-    /** TODO: Document */
-    SBN_Status_t (*LoadNet)(SBN_NetInterface_t *Net, const char *Address);
-    /** TODO: Document */
-    SBN_Status_t (*LoadPeer)(SBN_PeerInterface_t *Peer, const char *Address);
-
     /**
      * Initializes the host interface.
      *
@@ -257,6 +252,28 @@ struct SBN_IfOps_s {
      *         SBN_ERROR otherwise
      */
     SBN_Status_t (*InitPeer)(SBN_PeerInterface_t *Peer);
+
+    /**
+     * Configures the network interface with the address (a string whose format is defined by
+     * the protocol module. For example, UDP uses "hostname:port".
+     *
+     * @param Net[in] The initialized network interface.
+     * @param Address[in] The protocol-specific address.
+     *
+     * @return SBN_SUCCESS on successful loading.
+     */
+    SBN_Status_t (*LoadNet)(SBN_NetInterface_t *Net, const char *Address);
+
+    /**
+     * Configures the peer interface with the address (a string whose format is defined by
+     * the protocol module. For example, TCP uses "hostname:port", serial uses device path.
+     *
+     * @param Peer[in] The initialized peer interface.
+     * @param Address[in] The protocol-specific address.
+     *
+     * @return SBN_SUCCESS on successful loading.
+     */
+    SBN_Status_t (*LoadPeer)(SBN_PeerInterface_t *Peer, const char *Address);
 
     /**
      * SBN will poll any peer that does not have any messages to be sent
@@ -282,7 +299,8 @@ struct SBN_IfOps_s {
      * @param MsgSz[in] The size of the SBN message payload.
      * @param Payload[in] The SBN message payload.
      *
-     * @return Number of bytes sent on success, -1 on error.
+     * @return Number of bytes sent (on success) or <0 (on error).
+     *         See @ref OSReturnCodes .
      */
     SBN_MsgSz_t (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
         SBN_MsgSz_t MsgSz, void *Payload);

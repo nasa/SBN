@@ -55,6 +55,12 @@ static inline uint32 Pack_UInt16(Pack_t *PackPtr, uint16 Data)
     return Pack_Data(PackPtr, &D, sizeof(D));
 }
 
+static inline uint32 Pack_Int16(Pack_t *PackPtr, int16 Data)
+{
+    int16 D = CFE_MAKE_BIG16(Data);
+    return Pack_Data(PackPtr, &D, sizeof(D));
+}
+
 static inline uint32 Pack_UInt32(Pack_t *PackPtr, uint32 Data)
 {
     uint32 D = CFE_MAKE_BIG32(Data);
@@ -114,6 +120,17 @@ static inline uint32 Unpack_UInt8(Unpack_t *Unpack, uint8 *DataBuf)
 static inline uint32 Unpack_UInt16(Unpack_t *Unpack, uint16 *DataBuf)
 {
     uint16 D;
+    if (!Unpack_Data(Unpack, &D, sizeof(D)))
+    {
+        return 0;
+    }
+    *DataBuf = CFE_MAKE_BIG16(D);
+    return 1;
+}
+
+static inline uint32 Unpack_Int16(Unpack_t *Unpack, int16 *DataBuf)
+{
+    int16 D;
     if (!Unpack_Data(Unpack, &D, sizeof(D)))
     {
         return 0;
