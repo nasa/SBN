@@ -120,7 +120,7 @@ static void Init_VerErr(void)
 
 static void Init_Nominal(void)
 {
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(2, 0), CFE_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(3, 0), CFE_SUCCESS);
 }/* end Init_Nominal() */
 
 void Test_SBN_UDP_Init(void)
@@ -331,8 +331,6 @@ static void PollPeer_ConnTimeout(void)
     tm.seconds = SBN_UDP_PEER_TIMEOUT + 1;
     UT_SetDataBuffer(UT_KEY(OS_GetLocalTime), &tm, sizeof(tm), false);
     UT_SetDeferredRetcode(UT_KEY(OS_GetLocalTime), 1, OS_SUCCESS);
-
-    UT_SetDeferredRetcode(UT_KEY(SBN_Disconnected), 1, SBN_SUCCESS);
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.PollPeer(&Peer), SBN_SUCCESS);
 
@@ -565,7 +563,7 @@ static void Recv_UnpackErr(void)
     UT_SetHookFunction(UT_KEY(OS_SelectSingle), DataHook, NULL);
     UT_SetDeferredRetcode(UT_KEY(OS_SelectSingle), 1, OS_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_SocketRecvFrom), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(SBN_UnpackMsg), 1, FALSE);
+    UT_SetDeferredRetcode(UT_KEY(SBN_UnpackMsg), 1, false);
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, NULL, NULL, NULL, NULL), SBN_ERROR);
 }/* end Recv_UnpackErr() */
@@ -600,9 +598,8 @@ static void Recv_GetPeerErr(void)
 
 static void Recv_NewConn(void)
 {
-    SBN_PeerInterface_t Peer;
-    SBN_PeerInterface_t *PeerPtr = &Peer;
     SBN_NetInterface_t Net;
+    SBN_PeerInterface_t *PeerPtr = &Net.Peers[0];
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
@@ -612,10 +609,9 @@ static void Recv_NewConn(void)
     UT_ResetState(0);
 
     memset(&Net, 0, sizeof(Net));
-    memset(&Peer, 0, sizeof(Peer));
 
-    Peer.Net = &Net;
-    Peer.Connected = false;
+    PeerPtr->Net = &Net;
+    PeerPtr->Connected = false;
 
     UnpackBuf.MsgSz = 16;
     UnpackBuf.MsgType = SBN_APP_MSG;
@@ -630,14 +626,13 @@ static void Recv_NewConn(void)
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), CFE_SUCCESS);
 
-    /* TODO: check peer is marked as connected */
+    UtAssert_True(PeerPtr->Connected == true, "Peer not connected (%s)", __func__);
 }/* end Recv_NewConn() */
 
 static void Recv_Disconn(void)
 {
-    SBN_PeerInterface_t Peer;
-    SBN_PeerInterface_t *PeerPtr = &Peer;
     SBN_NetInterface_t Net;
+    SBN_PeerInterface_t *PeerPtr = &Net.Peers[0];
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
@@ -647,10 +642,9 @@ static void Recv_Disconn(void)
     UT_ResetState(0);
 
     memset(&Net, 0, sizeof(Net));
-    memset(&Peer, 0, sizeof(Peer));
 
-    Peer.Net = &Net;
-    Peer.Connected = true;
+    PeerPtr->Net = &Net;
+    PeerPtr->Connected = true;
 
     UnpackBuf.MsgSz = 16;
     UnpackBuf.MsgType = SBN_UDP_DISCONN_MSG;
@@ -665,14 +659,13 @@ static void Recv_Disconn(void)
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), CFE_SUCCESS);
 
-    /* TODO: check peer is marked as connected */
+    UtAssert_True(PeerPtr->Connected == false, "Peer connected (%s)", __func__);
 }/* end Recv_NewConn() */
 
 static void Recv_Nominal(void)
 {
-    SBN_PeerInterface_t Peer;
-    SBN_PeerInterface_t *PeerPtr = &Peer;
     SBN_NetInterface_t Net;
+    SBN_PeerInterface_t *PeerPtr = &Net.Peers[0];
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
@@ -682,10 +675,9 @@ static void Recv_Nominal(void)
     UT_ResetState(0);
 
     memset(&Net, 0, sizeof(Net));
-    memset(&Peer, 0, sizeof(Peer));
 
-    Peer.Net = &Net;
-    Peer.Connected = true;
+    PeerPtr->Net = &Net;
+    PeerPtr->Connected = true;
 
     UnpackBuf.MsgSz = 16;
     UnpackBuf.MsgType = SBN_APP_MSG;
@@ -700,7 +692,7 @@ static void Recv_Nominal(void)
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(&Net, &MsgType, &MsgSz, &ProcessorID, PayloadBuffer), CFE_SUCCESS);
 
-    /* TODO: check out variables */
+    UtAssert_True(PeerPtr->Connected == true, "Peer not connected (%s)", __func__);
 }/* end Recv_Nominal() */
 
 void Test_SBN_UDP_Recv(void)
@@ -723,11 +715,11 @@ static void UnloadPeer_Disconn(void)
     memset(&Peer, 0, sizeof(Peer));
 
     Peer.ProcessorID = 1234;
-    Peer.Connected = TRUE;
+    Peer.Connected = true;
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadPeer(&Peer), CFE_SUCCESS);
 
-    /* TODO: check out variables */
+    UtAssert_True(Peer.Connected == false, "Peer still connected (%s)", __func__);
 }/* end UnloadPeer_Disconn() */
 
 static void UnloadPeer_Nominal(void)
@@ -742,7 +734,7 @@ static void UnloadPeer_Nominal(void)
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadPeer(&Peer), CFE_SUCCESS);
 
-    /* TODO: check out variables */
+    UtAssert_True(Peer.Connected == false, "Peer connected (%s)", __func__);
 }/* end UnloadPeer_Nominal() */
 
 void Test_SBN_UDP_UnloadPeer(void)
@@ -754,6 +746,7 @@ void Test_SBN_UDP_UnloadPeer(void)
 static void UnloadNet_Nominal(void)
 {
     SBN_NetInterface_t Net;
+    SBN_PeerInterface_t *PeerPtr = &Net.Peers[0];
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)&(Net.ModulePvt);
 
     UT_ResetState(0);
@@ -762,13 +755,14 @@ static void UnloadNet_Nominal(void)
 
     Net.PeerCnt = 1;
 
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].Connected = TRUE;
+    PeerPtr->ProcessorID = 1234;
+    PeerPtr->Connected = true;
 
     NetData->Socket = OS_open(NULL, 0, 0);
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadNet(&Net), CFE_SUCCESS);
 
-    /* TODO: check out variables */
+    /* TODO: check what was called? */
+    UtAssert_True(PeerPtr->Connected == false, "Peer still connected (%s)", __func__);
 }/* end UnloadNet_Nominal() */
 
 void Test_SBN_UDP_UnloadNet(void)

@@ -61,12 +61,30 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
 
 SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 {
-    return UT_DEFAULT_IMPL_RC(SBN_Connected, SBN_SUCCESS);
+    SBN_Status_t status;
+    
+    status = UT_DEFAULT_IMPL(SBN_Connected);
+
+    if (status >= 0)
+    {
+        Peer->Connected = true;
+    }
+
+    return status;
 }/* end SBN_Connected() */
 
 SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 {
-    return UT_DEFAULT_IMPL_RC(SBN_Disconnected, SBN_SUCCESS);
+    SBN_Status_t status;
+    
+    status = UT_DEFAULT_IMPL(SBN_Disconnected);
+
+    if (status >= 0)
+    {
+        Peer->Connected = false;
+    }
+
+    return status;
 }/* end SBN_Disconnected() */
 
 SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
