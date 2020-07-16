@@ -32,7 +32,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 # Generate a dedicated "testrunner" executable that executes the tests for each FSW code unit
 # Although sbn has only one source file, this is done in a loop such that 
 # the general pattern should work for several files as well.
-foreach(SRCFILE)
+foreach(SRCFILE sbn_app.c)
     get_filename_component(UNITNAME "${SRCFILE}" NAME_WE)
     
     set(TESTNAME                "${UT_NAME}-${UNITNAME}")
@@ -40,9 +40,9 @@ foreach(SRCFILE)
     
     # Compile the source unit under test as a OBJECT
     add_library(ut_${TESTNAME}_object OBJECT
-        ${SBN_AP_SOURCE_DIR}/fsw/src/sbn_app.c
-        ${SBN_AP_SOURCE_DIR}/fsw/src/sbn_cmds.c
-        ${SBN_AP_SOURCE_DIR}/fsw/src/sbn_subs.c
+        ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_app.c
+        ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_cmds.c
+        ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_subs.c
     )    
     
     # Apply the UT_COVERAGE_COMPILE_FLAGS to the units under test

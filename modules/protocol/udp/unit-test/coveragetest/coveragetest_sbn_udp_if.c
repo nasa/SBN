@@ -208,7 +208,7 @@ static void LoadNet_AddrErr(void)
 
     memset(&Net, 0, sizeof(Net));
 
-    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "invalid address (Address=");
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "invalid address (Address=no colon)");
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "no colon"), SBN_ERROR);
 
@@ -225,7 +225,7 @@ static void LoadNet_InitErr(void)
     memset(&Net, 0, sizeof(Net));
 
     UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_ERROR);
-    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "addr init failed (Status=");
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "addr init failed (Status=-1)");
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(&Net, "localhost:1234"), SBN_ERROR);
 
