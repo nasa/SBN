@@ -1235,8 +1235,7 @@ void SBN_AppMain(void)
 
     if(CFE_ES_GetAppID(&AppID) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_CRITICAL,
-            "unable to get AppID");
+        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_CRITICAL, "unable to get AppID");
         return;
     }
 
@@ -1255,12 +1254,7 @@ void SBN_AppMain(void)
 
     CFE_ES_WaitForStartupSync(10000);
 
-    if ((Status = LoadConfTbl()) != CFE_SUCCESS)
-    {
-        CFE_EVS_SendEvent(SBN_INIT_EID, CFE_EVS_INFORMATION,
-            "SBN failed to load SBN.ConfTblHandle (%d)", Status);
-        SBN.ConfTblHandle = 0;
-    }/* end if */
+    LoadConfTbl();
 
     /** Create mutex for send tasks */
     Status = OS_MutSemCreate(&(SBN.SendMutex), "sbn_send_mutex", 0);
