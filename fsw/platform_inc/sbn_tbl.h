@@ -40,10 +40,10 @@ typedef struct
     SBN_NetIdx_t NetNum;
 
     /** @brief The name of the protocol module for which to use for this peer. */
-    const char ProtocolName[SBN_MAX_MOD_NAME_LEN];
+    char ProtocolName[SBN_MAX_MOD_NAME_LEN];
 
     /** @brief The modules name for the filter interface for this peer. */
-    const char Filters[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN];
+    char Filters[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN];
 
     /** @brief Protocol-specific address, such as "127.0.0.1:1234". */
     uint8 Address[SBN_ADDR_SZ];

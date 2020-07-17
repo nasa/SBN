@@ -24,7 +24,8 @@ SBN_ConfTbl_t SBN_ConfTbl =
     },
     .FilterCnt = 1,
 
-    .Peers = {
+    .Peers =
+    {
         { /* [0] */
             .ProcessorID = 1,
             .SpacecraftID = 42,

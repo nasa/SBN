@@ -43,8 +43,12 @@ static SBN_Status_t UnloadModules(void)
     SBN_ModuleIdx_t i = 0;
 
     for(i = 0; i < SBN_MAX_MOD_CNT; i++)
-    for(i = 0; SBN.ProtocolModules[i] != 0 && i < SBN_MAX_MOD_CNT; i++)
     {
+        if (SBN.ProtocolModules[i] == 0)
+        {
+            continue; /* this module may have been loaded by ES, so continue in case there are any I loaded. */
+        }/* end if */
+
         if(OS_ModuleUnload(SBN.ProtocolModules[i]) != OS_SUCCESS)
         {
             OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
@@ -52,8 +56,13 @@ static SBN_Status_t UnloadModules(void)
         }/* end if */
     }/* end for */
 
-    for(i = 0; SBN.FilterModules[i] != 0 && i < SBN_MAX_MOD_CNT; i++)
+    for(i = 0; i < SBN_MAX_MOD_CNT; i++)
     {
+        if (SBN.FilterModules[i] == 0)
+        {
+            continue; /* this module may have been loaded by ES, so continue in case there are any I loaded. */
+        }/* end if */
+
         if(OS_ModuleUnload(SBN.FilterModules[i]) != OS_SUCCESS)
         {
             OS_printf("Unable to unload module ID %d for Filter ID %d\n",
@@ -976,7 +985,7 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleI
  */
 static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t *FilterModules,
     SBN_ModuleIdx_t FilterModuleCnt, SBN_FilterInterface_t **ConfFilters,
-    const char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
+    char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
     SBN_FilterInterface_t **Filters)
 {
     int i = 0;
@@ -1041,7 +1050,7 @@ static SBN_Status_t LoadConf(void)
         CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_INFORMATION, "calling init fn");
         if(Ops->InitModule(SBN_PROTOCOL_VERSION, TblPtr->ProtocolModules[ModuleIdx].BaseEID) != CFE_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in init");
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in protocol init");
             return SBN_ERROR;
         }/* end if */
 
@@ -1065,7 +1074,7 @@ static SBN_Status_t LoadConf(void)
 
         if(Filters[ModuleIdx]->InitModule(SBN_FILTER_VERSION, TblPtr->FilterModules[ModuleIdx].BaseEID) != CFE_SUCCESS)
         {
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in init");
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_ERROR, "error in filter init");
             return SBN_ERROR;
         }/* end if */
 
@@ -1087,15 +1096,13 @@ static SBN_Status_t LoadConf(void)
         
         if(ModuleIdx == TblPtr->ProtocolCnt)
         {
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-                "invalid module idx (peeridx=%d, modname=%s)", PeerIdx, e->ProtocolName);
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL, "invalid module name %s", e->ProtocolName);
             return SBN_ERROR;
         }/* end if */
 
         if(e->NetNum < 0 || e->NetNum >= SBN_MAX_NETS)
         {
-            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-                "too many networks.");
+            CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL, "too many networks");
             return SBN_ERROR;
         }/* end if */
 
@@ -1119,13 +1126,6 @@ static SBN_Status_t LoadConf(void)
         }
         else
         {
-            if(Net->PeerCnt >= SBN_MAX_PEER_CNT)
-            {
-                CFE_EVS_SendEvent(SBN_TBL_EID, CFE_EVS_CRITICAL,
-                    "too many peer entries (%d, max = %d)",
-                    Net->PeerCnt, SBN_MAX_PEER_CNT);
-                return SBN_ERROR;
-            }/* end if */
             SBN_PeerInterface_t *Peer = &Net->Peers[Net->PeerCnt++];
             memset(Peer, 0, sizeof(*Peer));
             Peer->Net = Net;
@@ -1254,7 +1254,11 @@ void SBN_AppMain(void)
 
     CFE_ES_WaitForStartupSync(10000);
 
-    LoadConfTbl();
+    if (LoadConfTbl() != SBN_SUCCESS)
+    {
+        /* the LoadConfTbl() functions will generate events */
+        return;
+    }/* end if */
 
     /** Create mutex for send tasks */
     Status = OS_MutSemCreate(&(SBN.SendMutex), "sbn_send_mutex", 0);
