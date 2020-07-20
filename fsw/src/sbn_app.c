@@ -1137,7 +1137,7 @@ static SBN_Status_t LoadConf(void)
 
             SBN.IfOps[ModuleIdx]->LoadPeer(Peer, (const char *)e->Address);
 
-            Net->TaskFlags = Peer->TaskFlags;
+            Peer->TaskFlags = e->TaskFlags;
         }/* end if */
     }/* end for */
 
