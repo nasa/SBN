@@ -1348,9 +1348,16 @@ void SBN_AppMain(void)
     /* Wait for event from SB saying it is initialized OR a response from SB
        to the above messages. TRUE means it needs to re-send subscription
        requests */
-    if(WaitForSBStartup()) SBN_SendSubsRequests();
+    Status = WaitForSBStartup();
+    if(Status == SBN_SUCCESS)
+    {
+        SBN_SendSubsRequests();
+    }
+    else
+    {
+        RunStatus = CFE_ES_APP_ERROR;
+    }/* end if */
 
-    if(Status != CFE_SUCCESS) RunStatus = CFE_ES_APP_ERROR;
 
     /* Loop Forever */
     while(CFE_ES_RunLoop(&RunStatus))
