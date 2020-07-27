@@ -543,7 +543,7 @@ static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
 
     if(NetData->Socket)
     {
-        close(NetData->Socket);
+        OS_close(NetData->Socket);
     }/* end if */
 
     SBN_PeerIdx_t PeerIdx = 0;
