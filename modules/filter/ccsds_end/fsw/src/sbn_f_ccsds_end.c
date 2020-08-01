@@ -9,7 +9,7 @@ static SBN_Status_t End(void *Msg, SBN_Filter_Ctx_t *Context)
     int CCSDSType = CCSDS_RD_TYPE(*((CCSDS_PriHdr_t *)Msg));
     if(CCSDSType == CCSDS_TLM)
     {
-        CCSDS_TlmPkt_t *TlmPktPtr = (CCSDS_TlmPkt_t *)Msg;
+        CCSDS_TelemetryPacket_t *TlmPktPtr = (CCSDS_TelemetryPacket_t *)Msg;
 
         uint32 Seconds = CCSDS_RD_SEC_HDR_SEC(TlmPktPtr->Sec);
         Seconds = CFE_MAKE_BIG32(Seconds);
@@ -42,7 +42,7 @@ static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
     if(Version != 1) /* TODO: define */
     {
         OS_printf("SBN_F_CCSDS_End version mismatch: expected %d, got %d\n", 1, Version);
-        return CFE_ES_APP_ERROR;
+        return CFE_ES_RunStatus_APP_ERROR;
     }/* end if */
 
     OS_printf("SBN_F_CCSDS_End Lib Initialized.\n");

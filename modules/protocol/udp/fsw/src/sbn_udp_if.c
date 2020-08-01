@@ -36,19 +36,17 @@ static SBN_Status_t InitNet(SBN_NetInterface_t *Net)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_DEBUG,
-        "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
+    EVSSendDbg(SBN_UDP_SOCK_EID, "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
 
     if(OS_SocketOpen(&(NetData->Socket), OS_SocketDomain_INET, OS_SocketType_DATAGRAM) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR, "socket call failed");
+        EVSSendErr(SBN_UDP_SOCK_EID, "socket call failed");
         return SBN_ERROR;
     }/* end if */
 
     if(OS_SocketBind(NetData->Socket, &NetData->Addr) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR,
-            "bind call failed (NetData=0x%lx, Socket=%d)",
+        EVSSendErr(SBN_UDP_SOCK_EID, "bind call failed (NetData=0x%lx, Socket=%d)",
             (long unsigned int)NetData, NetData->Socket);
         return SBN_ERROR;
     }/* end if */
@@ -79,8 +77,7 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 
     if(!Colon || (ColonLen = Colon - Address) >= OS_MAX_API_NAME)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid address (Address=%s)", Address);
+        EVSSendErr(SBN_UDP_CONFIG_EID, "invalid address (Address=%s)", Address);
         return SBN_ERROR;
     }/* end if */
 
@@ -90,28 +87,24 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     long Port = strtol(Colon + 1, &ValidatePtr, 0);
     if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-                "invalid port (Address=%s)", Address);
+        EVSSendErr(SBN_UDP_CONFIG_EID, "invalid port (Address=%s)", Address);
     }/* end if */
 
     if((Status = OS_SocketAddrInit(Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-            "addr init failed (Status=%d)", Status);
+        EVSSendErr(SBN_UDP_CONFIG_EID, "addr init failed (Status=%d)", Status);
         return SBN_ERROR;
     }/* end if */
 
     if((Status = OS_SocketAddrFromString(Addr, AddrHost)) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-            "addr host set failed (AddrHost=%s, Status=%d)", AddrHost, Status);
+        EVSSendErr(SBN_UDP_CONFIG_EID, "addr host set failed (AddrHost=%s, Status=%d)", AddrHost, Status);
         return SBN_ERROR;
     }/* end if */
 
     if((Status = OS_SocketAddrSetPort(Addr, Port)) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_ERROR,
-            "addr port set failed (Port=%ld, Status=%d)", Port, Status);
+        EVSSendErr(SBN_UDP_CONFIG_EID, "addr port set failed (Port=%ld, Status=%d)", Port, Status);
         return SBN_ERROR;
     }/* end if */
 
@@ -122,15 +115,13 @@ static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
-        "configuring net (NetData=0x%lx, Address=%s)", (long unsigned int)NetData, Address);
+    EVSSendInfo(SBN_UDP_CONFIG_EID, "configuring net (NetData=0x%lx, Address=%s)", (long unsigned int)NetData, Address);
 
     SBN_Status_t Status = ConfAddr(&NetData->Addr, Address);
 
     if(Status == SBN_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
-            "configured (NetData=0x%lx)", (long unsigned int)NetData);
+        EVSSendInfo(SBN_UDP_CONFIG_EID, "configured (NetData=0x%lx)", (long unsigned int)NetData);
     }/* end if */
 
     return Status;
@@ -140,15 +131,13 @@ static SBN_Status_t LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
-    CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
-        "configuring peer (PeerData=0x%lx, Address=%s)", (long unsigned int)PeerData, Address);
+    EVSSendInfo(SBN_UDP_CONFIG_EID, "configuring peer (PeerData=0x%lx, Address=%s)", (long unsigned int)PeerData, Address);
 
     SBN_Status_t Status = ConfAddr(&PeerData->Addr, Address);
 
     if(Status == SBN_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_CONFIG_EID, CFE_EVS_INFORMATION,
-            "configured (PeerData=0x%lx)", (long unsigned int)PeerData);
+        EVSSendInfo(SBN_UDP_CONFIG_EID, "configured (PeerData=0x%lx)", (long unsigned int)PeerData);
     }/* end if */
 
     return Status;
@@ -164,8 +153,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
         if(CurrentTime.seconds - Peer->LastRecv.seconds
             > SBN_UDP_PEER_TIMEOUT)
         {
-            CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
-                "disconnected CPU %d", Peer->ProcessorID);
+            EVSSendInfo(SBN_UDP_DEBUG_EID, "disconnected CPU %d", Peer->ProcessorID);
 
             SBN_Disconnected(Peer);
             return SBN_SUCCESS;
@@ -174,8 +162,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
         if(CurrentTime.seconds - Peer->LastSend.seconds
             > SBN_UDP_PEER_HEARTBEAT)
         {
-            CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
-                "heartbeat CPU %d", Peer->ProcessorID);
+            EVSSendInfo(SBN_UDP_DEBUG_EID, "heartbeat CPU %d", Peer->ProcessorID);
             return SBN_SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         }/* end if */
     }
@@ -185,8 +172,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
             CurrentTime.seconds - Peer->LastSend.seconds
                 > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
-            CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
-                "announce CPU %d", Peer->ProcessorID);
+            EVSSendInfo(SBN_UDP_DEBUG_EID, "announce CPU %d", Peer->ProcessorID);
             return SBN_SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
         }/* end if */
     }/* end if */
@@ -209,7 +195,7 @@ static SBN_MsgSz_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     OS_SockAddr_t Addr;
     if(OS_SocketAddrInit(&Addr, OS_SocketDomain_INET) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_UDP_SOCK_EID, CFE_EVS_ERROR, "socket addr init failed");
+        EVSSendErr(SBN_UDP_SOCK_EID, "socket addr init failed");
         return -1;
     }/* end if */
 
@@ -241,7 +227,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
     }/* end if */
 
     int Received = OS_SocketRecvFrom(NetData->Socket, (char *)&RecvBuf,
-        CFE_SB_MAX_SB_MSG_SIZE, NULL, OS_PEND);
+        CFE_MISSION_SB_MAX_SB_MSG_SIZE, NULL, OS_PEND);
 
     if(Received < 0)
     {
@@ -251,7 +237,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
     /* each UDP packet is a full SBN message */
 
     if(SBN_UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, Payload)
-        == FALSE)
+        == false)
     {
         return SBN_ERROR;
     }/* end if */
@@ -279,8 +265,7 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 {
     if(Peer->Connected)
     {
-        CFE_EVS_SendEvent(SBN_UDP_DEBUG_EID, CFE_EVS_INFORMATION,
-                "peer%d - sending disconnect", Peer->ProcessorID);
+        EVSSendInfo(SBN_UDP_DEBUG_EID, "peer%d - sending disconnect", Peer->ProcessorID);
         SBN_SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
         SBN_Disconnected(Peer);
     }/* end if */

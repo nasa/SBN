@@ -14,7 +14,7 @@
 
 #define SBN_PACKED_HDR_SZ (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(CFE_ProcessorID_t))
 #define SBN_PACKED_SUB_SZ (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + sizeof(CFE_SB_MsgId_t) * SBN_MAX_SUBS_PER_PEER)
-#define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_SB_MAX_SB_MSG_SIZE)
+#define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
 
 /**
  * @brief Used by modules to pack messages to send.
@@ -37,7 +37,7 @@ void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_
  * @param MsgSzPtr[out] The size of the Msg parameter.
  * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
  * @param ProcessorID[out] The Processor ID of the sender (should be CFE_CPU_ID)
- * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_SB_MAX_SB_MSG_SIZE)
+ * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_MISSION_SB_MAX_SB_MSG_SIZE)
  * @return TRUE if we were unable to unpack/verify the message.
  *
  * @sa SBN_PackMsg
@@ -315,7 +315,7 @@ struct SBN_IfOps_s {
      * @param MsgSzPtr[out] Payload size received.
      * @param ProcessorIDPtr[out] ProcessorID of the sender.
      * @param PayloadBuffer[out] Payload buffer
-     *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
+     *                      (pass in a buffer of CFE_MISSION_SB_MAX_SB_MSG_SIZE)
      *
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
@@ -330,7 +330,7 @@ struct SBN_IfOps_s {
      * @param MsgSzPtr[out] Payload size received.
      * @param ProcessorIDPtr[out] ProcessorID of the sender.
      * @param PayloadBuffer[out] Payload buffer
-     *                      (pass in a buffer of CFE_SB_MAX_SB_MSG_SIZE)
+     *                      (pass in a buffer of CFE_MISSION_SB_MAX_SB_MSG_SIZE)
      *
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */

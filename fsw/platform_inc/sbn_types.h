@@ -114,4 +114,10 @@ typedef int32 CFE_Status_t;
 typedef int16 SBN_SubCnt_t;
 typedef uint16 SBN_HKTlm_t;
 
+#define EVSSendInfo(E,...) CFE_EVS_SendEvent((E), CFE_EVS_EventType_INFORMATION, __VA_ARGS__)
+#define EVSSendDbg(E,...) CFE_EVS_SendEvent((E), CFE_EVS_EventType_DEBUG, __VA_ARGS__)
+#define EVSSendErr(E,...) CFE_EVS_SendEvent((E), CFE_EVS_EventType_ERROR, __VA_ARGS__)
+#define EVSSendCrit(E,...) CFE_EVS_SendEvent((E), CFE_EVS_EventType_CRITICAL, __VA_ARGS__)
+
+/*****************************************************************************/
 #endif /* _sbn_types_h_ */

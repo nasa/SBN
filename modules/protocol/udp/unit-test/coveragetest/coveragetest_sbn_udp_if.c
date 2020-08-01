@@ -574,7 +574,7 @@ static void Recv_GetPeerErr(void)
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
-    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    uint8 PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_Unpack_Buf_t UnpackBuf;
     SBN_PeerInterface_t *PeerPtr = NULL;
 
@@ -603,7 +603,7 @@ static void Recv_NewConn(void)
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
-    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    uint8 PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_Unpack_Buf_t UnpackBuf;
 
     UT_ResetState(0);
@@ -636,7 +636,7 @@ static void Recv_Disconn(void)
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
-    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    uint8 PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_Unpack_Buf_t UnpackBuf;
 
     UT_ResetState(0);
@@ -669,7 +669,7 @@ static void Recv_Nominal(void)
     SBN_MsgType_t MsgType;
     SBN_MsgSz_t MsgSz;
     CFE_ProcessorID_t ProcessorID;
-    uint8 PayloadBuffer[CFE_SB_MAX_SB_MSG_SIZE];
+    uint8 PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_Unpack_Buf_t UnpackBuf;
 
     UT_ResetState(0);
