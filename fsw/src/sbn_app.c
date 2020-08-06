@@ -718,7 +718,7 @@ static SBN_Status_t InitInterfaces(void)
             if(Status != CFE_SUCCESS)
             {
                 EVSSendErr(SBN_PEER_EID, "error creating task for net %d", NetIdx);
-                return Status;
+                return SBN_ERROR;
             }/* end if */
         }/* end if */
 
@@ -743,7 +743,7 @@ static SBN_Status_t InitInterfaces(void)
                 if(Status != CFE_SUCCESS)
                 {
                     EVSSendErr(SBN_PEER_EID, "error creating task for %d", Peer->ProcessorID);
-                    return Status;
+                    return SBN_ERROR;
                 }/* end if */
             }/* end if */
 
@@ -760,7 +760,7 @@ static SBN_Status_t InitInterfaces(void)
                 if(Status != CFE_SUCCESS)
                 {
                     EVSSendErr(SBN_PEER_EID, "error creating send task for %d", Peer->ProcessorID);
-                    return Status;
+                    return SBN_ERROR;
                 }/* end if */
             }/* end if */
         }/* end for */
@@ -900,11 +900,13 @@ static SBN_Status_t WaitForSBStartup(void)
     if(CFE_SB_Unsubscribe(CFE_EVS_LONG_EVENT_MSG_MID, EventPipe) != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "unable to unsubscribe from event messages");
+        return SBN_ERROR;
     }/* end if */
 
     if(CFE_SB_DeletePipe(EventPipe) != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "unable to delete event pipe");
+        return SBN_ERROR;
     }/* end if */
 
     /* SBN needs to re-send request messages */

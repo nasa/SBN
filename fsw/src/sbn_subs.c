@@ -263,63 +263,55 @@ static void ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
  */
 SBN_Status_t SBN_CheckSubscriptionPipe(void)
 {
-    SBN_Status_t SBN_Status = SBN_SUCCESS;
     CFE_Status_t CFE_Status = CFE_SUCCESS;
 
     CFE_SB_MsgPtr_t SBMsgPtr;
     CFE_SB_SingleSubscriptionTlm_t *SubRprtMsgPtr;
 
-    while(CFE_Status == CFE_SUCCESS && SBN_Status == SBN_SUCCESS)
+    CFE_Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.SubPipe, CFE_SB_POLL);
+    switch(CFE_Status)
     {
-        CFE_Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.SubPipe, CFE_SB_POLL);
-        switch(CFE_Status)
-        {
-            case CFE_SUCCESS:
-                SubRprtMsgPtr = (CFE_SB_SingleSubscriptionTlm_t *)SBMsgPtr;
+        case CFE_SUCCESS:
+            SubRprtMsgPtr = (CFE_SB_SingleSubscriptionTlm_t *)SBMsgPtr;
 
-                switch(CFE_SB_GetMsgId(SBMsgPtr))
-                {
-                    case CFE_SB_ONESUB_TLM_MID:
-                        switch(SubRprtMsgPtr->Payload.SubType)
-                        {
-                            case CFE_SB_SUBSCRIPTION:
-                                ProcessLocalSub(SubRprtMsgPtr->Payload.MsgId,
-                                    SubRprtMsgPtr->Payload.Qos);
-                                SBN_Status = SBN_SUCCESS;
-                                break;
-                            case CFE_SB_UNSUBSCRIPTION:
-                                ProcessLocalUnsub(SubRprtMsgPtr->Payload.MsgId);
-                                SBN_Status = SBN_SUCCESS;
-                                break;
-                            default:
-                                EVSSendErr(SBN_SUB_EID, "unexpected subscription type (%d) in SBN_CheckSubscriptionPipe",
-                                    SubRprtMsgPtr->Payload.SubType);
-                                SBN_Status = SBN_ERROR;
-                        }/* end switch */
-                        break;
+            switch(CFE_SB_GetMsgId(SBMsgPtr))
+            {
+                case CFE_SB_ONESUB_TLM_MID:
+                    switch(SubRprtMsgPtr->Payload.SubType)
+                    {
+                        case CFE_SB_SUBSCRIPTION:
+                            ProcessLocalSub(SubRprtMsgPtr->Payload.MsgId,
+                                SubRprtMsgPtr->Payload.Qos);
+                            return SBN_SUCCESS;
+                        case CFE_SB_UNSUBSCRIPTION:
+                            ProcessLocalUnsub(SubRprtMsgPtr->Payload.MsgId);
+                            return SBN_SUCCESS;
+                        default:
+                            EVSSendErr(SBN_SUB_EID, "unexpected subscription type (%d) in SBN_CheckSubscriptionPipe",
+                                SubRprtMsgPtr->Payload.SubType);
+                            return SBN_ERROR;
+                    }/* end switch */
+                    break;
 
-                    case CFE_SB_ALLSUBS_TLM_MID:
-                        SBN_ProcessAllSubscriptions((CFE_SB_AllSubscriptionsTlm_t *) SBMsgPtr);
-                        SBN_Status = SBN_SUCCESS;
-                        break;
+                case CFE_SB_ALLSUBS_TLM_MID:
+                    SBN_ProcessAllSubscriptions((CFE_SB_AllSubscriptionsTlm_t *) SBMsgPtr);
+                    return SBN_SUCCESS;
 
-                    default:
-                        EVSSendErr(SBN_MSG_EID, "unexpected message id (0x%04X) on SBN.SubPipe",
-                            ntohs(CFE_SB_GetMsgId(SBMsgPtr)));
-                        SBN_Status = SBN_ERROR;
-                }/* end switch */
+                default:
+                    EVSSendErr(SBN_MSG_EID, "unexpected message id (0x%04X) on SBN.SubPipe",
+                        ntohs(CFE_SB_GetMsgId(SBMsgPtr)));
+                    return SBN_ERROR;
+            }/* end switch */
 
-                break;
-            case CFE_SB_NO_MESSAGE:
-                SBN_Status = SBN_IF_EMPTY;
-                break;
-            default:
-                EVSSendErr(SBN_MSG_EID, "err from rcvmsg on sub pipe");
-                SBN_Status = SBN_ERROR;
-        }/* end switch */
-    }/* end while */
+            break;
+        case CFE_SB_NO_MESSAGE:
+            return SBN_IF_EMPTY;
+        default:
+            EVSSendErr(SBN_MSG_EID, "err from rcvmsg on sub pipe");
+            return SBN_ERROR;
+    }/* end switch */
 
-    return SBN_Status;
+    return SBN_ERROR;
 }/* end SBN_CheckSubscriptionPipe */
 
 static void AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID,
