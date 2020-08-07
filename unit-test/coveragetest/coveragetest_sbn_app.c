@@ -1,6 +1,8 @@
 #include "sbn_coveragetest_common.h"
 #include "sbn_app.h"
 #include "cfe_msgids.h"
+#include "cfe_sb_events.h"
+#include "sbn_pack.h"
 
 /********************************** event hook ************************************/
 typedef struct
@@ -260,7 +262,7 @@ static void AppMain_TaskInfoErr(void)
 {
     START;
 
-    UT_CheckEvent_Setup(SBN_INIT_EID, "SBN failed to get task info (%d)");
+    UT_CheckEvent_Setup(SBN_INIT_EID, "SBN failed to get task info (");
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_GetTaskInfo), 1, -1);
 
     SBN_AppMain();
@@ -966,52 +968,53 @@ static void SBStart_RcvMsgErr(void)
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end SBStart_RcvMsgErr() */
 
-static void SBStart_EvtErr(void)
+static void SBStart_UnsubErr(void)
 {
     START;
 
-    UT_CheckEvent_Setup(SBN_MSG_EID, "err from rcvmsg on sub pipe");
+    UT_CheckEvent_Setup(SBN_INIT_EID, "unable to unsubscribe from event messages");
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_NO_MESSAGE); /* sub pipe */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, CFE_SB_BAD_ARGUMENT); /* evt pipe */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 3, CFE_SB_BAD_ARGUMENT); /* sub pipe */
+
+    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
+    SubRprtPtr = &SubRprt;
+    memset(SubRprtPtr, 0, sizeof(SubRprt));
+    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
+    SubRprt.Payload.MsgId = 0x1234;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
+
+    CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
+    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+
+    /* CFE_SB_RcvMsg() in WaitForSBStart() should succeed */
+    CFE_EVS_LongEventTlm_t EvtMsg, *EvtMsgPtr;
+    EvtMsgPtr = &EvtMsg;
+    memset(EvtMsgPtr, 0, sizeof(EvtMsg));
+    strcpy(EvtMsg.Payload.PacketID.AppName, "CFE_SB");
+    EvtMsg.Payload.PacketID.EventID = CFE_SB_INIT_EID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+
+    mid = CFE_EVS_LONG_EVENT_MSG_MID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_Unsubscribe), 1, CFE_SB_BAD_ARGUMENT); /* fail out of WaitForSBStart() */
 
     SBN_AppMain();
 
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end SBStart_EvtErr() */
-
-static void SBStart_EvtMIDErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_MSG_EID, "err from rcvmsg on sub pipe");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
-
-    UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_NO_MESSAGE); /* sub pipe */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, CFE_SUCCESS); /* evt pipe */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetMsgId), 1, 0); /* evt mid */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 3, CFE_SB_BAD_ARGUMENT); /* sub pipe */
-
-    SBN_AppMain();
-
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end SBStart_EvtMIDErr() */
+}/* end SBStart_UnsubErr() */
 
 static void Test_SBStart(void)
 {
     SBStart_CrPipeErr();
     SBStart_SubErr();
     SBStart_RcvMsgErr();
-    SBStart_EvtErr();
-    SBStart_EvtMIDErr();
+    SBStart_UnsubErr();
 }/* end Test_SBStart() */
 
 static void Test_CheckSubPipe(void)
@@ -1022,15 +1025,39 @@ static void AppMain_Nominal(void)
 {
     START;
 
-    UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to command pipe (%d)");
-
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
+    SubRprtPtr = &SubRprt;
+    memset(SubRprtPtr, 0, sizeof(SubRprt));
+    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
+    SubRprt.Payload.MsgId = 0x1234;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
+
+    CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
+    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+
+    /* CFE_SB_RcvMsg() in WaitForSBStart() should succeed */
+    CFE_EVS_LongEventTlm_t EvtMsg, *EvtMsgPtr;
+    EvtMsgPtr = &EvtMsg;
+    memset(EvtMsgPtr, 0, sizeof(EvtMsg));
+    strcpy(EvtMsg.Payload.PacketID.AppName, "CFE_SB");
+    EvtMsg.Payload.PacketID.EventID = CFE_SB_INIT_EID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+
+    mid = CFE_EVS_LONG_EVENT_MSG_MID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+
+    /* go through main loop once */
+    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
+
+    SBN_AppMain();
 }/* end AppMain_Nominal() */
 
 static void Test_SBN_AppMain(void)
@@ -1062,12 +1089,375 @@ static void Test_SBN_AppMain(void)
     Test_CheckSubPipe();
 
     AppMain_Nominal();
-
-    #if 0
-    UnloadModsProtoErr();
-    UnloadModsFilterErr();
-    #endif
 }/* end Test_SBN_AppMain() */
+
+static void ProcessNetMsg_ProtoMsg_VerErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version mismatch with ProcessorID ");
+
+    SBN_NetInterface_t Net;
+    uint8 ver = SBN_PROTO_VER + 1;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_PROTO_MSG, 1234, sizeof(ver), &ver), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end ProcessNetMsg_ProtoMsg_VerErr() */
+
+static void ProcessNetMsg_ProtoMsg_Nominal(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version match with ProcessorID ");
+
+    SBN_NetInterface_t Net;
+    uint8 ver = SBN_PROTO_VER;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_PROTO_MSG, 1234, sizeof(ver), &ver), SBN_SUCCESS);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end ProcessNetMsg_ProtoMsg_Nominal() */
+
+static SBN_Status_t RecvFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
+{
+    return SBN_ERROR;
+}/* end RecvFilter_Err() */
+
+static void ProcessNetMsg_AppMsg_FiltErr(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+    SBN_FilterInterface_t Filter;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].SpacecraftID = 5678;
+    Filter.FilterRecv = RecvFilter_Err;
+    Net.Peers[0].Filters[0] = &Filter;
+    Net.Peers[0].FilterCnt = 1;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_ERROR);
+}/* end ProcessNetMsg_AppMsg_FiltErr() */
+
+static SBN_Status_t RecvFilter_Out(void *Data, SBN_Filter_Ctx_t *CtxPtr)
+{
+    return SBN_IF_EMPTY;
+}/* end RecvFilter_Out() */
+
+static void ProcessNetMsg_AppMsg_FiltOut(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+    SBN_FilterInterface_t Filter;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].SpacecraftID = 5678;
+    Filter.FilterRecv = RecvFilter_Out;
+    Net.Peers[0].Filters[0] = &Filter;
+    Net.Peers[0].FilterCnt = 1;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_IF_EMPTY);
+}/* end ProcessNetMsg_AppMsg_FiltOut() */
+
+static SBN_Status_t RecvFilter_Nominal(void *Data, SBN_Filter_Ctx_t *CtxPtr)
+{
+    return SBN_SUCCESS;
+}/* end RecvFilter_Nominal() */
+
+static void ProcessNetMsg_AppMsg_PassMsgErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_SB_EID, "CFE_SB_PassMsg error (Status=");
+
+    SBN_NetInterface_t Net;
+    SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
+
+    memset(&Net, 0, sizeof(Net));
+    memset(&Filter_Empty, 0, sizeof(Filter_Empty));
+    memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].SpacecraftID = 5678;
+    /* Filters[0].Recv is NULL, should skip */
+    Net.Peers[0].Filters[0] = &Filter_Empty;
+    Filter_Nominal.FilterRecv = RecvFilter_Nominal;
+    Net.Peers[0].Filters[1] = &Filter_Nominal;
+    Net.Peers[0].FilterCnt = 2;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_PassMsg), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end ProcessNetMsg_AppMsg_PassMsgErr() */
+
+static void ProcessNetMsg_AppMsg_Nominal(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+    SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
+
+    memset(&Net, 0, sizeof(Net));
+    memset(&Filter_Empty, 0, sizeof(Filter_Empty));
+    memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].SpacecraftID = 5678;
+    /* Filters[0].Recv is NULL, should skip */
+    Net.Peers[0].Filters[0] = &Filter_Empty;
+    Filter_Nominal.FilterRecv = RecvFilter_Nominal;
+    Net.Peers[0].Filters[1] = &Filter_Nominal;
+    Net.Peers[0].FilterCnt = 2;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_SUCCESS);
+}/* end ProcessNetMsg_AppMsg_Nominal() */
+
+static void ProcessNetMsg_SubMsg_Nominal(void)
+{
+    START;
+
+    uint8 Buf[SBN_PACKED_SUB_SZ];
+    Pack_t Pack;
+    Pack_Init(&Pack, &Buf, sizeof(Buf), 0);
+    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
+    Pack_UInt16(&Pack, 1);
+
+    Pack_MsgID(&Pack, 0xDEAD);
+    CFE_SB_Qos_t QoS;
+    Pack_Data(&Pack, &QoS, sizeof(QoS));
+
+    SBN_NetInterface_t Net;
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].SpacecraftID = 5678;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_SUB_MSG, 1234, sizeof(Buf), &Buf), SBN_SUCCESS);
+    UtAssert_INT32_EQ(Net.Peers[0].Subs[0].MsgID, 0xDEAD);
+}/* end ProcessNetMsg_SubMsg_Nominal() */
+
+static void ProcessNetMsg_UnSubMsg_Nominal(void)
+{
+    START;
+
+    uint8 Buf[SBN_PACKED_SUB_SZ];
+    Pack_t Pack;
+    Pack_Init(&Pack, &Buf, sizeof(Buf), 0);
+    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
+    Pack_UInt16(&Pack, 1);
+
+    Pack_MsgID(&Pack, 0xDEAD);
+    CFE_SB_Qos_t QoS;
+    Pack_Data(&Pack, &QoS, sizeof(QoS));
+
+    SBN_NetInterface_t Net;
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.Peers[0].SpacecraftID = 5678;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_SUB_MSG, 1234, sizeof(Buf), &Buf), SBN_SUCCESS);
+    UtAssert_INT32_EQ(Net.Peers[0].SubCnt, 1);
+    UtAssert_INT32_EQ(Net.Peers[0].Subs[0].MsgID, 0xDEAD);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_UNSUB_MSG, 1234, sizeof(Buf), &Buf), SBN_SUCCESS);
+    UtAssert_INT32_EQ(Net.Peers[0].SubCnt, 0);
+}/* end ProcessNetMsg_UnSubMsg_Nominal() */
+
+static void ProcessNetMsg_NoMsg_Nominal(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_NO_MSG, 1234, 0, NULL), SBN_SUCCESS);
+}/* end ProcessNetMsg_NoMsg_Nominal() */
+
+static void ProcessNetMsg_MsgErr(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+
+    /* send a net message of an invalid type */
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_NO_MSG + 100, 1234, 0, NULL), SBN_ERROR);
+}/* end ProcessNetMsg_MsgErr() */
+
+static void Test_SBN_ProcessNetMsg(void)
+{
+    ProcessNetMsg_AppMsg_FiltErr();
+    ProcessNetMsg_AppMsg_FiltOut();
+    ProcessNetMsg_AppMsg_PassMsgErr();
+    ProcessNetMsg_ProtoMsg_VerErr();
+    ProcessNetMsg_MsgErr();
+
+    ProcessNetMsg_AppMsg_Nominal();
+    ProcessNetMsg_SubMsg_Nominal();
+    ProcessNetMsg_UnSubMsg_Nominal();
+    ProcessNetMsg_ProtoMsg_Nominal();
+    ProcessNetMsg_NoMsg_Nominal();
+}/* end Test_SBN_ProcessNetMsg() */
+
+static void Connected_AlreadyErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 already connected");
+
+    SBN_NetInterface_t Net;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.IfOps = &IfOps;
+    Net.Peers[0].Net = &Net;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+
+    Net.Peers[0].Connected = 1;
+
+    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+    UtAssert_INT32_EQ(Net.Peers[0].Connected, 1);
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end Connected_AlreadyErr() */
+
+static void Connected_PipeOptErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "failed to set pipe options '");
+
+    SBN_NetInterface_t Net;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.IfOps = &IfOps;
+    Net.Peers[0].Net = &Net;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SetPipeOpts), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end Connected_PipeOptErr() */
+
+static SBN_MsgSz_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
+{
+    return SBN_ERROR;
+}/* end Send_Nominal() */
+
+static void Connected_SendErr(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+
+    IfOps.Send = Send_Err;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.IfOps = &IfOps;
+    Net.Peers[0].Net = &Net;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+
+    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+
+    IfOps.Send = Send_Nominal;
+}/* end Connected_SendErr() */
+
+static void Connected_CrPipeErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "failed to create pipe '");
+
+    SBN_NetInterface_t Net;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.IfOps = &IfOps;
+    Net.Peers[0].Net = &Net;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end Connected_CrPipeErr() */
+
+static void Connected_Nominal(void)
+{
+    START;
+
+    SBN_NetInterface_t Net;
+
+    memset(&Net, 0, sizeof(Net));
+    Net.PeerCnt = 1;
+    Net.Peers[0].ProcessorID = 1234;
+    Net.IfOps = &IfOps;
+    Net.Peers[0].Net = &Net;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+
+    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_SUCCESS);
+    UtAssert_INT32_EQ(Net.Peers[0].Connected, 1);
+}/* end Connected_Nominal() */
+
+static void Test_SBN_Connected(void)
+{
+    Connected_AlreadyErr();
+    Connected_CrPipeErr();
+    Connected_PipeOptErr();
+    Connected_SendErr();
+    Connected_Nominal();
+}/* end Test_SBN_Connected() */
 
 void UT_Setup(void)
 {
@@ -1080,10 +1470,9 @@ void UT_TearDown(void)
 void UtTest_Setup(void)
 {
     ADD_TEST(SBN_AppMain);
-    #if 0
     ADD_TEST(SBN_ProcessNetMsg);
-    ADD_TEST(SBN_GetPeer);
     ADD_TEST(SBN_Connected);
+    #if 0
     ADD_TEST(SBN_Disconnected);
     ADD_TEST(SBN_ReloadConfTbl);
     #endif
