@@ -1390,44 +1390,33 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
 
                 SBN_Status = (Peer->Filters[FilterIdx]->FilterRecv)(Msg, &Filter_Context);
 
-                if (SBN_Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
-                {
-                    break;
-                }/* end if */
-
+                /* includes SBN_IF_EMPTY, for when filter recommends removing */
                 if(SBN_Status != SBN_SUCCESS)
                 {
-                    /* something fatal happened, bounce out and return */
-                    break;
+                    return SBN_Status;
                 }/* end if */
             }/* end for */
-
-            if(FilterIdx < Peer->FilterCnt)
-            {
-                /* one of the above filters suggested rejecting this message */
-                break;
-            }/* end if */
 
             CFE_Status = CFE_SB_PassMsg(Msg);
 
             if(CFE_Status != CFE_SUCCESS)
             {
                 EVSSendErr(SBN_SB_EID, "CFE_SB_PassMsg error (Status=%d MsgType=0x%x)", CFE_Status, MsgType);
-                SBN_Status = SBN_ERROR;
+                return SBN_ERROR;
             }/* end if */
             break;
         }/* end case */
         case SBN_SUB_MSG:
-            SBN_ProcessSubsFromPeer(Peer, Msg);
-            break;
+            return SBN_ProcessSubsFromPeer(Peer, Msg);
 
         case SBN_UNSUB_MSG:
-            SBN_ProcessUnsubsFromPeer(Peer, Msg);
-            break;
+            return SBN_ProcessUnsubsFromPeer(Peer, Msg);
 
         case SBN_NO_MSG:
+            return SBN_SUCCESS;
         default:
             /* Should I generate an event? Probably... */
+            return SBN_ERROR;
             break;
     }/* end switch */
 

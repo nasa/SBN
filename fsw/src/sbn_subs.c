@@ -170,6 +170,7 @@ static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID,
  */
 static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 {
+    SBN_Status_t SBN_Status = SBN_SUCCESS;
     /* don't send event messages */
     if(MsgID == CFE_EVS_LONG_EVENT_MSG_MID) return SBN_SUCCESS;
 
@@ -207,14 +208,16 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            if (SendLocalSubToPeer(SBN_SUB_MSG, MsgID, QoS, Peer) != SBN_SUCCESS)
+            SBN_Status = SendLocalSubToPeer(SBN_SUB_MSG, MsgID, QoS, Peer);
+
+            if (SBN_Status != SBN_SUCCESS)
             {
-                return SBN_ERROR;
+                return SBN_Status;
             }/* end if */
         }/* end for */
     }/* end for */
     
-    return SBN_SUCCESS;
+    return SBN_Status;
 }/* end ProcessLocalSub */
 
 /**
@@ -407,16 +410,11 @@ static SBN_Status_t ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t
 
         if(SBN_Status != SBN_SUCCESS)
         {
-            break;
+            return SBN_Status;
         }/* end if */
     }/* end for */
 
-    if(SBN_Status == SBN_SUCCESS)
-    {
-        SBN_Status = AddSub(Peer, MsgID, QoS);
-    }
-
-    return SBN_Status;
+    return AddSub(Peer, MsgID, QoS);
 }/* ProcessSubFromPeer */
 
 /**
@@ -447,7 +445,7 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     Unpack_UInt16(&Unpack, &SubCnt);
 
     int SubIdx = 0;
-    for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
+    for(SubIdx = 0; SBN_Status == SBN_SUCCESS && SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID;
         Unpack_MsgID(&Unpack, &MsgID);
@@ -496,7 +494,7 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
         }/* end if */
     }/* end for */
 
-    if(IsPeerSubMsgID(&idx, MsgID, Peer))
+    if(!IsPeerSubMsgID(&idx, MsgID, Peer))
     {
         EVSSendInfo(SBN_SUB_EID, "%s:Cannot process unsubscription from ProcessorID %d, msg 0x%04X not found",
             CFE_PLATFORM_CPU_NAME, Peer->ProcessorID, htons(MsgID));
@@ -510,9 +508,7 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
     */
     for(i = idx; i < Peer->SubCnt; i++)
     {
-        memcpy(&Peer->Subs[i],
-            &Peer->Subs[i + 1],
-            sizeof(SBN_Subs_t));
+        memcpy(&Peer->Subs[i], &Peer->Subs[i + 1], sizeof(SBN_Subs_t));
     }/* end for */
 
     /* decrement sub cnt */
