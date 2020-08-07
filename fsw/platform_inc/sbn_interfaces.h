@@ -173,8 +173,10 @@ typedef struct {
  * should be sent.
  *
  * @param Peer[in] The peer to which to send the subs.
+ *
+ * @return SBN_SUCCESS on successfully sending of subs to peer, otherwise SBN_ERROR
  */
-void SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
+SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
 
 /**
  * @brief For a given network and processor ID, get the peer interface.

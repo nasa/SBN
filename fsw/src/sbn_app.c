@@ -1341,16 +1341,17 @@ void SBN_AppMain(void)
  * @param[in] MsgSz The size of the message (in bytes).
  * @param[in] Msg The message contents.
  */
-void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
+SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSize, void *Msg)
 {
-    int Status = 0;
+    SBN_Status_t SBN_Status = SBN_SUCCESS;
+    CFE_Status_t CFE_Status = CFE_SUCCESS;
     SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID);
 
     if(!Peer)
     {
         EVSSendErr(SBN_PEERTASK_EID, "unknown peer (ProcessorID=%d)", ProcessorID);
-        return;
+        return SBN_ERROR;
     }/* end if */
 
     switch(MsgType)
@@ -1382,24 +1383,22 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
 
             for(FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
             {
-                SBN_Status_t Status;
-
                 if(Peer->Filters[FilterIdx]->FilterRecv == NULL)
                 {
                     continue;
                 }/* end if */
 
-                Status = (Peer->Filters[FilterIdx]->FilterRecv)(Msg, &Filter_Context);
+                SBN_Status = (Peer->Filters[FilterIdx]->FilterRecv)(Msg, &Filter_Context);
 
-                if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
+                if (SBN_Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
                 {
                     break;
                 }/* end if */
 
-                if(Status != SBN_SUCCESS)
+                if(SBN_Status != SBN_SUCCESS)
                 {
-                    /* something fatal happened, exit */
-                    return;
+                    /* something fatal happened, bounce out and return */
+                    break;
                 }/* end if */
             }/* end for */
 
@@ -1409,11 +1408,12 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
                 break;
             }/* end if */
 
-            Status = CFE_SB_PassMsg(Msg);
+            CFE_Status = CFE_SB_PassMsg(Msg);
 
-            if(Status != CFE_SUCCESS)
+            if(CFE_Status != CFE_SUCCESS)
             {
-                EVSSendErr(SBN_SB_EID, "CFE_SB_PassMsg error (Status=%d MsgType=0x%x)", Status, MsgType);
+                EVSSendErr(SBN_SB_EID, "CFE_SB_PassMsg error (Status=%d MsgType=0x%x)", CFE_Status, MsgType);
+                SBN_Status = SBN_ERROR;
             }/* end if */
             break;
         }/* end case */
@@ -1430,6 +1430,8 @@ void SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
             /* Should I generate an event? Probably... */
             break;
     }/* end switch */
+
+    return SBN_SUCCESS;
 }/* end SBN_ProcessNetMsg */
 
 /**
@@ -1453,8 +1455,11 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t Proc
     return NULL;
 }/* end SBN_GetPeer */
 
-uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 {
+    SBN_Status_t SBN_Status = SBN_SUCCESS;
+    CFE_Status_t CFE_Status;
+
     if (Peer->Connected != 0)
     {
         EVSSendErr(SBN_PEER_EID, "CPU %d already connected", Peer->ProcessorID);
@@ -1465,39 +1470,43 @@ uint32 SBN_Connected(SBN_PeerInterface_t *Peer)
 
     /* create a pipe name string similar to SBN_0_Pipe */
     snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_Pipe", Peer->ProcessorID);
-    int Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH,
-        PipeName);
+    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH, PipeName);
 
-    if(Status != CFE_SUCCESS)
+    if(CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_PEER_EID, "failed to create pipe '%s'", PipeName);
 
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
     EVSSendInfo(SBN_PEER_EID, "pipe created '%s'", PipeName);
 
-    Status = CFE_SB_SetPipeOpts(Peer->Pipe, CFE_SB_PIPEOPTS_IGNOREMINE);
-    if(Status != CFE_SUCCESS)
+    CFE_Status = CFE_SB_SetPipeOpts(Peer->Pipe, CFE_SB_PIPEOPTS_IGNOREMINE);
+    if(CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_PEER_EID, "failed to set pipe options '%s'", PipeName);
 
-        return Status;
+        return SBN_ERROR;
     }/* end if */
 
     EVSSendInfo(SBN_PEER_EID, "CPU %d connected", Peer->ProcessorID);
 
     uint8 ProtocolVer = SBN_PROTO_VER;
-    SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
+    SBN_Status = SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
+
+    if (SBN_Status != SBN_SUCCESS)
+    {
+        return SBN_Status;
+    }/* end if */
 
     /* set this to current time so we don't think we've already timed out */
     OS_GetLocalTime(&Peer->LastRecv);
 
-    SBN_SendLocalSubsToPeer(Peer);
+    SBN_Status = SBN_SendLocalSubsToPeer(Peer);
 
     Peer->Connected = 1;
 
-    return SBN_SUCCESS;
+    return SBN_Status;
 } /* end SBN_Connected() */
 
 SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
@@ -1511,7 +1520,7 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 
     Peer->Connected = 0; /**< mark as disconnected before deleting pipe */
 
-    CFE_SB_DeletePipe(Peer->Pipe);
+    CFE_SB_DeletePipe(Peer->Pipe); /* ignore returned errors */
     Peer->Pipe = 0;
 
     Peer->SubCnt = 0; /* reset sub count, in case this is a reconnection */
