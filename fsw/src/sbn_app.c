@@ -51,8 +51,8 @@ static SBN_Status_t UnloadModules(void)
 
         if(OS_ModuleUnload(SBN.ProtocolModules[i]) != OS_SUCCESS)
         {
-            OS_printf("Unable to unload module ID %d for Protocol ID %d\n",
-                SBN.ProtocolModules[i], i);
+            EVSSendCrit(SBN_TBL_EID, "unable to unload protocol module ID %d", i);
+            return SBN_ERROR;
         }/* end if */
     }/* end for */
 
@@ -65,8 +65,8 @@ static SBN_Status_t UnloadModules(void)
 
         if(OS_ModuleUnload(SBN.FilterModules[i]) != OS_SUCCESS)
         {
-            OS_printf("Unable to unload module ID %d for Filter ID %d\n",
-                SBN.FilterModules[i], i);
+            EVSSendCrit(SBN_TBL_EID, "unable to unload filter module ID %d", i);
+            return SBN_ERROR;
         }/* end if */
     }/* end for */
 
@@ -78,8 +78,8 @@ static SBN_Status_t UnloadModules(void)
  * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
  *       are in network (big-endian) byte order.
  * \param SBNBuf[out] The buffer to pack into.
- * \param MsgType[in] The SBN message type.
  * \param MsgSz[in] The size of the payload.
+ * \param MsgType[in] The SBN message type.
  * \param ProcessorID[in] The ProcessorID of the sender (should be CFE_CPU_ID)
  * \param Msg[in] The payload (CCSDS message or SBN sub/unsub.)
  */
@@ -1143,14 +1143,8 @@ static uint32 UnloadConf(void)
         }/* end if */
     }/* end for */
 
-    if((Status = UnloadModules()) != SBN_SUCCESS)
-    {
-        EVSSendCrit(SBN_TBL_EID, "unable to unload modules");
-        return Status;
-    }/* end if */
-
-    return SBN_SUCCESS;
-}/* end if */
+    return UnloadModules();
+}/* end UnloadConf() */
 
 static uint32 LoadConfTbl(void)
 {
