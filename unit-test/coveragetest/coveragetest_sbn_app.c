@@ -220,6 +220,10 @@ SBN_ConfTbl_t NominalTbl =
 
 SBN_ConfTbl_t *NominalTblPtr = &NominalTbl;
 
+/********************************** globals ************************************/
+CFE_ProcessorID_t ProcessorID = 1234;
+CFE_SpacecraftID_t SpacecraftID = 5678;
+CFE_SB_MsgId_t MsgID = 0xDEAD;
 /********************************** tests ************************************/
 
 #define START UT_ResetState(0); printf("Start item %s (%d)\n", __func__, __LINE__); memset(&SBN, 0, sizeof(SBN))
@@ -553,19 +557,11 @@ static void LoadConf_TooManyNets(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
 
-    int i = 2;
-    for (; i < SBN_MAX_NETS + 1; i++)
-    {
-        strcpy(NominalTbl.Peers[i].ProtocolName, "UDP");
-        NominalTbl.Peers[i].NetNum = i;
-        NominalTbl.Peers[i].ProcessorID = 0;
-        NominalTbl.Peers[i].SpacecraftID = 0;
-    }/* end for */
-    NominalTbl.PeerCnt = i;
+    NominalTbl.Peers[0].NetNum = SBN_MAX_NETS + 1;
 
     SBN_AppMain();
 
-    NominalTbl.PeerCnt = 2;
+    NominalTbl.Peers[0].NetNum = 0;
 
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end LoadConf_TooManyNets() */
@@ -937,7 +933,7 @@ static void SBStart_RcvMsgErr(void)
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId = 0x1234;
+    SubRprt.Payload.MsgId = MsgID;
 
     START;
 
@@ -984,7 +980,7 @@ static void SBStart_UnsubErr(void)
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId = 0x1234;
+    SubRprt.Payload.MsgId = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -1035,7 +1031,7 @@ static void AppMain_Nominal(void)
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId = 0x1234;
+    SubRprt.Payload.MsgId = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -1097,14 +1093,15 @@ static void ProcessNetMsg_ProtoMsg_VerErr(void)
 
     UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version mismatch with ProcessorID ");
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+
     uint8 ver = SBN_PROTO_VER + 1;
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_PROTO_MSG, 1234, sizeof(ver), &ver), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID, sizeof(ver), &ver), SBN_SUCCESS);
 
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end ProcessNetMsg_ProtoMsg_VerErr() */
@@ -1115,14 +1112,15 @@ static void ProcessNetMsg_ProtoMsg_Nominal(void)
 
     UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version match with ProcessorID ");
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+
     uint8 ver = SBN_PROTO_VER;
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_PROTO_MSG, 1234, sizeof(ver), &ver), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID, sizeof(ver), &ver), SBN_SUCCESS);
 
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end ProcessNetMsg_ProtoMsg_Nominal() */
@@ -1136,21 +1134,23 @@ static void ProcessNetMsg_AppMsg_FiltErr(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
     SBN_FilterInterface_t Filter;
-
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].SpacecraftID = 5678;
+    memset(&Filter, 0, sizeof(Filter));
     Filter.FilterRecv = RecvFilter_Err;
-    Net.Peers[0].Filters[0] = &Filter;
-    Net.Peers[0].FilterCnt = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
+    PeerPtr->Filters[0] = &Filter;
+    PeerPtr->FilterCnt = 1;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_ERROR);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, 0, NULL), SBN_ERROR);
 }/* end ProcessNetMsg_AppMsg_FiltErr() */
 
 static SBN_Status_t RecvFilter_Out(void *Data, SBN_Filter_Ctx_t *CtxPtr)
@@ -1162,21 +1162,24 @@ static void ProcessNetMsg_AppMsg_FiltOut(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
     SBN_FilterInterface_t Filter;
-
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].SpacecraftID = 5678;
+    memset(&Filter, 0, sizeof(Filter));
     Filter.FilterRecv = RecvFilter_Out;
-    Net.Peers[0].Filters[0] = &Filter;
-    Net.Peers[0].FilterCnt = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_IF_EMPTY);
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
+    PeerPtr->Filters[0] = &Filter;
+    PeerPtr->FilterCnt = 1;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, 0, NULL), SBN_IF_EMPTY);
 }/* end ProcessNetMsg_AppMsg_FiltOut() */
 
 static SBN_Status_t RecvFilter_Nominal(void *Data, SBN_Filter_Ctx_t *CtxPtr)
@@ -1190,27 +1193,20 @@ static void ProcessNetMsg_AppMsg_PassMsgErr(void)
 
     UT_CheckEvent_Setup(SBN_SB_EID, "CFE_SB_PassMsg error (Status=");
 
-    SBN_NetInterface_t Net;
-    SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    memset(&Net, 0, sizeof(Net));
-    memset(&Filter_Empty, 0, sizeof(Filter_Empty));
-    memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].SpacecraftID = 5678;
-    /* Filters[0].Recv is NULL, should skip */
-    Net.Peers[0].Filters[0] = &Filter_Empty;
-    Filter_Nominal.FilterRecv = RecvFilter_Nominal;
-    Net.Peers[0].Filters[1] = &Filter_Nominal;
-    Net.Peers[0].FilterCnt = 2;
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_PassMsg), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, 0, NULL), SBN_ERROR);
 
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end ProcessNetMsg_AppMsg_PassMsgErr() */
@@ -1219,25 +1215,27 @@ static void ProcessNetMsg_AppMsg_Nominal(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
     SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
-
-    memset(&Net, 0, sizeof(Net));
     memset(&Filter_Empty, 0, sizeof(Filter_Empty));
     memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].SpacecraftID = 5678;
-    /* Filters[0].Recv is NULL, should skip */
-    Net.Peers[0].Filters[0] = &Filter_Empty;
     Filter_Nominal.FilterRecv = RecvFilter_Nominal;
-    Net.Peers[0].Filters[1] = &Filter_Nominal;
-    Net.Peers[0].FilterCnt = 2;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_APP_MSG, 1234, 0, NULL), SBN_SUCCESS);
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
+    /* Filters[0].Recv is NULL, should skip */
+    PeerPtr->Filters[0] = &Filter_Empty;
+    PeerPtr->Filters[1] = &Filter_Nominal;
+    PeerPtr->FilterCnt = 2;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, 0, NULL), SBN_SUCCESS);
 }/* end ProcessNetMsg_AppMsg_Nominal() */
 
 static void ProcessNetMsg_SubMsg_Nominal(void)
@@ -1246,25 +1244,26 @@ static void ProcessNetMsg_SubMsg_Nominal(void)
 
     uint8 Buf[SBN_PACKED_SUB_SZ];
     Pack_t Pack;
-    Pack_Init(&Pack, &Buf, sizeof(Buf), 0);
+    Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     Pack_UInt16(&Pack, 1);
+    Pack_MsgID(&Pack, MsgID);
+    CFE_SB_Qos_t QoS = {0};
+    Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    Pack_MsgID(&Pack, 0xDEAD);
-    CFE_SB_Qos_t QoS;
-    Pack_Data(&Pack, &QoS, sizeof(QoS));
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    SBN_NetInterface_t Net;
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].SpacecraftID = 5678;
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_SUB_MSG, 1234, sizeof(Buf), &Buf), SBN_SUCCESS);
-    UtAssert_INT32_EQ(Net.Peers[0].Subs[0].MsgID, 0xDEAD);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_SUB_MSG, ProcessorID, sizeof(Buf), &Buf), SBN_SUCCESS);
+    UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID, MsgID);
 }/* end ProcessNetMsg_SubMsg_Nominal() */
 
 static void ProcessNetMsg_UnSubMsg_Nominal(void)
@@ -1277,51 +1276,55 @@ static void ProcessNetMsg_UnSubMsg_Nominal(void)
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     Pack_UInt16(&Pack, 1);
 
-    Pack_MsgID(&Pack, 0xDEAD);
+    Pack_MsgID(&Pack, MsgID);
     CFE_SB_Qos_t QoS;
     Pack_Data(&Pack, &QoS, sizeof(QoS));
 
-    SBN_NetInterface_t Net;
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.Peers[0].SpacecraftID = 5678;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1234);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 5678);
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_SUB_MSG, 1234, sizeof(Buf), &Buf), SBN_SUCCESS);
-    UtAssert_INT32_EQ(Net.Peers[0].SubCnt, 1);
-    UtAssert_INT32_EQ(Net.Peers[0].Subs[0].MsgID, 0xDEAD);
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_UNSUB_MSG, 1234, sizeof(Buf), &Buf), SBN_SUCCESS);
-    UtAssert_INT32_EQ(Net.Peers[0].SubCnt, 0);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
+    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
+
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_SUB_MSG, ProcessorID, sizeof(Buf), &Buf), SBN_SUCCESS);
+    UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
+    UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID, MsgID);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_UNSUB_MSG, ProcessorID, sizeof(Buf), &Buf), SBN_SUCCESS);
+    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 }/* end ProcessNetMsg_UnSubMsg_Nominal() */
 
 static void ProcessNetMsg_NoMsg_Nominal(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
+    PeerPtr->ProcessorID = ProcessorID;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_NO_MSG, 1234, 0, NULL), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_NO_MSG, ProcessorID, 0, NULL), SBN_SUCCESS);
 }/* end ProcessNetMsg_NoMsg_Nominal() */
 
 static void ProcessNetMsg_MsgErr(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    NetPtr->PeerCnt = 1;
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
+    PeerPtr->ProcessorID = ProcessorID;
 
     /* send a net message of an invalid type */
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(&Net, SBN_NO_MSG + 100, 1234, 0, NULL), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_NO_MSG + 100, ProcessorID, 0, NULL), SBN_ERROR);
 }/* end ProcessNetMsg_MsgErr() */
 
 static void Test_SBN_ProcessNetMsg(void)
@@ -1345,20 +1348,21 @@ static void Connected_AlreadyErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 already connected");
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.IfOps = &IfOps;
-    Net.Peers[0].Net = &Net;
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+    NetPtr->IfOps = &IfOps;
+    PeerPtr->Net = NetPtr;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
-    Net.Peers[0].Connected = 1;
+    PeerPtr->Connected = 1;
 
-    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
-    UtAssert_INT32_EQ(Net.Peers[0].Connected, 1);
+    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
+    UtAssert_INT32_EQ(PeerPtr->Connected, 1);
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end Connected_AlreadyErr() */
 
@@ -1368,19 +1372,20 @@ static void Connected_PipeOptErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "failed to set pipe options '");
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.IfOps = &IfOps;
-    Net.Peers[0].Net = &Net;
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+    NetPtr->IfOps = &IfOps;
+    PeerPtr->Net = NetPtr;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_SetPipeOpts), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end Connected_PipeOptErr() */
 
@@ -1393,19 +1398,20 @@ static void Connected_SendErr(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
 
     IfOps.Send = Send_Err;
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.IfOps = &IfOps;
-    Net.Peers[0].Net = &Net;
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+    NetPtr->IfOps = &IfOps;
+    PeerPtr->Net = NetPtr;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
-    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
 
     IfOps.Send = Send_Nominal;
 }/* end Connected_SendErr() */
@@ -1416,19 +1422,20 @@ static void Connected_CrPipeErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "failed to create pipe '");
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.IfOps = &IfOps;
-    Net.Peers[0].Net = &Net;
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+    NetPtr->IfOps = &IfOps;
+    PeerPtr->Net = NetPtr;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end Connected_CrPipeErr() */
 
@@ -1436,18 +1443,19 @@ static void Connected_Nominal(void)
 {
     START;
 
-    SBN_NetInterface_t Net;
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
 
-    memset(&Net, 0, sizeof(Net));
-    Net.PeerCnt = 1;
-    Net.Peers[0].ProcessorID = 1234;
-    Net.IfOps = &IfOps;
-    Net.Peers[0].Net = &Net;
+    NetPtr->PeerCnt = 1;
+    PeerPtr->ProcessorID = ProcessorID;
+    NetPtr->IfOps = &IfOps;
+    PeerPtr->Net = NetPtr;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
-    UtAssert_INT32_EQ(SBN_Connected(&Net.Peers[0]), SBN_SUCCESS);
-    UtAssert_INT32_EQ(Net.Peers[0].Connected, 1);
+    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_SUCCESS);
+    UtAssert_INT32_EQ(PeerPtr->Connected, 1);
 }/* end Connected_Nominal() */
 
 static void Test_SBN_Connected(void)
@@ -1458,6 +1466,183 @@ static void Test_SBN_Connected(void)
     Connected_SendErr();
     Connected_Nominal();
 }/* end Test_SBN_Connected() */
+
+static void Disconnected_ConnErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 not connected");
+
+    SBN_PeerInterface_t *PeerPtr = &SBN.Nets[0].Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+
+    UtAssert_INT32_EQ(SBN_Disconnected(PeerPtr), SBN_ERROR);
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end Disconnected_Nominal() */
+
+static void Disconnected_Nominal(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 disconnected");
+
+    SBN_PeerInterface_t *PeerPtr = &SBN.Nets[0].Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->Connected = 1;
+
+    UtAssert_INT32_EQ(SBN_Disconnected(PeerPtr), SBN_SUCCESS);
+    UtAssert_INT32_EQ(PeerPtr->Connected, 0);
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end Disconnected_Nominal() */
+
+static void Test_SBN_Disconnected(void)
+{
+    Disconnected_ConnErr();
+    Disconnected_Nominal();
+}/* end Test_SBN_Disconnected() */
+
+static SBN_Status_t UnloadNet_Err(SBN_NetInterface_t *Net)
+{
+    return SBN_ERROR;
+}/* end UnloadNet_Nominal() */
+
+static void ReloadConfTbl_UnloadNetErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload network ");
+
+    IfOps.UnloadNet = UnloadNet_Err;
+
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    NetPtr->IfOps = &IfOps;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->Connected = 1;
+
+    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+
+    IfOps.UnloadNet = UnloadNet_Nominal;
+}/* end ReloadConfTbl_UnloadNetErr() */
+
+static void ReloadConfTbl_ProtoUnloadErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload protocol module ID ");
+
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN.ProtocolModules[0] = (CFE_ES_ModuleID_t)1;
+    NetPtr->IfOps = &IfOps;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->Connected = 1;
+
+    UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end ReloadConfTbl_ProtoUnloadErr() */
+
+static void ReloadConfTbl_FiltUnloadErr(void)
+{
+    START;
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload filter module ID ");
+
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    SBN.FilterModules[0] = (CFE_ES_ModuleID_t)1;
+    NetPtr->IfOps = &IfOps;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->Connected = 1;
+
+    UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end ReloadConfTbl_FiltUnloadErr() */
+
+static void ReloadConfTbl_TblUpdErr(void)
+{
+    START;
+
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    NetPtr->IfOps = &IfOps;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->Connected = 1;
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Update), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
+}/* end ReloadConfTbl_TblUpdErr() */
+
+static void ReloadConfTbl_Nominal(void)
+{
+    START;
+
+    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    NetPtr->IfOps = &IfOps;
+    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->Connected = 1;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+
+    UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
+
+    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_SUCCESS);
+
+    UtAssert_INT32_EQ(PeerPtr->Connected, 0);
+}/* end ReloadConfTbl_Nominal() */
+
+static void Test_SBN_ReloadConfTbl(void)
+{
+    ReloadConfTbl_UnloadNetErr();
+    ReloadConfTbl_ProtoUnloadErr();
+    ReloadConfTbl_FiltUnloadErr();
+    ReloadConfTbl_TblUpdErr();
+    ReloadConfTbl_Nominal();
+}/* end Test_SBN_ReloadConfTbl() */
+
+static void Test_SBN_PackUnpack(void)
+{
+    uint8 Buf[SBN_MAX_PACKED_MSG_SZ] = {0}, Payload[1] = {0};
+    uint8 TestData = 123;
+    SBN_MsgSz_t MsgSz; SBN_MsgType_t MsgType;
+    CFE_ProcessorID_t ProcID;
+
+    SBN_PackMsg(Buf, 0, SBN_APP_MSG, ProcessorID, NULL);
+    SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload);
+    UtAssert_INT32_EQ(MsgSz, 0);
+    UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
+    UtAssert_INT32_EQ(ProcID, ProcessorID);
+
+    SBN_PackMsg(Buf, 1, SBN_APP_MSG, ProcessorID, &TestData);
+    SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload);
+    UtAssert_INT32_EQ(MsgSz, 1);
+    UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
+    UtAssert_INT32_EQ(ProcID, ProcessorID);
+    UtAssert_INT32_EQ((int32)TestData, (int32)Payload[0]);
+}/* end Test_SBN_PackMsg() */
 
 void UT_Setup(void)
 {
@@ -1472,8 +1657,7 @@ void UtTest_Setup(void)
     ADD_TEST(SBN_AppMain);
     ADD_TEST(SBN_ProcessNetMsg);
     ADD_TEST(SBN_Connected);
-    #if 0
     ADD_TEST(SBN_Disconnected);
     ADD_TEST(SBN_ReloadConfTbl);
-    #endif
+    ADD_TEST(SBN_PackUnpack);
 }
