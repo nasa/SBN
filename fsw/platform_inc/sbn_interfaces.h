@@ -13,7 +13,7 @@
  */
 
 #define SBN_PACKED_HDR_SZ (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(CFE_ProcessorID_t))
-#define SBN_PACKED_SUB_SZ (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + sizeof(CFE_SB_MsgId_t) * SBN_MAX_SUBS_PER_PEER)
+#define SBN_PACKED_SUB_SZ (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
 #define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
 
 /**
