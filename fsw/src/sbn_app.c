@@ -787,25 +787,24 @@ static SBN_Status_t InitInterfaces(void)
  * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
  * @return CFE_SUCCESS on success, otherwise an error value.
  */
-static CFE_Status_t WaitForWakeup(int32 iTimeOut)
+static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 {
-    CFE_Status_t Status = CFE_SUCCESS;
+    CFE_Status_t CFE_Status = CFE_SUCCESS;
     CFE_SB_MsgPtr_t Msg = 0;
 
     /* Wait for WakeUp messages from scheduler */
-    Status = CFE_SB_RcvMsg(&Msg, SBN.CmdPipe, iTimeOut);
+    CFE_Status = CFE_SB_RcvMsg(&Msg, SBN.CmdPipe, iTimeOut);
 
-    switch(Status)
+    switch(CFE_Status)
     {
         case CFE_SB_NO_MESSAGE:
         case CFE_SB_TIME_OUT:
-            Status = CFE_SUCCESS;
             break;
         case CFE_SUCCESS:
             SBN_HandleCommand(Msg);
             break;
         default:
-            return Status;
+            return SBN_ERROR;
     }/* end switch */
 
     /* For sbn, we still want to perform cyclic processing
@@ -822,11 +821,9 @@ static CFE_Status_t WaitForWakeup(int32 iTimeOut)
 
     PeerPoll();
 
-    if(Status == CFE_SB_NO_MESSAGE) Status = CFE_SUCCESS;
-
     CFE_ES_PerfLogExit(SBN_PERF_RECV_ID);
 
-    return Status;
+    return SBN_SUCCESS;
 }/* end WaitForWakeup */
 
 /**
@@ -1481,11 +1478,9 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
     EVSSendInfo(SBN_PEER_EID, "CPU %d connected", Peer->ProcessorID);
 
     uint8 ProtocolVer = SBN_PROTO_VER;
-    SBN_Status = SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
-
-    if (SBN_Status != SBN_SUCCESS)
+    if (SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer) != sizeof(ProtocolVer))
     {
-        return SBN_Status;
+        return SBN_ERROR;
     }/* end if */
 
     /* set this to current time so we don't think we've already timed out */

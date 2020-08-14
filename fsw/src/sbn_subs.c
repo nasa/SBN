@@ -109,7 +109,14 @@ SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
         Pack_Data(&Pack, &SBN.Subs[i].QoS, sizeof(SBN.Subs[i].QoS));
     }/* end for */
 
-    return SBN_SendNetMsg(SBN_SUB_MSG, Pack.BufUsed, Buf, Peer);
+    if (SBN_SendNetMsg(SBN_SUB_MSG, Pack.BufUsed, Buf, Peer) != Pack.BufUsed)
+    {
+        return SBN_ERROR;
+    }
+    else
+    {
+        return SBN_SUCCESS;
+    }/* end if */
 }/* end SBN_SendLocalSubsToPeer */
 
 /**
