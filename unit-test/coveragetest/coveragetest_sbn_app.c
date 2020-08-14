@@ -130,8 +130,13 @@ static SBN_Status_t PollPeer_Nominal(SBN_PeerInterface_t *Peer)
 
 static SBN_MsgSz_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
 {
-    return SBN_SUCCESS;
+    return MsgSz;
 }/* end Send_Nominal() */
+
+static SBN_MsgSz_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
+{
+    return -1;
+}/* end Send_Err() */
 
 SBN_IfOps_t IfOps =
 {
@@ -224,114 +229,9 @@ SBN_ConfTbl_t *NominalTblPtr = &NominalTbl;
 CFE_ProcessorID_t ProcessorID = 1234;
 CFE_SpacecraftID_t SpacecraftID = 5678;
 CFE_SB_MsgId_t MsgID = 0xDEAD;
+SBN_NetInterface_t *NetPtr = NULL;
+SBN_PeerInterface_t *PeerPtr = NULL;
 /********************************** tests ************************************/
-
-#define START UT_ResetState(0); printf("Start item %s (%d)\n", __func__, __LINE__); memset(&SBN, 0, sizeof(SBN))
-
-static void AppMain_ESRegisterErr(void)
-{
-    START;
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RegisterApp), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_STUB_COUNT(CFE_EVS_Register, 0);
-}/* end AppMain_ESRegisterErr() */
-
-static void AppMain_EVSRegisterErr(void)
-{
-    START;
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_EVS_Register), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_STUB_COUNT(CFE_ES_GetAppID, 0);
-}/* end AppMain_EVSRegisterErr() */
-
-static void AppMain_AppIdErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_INIT_EID, "unable to get AppID");
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_GetAppID), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_STUB_COUNT(OS_TaskGetId, 0);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end AppMain_AppIdErr() */
-
-static void AppMain_TaskInfoErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_INIT_EID, "SBN failed to get task info (");
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_GetTaskInfo), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end AppMain_TaskInfoErr() */
-
-/********************************** load conf tbl tests  ************************************/
-
-static void LoadConfTbl_RegisterErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to register conf tbl handle");
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end LoadConfTbl_RegisterErr() */
-
-static void LoadConfTbl_LoadErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to load conf tbl /cf/sbn_conf_tbl.tbl");
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end LoadConfTbl_LoadErr() */
-
-static void LoadConfTbl_ManageErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to manage conf tbl");
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end LoadConfTbl_ManageErr() */
-
-static void LoadConfTbl_NotifyErr(void)
-{
-    START;
-
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to set notifybymessage for conf tbl");
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_NotifyByMessage), 1, -1);
-
-    SBN_AppMain();
-
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
-}/* end LoadConfTbl_NotifyErr() */
-
-static void Test_AppMain_LoadConfTbl(void)
-{
-    LoadConfTbl_RegisterErr();
-    LoadConfTbl_LoadErr();
-    LoadConfTbl_ManageErr();
-    LoadConfTbl_NotifyErr();
-}/* end Test_AppMain_LoadConfTbl() */
-
 /* SBN tries to look up the symbol of the protocol or filter module using OS_SymbolLookup, if it
  * finds it (because ES loaded it) it does nothing; if it does not, it tries to load the symbol.
  * This hook forces the OS_SymbolLookup to fail the first time but succeed the second time and
@@ -368,16 +268,137 @@ static int32 SymLookHook(void *UserObj, int32 StubRetcode, uint32 CallCount, con
     }/* end if */
 }/* end SymLookHook() */
 
+#define START() START_fn(__func__, __LINE__)
+void START_fn(const char *func, int line)
+{
+    UT_ResetState(0);
+    printf("Start item %s (%d)\n", func, line);
+    memset(&SBN, 0, sizeof(SBN));
+
+    NetPtr = &SBN.Nets[0];
+    SBN.NetCnt = 1;
+    NetPtr->PeerCnt = 1;
+    PeerPtr = &NetPtr->Peers[0];
+    PeerPtr->ProcessorID = ProcessorID;
+    PeerPtr->SpacecraftID = SpacecraftID;
+    PeerPtr->Net = NetPtr;
+    NetPtr->IfOps = &IfOps;
+
+    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+}/* end START() */
+
+static void AppMain_ESRegisterErr(void)
+{
+    START();
+    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RegisterApp), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_STUB_COUNT(CFE_EVS_Register, 0);
+}/* end AppMain_ESRegisterErr() */
+
+static void AppMain_EVSRegisterErr(void)
+{
+    START();
+
+    UT_SetDeferredRetcode(UT_KEY(CFE_EVS_Register), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_STUB_COUNT(CFE_ES_GetAppID, 0);
+}/* end AppMain_EVSRegisterErr() */
+
+static void AppMain_AppIdErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_INIT_EID, "unable to get AppID");
+    UT_SetDeferredRetcode(UT_KEY(CFE_ES_GetAppID), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_STUB_COUNT(OS_TaskGetId, 0);
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end AppMain_AppIdErr() */
+
+static void AppMain_TaskInfoErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_INIT_EID, "SBN failed to get task info (");
+    UT_SetDeferredRetcode(UT_KEY(CFE_ES_GetTaskInfo), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end AppMain_TaskInfoErr() */
+
+/********************************** load conf tbl tests  ************************************/
+
+static void LoadConfTbl_RegisterErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to register conf tbl handle");
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end LoadConfTbl_RegisterErr() */
+
+static void LoadConfTbl_LoadErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to load conf tbl /cf/sbn_conf_tbl.tbl");
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end LoadConfTbl_LoadErr() */
+
+static void LoadConfTbl_ManageErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to manage conf tbl");
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end LoadConfTbl_ManageErr() */
+
+static void LoadConfTbl_NotifyErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to set notifybymessage for conf tbl");
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_NotifyByMessage), 1, -1);
+
+    SBN_AppMain();
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end LoadConfTbl_NotifyErr() */
+
+static void Test_AppMain_LoadConfTbl(void)
+{
+    LoadConfTbl_RegisterErr();
+    LoadConfTbl_LoadErr();
+    LoadConfTbl_ManageErr();
+    LoadConfTbl_NotifyErr();
+}/* end Test_AppMain_LoadConfTbl() */
+
 static void LoadConf_Module_ProtoLibFNNull(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module (Name=UDP)");
 
     char tmpFNFirst = NominalTbl.ProtocolModules[0].LibFileName[0];
     NominalTbl.ProtocolModules[0].LibFileName[0] = '\0';
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -391,14 +412,12 @@ static void LoadConf_Module_ProtoLibFNNull(void)
 
 static void LoadConf_Module_FiltLibFNNull(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module (Name=CCSDS Endian)");
 
     char tmpFNFirst = NominalTbl.FilterModules[0].LibFileName[0];
     NominalTbl.FilterModules[0].LibFileName[0] = '\0';
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -412,11 +431,9 @@ static void LoadConf_Module_FiltLibFNNull(void)
 
 static void LoadConf_Module_ModLdErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module file (Name=UDP LibFileName=/cf/sbn_udp.so)");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -435,7 +452,7 @@ int32 AlwaysErrHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT
 
 static void LoadConf_Module_SymLookErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid symbol (Name=UDP LibSymbol=SBN_UDP_Ops)");
 
@@ -461,7 +478,7 @@ static void Test_LoadConf_Module(void)
 
 static void LoadConf_GetAddrErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to get conf table address");
 
@@ -480,11 +497,9 @@ static CFE_Status_t ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID
 
 static void LoadConf_ProtoInitErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in protocol init");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     IfOps.InitModule = ProtoInitErr_InitModule;
 
@@ -505,11 +520,9 @@ static CFE_Status_t FilterInitErr_InitModule(int FilterVersion, CFE_EVS_EventID_
 
 static void LoadConf_FilterInitErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in filter init");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     FilterInterface.InitModule = FilterInitErr_InitModule;
 
@@ -525,11 +538,9 @@ static void LoadConf_FilterInitErr(void)
 
 static void LoadConf_ProtoNameErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module name XDP");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     char o = NominalTbl.Peers[0].ProtocolName[0];
     NominalTbl.Peers[0].ProtocolName[0] = 'X'; /* temporary make it "XDP" */
@@ -547,11 +558,9 @@ static void LoadConf_ProtoNameErr(void)
 
 static void LoadConf_TooManyNets(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "too many networks");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -568,11 +577,9 @@ static void LoadConf_TooManyNets(void)
 
 static void LoadConf_ReleaseAddrErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to release address of conf tbl");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -585,11 +592,9 @@ static void LoadConf_ReleaseAddrErr(void)
 
 static void LoadConf_Nominal(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "error creating mutex for send tasks");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -613,11 +618,10 @@ static void Test_LoadConf(void)
 
 static void AppMain_MutSemCrErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "error creating mutex for send tasks");
 
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
@@ -637,11 +641,10 @@ static int32 NoNetsHook(void *UserObj, int32 StubRetcode, uint32 CallCount, cons
 
 static void InitInt_NoNets(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "no networks configured");
 
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
     UT_SetHookFunction(UT_KEY(OS_MutSemCreate), NoNetsHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
@@ -660,11 +663,10 @@ static int32 NetConfHook(void *UserObj, int32 StubRetcode, uint32 CallCount, con
 
 static void InitInt_NetConfErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "network #0 not configured");
 
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
     UT_SetHookFunction(UT_KEY(OS_MutSemCreate), NetConfHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
@@ -677,11 +679,9 @@ static void InitInt_NetConfErr(void)
 
 static void InitInt_NetChildErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for net 0");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -698,11 +698,9 @@ static void InitInt_NetChildErr(void)
 
 static void InitInt_NetChildSuccess(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "configured, 1 nets");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -724,11 +722,9 @@ static SBN_Status_t RecvFromPeer_Nominal(SBN_NetInterface_t *Net, SBN_PeerInterf
 
 static void InitInt_PeerChildRecvErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for 1");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -749,11 +745,9 @@ static void InitInt_PeerChildRecvErr(void)
 
 static void InitInt_PeerChildSendErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating send task for 1");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -774,11 +768,9 @@ static void InitInt_PeerChildSendErr(void)
 
 static void InitInt_PeerChildSuccess(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "configured, 1 nets");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -810,11 +802,9 @@ static void Test_InitInt(void)
 
 static void AppMain_SubPipeCrErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to create subscription pipe (Status=");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -827,11 +817,9 @@ static void AppMain_SubPipeCrErr(void)
 
 static void AppMain_SubPipeAllSubErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to allsubs (Status=");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -844,11 +832,9 @@ static void AppMain_SubPipeAllSubErr(void)
 
 static void AppMain_SubPipeOneSubErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to sub (Status=");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -861,11 +847,9 @@ static void AppMain_SubPipeOneSubErr(void)
 
 static void AppMain_CmdPipeCrErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to create command pipe (");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -878,11 +862,9 @@ static void AppMain_CmdPipeCrErr(void)
 
 static void AppMain_CmdPipeSubErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to command pipe (");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -895,11 +877,9 @@ static void AppMain_CmdPipeSubErr(void)
 
 static void SBStart_CrPipeErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to create event pipe (");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -912,11 +892,9 @@ static void SBStart_CrPipeErr(void)
 
 static void SBStart_SubErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to event pipe (");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -929,17 +907,9 @@ static void SBStart_SubErr(void)
 
 static void SBStart_RcvMsgErr(void)
 {
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId = MsgID;
-
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_MSG_EID, "err from rcvmsg on sub pipe");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -950,12 +920,16 @@ static void SBStart_RcvMsgErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_PIPE_RD_ERR);
 
     /* second time through CheckSubscriptionPipe will be nominal operation */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
+    MsgPtr = &Msg;
+    memset(MsgPtr, 0, sizeof(Msg));
+    Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
+    Msg.Payload.MsgId = CFE_SB_ONESUB_TLM_MID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* second call to SBN_CheckSubscriptionPipe should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_Unsubscribe), 1, CFE_SB_BAD_ARGUMENT); /* fail out of WaitForSBStart() */
 
@@ -966,11 +940,9 @@ static void SBStart_RcvMsgErr(void)
 
 static void SBStart_UnsubErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "unable to unsubscribe from event messages");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -1019,9 +991,7 @@ static void Test_CheckSubPipe(void)
 
 static void AppMain_Nominal(void)
 {
-    START;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+    START();
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -1089,15 +1059,9 @@ static void Test_SBN_AppMain(void)
 
 static void ProcessNetMsg_ProtoMsg_VerErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version mismatch with ProcessorID ");
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
 
     uint8 ver = SBN_PROTO_VER + 1;
 
@@ -1108,15 +1072,9 @@ static void ProcessNetMsg_ProtoMsg_VerErr(void)
 
 static void ProcessNetMsg_ProtoMsg_Nominal(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version match with ProcessorID ");
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
 
     uint8 ver = SBN_PROTO_VER;
 
@@ -1132,18 +1090,12 @@ static SBN_Status_t RecvFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
 
 static void ProcessNetMsg_AppMsg_FiltErr(void)
 {
-    START;
+    START();
 
     SBN_FilterInterface_t Filter;
     memset(&Filter, 0, sizeof(Filter));
     Filter.FilterRecv = RecvFilter_Err;
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
     PeerPtr->Filters[0] = &Filter;
     PeerPtr->FilterCnt = 1;
 
@@ -1160,16 +1112,11 @@ static SBN_Status_t RecvFilter_Out(void *Data, SBN_Filter_Ctx_t *CtxPtr)
 
 static void ProcessNetMsg_AppMsg_FiltOut(void)
 {
-    START;
+    START();
 
     SBN_FilterInterface_t Filter;
     memset(&Filter, 0, sizeof(Filter));
     Filter.FilterRecv = RecvFilter_Out;
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
 
     PeerPtr->ProcessorID = ProcessorID;
     PeerPtr->SpacecraftID = SpacecraftID;
@@ -1189,17 +1136,9 @@ static SBN_Status_t RecvFilter_Nominal(void *Data, SBN_Filter_Ctx_t *CtxPtr)
 
 static void ProcessNetMsg_AppMsg_PassMsgErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_SB_EID, "CFE_SB_PassMsg error (Status=");
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
@@ -1213,20 +1152,13 @@ static void ProcessNetMsg_AppMsg_PassMsgErr(void)
 
 static void ProcessNetMsg_AppMsg_Nominal(void)
 {
-    START;
+    START();
 
     SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
     memset(&Filter_Empty, 0, sizeof(Filter_Empty));
     memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
     Filter_Nominal.FilterRecv = RecvFilter_Nominal;
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
     /* Filters[0].Recv is NULL, should skip */
     PeerPtr->Filters[0] = &Filter_Empty;
     PeerPtr->Filters[1] = &Filter_Nominal;
@@ -1240,7 +1172,7 @@ static void ProcessNetMsg_AppMsg_Nominal(void)
 
 static void ProcessNetMsg_SubMsg_Nominal(void)
 {
-    START;
+    START();
 
     uint8 Buf[SBN_PACKED_SUB_SZ];
     Pack_t Pack;
@@ -1251,14 +1183,6 @@ static void ProcessNetMsg_SubMsg_Nominal(void)
     CFE_SB_Qos_t QoS = {0};
     Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
-
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
@@ -1268,7 +1192,7 @@ static void ProcessNetMsg_SubMsg_Nominal(void)
 
 static void ProcessNetMsg_UnSubMsg_Nominal(void)
 {
-    START;
+    START();
 
     uint8 Buf[SBN_PACKED_SUB_SZ];
     Pack_t Pack;
@@ -1279,14 +1203,6 @@ static void ProcessNetMsg_UnSubMsg_Nominal(void)
     Pack_MsgID(&Pack, MsgID);
     CFE_SB_Qos_t QoS;
     Pack_Data(&Pack, &QoS, sizeof(QoS));
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
@@ -1300,28 +1216,14 @@ static void ProcessNetMsg_UnSubMsg_Nominal(void)
 
 static void ProcessNetMsg_NoMsg_Nominal(void)
 {
-    START;
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-
-    PeerPtr->ProcessorID = ProcessorID;
+    START();
 
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_NO_MSG, ProcessorID, 0, NULL), SBN_SUCCESS);
 }/* end ProcessNetMsg_NoMsg_Nominal() */
 
 static void ProcessNetMsg_MsgErr(void)
 {
-    START;
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-    NetPtr->PeerCnt = 1;
-
-    PeerPtr->ProcessorID = ProcessorID;
+    START();
 
     /* send a net message of an invalid type */
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_NO_MSG + 100, ProcessorID, 0, NULL), SBN_ERROR);
@@ -1344,20 +1246,9 @@ static void Test_SBN_ProcessNetMsg(void)
 
 static void Connected_AlreadyErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 already connected");
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
-    NetPtr->IfOps = &IfOps;
-    PeerPtr->Net = NetPtr;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     PeerPtr->Connected = 1;
 
@@ -1368,20 +1259,9 @@ static void Connected_AlreadyErr(void)
 
 static void Connected_PipeOptErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "failed to set pipe options '");
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
-    NetPtr->IfOps = &IfOps;
-    PeerPtr->Net = NetPtr;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_SetPipeOpts), 1, -1);
 
@@ -1389,27 +1269,11 @@ static void Connected_PipeOptErr(void)
     UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
 }/* end Connected_PipeOptErr() */
 
-static SBN_MsgSz_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
-{
-    return SBN_ERROR;
-}/* end Send_Nominal() */
-
 static void Connected_SendErr(void)
 {
-    START;
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
+    START();
 
     IfOps.Send = Send_Err;
-
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
-    NetPtr->IfOps = &IfOps;
-    PeerPtr->Net = NetPtr;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
 
@@ -1418,20 +1282,9 @@ static void Connected_SendErr(void)
 
 static void Connected_CrPipeErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "failed to create pipe '");
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
-    NetPtr->IfOps = &IfOps;
-    PeerPtr->Net = NetPtr;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, -1);
 
@@ -1441,18 +1294,7 @@ static void Connected_CrPipeErr(void)
 
 static void Connected_Nominal(void)
 {
-    START;
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    NetPtr->PeerCnt = 1;
-    PeerPtr->ProcessorID = ProcessorID;
-    NetPtr->IfOps = &IfOps;
-    PeerPtr->Net = NetPtr;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+    START();
 
     UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_SUCCESS);
     UtAssert_INT32_EQ(PeerPtr->Connected, 1);
@@ -1469,7 +1311,7 @@ static void Test_SBN_Connected(void)
 
 static void Disconnected_ConnErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 not connected");
 
@@ -1483,7 +1325,7 @@ static void Disconnected_ConnErr(void)
 
 static void Disconnected_Nominal(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "CPU 1234 disconnected");
 
@@ -1510,18 +1352,12 @@ static SBN_Status_t UnloadNet_Err(SBN_NetInterface_t *Net)
 
 static void ReloadConfTbl_UnloadNetErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload network ");
 
     IfOps.UnloadNet = UnloadNet_Err;
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    NetPtr->IfOps = &IfOps;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    PeerPtr->ProcessorID = ProcessorID;
     PeerPtr->Connected = 1;
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
@@ -1533,18 +1369,13 @@ static void ReloadConfTbl_UnloadNetErr(void)
 
 static void ReloadConfTbl_ProtoUnloadErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload protocol module ID ");
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN.ProtocolModules[0] = (CFE_ES_ModuleID_t)1;
-    NetPtr->IfOps = &IfOps;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    PeerPtr->ProcessorID = ProcessorID;
     PeerPtr->Connected = 1;
+
+    SBN.ProtocolModules[0] = 1;
 
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
 
@@ -1555,18 +1386,11 @@ static void ReloadConfTbl_ProtoUnloadErr(void)
 
 static void ReloadConfTbl_FiltUnloadErr(void)
 {
-    START;
+    START();
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload filter module ID ");
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    SBN.FilterModules[0] = (CFE_ES_ModuleID_t)1;
-    NetPtr->IfOps = &IfOps;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->Connected = 1;
+    SBN.FilterModules[0] = 1;
 
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
 
@@ -1577,14 +1401,8 @@ static void ReloadConfTbl_FiltUnloadErr(void)
 
 static void ReloadConfTbl_TblUpdErr(void)
 {
-    START;
+    START();
 
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    NetPtr->IfOps = &IfOps;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    PeerPtr->ProcessorID = ProcessorID;
     PeerPtr->Connected = 1;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Update), 1, -1);
@@ -1594,24 +1412,12 @@ static void ReloadConfTbl_TblUpdErr(void)
 
 static void ReloadConfTbl_Nominal(void)
 {
-    START;
-
-    SBN_NetInterface_t *NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    NetPtr->IfOps = &IfOps;
-    SBN_PeerInterface_t *PeerPtr = &NetPtr->Peers[0];
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->Connected = 1;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+    START();
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_SUCCESS);
-
-    UtAssert_INT32_EQ(PeerPtr->Connected, 0);
 }/* end ReloadConfTbl_Nominal() */
 
 static void Test_SBN_ReloadConfTbl(void)
@@ -1623,26 +1429,155 @@ static void Test_SBN_ReloadConfTbl(void)
     ReloadConfTbl_Nominal();
 }/* end Test_SBN_ReloadConfTbl() */
 
-static void Test_SBN_PackUnpack(void)
+static void Unpack_Empty(void)
 {
+    START();
+
+    uint8 Buf[SBN_MAX_PACKED_MSG_SZ] = {0}, Payload[1] = {0};
+    SBN_MsgSz_t MsgSz; SBN_MsgType_t MsgType;
+    CFE_ProcessorID_t ProcID;
+
+    SBN_PackMsg(Buf, 0, SBN_APP_MSG, ProcessorID, NULL);
+    UtAssert_True(SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload), "unpack of an empty pack");
+    UtAssert_INT32_EQ(MsgSz, 0);
+    UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
+    UtAssert_INT32_EQ(ProcID, ProcessorID);
+}/* end Unpack_Empty() */
+
+static void Unpack_Err(void)
+{
+    START();
+
+    uint8 Buf[SBN_MAX_PACKED_MSG_SZ] = {0}, Payload[1] = {0};
+    SBN_MsgSz_t MsgSz; SBN_MsgType_t MsgType;
+    CFE_ProcessorID_t ProcID;
+
+    Pack_t Pack;
+    Pack_Init(&Pack, Buf, SBN_MAX_PACKED_MSG_SZ + SBN_PACKED_HDR_SZ, 0);
+    Pack_Int16(&Pack, -1); /* invalid msg size */
+    Pack_UInt8(&Pack, SBN_APP_MSG);
+    Pack_UInt32(&Pack, ProcessorID);
+
+    UtAssert_True(!SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload), "unpack of invalid pack");
+}/* end Unpack_Err() */
+
+static void Unpack_Nominal(void)
+{
+    START();
+
     uint8 Buf[SBN_MAX_PACKED_MSG_SZ] = {0}, Payload[1] = {0};
     uint8 TestData = 123;
     SBN_MsgSz_t MsgSz; SBN_MsgType_t MsgType;
     CFE_ProcessorID_t ProcID;
 
-    SBN_PackMsg(Buf, 0, SBN_APP_MSG, ProcessorID, NULL);
-    SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload);
-    UtAssert_INT32_EQ(MsgSz, 0);
-    UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
-    UtAssert_INT32_EQ(ProcID, ProcessorID);
-
     SBN_PackMsg(Buf, 1, SBN_APP_MSG, ProcessorID, &TestData);
-    SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload);
+
+    UtAssert_True(SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, Payload), "unpack of a pack");
+
     UtAssert_INT32_EQ(MsgSz, 1);
     UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
     UtAssert_INT32_EQ(ProcID, ProcessorID);
     UtAssert_INT32_EQ((int32)TestData, (int32)Payload[0]);
-}/* end Test_SBN_PackMsg() */
+}/* end Unpack_Nominal() */
+
+static void Test_SBN_PackUnpack(void)
+{
+    Unpack_Empty();
+    Unpack_Err();
+    Unpack_Nominal();
+}/* end Test_SBN_PackUnpack() */
+
+void RecvNetMsgs_TaskRecv(void)
+{
+    START();
+
+    NetPtr->TaskFlags = SBN_TASK_RECV;
+
+    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
+}/* end RecvNetMsgs_TaskRecv() */
+
+static SBN_Status_t RecvFromNet_Empty(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
+    CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer)
+{
+    return SBN_IF_EMPTY;
+}/* end RecvFromNet_Empty() */
+
+void RecvNetMsgs_NetEmpty(void)
+{
+    START();
+
+    IfOps.RecvFromNet = RecvFromNet_Empty;
+
+    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
+
+    IfOps.RecvFromNet = RecvFromNet_Nominal;
+}/* end RecvNetMsgs_NetEmpty() */
+
+void RecvNetMsgs_Nominal(void)
+{
+    START();
+
+    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
+}/* end RecvNetMsgs_Nominal() */
+
+void Test_SBN_RecvNetMsgs(void)
+{
+    RecvNetMsgs_NetEmpty();
+    RecvNetMsgs_TaskRecv();
+    RecvNetMsgs_Nominal();
+}/* end Test_SBN_RecvNetMsgs() */
+
+void SendNetMsg_MutexTakeErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "unable to take mutex");
+
+    PeerPtr->SendTaskID = 1;
+    UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end SendNetMsg_MutexTakeErr() */
+
+void SendNetMsg_MutexGiveErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(SBN_PEER_EID, "unable to give mutex");
+
+    PeerPtr->SendTaskID = 1;
+    UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, -1);
+
+    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
+
+    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+}/* end SendNetMsg_MutexTakeErr() */
+
+void SendNetMsg_SendErr(void)
+{
+    START();
+
+    IfOps.Send = Send_Err;
+    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
+    UtAssert_INT32_EQ(PeerPtr->SendCnt, 0);
+    UtAssert_INT32_EQ(PeerPtr->SendErrCnt, 1);
+
+    IfOps.Send = Send_Nominal;
+
+    SBN_SendNetMsg(0, 0, NULL, PeerPtr);
+
+    UtAssert_INT32_EQ(PeerPtr->SendCnt, 1);
+    UtAssert_INT32_EQ(PeerPtr->SendErrCnt, 1);
+}/* end SendNetMsg_SendErr() */
+
+void Test_SBN_SendNetMsg(void)
+{
+    SendNetMsg_MutexTakeErr();
+    SendNetMsg_MutexGiveErr();
+    SendNetMsg_SendErr();
+}/* end Test_SBN_SendNetMsg() */
 
 void UT_Setup(void)
 {
@@ -1660,4 +1595,6 @@ void UtTest_Setup(void)
     ADD_TEST(SBN_Disconnected);
     ADD_TEST(SBN_ReloadConfTbl);
     ADD_TEST(SBN_PackUnpack);
+    ADD_TEST(SBN_RecvNetMsgs);
+    ADD_TEST(SBN_SendNetMsg);
 }
