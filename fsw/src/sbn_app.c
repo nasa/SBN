@@ -299,9 +299,9 @@ static void RecvNetTask(void)
  * Receive messages from the specified peer, injecting them onto the local
  * software bus.
  */
-void SBN_RecvNetMsgs(void)
+SBN_Status_t SBN_RecvNetMsgs(void)
 {
-    SBN_Status_t Status = 0;
+    SBN_Status_t SBN_Status = 0;
     uint8 Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 
     SBN_NetIdx_t NetIdx = 0;
@@ -314,23 +314,22 @@ void SBN_RecvNetMsgs(void)
 
         if(Net->TaskFlags & SBN_TASK_RECV)
         {
-            continue;
+            continue; /* separate task handles receiving from a net */
         }/* end if */
 
         if(Net->IfOps->RecvFromNet)
         {
             int MsgCnt = 0;
             // TODO: make configurable
-            for(MsgCnt = 0; MsgCnt < 100; MsgCnt++)
+            for(MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from the net */
             {
                 memset(Msg, 0, sizeof(Msg));
 
-                Status = Net->IfOps->RecvFromNet(
-                    Net, &MsgType, &MsgSz, &ProcessorID, Msg);
+                SBN_Status = Net->IfOps->RecvFromNet(Net, &MsgType, &MsgSz, &ProcessorID, Msg);
 
-                if(Status == SBN_IF_EMPTY)
+                if(SBN_Status == SBN_IF_EMPTY)
                 {
-                    break; /* no (more) messages */
+                    break; /* no (more) messages for this net, continue to next net */
                 }/* end if */
 
                 /* for UDP, the message received may not be from the peer
@@ -338,17 +337,16 @@ void SBN_RecvNetMsgs(void)
                  */
                 SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID);
 
-                if(Peer)
+                if (!Peer)
                 {
-                    OS_GetLocalTime(&Peer->LastRecv);
-                }
-                else
-                {
-                    EVSSendErr(SBN_PEERTASK_EID, "unknown peer (ProcessorID=%d)", ProcessorID);
+                    EVSSendInfo(SBN_PEERTASK_EID, "unknown peer (ProcessorID=%d)", ProcessorID);
+                    /* may be a misconfiguration on my part...? continue processing msgs... */
+                    continue;
                 }/* end if */
 
-                SBN_ProcessNetMsg(Net, MsgType, ProcessorID, MsgSz, Msg);
-            }
+                OS_GetLocalTime(&Peer->LastRecv);
+                SBN_ProcessNetMsg(Net, MsgType, ProcessorID, MsgSz, Msg); /* ignore errors */
+            }/* end for */
         }
         else if(Net->IfOps->RecvFromPeer)
         {
@@ -357,11 +355,9 @@ void SBN_RecvNetMsgs(void)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-                /* Process up to 100 received messages
-                 * TODO: make configurable
-                 */
                 int MsgCnt = 0;
-                for(MsgCnt = 0; MsgCnt < 100; MsgCnt++)
+                // TODO: make configurable
+                for(MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from peer */
                 {
                     CFE_ProcessorID_t ProcessorID = 0;
                     SBN_MsgType_t MsgType = 0;
@@ -369,26 +365,34 @@ void SBN_RecvNetMsgs(void)
 
                     memset(Msg, 0, sizeof(Msg));
 
-                    Status = Net->IfOps->RecvFromPeer(Net, Peer,
+                    SBN_Status = Net->IfOps->RecvFromPeer(Net, Peer,
                         &MsgType, &MsgSz, &ProcessorID, Msg);
 
-                    if(Status == SBN_IF_EMPTY)
+                    if(SBN_Status == SBN_IF_EMPTY)
                     {
-                        break; /* no (more) messages */
+                        break; /* no (more) messages for this peer, continue to next peer */
                     }/* end if */
 
                     OS_GetLocalTime(&Peer->LastRecv);
 
-                    SBN_ProcessNetMsg(Net, MsgType, ProcessorID, MsgSz, Msg);
+                    SBN_Status = SBN_ProcessNetMsg(Net, MsgType, ProcessorID, MsgSz, Msg);
+
+                    if(SBN_Status != SBN_SUCCESS)
+                    {
+                        break; /* continue to next peer */
+                    }/* end if */
                 }/* end for */
             }/* end for */
         }
         else
         {
-            EVSSendErr(SBN_PEER_EID, "neither RecvFromPeer nor RecvFromNet defined for net #%d",
-                NetIdx);
+            EVSSendErr(SBN_PEER_EID, "neither RecvFromPeer nor RecvFromNet defined for net #%d", NetIdx);
+
+            /* meanwhile, continue to next net... */
         }/* end if */
     }/* end for */
+
+    return SBN_SUCCESS;
 }/* end SBN_RecvNetMsgs */
 
 /**
@@ -1334,6 +1338,8 @@ void SBN_AppMain(void)
  * @param[in] ProcessorID The ProcessorID to send this message to.
  * @param[in] MsgSz The size of the message (in bytes).
  * @param[in] Msg The message contents.
+ *
+ * @return SBN_SUCCESS on successful processing, SBN_ERROR otherwise
  */
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSize, void *Msg)

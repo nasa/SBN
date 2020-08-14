@@ -78,7 +78,14 @@ static SBN_Status_t SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
     Pack_MsgID(&Pack, MsgID);
     Pack_Data(&Pack, &QoS, sizeof(QoS)); /* 2 uint8's */
 
-    return SBN_SendNetMsg(SubType, Pack.BufUsed, Buf, Peer);
+    if (SBN_SendNetMsg(SubType, Pack.BufUsed, Buf, Peer) == Pack.BufUsed)
+    {
+        return SBN_SUCCESS;
+    }
+    else
+    {
+        return SBN_ERROR;
+    }/* end if */
 }/* end SendLocalSubToPeer */
 
 /**

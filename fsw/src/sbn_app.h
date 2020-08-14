@@ -59,7 +59,7 @@
 void SBN_ShowPeerData(void);
 int32 SBN_GetPeerFileData(void);
 
-void SBN_RecvNetMsgs(void);
+SBN_Status_t SBN_RecvNetMsgs(void);
 
 void SBN_CheckPeerPipes(void);
 
