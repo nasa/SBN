@@ -669,7 +669,7 @@ static void PeerPoll(void)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            if(Net->RecvTaskID)
+            if(Peer->RecvTaskID)
             {
                 continue;
             }/* end if */
