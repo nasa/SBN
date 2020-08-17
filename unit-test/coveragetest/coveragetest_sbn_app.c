@@ -4,295 +4,8 @@
 #include "cfe_sb_events.h"
 #include "sbn_pack.h"
 
-/********************************** event hook ************************************/
-typedef struct
-{
-    uint16 ExpectedEvent;
-    int MatchCount;
-    const char *ExpectedText;
-} UT_CheckEvent_t;
-
-/*
- * An example hook function to check for a specific event.
- */
-static int32 UT_CheckEvent_Hook(void *UserObj, int32 StubRetcode,
-        uint32 CallCount, const UT_StubContext_t *Context, va_list va)
-{
-    UT_CheckEvent_t *State = UserObj;
-    char TestText[CFE_MISSION_EVS_MAX_MESSAGE_LENGTH];
-    uint16 EventId;
-    const char *Spec;
-
-    /*
-     * The CFE_EVS_SendEvent stub passes the EventID as the
-     * first context argument.
-     */
-    if (Context->ArgCount > 0)
-    {
-        EventId = UT_Hook_GetArgValueByName(Context, "EventID", uint16);
-        if (EventId == State->ExpectedEvent)
-        {
-            /*
-             * Example of how to validate the full argument set.
-             * If reference text was supplied, also check against this.
-             *
-             * NOTE: While this can be done, use with discretion - This isn't really
-             * verifying that the FSW code unit generated the correct event text,
-             * rather it is validating what the system snprintf() library function
-             * produces when passed the format string and args.
-             *
-             * __This derived string is not an actual output of the unit under test__
-             */
-            if (State->ExpectedText != NULL)
-            {
-                Spec = UT_Hook_GetArgValueByName(Context, "Spec", const char *);
-                if (Spec != NULL)
-                {
-                    vsnprintf(TestText, sizeof(TestText), Spec, va);
-                    if (strncmp(TestText,State->ExpectedText,strlen(State->ExpectedText)) == 0)
-                    {
-                        ++State->MatchCount;
-                    }
-                }
-            }
-            else
-            {
-                ++State->MatchCount;
-            }
-        }
-    }
-
-    return 0;
-}
-
-UT_CheckEvent_t EventTest;
-
-/*
- * Helper function to set up for event checking
- * This attaches the hook function to CFE_EVS_SendEvent
- */
-static void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText)
-{
-    memset(&EventTest, 0, sizeof(EventTest));
-    EventTest.ExpectedEvent = ExpectedEvent;
-    EventTest.ExpectedText = ExpectedText;
-    UT_SetVaHookFunction(UT_KEY(CFE_EVS_SendEvent), UT_CheckEvent_Hook, &EventTest);
-}
-
-/********************************** interface operations ************************************/
-
-static CFE_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID)
-{
-    return CFE_SUCCESS;
-}/* end ProtoInitModule_Nominal() */
-
-static SBN_Status_t InitNet_Nominal(SBN_NetInterface_t *Net)
-{
-    Net->Configured = true;
-    return SBN_SUCCESS;
-}/* end InitNet_Nominal() */
-
-static SBN_Status_t LoadNet_Nominal(SBN_NetInterface_t *Net, const char *Address)
-{
-    return SBN_SUCCESS;
-}/* end InitNet_Nominal() */
-
-static SBN_Status_t InitPeer_Nominal(SBN_PeerInterface_t *Peer)
-{
-    return SBN_SUCCESS;
-}/* end InitPeer_Nominal() */
-
-static SBN_Status_t RecvFromNet_Nominal(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
-    CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer)
-{
-    *ProcessorIDPtr = 1235;
-
-    return SBN_SUCCESS;
-}/* end RecvFromNet_Nominal() */
-
-static SBN_Status_t LoadPeer_Nominal(SBN_PeerInterface_t *Peer, const char *Address)
-{
-    return SBN_SUCCESS;
-}/* end LoadPeer_Nominal() */
-
-static SBN_Status_t UnloadNet_Nominal(SBN_NetInterface_t *Net)
-{
-    return SBN_SUCCESS;
-}/* end UnloadNet_Nominal() */
-
-static SBN_Status_t UnloadPeer_Nominal(SBN_PeerInterface_t *Net)
-{
-    return SBN_SUCCESS;
-}/* end UnloadPeer_Nominal() */
-
-static SBN_Status_t PollPeer_Nominal(SBN_PeerInterface_t *Peer)
-{
-    return SBN_SUCCESS;
-}/* end PollPeer_Nominal() */
-
-static SBN_MsgSz_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
-{
-    return MsgSz;
-}/* end Send_Nominal() */
-
-static SBN_MsgSz_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
-{
-    return -1;
-}/* end Send_Err() */
-
-SBN_IfOps_t IfOps =
-{
-    .InitModule = ProtoInitModule_Nominal,
-    .InitNet = InitNet_Nominal,
-    .InitPeer = InitPeer_Nominal,
-    .LoadNet = LoadNet_Nominal,
-    .LoadPeer = LoadPeer_Nominal,
-    .PollPeer = PollPeer_Nominal,
-    .Send = Send_Nominal,
-    .RecvFromPeer = NULL,
-    .RecvFromNet = RecvFromNet_Nominal,
-    .UnloadNet = UnloadNet_Nominal,
-    .UnloadPeer = UnloadPeer_Nominal
-}; /* end IfOps */
-
-SBN_IfOps_t *IfOpsPtr = &IfOps;
-
-static CFE_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID)
-{
-    return CFE_SUCCESS;
-}/* end InitFilterModule() */
-
-SBN_FilterInterface_t FilterInterface =
-{
-    .InitModule = FilterInitModule_Nominal,
-    .FilterRecv = NULL,
-    .FilterSend = NULL,
-    .RemapMID = NULL
-}; /* end FilterInterface */
-
-SBN_FilterInterface_t *FilterInterfacePtr = &FilterInterface;
-
-/********************************** table ************************************/
-
-SBN_ConfTbl_t NominalTbl =
-{
-    .ProtocolModules =
-    {
-        {
-            .Name = "UDP",
-            .LibFileName = "/cf/sbn_udp.so",
-            .LibSymbol = "SBN_UDP_Ops",
-            .BaseEID = 0x0100
-        }
-    },
-    .ProtocolCnt = 1,
-    .FilterModules =
-    {
-        {
-            .Name = "CCSDS Endian",
-            .LibFileName = "/cf/sbn_f_ccsds_end.so",
-            .LibSymbol = "SBN_F_CCSDS_End",
-            .BaseEID = 0x1000
-        }
-    },
-    .FilterCnt = 1,
-
-    .Peers =
-    {
-        { /* [0] */
-            .ProcessorID = 1234,
-            .SpacecraftID = 5678,
-            .NetNum = 0,
-            .ProtocolName = "UDP",
-            .Filters = {
-                "CCSDS Endian"
-            },
-            .Address = "127.0.0.1:2234",
-            .TaskFlags = SBN_TASK_POLL
-        },
-        { /* [1] */
-            .ProcessorID = 1235,
-            .SpacecraftID = 5678,
-            .NetNum = 0,
-            .ProtocolName = "UDP",
-            .Filters = {
-                "CCSDS Endian"
-            },
-            .Address = "127.0.0.1:2235",
-            .TaskFlags = SBN_TASK_POLL
-        },
-    },
-    .PeerCnt = 2
-}; /* end NominalTbl */
-
-SBN_ConfTbl_t *NominalTblPtr = &NominalTbl;
-
-/********************************** globals ************************************/
-CFE_ProcessorID_t ProcessorID = 1234;
-CFE_SpacecraftID_t SpacecraftID = 5678;
-CFE_SB_MsgId_t MsgID = 0xDEAD;
-SBN_NetInterface_t *NetPtr = NULL;
-SBN_PeerInterface_t *PeerPtr = NULL;
+CFE_SB_MsgId_t MsgID = 0x1818;
 /********************************** tests ************************************/
-/* SBN tries to look up the symbol of the protocol or filter module using OS_SymbolLookup, if it
- * finds it (because ES loaded it) it does nothing; if it does not, it tries to load the symbol.
- * This hook forces the OS_SymbolLookup to fail the first time but succeed the second time and
- * load the symbol into the data buffer so that the "load" has been performed successfully.
- */
-static int32 SymLookHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
-{
-    static char LastSeen[32] = {0};
-    char *SymbolName = (char *)Context->ArgPtr[1];
-
-    /* this forces the LoadConf_Module() function to call ModuleLoad */
-
-    /* we've seen this symbol already, time to load */
-    if (!strcmp(SymbolName, LastSeen))
-    {
-        if(!strcmp(SymbolName, "SBN_UDP_Ops"))
-        {
-            /* the stub will read this into the addr */
-            UT_SetDataBuffer(UT_KEY(OS_SymbolLookup), &IfOpsPtr, sizeof(IfOpsPtr), false);
-        }
-        else if (!strcmp(SymbolName, "SBN_F_CCSDS_End"))
-        {
-            /* the stub will read this into the addr */
-            UT_SetDataBuffer(UT_KEY(OS_SymbolLookup), &FilterInterfacePtr, sizeof(FilterInterfacePtr), false);
-        }/* end if */
-
-        return OS_SUCCESS;
-    }
-    else
-    {
-        strcpy(LastSeen, SymbolName); /* so that next call succeeds */
-
-        return 1;
-    }/* end if */
-}/* end SymLookHook() */
-
-#define START() START_fn(__func__, __LINE__)
-void START_fn(const char *func, int line)
-{
-    UT_ResetState(0);
-    printf("Start item %s (%d)\n", func, line);
-    memset(&SBN, 0, sizeof(SBN));
-
-    NetPtr = &SBN.Nets[0];
-    SBN.NetCnt = 1;
-    NetPtr->PeerCnt = 1;
-    NetPtr->Configured = 1;
-    PeerPtr = &NetPtr->Peers[0];
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
-    PeerPtr->Net = NetPtr;
-    NetPtr->IfOps = &IfOps;
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
-
-    UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-}/* end START() */
-
 static void AppMain_ESRegisterErr(void)
 {
     START();
@@ -324,7 +37,7 @@ static void AppMain_AppIdErr(void)
     SBN_AppMain();
 
     UtAssert_STUB_COUNT(OS_TaskGetId, 0);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_AppIdErr() */
 
 static void AppMain_TaskInfoErr(void)
@@ -336,7 +49,7 @@ static void AppMain_TaskInfoErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_TaskInfoErr() */
 
 /********************************** load conf tbl tests  ************************************/
@@ -350,7 +63,7 @@ static void LoadConfTbl_RegisterErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConfTbl_RegisterErr() */
 
 static void LoadConfTbl_LoadErr(void)
@@ -362,7 +75,7 @@ static void LoadConfTbl_LoadErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConfTbl_LoadErr() */
 
 static void LoadConfTbl_ManageErr(void)
@@ -374,7 +87,7 @@ static void LoadConfTbl_ManageErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConfTbl_ManageErr() */
 
 static void LoadConfTbl_NotifyErr(void)
@@ -386,7 +99,7 @@ static void LoadConfTbl_NotifyErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConfTbl_NotifyErr() */
 
 static void Test_AppMain_LoadConfTbl(void)
@@ -403,14 +116,14 @@ static void LoadConf_Module_ProtoLibFNNull(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module (Name=UDP)");
 
-    char tmpFNFirst = NominalTbl.ProtocolModules[0].LibFileName[0];
-    NominalTbl.ProtocolModules[0].LibFileName[0] = '\0';
+    char tmpFNFirst = NominalTblPtr->ProtocolModules[0].LibFileName[0];
+    NominalTblPtr->ProtocolModules[0].LibFileName[0] = '\0';
 
     SBN_AppMain();
 
-    NominalTbl.ProtocolModules[0].LibFileName[0] = tmpFNFirst;
+    NominalTblPtr->ProtocolModules[0].LibFileName[0] = tmpFNFirst;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_Module_ProtoLibFNNull() */
 
 static void LoadConf_Module_FiltLibFNNull(void)
@@ -419,14 +132,14 @@ static void LoadConf_Module_FiltLibFNNull(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module (Name=CCSDS Endian)");
 
-    char tmpFNFirst = NominalTbl.FilterModules[0].LibFileName[0];
-    NominalTbl.FilterModules[0].LibFileName[0] = '\0';
+    char tmpFNFirst = NominalTblPtr->FilterModules[0].LibFileName[0];
+    NominalTblPtr->FilterModules[0].LibFileName[0] = '\0';
 
     SBN_AppMain();
 
-    NominalTbl.FilterModules[0].LibFileName[0] = tmpFNFirst;
+    NominalTblPtr->FilterModules[0].LibFileName[0] = tmpFNFirst;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_Module_FiltLibFNNull() */
 
 static void LoadConf_Module_ModLdErr(void)
@@ -439,7 +152,7 @@ static void LoadConf_Module_ModLdErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_Module_ModLdErr() */
 
 int32 AlwaysErrHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
@@ -459,7 +172,7 @@ static void LoadConf_Module_SymLookErr(void)
 
     UT_DEFAULT_IMPL(OS_SymbolLookup);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_Module_SymLookErr() */
 
 static void Test_LoadConf_Module(void)
@@ -482,7 +195,7 @@ static void LoadConf_GetAddrErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_GetAddrErr() */
 
 static CFE_Status_t ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID)
@@ -496,13 +209,13 @@ static void LoadConf_ProtoInitErr(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in protocol init");
 
-    IfOps.InitModule = ProtoInitErr_InitModule;
+    IfOpsPtr->InitModule = ProtoInitErr_InitModule;
 
     SBN_AppMain();
 
-    IfOps.InitModule = ProtoInitModule_Nominal;
+    IfOpsPtr->InitModule = ProtoInitModule_Nominal;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_ProtoInitErr() */
 
 static CFE_Status_t FilterInitErr_InitModule(int FilterVersion, CFE_EVS_EventID_t BaseEID)
@@ -516,13 +229,13 @@ static void LoadConf_FilterInitErr(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in filter init");
 
-    FilterInterface.InitModule = FilterInitErr_InitModule;
+    FilterInterfacePtr->InitModule = FilterInitErr_InitModule;
 
     SBN_AppMain();
 
-    FilterInterface.InitModule = FilterInitModule_Nominal;
+    FilterInterfacePtr->InitModule = FilterInitModule_Nominal;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_FilterInitErr() */
 
 static void LoadConf_ProtoNameErr(void)
@@ -531,16 +244,16 @@ static void LoadConf_ProtoNameErr(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module name XDP");
 
-    char o = NominalTbl.Peers[0].ProtocolName[0];
-    NominalTbl.Peers[0].ProtocolName[0] = 'X'; /* temporary make it "XDP" */
+    char o = NominalTblPtr->Peers[0].ProtocolName[0];
+    NominalTblPtr->Peers[0].ProtocolName[0] = 'X'; /* temporary make it "XDP" */
 
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
 
     SBN_AppMain();
 
-    NominalTbl.Peers[0].ProtocolName[0] = o;
+    NominalTblPtr->Peers[0].ProtocolName[0] = o;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_ProtoNameErr() */
 
 static void LoadConf_FiltNameErr(void)
@@ -551,16 +264,16 @@ static void LoadConf_FiltNameErr(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "Invalid filter name: XCSDS Endian");
 
-    char o = NominalTbl.Peers[0].Filters[0][0];
-    NominalTbl.Peers[0].Filters[0][0] = 'X';
+    char o = NominalTblPtr->Peers[0].Filters[0][0];
+    NominalTblPtr->Peers[0].Filters[0][0] = 'X';
 
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
 
     SBN_AppMain();
 
-    NominalTbl.Peers[0].Filters[0][0] = o;
+    NominalTblPtr->Peers[0].Filters[0][0] = o;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_FiltNameErr() */
 
 static void LoadConf_TooManyNets(void)
@@ -571,13 +284,13 @@ static void LoadConf_TooManyNets(void)
 
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
 
-    NominalTbl.Peers[0].NetNum = SBN_MAX_NETS + 1;
+    NominalTblPtr->Peers[0].NetNum = SBN_MAX_NETS + 1;
 
     SBN_AppMain();
 
-    NominalTbl.Peers[0].NetNum = 0;
+    NominalTblPtr->Peers[0].NetNum = 0;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_TooManyNets() */
 
 static void LoadConf_ReleaseAddrErr(void)
@@ -590,7 +303,7 @@ static void LoadConf_ReleaseAddrErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_ReleaseAddrErr() */
 
 static void LoadConf_NetCntInc(void)
@@ -616,7 +329,7 @@ static void LoadConf_Nominal(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end LoadConf_Nominal() */
 
 static void Test_LoadConf(void)
@@ -643,7 +356,7 @@ static void AppMain_MutSemCrErr(void)
     SBN_AppMain();
 
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 0, 0);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_MutSemCrErr() */
 
 static int32 NoNetsHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
@@ -662,7 +375,7 @@ static void InitInt_NoNets(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_NoNets() */
 
 static int32 NetConfHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
@@ -681,7 +394,7 @@ static void InitInt_NetConfErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_NetConfErr() */
 
 static void InitInt_NetChildErr(void)
@@ -698,7 +411,7 @@ static void InitInt_NetChildErr(void)
 
     NetPtr->TaskFlags = SBN_TASK_POLL;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_NetChildErr() */
 
 static void InitInt_NetChildSuccess(void)
@@ -715,7 +428,7 @@ static void InitInt_NetChildSuccess(void)
 
     NetPtr->TaskFlags = SBN_TASK_POLL;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_NetChildSuccess() */
 
 static SBN_Status_t RecvFromPeer_Nominal(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer)
@@ -731,17 +444,17 @@ static void InitInt_PeerChildRecvErr(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, -1);
 
-    NominalTbl.Peers[1].TaskFlags = SBN_TASK_RECV;
-    IfOps.RecvFromNet = NULL;
-    IfOps.RecvFromPeer = RecvFromPeer_Nominal;
+    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_RECV;
+    IfOpsPtr->RecvFromNet = NULL;
+    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
 
     SBN_AppMain();
 
-    NominalTbl.Peers[1].TaskFlags = SBN_TASK_POLL;
-    IfOps.RecvFromNet = RecvFromNet_Nominal;
-    IfOps.RecvFromPeer = NULL;
+    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
+    IfOpsPtr->RecvFromPeer = NULL;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_PeerChildRecvErr() */
 
 static void InitInt_PeerChildSendErr(void)
@@ -752,17 +465,17 @@ static void InitInt_PeerChildSendErr(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 2, -1);
 
-    NominalTbl.Peers[1].TaskFlags = SBN_TASKS;
-    IfOps.RecvFromNet = NULL;
-    IfOps.RecvFromPeer = RecvFromPeer_Nominal;
+    NominalTblPtr->Peers[1].TaskFlags = SBN_TASKS;
+    IfOpsPtr->RecvFromNet = NULL;
+    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
 
     SBN_AppMain();
 
-    NominalTbl.Peers[1].TaskFlags = SBN_TASK_POLL;
-    IfOps.RecvFromNet = RecvFromNet_Nominal;
-    IfOps.RecvFromPeer = NULL;
+    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
+    IfOpsPtr->RecvFromPeer = NULL;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_PeerChildRecvErr() */
 
 static void InitInt_PeerChildSuccess(void)
@@ -773,17 +486,17 @@ static void InitInt_PeerChildSuccess(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, -1); /* fail just after InitInterfaces() */
 
-    NominalTbl.Peers[1].TaskFlags = SBN_TASKS;
-    IfOps.RecvFromNet = NULL;
-    IfOps.RecvFromPeer = RecvFromPeer_Nominal;
+    NominalTblPtr->Peers[1].TaskFlags = SBN_TASKS;
+    IfOpsPtr->RecvFromNet = NULL;
+    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
 
     SBN_AppMain();
 
-    NominalTbl.Peers[1].TaskFlags = SBN_TASK_POLL;
-    IfOps.RecvFromNet = RecvFromNet_Nominal;
-    IfOps.RecvFromPeer = NULL;
+    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
+    IfOpsPtr->RecvFromPeer = NULL;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end InitInt_PeerChildRecvSuccess() */
 
 static void Test_InitInt(void)
@@ -807,7 +520,7 @@ static void AppMain_SubPipeCrErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_SubPipeCrErr() */
 
 static void AppMain_SubPipeAllSubErr(void)
@@ -820,7 +533,7 @@ static void AppMain_SubPipeAllSubErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_SubPipeAllSubErr() */
 
 static void AppMain_SubPipeOneSubErr(void)
@@ -833,7 +546,7 @@ static void AppMain_SubPipeOneSubErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_SubPipeOneSubErr() */
 
 static void AppMain_CmdPipeCrErr(void)
@@ -846,7 +559,7 @@ static void AppMain_CmdPipeCrErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_CmdPipeCrErr() */
 
 static void AppMain_CmdPipeSubErr(void)
@@ -859,7 +572,7 @@ static void AppMain_CmdPipeSubErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end AppMain_CmdPipeSubErr() */
 
 static void SBStart_CrPipeErr(void)
@@ -872,7 +585,7 @@ static void SBStart_CrPipeErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SBStart_CrPipeErr() */
 
 static void SBStart_SubErr(void)
@@ -885,7 +598,7 @@ static void SBStart_SubErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SBStart_SubErr() */
 
 static void SBStart_RcvMsgErr(void)
@@ -916,7 +629,7 @@ static void SBStart_RcvMsgErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SBStart_RcvMsgErr() */
 
 static void SBStart_UnsubErr(void)
@@ -954,7 +667,7 @@ static void SBStart_UnsubErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SBStart_UnsubErr() */
 
 static void SBStart_RcvMsgSucc(void)
@@ -1016,7 +729,7 @@ static void SBStart_DelPipeErr(void)
 
     SBN_AppMain();
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SBStart_DelPipeErr() */
 
 static void Test_SBStart(void)
@@ -1232,7 +945,7 @@ static void PeerPoll_NetRecvTask(void)
     START();
 
     PollPeerCnt = 0;
-    IfOps.PollPeer = PollPeer_Count;
+    IfOpsPtr->PollPeer = PollPeer_Count;
     NetPtr->RecvTaskID = 1;
 
     /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
@@ -1254,7 +967,7 @@ static void PeerPoll_NetRecvTask(void)
 
     SBN_AppMain();
 
-    IfOps.PollPeer = PollPeer_Nominal;
+    IfOpsPtr->PollPeer = PollPeer_Nominal;
 
     UtAssert_INT32_EQ(PollPeerCnt, 0);
 }/* end PeerPoll_NetRecvTask() */
@@ -1266,7 +979,7 @@ static void PeerPoll_PeerRecvTask(void)
     NetPtr->Peers[0].RecvTaskID = 1; /* not touched by LoadConf */
 
     PollPeerCnt = 0;
-    IfOps.PollPeer = PollPeer_Count;
+    IfOpsPtr->PollPeer = PollPeer_Count;
 
     /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
@@ -1287,7 +1000,7 @@ static void PeerPoll_PeerRecvTask(void)
 
     SBN_AppMain();
 
-    IfOps.PollPeer = PollPeer_Nominal;
+    IfOpsPtr->PollPeer = PollPeer_Nominal;
 
     UtAssert_INT32_EQ(PollPeerCnt, 2);
 }/* end PeerPoll_PeerRecvTask() */
@@ -1377,7 +1090,7 @@ static void ProcessNetMsg_PeerErr(void)
 
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID + 1, 0, NULL), SBN_ERROR);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* ProcessNetMsg_PeerErr() */
 
 static void ProcessNetMsg_ProtoMsg_VerErr(void)
@@ -1390,7 +1103,7 @@ static void ProcessNetMsg_ProtoMsg_VerErr(void)
 
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID, sizeof(ver), &ver), SBN_SUCCESS);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end ProcessNetMsg_ProtoMsg_VerErr() */
 
 static void ProcessNetMsg_ProtoMsg_Nominal(void)
@@ -1403,7 +1116,7 @@ static void ProcessNetMsg_ProtoMsg_Nominal(void)
 
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID, sizeof(ver), &ver), SBN_SUCCESS);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end ProcessNetMsg_ProtoMsg_Nominal() */
 
 static SBN_Status_t RecvFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
@@ -1470,7 +1183,7 @@ static void ProcessNetMsg_AppMsg_PassMsgErr(void)
 
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, 0, NULL), SBN_ERROR);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end ProcessNetMsg_AppMsg_PassMsgErr() */
 
 static void ProcessNetMsg_AppMsg_Nominal(void)
@@ -1578,7 +1291,7 @@ static void Connected_AlreadyErr(void)
 
     UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
     UtAssert_INT32_EQ(PeerPtr->Connected, 1);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end Connected_AlreadyErr() */
 
 static void Connected_PipeOptErr(void)
@@ -1590,18 +1303,18 @@ static void Connected_PipeOptErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_SetPipeOpts), 1, -1);
 
     UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end Connected_PipeOptErr() */
 
 static void Connected_SendErr(void)
 {
     START();
 
-    IfOps.Send = Send_Err;
+    IfOpsPtr->Send = Send_Err;
 
     UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
 
-    IfOps.Send = Send_Nominal;
+    IfOpsPtr->Send = Send_Nominal;
 }/* end Connected_SendErr() */
 
 static void Connected_CrPipeErr(void)
@@ -1613,7 +1326,7 @@ static void Connected_CrPipeErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, -1);
 
     UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end Connected_CrPipeErr() */
 
 static void Connected_Nominal(void)
@@ -1645,7 +1358,7 @@ static void Disconnected_ConnErr(void)
     PeerPtr->ProcessorID = ProcessorID;
 
     UtAssert_INT32_EQ(SBN_Disconnected(PeerPtr), SBN_ERROR);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end Disconnected_Nominal() */
 
 static void Disconnected_Nominal(void)
@@ -1661,7 +1374,7 @@ static void Disconnected_Nominal(void)
 
     UtAssert_INT32_EQ(SBN_Disconnected(PeerPtr), SBN_SUCCESS);
     UtAssert_INT32_EQ(PeerPtr->Connected, 0);
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end Disconnected_Nominal() */
 
 static void Test_SBN_Disconnected(void)
@@ -1681,15 +1394,15 @@ static void ReloadConfTbl_UnloadNetErr(void)
 
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload network ");
 
-    IfOps.UnloadNet = UnloadNet_Err;
+    IfOpsPtr->UnloadNet = UnloadNet_Err;
 
     PeerPtr->Connected = 1;
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 
-    IfOps.UnloadNet = UnloadNet_Nominal;
+    IfOpsPtr->UnloadNet = UnloadNet_Nominal;
 }/* end ReloadConfTbl_UnloadNetErr() */
 
 static void ReloadConfTbl_ProtoUnloadErr(void)
@@ -1706,7 +1419,7 @@ static void ReloadConfTbl_ProtoUnloadErr(void)
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end ReloadConfTbl_ProtoUnloadErr() */
 
 static void ReloadConfTbl_FiltUnloadErr(void)
@@ -1721,7 +1434,7 @@ static void ReloadConfTbl_FiltUnloadErr(void)
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end ReloadConfTbl_FiltUnloadErr() */
 
 static void ReloadConfTbl_TblUpdErr(void)
@@ -1830,24 +1543,24 @@ void RecvNetMsgs_NetEmpty(void)
 {
     START();
 
-    IfOps.RecvFromNet = RecvFromNet_Empty;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Empty;
 
     UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
 
-    IfOps.RecvFromNet = RecvFromNet_Nominal;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
 }/* end RecvNetMsgs_NetEmpty() */
 
 void RecvNetMsgs_PeerRecv(void)
 {
     START();
 
-    IfOps.RecvFromNet = NULL;
-    IfOps.RecvFromPeer = RecvFromPeer_Nominal;
+    IfOpsPtr->RecvFromNet = NULL;
+    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
 
     UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
     
-    IfOps.RecvFromNet = RecvFromNet_Nominal;
-    IfOps.RecvFromPeer = NULL;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
+    IfOpsPtr->RecvFromPeer = NULL;
 }/* end RecvNetMsgs_PeerRecv() */
 
 void RecvNetMsgs_NoRecv(void)
@@ -1856,15 +1569,15 @@ void RecvNetMsgs_NoRecv(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "neither RecvFromPeer nor RecvFromNet defined for net ");
 
-    IfOps.RecvFromNet = NULL;
-    IfOps.RecvFromPeer = NULL;
+    IfOpsPtr->RecvFromNet = NULL;
+    IfOpsPtr->RecvFromPeer = NULL;
 
     UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
 
-    IfOps.RecvFromNet = RecvFromNet_Nominal;
-    IfOps.RecvFromPeer = NULL;
+    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
+    IfOpsPtr->RecvFromPeer = NULL;
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end RecvNetMsgs_NoRecv() */
 
 void RecvNetMsgs_Nominal(void)
@@ -1894,7 +1607,7 @@ void SendNetMsg_MutexTakeErr(void)
 
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SendNetMsg_MutexTakeErr() */
 
 void SendNetMsg_MutexGiveErr(void)
@@ -1908,19 +1621,19 @@ void SendNetMsg_MutexGiveErr(void)
 
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
 
-    UtAssert_True(EventTest.MatchCount == 1, "EID generated (%d)", EventTest.MatchCount);
+    EVENT_CNT(1);
 }/* end SendNetMsg_MutexTakeErr() */
 
 void SendNetMsg_SendErr(void)
 {
     START();
 
-    IfOps.Send = Send_Err;
+    IfOpsPtr->Send = Send_Err;
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
     UtAssert_INT32_EQ(PeerPtr->SendCnt, 0);
     UtAssert_INT32_EQ(PeerPtr->SendErrCnt, 1);
 
-    IfOps.Send = Send_Nominal;
+    IfOpsPtr->Send = Send_Nominal;
 
     SBN_SendNetMsg(0, 0, NULL, PeerPtr);
 

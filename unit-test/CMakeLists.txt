@@ -32,7 +32,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 # Generate a dedicated "testrunner" executable that executes the tests for each FSW code unit
 # Although sbn has only one source file, this is done in a loop such that 
 # the general pattern should work for several files as well.
-foreach(SRCFILE sbn_app.c)
+foreach(SRCFILE sbn_app.c sbn_subs.c)
     get_filename_component(UNITNAME "${SRCFILE}" NAME_WE)
     
     set(TESTNAME                "${UT_NAME}-${UNITNAME}")
@@ -55,6 +55,7 @@ foreach(SRCFILE sbn_app.c)
     # actual coverage test code (test cases) and the unit under test
     add_executable(${TESTNAME}-testrunner
         ${TESTCASE_SOURCE_FILE}
+        coveragetest/sbn_coveragetest_common.c
         $<TARGET_OBJECTS:ut_${TESTNAME}_object>
     )
     
