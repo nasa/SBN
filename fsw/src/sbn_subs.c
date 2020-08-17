@@ -191,13 +191,6 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
     /* don't send SBN messages */
     if(MsgID == SBN_CMD_MID || MsgID == SBN_TLM_MID) return SBN_SUCCESS;
 
-    if(SBN.SubCnt >= SBN_MAX_SUBS_PER_PEER)
-    {
-        EVSSendErr(SBN_SUB_EID, "local subscription ignored for MsgID 0x%04X, max (%d) met",
-                ntohs(MsgID), SBN_MAX_SUBS_PER_PEER);
-        return SBN_ERROR;
-    }/* end if */
-
     int SubIdx = 0;
 
     /* if there is already an entry for this msg id,just incr InUseCtr */
@@ -206,6 +199,13 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
         SBN.Subs[SubIdx].InUseCtr++;
         /* does not send to peers, as they already know */
         return SBN_SUCCESS;
+    }/* end if */
+
+    if(SBN.SubCnt >= SBN_MAX_SUBS_PER_PEER)
+    {
+        EVSSendErr(SBN_SUB_EID, "local subscription ignored for MsgID 0x%04X, max (%d) met",
+                ntohs(MsgID), SBN_MAX_SUBS_PER_PEER);
+        return SBN_ERROR;
     }/* end if */
 
     /* log new entry into Subs array */
