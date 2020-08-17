@@ -1478,7 +1478,7 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
     EVSSendInfo(SBN_PEER_EID, "CPU %d connected", Peer->ProcessorID);
 
     uint8 ProtocolVer = SBN_PROTO_VER;
-    if (SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer) != sizeof(ProtocolVer))
+    if (SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer) != sizeof(ProtocolVer) + SBN_PACKED_HDR_SZ)
     {
         return SBN_ERROR;
     }/* end if */
