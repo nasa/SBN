@@ -370,7 +370,7 @@ static SBN_Status_t AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_
     CFE_Status = CFE_SB_SubscribeLocal(MsgID, Peer->Pipe, SBN_DEFAULT_MSG_LIM);
     if(CFE_Status != CFE_SUCCESS)
     {   
-        EVSSendErr(SBN_SUB_EID, "Unable to subscribe to MID 0x%04X", htons(MsgID));
+        EVSSendErr(SBN_SUB_EID, "unable to subscribe to MID 0x%04X", MsgID);
         return SBN_ERROR;
     }/* end if */
     
@@ -499,14 +499,15 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
 
         if(SBN_Status != SBN_SUCCESS)
         {
-            return SBN_ERROR;
+            /* assume the filter generated an event */
+            return SBN_Status;
         }/* end if */
     }/* end for */
 
     if(!IsPeerSubMsgID(&idx, MsgID, Peer))
     {
-        EVSSendInfo(SBN_SUB_EID, "%s:Cannot process unsubscription from ProcessorID %d, msg 0x%04X not found",
-            CFE_PLATFORM_CPU_NAME, Peer->ProcessorID, htons(MsgID));
+        EVSSendInfo(SBN_SUB_EID, "cannot process unsubscription from ProcessorID %d, msg 0x%04X not found",
+            Peer->ProcessorID, MsgID);
         return SBN_SUCCESS;
     }/* end if */
 
@@ -526,7 +527,7 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
     /* unsubscribe to the msg id on the peer pipe */
     if(CFE_SB_UnsubscribeLocal(MsgID, Peer->Pipe) != CFE_SUCCESS)
     {
-        EVSSendErr(SBN_SUB_EID, "Unable to unsubscribe from MID 0x%04X", htons(MsgID));
+        EVSSendErr(SBN_SUB_EID, "unable to unsubscribe from MID 0x%04X", MsgID);
         return SBN_ERROR;
     }/* end if */
 
@@ -553,7 +554,7 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 
     if(strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
-        EVSSendErr(SBN_PROTO_EID, "version number mismatch with peer CpuID %d", Peer->ProcessorID);
+        EVSSendInfo(SBN_PROTO_EID, "version number mismatch with peer CpuID %d", Peer->ProcessorID);
     }
 
     uint16 SubCnt;
@@ -571,7 +572,7 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     }/* end for */
 
     return SBN_SUCCESS;
-}/* end SBN_ProcessUnsubFromPeer */
+}/* end SBN_ProcessUnsubsFromPeer() */
 
 /**
  * When SBN starts, it queries for all existing subscriptions. This method
@@ -623,7 +624,7 @@ SBN_Status_t SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
         CFE_Status = CFE_SB_UnsubscribeLocal(Peer->Subs[i].MsgID, Peer->Pipe);
         if(CFE_Status != CFE_SUCCESS)
         {
-            EVSSendErr(SBN_SUB_EID, "unable to unsubscribe from message id 0x%04X", htons(Peer->Subs[i].MsgID));
+            EVSSendErr(SBN_SUB_EID, "unable to unsubscribe from message id 0x%04X", Peer->Subs[i].MsgID);
             /* but continue processing... */
         }/* end if */
     }/* end for */
