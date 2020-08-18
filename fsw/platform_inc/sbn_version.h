@@ -18,11 +18,12 @@
 #ifndef _sbn_version_
 #define _sbn_version_
 
+/* version updates when there's a change in the API's or other functional changes */
 #define SBN_MAJOR_VERSION   1
-#define SBN_MINOR_VERSION   16
+#define SBN_MINOR_VERSION   17
 #define SBN_REVISION        0
 
-#define SBN_PROTOCOL_VERSION 3 /* size is an int32 */
+#define SBN_PROTOCOL_VERSION 4 /* size is an int32 */
 #define SBN_FILTER_VERSION 1
 
 #endif /*_sbn_version_*/

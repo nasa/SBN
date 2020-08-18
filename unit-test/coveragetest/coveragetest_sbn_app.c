@@ -1605,7 +1605,7 @@ void SendNetMsg_MutexTakeErr(void)
     PeerPtr->SendTaskID = 1;
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
+    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
 
     EVENT_CNT(1);
 }/* end SendNetMsg_MutexTakeErr() */
@@ -1619,7 +1619,7 @@ void SendNetMsg_MutexGiveErr(void)
     PeerPtr->SendTaskID = 1;
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
+    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
 
     EVENT_CNT(1);
 }/* end SendNetMsg_MutexTakeErr() */
@@ -1629,7 +1629,7 @@ void SendNetMsg_SendErr(void)
     START();
 
     IfOpsPtr->Send = Send_Err;
-    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), -1);
+    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
     UtAssert_INT32_EQ(PeerPtr->SendCnt, 0);
     UtAssert_INT32_EQ(PeerPtr->SendErrCnt, 1);
 

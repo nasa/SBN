@@ -78,14 +78,7 @@ static SBN_Status_t SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID,
     Pack_MsgID(&Pack, MsgID);
     Pack_Data(&Pack, &QoS, sizeof(QoS)); /* 2 uint8's */
 
-    if (SBN_SendNetMsg(SubType, Pack.BufUsed, Buf, Peer) == Pack.BufUsed)
-    {
-        return SBN_SUCCESS;
-    }
-    else
-    {
-        return SBN_ERROR;
-    }/* end if */
+    return SBN_SendNetMsg(SubType, Pack.BufUsed, Buf, Peer);
 }/* end SendLocalSubToPeer */
 
 /**
@@ -109,14 +102,7 @@ SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
         Pack_Data(&Pack, &SBN.Subs[i].QoS, sizeof(SBN.Subs[i].QoS));
     }/* end for */
 
-    if (SBN_SendNetMsg(SBN_SUB_MSG, Pack.BufUsed, Buf, Peer) != Pack.BufUsed)
-    {
-        return SBN_ERROR;
-    }
-    else
-    {
-        return SBN_SUCCESS;
-    }/* end if */
+    return SBN_SendNetMsg(SBN_SUB_MSG, Pack.BufUsed, Buf, Peer);
 }/* end SBN_SendLocalSubsToPeer */
 
 /**
@@ -243,7 +229,9 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
  */
 static SBN_Status_t ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
 {
+    SBN_Status_t SBN_Status = SBN_SUCCESS;
     int SubIdx;
+
     /* find idx of matching subscription */
     if(!IsMsgIDSub(&SubIdx, MsgID))
     {
@@ -283,9 +271,11 @@ static SBN_Status_t ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            if (SendLocalSubToPeer(SBN_UNSUB_MSG, SBN.Subs[PeerIdx].MsgID, SBN.Subs[PeerIdx].QoS, Peer))
+            SBN_Status = SendLocalSubToPeer(SBN_UNSUB_MSG, SBN.Subs[PeerIdx].MsgID, SBN.Subs[PeerIdx].QoS, Peer);
+
+            if (SBN_Status != SBN_SUCCESS)
             {
-                return SBN_ERROR;
+                return SBN_Status;
             }/* end if */
         }/* end for */
     }/* end for */
@@ -459,7 +449,7 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     Unpack_UInt16(&Unpack, &SubCnt);
 
     int SubIdx = 0;
-    for(SubIdx = 0; SBN_Status == SBN_SUCCESS && SubIdx < SubCnt; SubIdx++)
+    for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID;
         Unpack_MsgID(&Unpack, &MsgID);
@@ -467,9 +457,14 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         Unpack_Data(&Unpack, &QoS, sizeof(QoS));
 
         SBN_Status = ProcessSubFromPeer(Peer, MsgID, QoS);
+
+        if (SBN_Status != SBN_SUCCESS)
+        {
+            return SBN_Status;
+        }/* end if */
     }/* end for */
 
-    return SBN_Status;
+    return SBN_SUCCESS;
 }/* SBN_ProcessSubsFromPeer */
 
 /**

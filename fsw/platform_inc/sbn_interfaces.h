@@ -301,10 +301,9 @@ struct SBN_IfOps_s {
      * @param MsgSz[in] The size of the SBN message payload.
      * @param Payload[in] The SBN message payload.
      *
-     * @return Number of bytes sent (on success) or <0 (on error).
-     *         See @ref OSReturnCodes .
+     * @return SBN_SUCCESS when message successfully sent, otherwise SBN_ERROR.
      */
-    SBN_MsgSz_t (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+    SBN_Status_t (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
         SBN_MsgSz_t MsgSz, void *Payload);
 
     /**
@@ -370,21 +369,35 @@ struct SBN_IfOps_s {
 };
 
 /**
- * @brief Called by backend modules to signal that the connection has been
+ * Called by backend modules to signal that the connection has been
  * established and that the initial handshake should ensue.
+ *
+ * @param Peer[in]      The peer to mark as disconnected.
+ *
+ * @return SBN_SUCCESS on successfully marking the peer connected, otherwise SBN_ERROR.
  */
 SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer);
 
 /**
- * @brief Called by backend modules to signal that the connection has been
- * lost.
+ * Called by backend modules to signal that the connection has been lost.
+ *
+ * @param Peer[in]      The peer to mark as disconnected.
+ *
+ * @return SBN_SUCCESS on successfully marking the peer disconnected, otherwise SBN_ERROR.
  */
 SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
 
 /**
- * @brief Used by modules to send protocol-specific messages
+ * Used by modules to send protocol-specific messages.
  * (particularly UDP which needs to send announcement/heartbeat msgs.)
+ *
+ * @param MsgType[in]   The type of SBN message to send.
+ * @param MsgSz[in]     The size of the message payload.
+ * @param Msg[in]       The payload.
+ * @param Peer[in]      The peer to send the message to.
+ *
+ * @return SBN_SUCCESS when message successfully sent, otherwise SBN_ERROR
  */
-SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
+SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 
 #endif /* _sbn_interfaces_h_ */

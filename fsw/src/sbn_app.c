@@ -405,44 +405,44 @@ SBN_Status_t SBN_RecvNetMsgs(void)
  * @return Number of characters sent on success, -1 on error.
  *
  */
-SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
 {
-    SBN_MsgSz_t SentSz = 0;
     SBN_NetInterface_t *Net = Peer->Net;
+    SBN_Status_t SBN_Status = SBN_SUCCESS;
 
     if(Peer->SendTaskID)
     {
         if(OS_MutSemTake(SBN.SendMutex) != OS_SUCCESS)
         {
             EVSSendErr(SBN_PEER_EID, "unable to take mutex");
-            return -1;
+            return SBN_ERROR;
         }/* end if */
     }/* end if */
 
-    SentSz = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
+    SBN_Status = Net->IfOps->Send(Peer, MsgType, MsgSz, Msg);
+
+    if(SBN_Status != SBN_SUCCESS)
+    {
+        Peer->SendErrCnt++;
+
+        return SBN_Status;
+    }/* end if */
 
     /* for clients that need a poll or heartbeat, update time even when failing */
     OS_GetLocalTime(&Peer->LastSend);
 
-    if(SentSz != -1)
-    {
-        Peer->SendCnt++;
-    }
-    else
-    {
-        Peer->SendErrCnt++;
-    }/* end if */
+    Peer->SendCnt++;
 
     if(Peer->SendTaskID)
     {
         if(OS_MutSemGive(SBN.SendMutex) != OS_SUCCESS)
         {
             EVSSendErr(SBN_PEER_EID, "unable to give mutex");
-            return -1;
+            return SBN_ERROR;
         }/* end if */
     }/* end if */
 
-    return SentSz;
+    return SBN_SUCCESS;
 }/* end SBN_SendNetMsg */
 
 typedef struct
@@ -1478,9 +1478,10 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
     EVSSendInfo(SBN_PEER_EID, "CPU %d connected", Peer->ProcessorID);
 
     uint8 ProtocolVer = SBN_PROTO_VER;
-    if (SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer) != sizeof(ProtocolVer))
+    SBN_Status = SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
+    if (SBN_Status != SBN_SUCCESS)
     {
-        return SBN_ERROR;
+        return SBN_Status;
     }/* end if */
 
     /* set this to current time so we don't think we've already timed out */

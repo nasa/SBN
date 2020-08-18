@@ -87,9 +87,9 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
     return status;
 }/* end SBN_Disconnected() */
 
-SBN_MsgSz_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
+SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
 {
-    return UT_DEFAULT_IMPL_RC(SBN_SendNetMsg, MsgSz);
+    return UT_DEFAULT_IMPL(SBN_SendNetMsg);
 }/* end SBN_SendNetMsg() */
 
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID)

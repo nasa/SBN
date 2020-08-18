@@ -53,7 +53,7 @@ typedef struct
 
 CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
 
-#define EXP_VERSION 3
+#define EXP_VERSION 4
 
 static CFE_Status_t Init(int Version, CFE_EVS_EventID_t EID)
 {
@@ -327,7 +327,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
     }/* end for */
 }/* end CheckNet() */
 
-static SBN_MsgSz_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
+static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
 {
     SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
     SBN_NetInterface_t *Net = Peer->Net;
@@ -347,10 +347,10 @@ static SBN_MsgSz_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_Ms
             "CPU %d failed to write, disconnected", Peer->ProcessorID);
 
         Disconnected(Peer);
-        return 0;
+        return SBN_ERROR;
     }/* end if */
 
-    return sent_size;
+    return SBN_SUCCESS;
 }/* end Send() */
 
 static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)

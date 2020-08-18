@@ -10,7 +10,7 @@
 
 CFE_EVS_EventID_t SBN_UDP_FIRST_EID;
 
-#define EXP_VERSION 3
+#define EXP_VERSION 4
 
 static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 {
@@ -180,10 +180,10 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end PollPeer() */
 
-static SBN_MsgSz_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
+static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload)
 {
-    size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ;
+    size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ, SentSz = 0;
     uint8 Buf[BufSz];
 
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
@@ -196,10 +196,20 @@ static SBN_MsgSz_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     if(OS_SocketAddrInit(&Addr, OS_SocketDomain_INET) != OS_SUCCESS)
     {
         EVSSendErr(SBN_UDP_SOCK_EID, "socket addr init failed");
-        return -1;
+        return SBN_ERROR;
     }/* end if */
 
-    return OS_SocketSendTo(NetData->Socket, Buf, BufSz, &PeerData->Addr);
+    SentSz = OS_SocketSendTo(NetData->Socket, Buf, BufSz, &PeerData->Addr);
+
+    if (SentSz < BufSz)
+    {
+        EVSSendErr(SBN_UDP_SOCK_EID, "incomplete socket send, tried to send %ld bytes, returned %ld", BufSz, SentSz);
+        return SBN_ERROR;
+    }
+    else
+    {
+        return SBN_SUCCESS;
+    }/* end if */
 }/* end Send() */
 
 /* Note that this Recv function is indescriminate, packets will be received

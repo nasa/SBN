@@ -109,14 +109,14 @@ SBN_Status_t PollPeer_Nominal(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }/* end PollPeer_Nominal() */
 
-SBN_MsgSz_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
+SBN_Status_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
 {
-    return MsgSz;
+    return SBN_SUCCESS;
 }/* end Send_Nominal() */
 
-SBN_MsgSz_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
+SBN_Status_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
 {
-    return -1;
+    return SBN_ERROR;
 }/* end Send_Err() */
 
 SBN_IfOps_t IfOps =

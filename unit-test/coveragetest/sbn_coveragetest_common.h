@@ -84,8 +84,8 @@ SBN_Status_t LoadPeer_Nominal(SBN_PeerInterface_t *Peer, const char *Address);
 SBN_Status_t UnloadNet_Nominal(SBN_NetInterface_t *Net);
 SBN_Status_t UnloadPeer_Nominal(SBN_PeerInterface_t *Net);
 SBN_Status_t PollPeer_Nominal(SBN_PeerInterface_t *Peer);
-SBN_MsgSz_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
-SBN_MsgSz_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
+SBN_Status_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
+SBN_Status_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
 CFE_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID);
 
 extern SBN_IfOps_t *IfOpsPtr;
