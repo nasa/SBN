@@ -1,3 +1,8 @@
+# NOTE: "main" will be the new default branch soon.
+
+In order to bring SBN to the same GIT organization as cFS, I will be moving the default branch
+to "main" in the very near future. Please switch to main if you are on master.
+
 # Software Bus Network
 NASA Core Flight System (cFS) Software Bus Network (SBN) Application
 
