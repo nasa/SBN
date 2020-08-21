@@ -88,6 +88,7 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     if(!ValidatePtr || ValidatePtr == Colon + 1)
     {
         EVSSendErr(SBN_UDP_CONFIG_EID, "invalid port (Address=%s)", Address);
+        return SBN_ERROR;
     }/* end if */
 
     if((Status = OS_SocketAddrInit(Addr, OS_SocketDomain_INET)) != OS_SUCCESS)
