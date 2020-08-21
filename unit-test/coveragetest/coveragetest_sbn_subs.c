@@ -163,6 +163,31 @@ static void CSP_PLU_OtherSub(void)
     UtAssert_INT32_EQ(SBN.SubCnt, 1);
 }/* end CSP_PLU_OtherSub() */
 
+static void CSP_PLU_SLS2PErr(void)
+{
+    START();
+
+    SBN.SubCnt = 1;
+    SBN.Subs[0].InUseCtr = 1;
+    SBN.Subs[0].MsgID = MsgID;
+
+    CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
+    MsgPtr = &Msg;
+    memset(MsgPtr, 0, sizeof(Msg));
+    Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
+    Msg.Payload.MsgId = MsgID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
+
+    CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
+
+    IfOpsPtr->Send = Send_Err;
+
+    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
+
+    IfOpsPtr->Send = Send_Nominal;
+}/* end CSP_PLU_SLS2PErr() */
+
 static void CSP_PLU_Nominal(void)
 {
     START();
@@ -294,6 +319,7 @@ void Test_SBN_CheckSubscriptionPipe(void)
     CSP_PLS_SendErr();
     CSP_PLU_NotSub();
     CSP_PLU_OtherSub();
+    CSP_PLU_SLS2PErr();
     CSP_PLU_Nominal();
     CSP_SubTypeErr();
     CSP_AllSubs_EntryCntErr();
