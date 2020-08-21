@@ -183,7 +183,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
 static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
     SBN_MsgSz_t MsgSz, void *Payload)
 {
-    size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ, SentSz = 0;
+    int32 BufSz = MsgSz + SBN_PACKED_HDR_SZ, SentSz = 0;
     uint8 Buf[BufSz];
 
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
@@ -203,7 +203,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
 
     if (SentSz < BufSz)
     {
-        EVSSendErr(SBN_UDP_SOCK_EID, "incomplete socket send, tried to send %ld bytes, returned %ld", BufSz, SentSz);
+        EVSSendErr(SBN_UDP_SOCK_EID, "incomplete socket send, tried to send %d bytes, returned %d", (int)BufSz, (int)SentSz);
         return SBN_ERROR;
     }
     else
