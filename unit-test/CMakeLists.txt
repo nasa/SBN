@@ -43,6 +43,7 @@ foreach(SRCFILE sbn_app.c sbn_subs.c)
         ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_app.c
         ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_cmds.c
         ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_subs.c
+        ${SBN_APP_SOURCE_DIR}/fsw/src/sbn_pack.c
     )    
     
     # Apply the UT_COVERAGE_COMPILE_FLAGS to the units under test

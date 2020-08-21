@@ -87,7 +87,7 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType,
     CFE_ProcessorID_t ProcessorID, void *Msg)
 {
     Pack_t Pack;
-    Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, 0);
+    Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, false);
 
     Pack_Int16(&Pack, MsgSz);
     Pack_UInt8(&Pack, MsgType);
@@ -119,11 +119,12 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
     CFE_ProcessorID_t *ProcessorIDPtr, void *Msg)
 {
     uint8 t = 0;
-    Unpack_t Unpack; Unpack_Init(&Unpack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);
-    Unpack_Int16(&Unpack, MsgSzPtr);
-    Unpack_UInt8(&Unpack, &t);
+    Pack_t Pack;
+    Pack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ, false);
+    Unpack_Int16(&Pack, MsgSzPtr);
+    Unpack_UInt8(&Pack, &t);
     *MsgTypePtr = t;
-    Unpack_UInt32(&Unpack, ProcessorIDPtr);
+    Unpack_UInt32(&Pack, ProcessorIDPtr);
 
     if(!*MsgSzPtr)
     {
@@ -135,7 +136,7 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
         return false;
     }/* end if */
 
-    Unpack_Data(&Unpack, Msg, *MsgSzPtr);
+    Unpack_Data(&Pack, Msg, *MsgSzPtr);
 
     return true;
 }/* end SBN_UnpackMsg */

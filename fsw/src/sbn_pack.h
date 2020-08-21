@@ -1,16 +1,34 @@
 #ifndef _sbn_pack_h_
 #define _sbn_pack_h_
 
+/**
+ * SBN messages are transmitted over the wire with SBN-specific headers which are
+ * network-order packed binary values. These functions are utilities for packing
+ * and unpacking those headers.
+ *
+ * General pattern is:
+ *
+ * ```
+ * Pack_t Pack;
+ * uint8 Buffer[BUFSZ];
+ * void packfn()
+ * {
+ *    Pack_Init(&Pack, Buffer, sizeof(Buffer), true);
+ *    Pack_UInt32(&Pack, 0x1234);
+ * }
+ * 
+ * void unpackfn()
+ * {
+ *    uint32 f;
+ *    Pack_Init(&Pack, Buffer, sizeof(Buffer), false);
+ *    Unpack_UInt32(&Pack, &f);
+ * }
+ * ```
+ */
+
 #include <stdlib.h> /* size_t */
-#include <string.h> /* memcpy */
 #include "osconfig.h"
 #include "cfe.h"
-
-#ifdef SOFTWARE_BIG_BIT_ORDER
-    #define CFE_MAKE_BIG32(n) (n)
-#else /* !SOFTWARE_BIG_BIT_ORDER */
-    #define CFE_MAKE_BIG32(n) ( (((n) << 24) & 0xFF000000) | (((n) << 8) & 0x00FF0000) | (((n) >> 8) & 0x0000FF00) | (((n) >> 24) & 0x000000FF) )
-#endif /* SOFTWARE_BIG_BIT_ORDER */
 
 typedef struct
 {   
@@ -18,147 +36,192 @@ typedef struct
     size_t BufSz, BufUsed;
 } Pack_t;
 
-static inline uint32 Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, int ClearFlag)
-{
-    PackPtr->Buf = Buf;
-    PackPtr->BufSz = BufSz;
-    PackPtr->BufUsed = 0;
-    if(ClearFlag)
-    {
-        memset(Buf, 0, BufSz);
-    }/* end if */
-    return 1;
-}/* end Pack_Init() */
+/**
+ * Initialize the packing management structure.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure to initialize.
+ * @param Buf[in] The buffer for storing packed data.
+ * @param BufSz[in] The size of the buffer.
+ * @param ClearFlag[in] If true, zero the buffer.
+ *
+ * @return true if the initialization succeeded.
+ *
+ * @sa #Pack_Data, #Pack_UInt8, #Pack_Int16, #Pack_UInt16, #Pack_UInt32, #Pack_Time, #Pack_MsgID
+ * @sa #Unpack_Data, #Unpack_UInt8, #Unpack_Int16, #Unpack_UInt16, #Unpack_UInt32, #Unpack_Time, #Unpack_MsgID
+ */
+bool Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag);
 
-static inline uint32 Pack_Data(Pack_t *PackPtr, void *DataBuf, size_t DataBufSz)
-{
-    if(PackPtr->BufUsed + DataBufSz > PackPtr->BufSz)
-    {
-        /* print an error? */
-        return 0;
-    }
+/**
+ * Pack data into the buffer. This does the grunt-work of managing the buffer,
+ * and has no idea what the data contains.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[in] The buffer to pack into the buffer.
+ * @param DataBufSz[in] The size of the data buffer.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Init, #Unpack_Data
+ */
+bool Pack_Data(Pack_t *PackPtr, void *DataBuf, size_t DataBufSz);
 
-    memcpy((uint8 *)PackPtr->Buf + PackPtr->BufUsed, DataBuf, DataBufSz);
-    PackPtr->BufUsed += DataBufSz;
+/**
+ * Pack an unsigned 8-bit integer into the buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param Data[in] The value to pack.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Data
+ */
+bool Pack_UInt8(Pack_t *PackPtr, uint8 Data);
 
-    return 1;
-}
+/**
+ * Pack an unsigned 16-bit integer into the buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param Data[in] The value to pack.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Data
+ */
+bool Pack_UInt16(Pack_t *PackPtr, uint16 Data);
 
-static inline uint32 Pack_UInt8(Pack_t *PackPtr, uint8 Data)
-{
-    return Pack_Data(PackPtr, &Data, sizeof(Data));
-}
+/**
+ * Pack a signed 16-bit integer into the buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param Data[in] The value to pack.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Data
+ */
+bool Pack_Int16(Pack_t *PackPtr, int16 Data);
 
-static inline uint32 Pack_UInt16(Pack_t *PackPtr, uint16 Data)
-{
-    uint16 D = CFE_MAKE_BIG16(Data);
-    return Pack_Data(PackPtr, &D, sizeof(D));
-}
+/**
+ * Pack an unsigned 32-bit integer into the buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param Data[in] The value to pack.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Data
+ */
+bool Pack_UInt32(Pack_t *PackPtr, uint32 Data);
 
-static inline uint32 Pack_Int16(Pack_t *PackPtr, int16 Data)
-{
-    int16 D = CFE_MAKE_BIG16(Data);
-    return Pack_Data(PackPtr, &D, sizeof(D));
-}
+/**
+ * Pack a time datum into the buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param Data[in] The value to pack.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Data
+ */
+bool Pack_Time(Pack_t *PackPtr, OS_time_t Data);
 
-static inline uint32 Pack_UInt32(Pack_t *PackPtr, uint32 Data)
-{
-    uint32 D = CFE_MAKE_BIG32(Data);
-    return Pack_Data(PackPtr, &D, sizeof(D));
-}
+/**
+ * Pack a CFE Software Bus message identifier into the buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param Data[in] The value to pack.
+ *
+ * @return true if the data was successfully packed into the buffer, false if
+ *         it failed (likely due to running out of available space in the buffer.)
+ *
+ * @sa #Pack_Data
+ */
+bool Pack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t Data);
 
-static inline uint32 Pack_Time(Pack_t *PackPtr, OS_time_t Data)
-{
-    OS_time_t D;
-    D.seconds = CFE_MAKE_BIG32(Data.seconds);
-    D.microsecs = CFE_MAKE_BIG32(Data.microsecs);
-    return Pack_Data(PackPtr, &D, sizeof(D));
-}
+/**
+ * Unpacks data from the existing packed buffer. This does the grunt-work of managing the buffer,
+ * and has no idea what the data contains.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[out] The buffer to pack from the buffer.
+ * @param DataBufSz[in] The number of bytes to read from the buffer into DataBuf.
+ *
+ * @return true if the data was successfully read from the buffer, false if
+ *         it failed (likely due to no more data in the buffer.)
+ *
+ * @sa #Pack_Init, #Pack_Data
+ */
+bool Unpack_Data(Pack_t *PackPtr, void *DataBuf, size_t Sz);
 
-static inline uint32 Pack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t Data)
-{
-    CFE_SB_MsgId_t D;
-    D = CFE_MAKE_BIG16(Data);
-    return Pack_Data(PackPtr, &D, sizeof(D));
-}
+/**
+ * Unpack an unsigned 8-bit integer from the pack buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[out] The pointer to where the data should be stored.
+ *
+ * @return true if the data was successfully read from the buffer, false if
+ *         it failed (likely due to no more data in the buffer.)
+ *
+ * @sa #Unpack_Data
+ */
+bool Unpack_UInt8(Pack_t *PackPtr, uint8 *DataBuf);
 
-static inline void *Pack_Get(Pack_t *PackPtr)
-{
-    return PackPtr->Buf;
-}
+/**
+ * Unpack an unsigned 16-bit integer from the pack buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[out] The pointer to where the data should be stored.
+ *
+ * @return true if the data was successfully read from the buffer, false if
+ *         it failed (likely due to no more data in the buffer.)
+ *
+ * @sa #Unpack_Data
+ */
+bool Unpack_UInt16(Pack_t *PackPtr, uint16 *DataBuf);
 
-typedef struct
-{
-    void *Buf;
-    size_t Sz, Curr;
-} Unpack_t;
+/**
+ * Unpack a signed 16-bit integer from the pack buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[out] The pointer to where the data should be stored.
+ *
+ * @return true if the data was successfully read from the buffer, false if
+ *         it failed (likely due to no more data in the buffer.)
+ *
+ * @sa #Unpack_Data
+ */
+bool Unpack_Int16(Pack_t *PackPtr, int16 *DataBuf);
 
-static inline void Unpack_Init(Unpack_t *Unpack, void *Buf, size_t Sz)
-{
-    Unpack->Buf = Buf; Unpack->Sz = Sz; Unpack->Curr = 0;
-}
+/**
+ * Unpack an unsigned 32-bit integer from the pack buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[out] The pointer to where the data should be stored.
+ *
+ * @return true if the data was successfully read from the buffer, false if
+ *         it failed (likely due to no more data in the buffer.)
+ *
+ * @sa #Unpack_Data
+ */
+bool Unpack_UInt32(Pack_t *PackPtr, uint32 *DataBuf);
 
-static inline uint32 Unpack_Data(Unpack_t *Unpack, void *DataBuf, size_t Sz)
-{
-    if(Unpack->Curr + Sz > Unpack->Sz)
-    {
-        return 0;
-    }
-
-    memcpy(DataBuf, (uint8 *)Unpack->Buf + Unpack->Curr, Sz);
-
-    Unpack->Curr += Sz;
-
-    return 1;
-}
-
-static inline uint32 Unpack_UInt8(Unpack_t *Unpack, uint8 *DataBuf)
-{
-    return Unpack_Data(Unpack, DataBuf, sizeof(*DataBuf));
-}
-
-static inline uint32 Unpack_UInt16(Unpack_t *Unpack, uint16 *DataBuf)
-{
-    uint16 D;
-    if (!Unpack_Data(Unpack, &D, sizeof(D)))
-    {
-        return 0;
-    }
-    *DataBuf = CFE_MAKE_BIG16(D);
-    return 1;
-}
-
-static inline uint32 Unpack_Int16(Unpack_t *Unpack, int16 *DataBuf)
-{
-    int16 D;
-    if (!Unpack_Data(Unpack, &D, sizeof(D)))
-    {
-        return 0;
-    }
-    *DataBuf = CFE_MAKE_BIG16(D);
-    return 1;
-}
-
-static inline uint32 Unpack_UInt32(Unpack_t *Unpack, uint32 *DataBuf)
-{
-    uint32 D;
-    if (!Unpack_Data(Unpack, &D, sizeof(D)))
-    {
-        return 0;
-    }
-    *DataBuf = CFE_MAKE_BIG32(D);
-    return 1;
-}
-
-static inline uint32 Unpack_MsgID(Unpack_t *Unpack, CFE_SB_MsgId_t *DataBuf)
-{
-    CFE_SB_MsgId_t D;
-    if (!Unpack_Data(Unpack, &D, sizeof(D)))
-    {
-        return 0;
-    }
-    *DataBuf = CFE_MAKE_BIG16(D);
-    return 1;
-}
+/**
+ * Unpack a CFE software bus message identifier from the pack buffer.
+ *
+ * @param PackPtr[in/out] The pointer to the management structure.
+ * @param DataBuf[out] The pointer to where the data should be stored.
+ *
+ * @return true if the data was successfully read from the buffer, false if
+ *         it failed (likely due to no more data in the buffer.)
+ *
+ * @sa #Unpack_Data
+ */
+bool Unpack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t *DataBuf);
 
 #endif /* _sbn_pack_h_ */

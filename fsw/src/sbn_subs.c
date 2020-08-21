@@ -432,12 +432,12 @@ static SBN_Status_t ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t
 SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
     SBN_Status_t SBN_Status = SBN_SUCCESS;
-    Unpack_t Unpack;
+    Pack_t Pack;
     char VersionHash[SBN_IDENT_LEN];
 
-    Unpack_Init(&Unpack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE);
+    Pack_Init(&Pack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
 
-    Unpack_Data(&Unpack, VersionHash, SBN_IDENT_LEN);
+    Unpack_Data(&Pack, VersionHash, SBN_IDENT_LEN);
 
     if(strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
@@ -446,15 +446,15 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     }
 
     uint16 SubCnt;
-    Unpack_UInt16(&Unpack, &SubCnt);
+    Unpack_UInt16(&Pack, &SubCnt);
 
     int SubIdx = 0;
     for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID;
-        Unpack_MsgID(&Unpack, &MsgID);
+        Unpack_MsgID(&Pack, &MsgID);
         CFE_SB_Qos_t QoS;
-        Unpack_Data(&Unpack, &QoS, sizeof(QoS));
+        Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
         SBN_Status = ProcessSubFromPeer(Peer, MsgID, QoS);
 
@@ -544,13 +544,13 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
  */
 SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    Unpack_t Unpack;
+    Pack_t Pack;
 
-    Unpack_Init(&Unpack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE);
+    Pack_Init(&Pack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
 
     char VersionHash[SBN_IDENT_LEN];
 
-    Unpack_Data(&Unpack, VersionHash, SBN_IDENT_LEN);
+    Unpack_Data(&Pack, VersionHash, SBN_IDENT_LEN);
 
     if(strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
@@ -558,15 +558,15 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     }
 
     uint16 SubCnt;
-    Unpack_UInt16(&Unpack, &SubCnt);
+    Unpack_UInt16(&Pack, &SubCnt);
 
     int SubIdx = 0;
     for(SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID;
-        Unpack_MsgID(&Unpack, &MsgID);
+        Unpack_MsgID(&Pack, &MsgID);
         CFE_SB_Qos_t QoS;
-        Unpack_Data(&Unpack, &QoS, sizeof(QoS));
+        Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
         ProcessUnsubFromPeer(Peer, MsgID); /* ignore return value, I want to unsub as much as I can */
     }/* end for */
