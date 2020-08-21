@@ -26,6 +26,8 @@ set(UT_NAME sbn_udp)
 # Use the UT assert public API, and allow direct
 # inclusion of source files that are normally private
 include_directories(${osal_MISSION_DIR}/ut_assert/inc)
+include_directories(${sbn_MISSION_DIR}/fsw/platform_inc)
+include_directories(${sbn_MISSION_DIR}/fsw/src)
 include_directories(${PROJECT_SOURCE_DIR}/fsw/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 
