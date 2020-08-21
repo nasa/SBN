@@ -71,11 +71,6 @@ bool Pack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t Data)
     return Pack_Data(PackPtr, &D, sizeof(D));
 }/* end Pack_MsgID() */
 
-void *Pack_Get(Pack_t *PackPtr)
-{
-    return PackPtr->Buf;
-}/* end Pack_Get() */
-
 bool Unpack_Data(Pack_t *Pack, void *DataBuf, size_t Sz)
 {
     if(Pack->BufUsed + Sz > Pack->BufSz)
