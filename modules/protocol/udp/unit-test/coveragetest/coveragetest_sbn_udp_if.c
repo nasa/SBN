@@ -220,6 +220,17 @@ static void LoadNet_AddrErr(void)
     EVENT_CNT(1);
 }/* end LoadNet_AddrErr() */
 
+static void LoadNet_AddrPortErr(void)
+{
+    START();
+
+    UT_CheckEvent_Setup(&EventTest, SBN_UDP_CONFIG_EID, "invalid port (Address=foo:bar)");
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.LoadNet(NetPtr, "foo:bar"), SBN_ERROR);
+
+    EVENT_CNT(1);
+}/* end LoadNet_AddrErr() */
+
 static void LoadNet_InitErr(void)
 {
     START();
@@ -270,6 +281,7 @@ static void LoadNet_Nominal(void)
 void Test_SBN_UDP_LoadNet(void)
 {
     LoadNet_AddrErr();
+    LoadNet_AddrPortErr();
     LoadNet_InitErr();
     LoadNet_HostErr();
     LoadNet_PortErr();
