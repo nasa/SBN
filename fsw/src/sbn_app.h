@@ -141,6 +141,9 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
     CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSz, void *Msg);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
 uint32 SBN_ReloadConfTbl(void);
+void SBN_RecvNetTask(void);
+void SBN_RecvPeerTask(void);
+void SBN_SendTask(void);
 
 #endif /* _sbn_app_ */
 /*****************************************************************************/

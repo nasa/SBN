@@ -159,7 +159,7 @@ typedef struct
     uint8 Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } RecvPeerTaskData_t;
 
-static void RecvPeerTask(void)
+void SBN_RecvPeerTask(void)
 {
     RecvPeerTaskData_t D;
     memset(&D, 0, sizeof(D));
@@ -202,28 +202,35 @@ static void RecvPeerTask(void)
 
     while(1)
     {
-        SBN_Status_t Status;
-        Status = D.Net->IfOps->RecvFromPeer(D.Net, D.Peer,
+        D.Status = D.Net->IfOps->RecvFromPeer(D.Net, D.Peer,
             &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.Msg);
 
-        if(Status == SBN_IF_EMPTY)
+        if(D.Status == SBN_IF_EMPTY)
         {
             continue; /* no (more) messages */
         }/* end if */
 
-        if(Status == SBN_SUCCESS)
+        if(D.Status == SBN_SUCCESS)
         {
             OS_GetLocalTime(&D.Peer->LastRecv);
 
-            SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.MsgSz, &D.Msg);
+            D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.MsgSz, &D.Msg);
+
+            if (D.Status != SBN_SUCCESS)
+            {
+                D.Peer->RecvTaskID = 0;
+                return;
+            }/* end if */
         }
         else
         {
-            EVSSendErr(SBN_PEER_EID, "recv error (%d)", Status);
+            EVSSendErr(SBN_PEER_EID, "recv error (%d)", D.Status);
             D.Peer->RecvErrCnt++;
+            D.Peer->RecvTaskID = 0;
+            return;
         }/* end if */
     }/* end while */
-}/* end RecvPeerTask */
+}/* end SBN_RecvPeerTask() */
 
 typedef struct
 {
@@ -238,7 +245,7 @@ typedef struct
     uint8 Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } RecvNetTaskData_t;
 
-static void RecvNetTask(void)
+void SBN_RecvNetTask(void)
 {
     RecvNetTaskData_t D;
     memset(&D, 0, sizeof(D));
@@ -291,9 +298,14 @@ static void RecvNetTask(void)
 
         OS_GetLocalTime(&D.Peer->LastRecv);
 
-        SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.MsgSz, &D.Msg);
+        D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.MsgSz, &D.Msg);
+
+        if (D.Status != SBN_SUCCESS)
+        {
+            return;
+        }/* end if */
     }/* end while */
-}/* end RecvNetTask */
+}/* end SBN_RecvNetTask() */
 
 /**
  * Checks all interfaces for messages from peers.
@@ -448,6 +460,7 @@ SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg,
 
 typedef struct
 {
+    SBN_Status_t Status;
     SBN_NetIdx_t NetIdx;
     SBN_PeerIdx_t PeerIdx;
     OS_TaskID_t SendTaskID;
@@ -461,7 +474,7 @@ typedef struct
  * \brief When a peer is connected, a task is created to listen to the relevant
  * pipe for messages to send to that peer.
  */
-static void SendTask(void)
+void SBN_SendTask(void)
 {
     SendTaskData_t D;
     SBN_Filter_Ctx_t Filter_Context;
@@ -524,22 +537,21 @@ static void SendTask(void)
 
         for(FilterIdx = 0; FilterIdx < D.Peer->FilterCnt; FilterIdx++)
         {
-            SBN_Status_t Status;
-
             if(D.Peer->Filters[FilterIdx]->FilterSend == NULL)
             {
                 continue;
             }/* end if */
             
-            Status = (D.Peer->Filters[FilterIdx]->FilterSend)(D.SBMsgPtr, &Filter_Context);
-            if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
+            D.Status = (D.Peer->Filters[FilterIdx]->FilterSend)(D.SBMsgPtr, &Filter_Context);
+            if (D.Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
             {
                 break;
             }/* end if */
 
-            if(Status != SBN_SUCCESS)
+            if(D.Status != SBN_SUCCESS)
             {
-                /* something fatal happened, exit */
+                /* mark peer as not having a task so that sending will create a new one */
+                D.Peer->SendTaskID = 0;
                 return;
             }/* end if */
         }/* end for */
@@ -550,18 +562,24 @@ static void SendTask(void)
             continue;
         }/* end if */
 
-        SBN_SendNetMsg(SBN_APP_MSG,
-            CFE_SB_GetTotalMsgLength(D.SBMsgPtr),
-            D.SBMsgPtr, D.Peer);
+        D.Status = SBN_SendNetMsg(SBN_APP_MSG, CFE_SB_GetTotalMsgLength(D.SBMsgPtr), D.SBMsgPtr, D.Peer);
+
+        if (D.Status == SBN_ERROR)
+        {
+            /* mark peer as not having a task so that sending will create a new one */
+            D.Peer->SendTaskID = 0;
+            return;
+        }/* end if */
     }/* end while */
-}/* end SendTask */
+}/* end SBN_SendTask() */
 
 /**
  * Iterate through all peers, examining the pipe to see if there are messages
  * I need to send to that peer.
  */
-static void CheckPeerPipes(void)
+static SBN_Status_t CheckPeerPipes(void)
 {
+    CFE_Status_t CFE_Status;
     int ReceivedFlag = 0, iter = 0;
     CFE_SB_MsgPtr_t SBMsgPtr = 0;
     SBN_Filter_Ctx_t Filter_Context;
@@ -583,21 +601,42 @@ static void CheckPeerPipes(void)
         {
             SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
-            if (Net->SendTaskID)
-            {
-                continue;
-            }/* end if */
-
             SBN_PeerIdx_t PeerIdx = 0;
             for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_ModuleIdx_t FilterIdx = 0;
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
+                if(Peer->Connected == 0)
+                {
+                    continue;
+                }/* end if */
+
+                if(Peer->TaskFlags & SBN_TASK_SEND)
+                {
+                    if (!Peer->SendTaskID)
+                    {
+                        /* TODO: logic/controls to prevent hammering? */
+                        char SendTaskName[32];
+
+                        snprintf(SendTaskName, 32, "sendT_%d_%d", NetIdx,
+                            Peer->ProcessorID);
+                        CFE_Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
+                            SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_SendTask, NULL,
+                            CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
+
+                        if(CFE_Status != CFE_SUCCESS)
+                        {
+                            EVSSendErr(SBN_PEER_EID, "error creating send task for %d", Peer->ProcessorID);
+                            return SBN_ERROR;
+                        }/* end if */
+                    }/* end if */
+
+                    continue;
+                }/* end if */
+
                 /* if peer data is not in use, go to next peer */
-                if(Peer->SendTaskID || Peer->Connected == 0 ||
-                    CFE_SB_RcvMsg(&SBMsgPtr, Peer->Pipe, CFE_SB_POLL)
-                        != CFE_SUCCESS)
+                if(CFE_SB_RcvMsg(&SBMsgPtr, Peer->Pipe, CFE_SB_POLL) != CFE_SUCCESS)
                 {
                     continue;
                 }/* end if */
@@ -609,24 +648,24 @@ static void CheckPeerPipes(void)
 
                 for(FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
                 {
-                    SBN_Status_t Status;
+                    SBN_Status_t SBN_Status;
                     
                     if(Peer->Filters[FilterIdx]->FilterSend == NULL)
                     {
                         continue;
                     }/* end if */
                     
-                    Status = (Peer->Filters[FilterIdx]->FilterSend)(SBMsgPtr, &Filter_Context);
+                    SBN_Status = (Peer->Filters[FilterIdx]->FilterSend)(SBMsgPtr, &Filter_Context);
 
-                    if (Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
+                    if (SBN_Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
                     {
                         break;
                     }/* end if */
 
-                    if(Status != SBN_SUCCESS)
+                    if(SBN_Status != SBN_SUCCESS)
                     {
                         /* something fatal happened, exit */
-                        return;
+                        return SBN_Status;
                     }/* end if */
                 }/* end for */
 
@@ -647,37 +686,77 @@ static void CheckPeerPipes(void)
             break;
         }/* end if */
     } /* end for */
+    return SBN_SUCCESS;
 }/* end CheckPeerPipes */
 
 /**
  * Iterate through all peers, calling the poll interface if no messages have
  * been sent in the last SBN_POLL_TIME seconds.
  */
-static void PeerPoll(void)
+static SBN_Status_t PeerPoll(void)
 {
+    CFE_Status_t CFE_Status;
     SBN_NetIdx_t NetIdx = 0;
     for(NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
-        if(Net->RecvTaskID)
+        if(Net->IfOps->RecvFromNet && Net->TaskFlags & SBN_TASK_RECV)
         {
-            continue;
-        }/* end if */
-
-        SBN_PeerIdx_t PeerIdx = 0;
-        for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
-        {
-            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-
-            if(Peer->RecvTaskID)
+            if(!Net->RecvTaskID)
             {
-                continue;
-            }/* end if */
+                /* TODO: add logic/controls to prevent hammering */
+                char RecvTaskName[32];
+                snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recvs_%d", NetIdx);
+                CFE_Status = CFE_ES_CreateChildTask(&(Net->RecvTaskID),
+                    RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvNetTask,
+                    NULL, CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvNetTaskData_t),
+                    0, 0);
 
-            Net->IfOps->PollPeer(Peer);
-        }/* end for */
+                if(CFE_Status != CFE_SUCCESS)
+                {
+                    EVSSendErr(SBN_PEER_EID, "error creating task for net %d", NetIdx);
+                    return SBN_ERROR;
+                }/* end if */
+            }/* end if */
+        }
+        else
+        {
+            SBN_PeerIdx_t PeerIdx = 0;
+            for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
+            {
+                SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+
+                if(Net->IfOps->RecvFromPeer && Peer->TaskFlags & SBN_TASK_RECV)
+                {
+                    if(!Peer->RecvTaskID)
+                    {
+                        /* TODO: add logic/controls to prevent hammering */
+                        char RecvTaskName[32];
+                        snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recv_%d", PeerIdx);
+                        CFE_Status = CFE_ES_CreateChildTask(&(Peer->RecvTaskID),
+                            RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvPeerTask,
+                            NULL,
+                            CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvPeerTaskData_t),
+                            0, 0);
+                        /* TODO: more accurate stack size required */
+
+                        if(CFE_Status != CFE_SUCCESS)
+                        {
+                            EVSSendErr(SBN_PEER_EID, "error creating task for %d", Peer->ProcessorID);
+                            return SBN_ERROR;
+                        }/* end if */
+                    }/* end if */
+                }
+                else
+                {
+                    Net->IfOps->PollPeer(Peer);
+                }/* end if */
+            }/* end for */
+        }/* end if */
     }/* end for */
+
+    return SBN_SUCCESS;
 }/* end PeerPoll */
 
 /**
@@ -709,65 +788,12 @@ static SBN_Status_t InitInterfaces(void)
 
         Net->IfOps->InitNet(Net);
 
-        SBN_Status_t Status = SBN_SUCCESS;
-
-        if(Net->IfOps->RecvFromNet && Net->TaskFlags & SBN_TASK_RECV)
-        {
-            char RecvTaskName[32];
-            snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recvs_%d", NetIdx);
-            Status = CFE_ES_CreateChildTask(&(Net->RecvTaskID),
-                RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&RecvNetTask,
-                NULL, CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvNetTaskData_t),
-                0, 0);
-
-            if(Status != CFE_SUCCESS)
-            {
-                EVSSendErr(SBN_PEER_EID, "error creating task for net %d", NetIdx);
-                return SBN_ERROR;
-            }/* end if */
-        }/* end if */
-
         SBN_PeerIdx_t PeerIdx = 0;
         for(PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             Net->IfOps->InitPeer(Peer);
-
-            if(Net->IfOps->RecvFromPeer && Peer->TaskFlags & SBN_TASK_RECV)
-            {
-                char RecvTaskName[32];
-                snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recv_%d", PeerIdx);
-                Status = CFE_ES_CreateChildTask(&(Peer->RecvTaskID),
-                    RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&RecvPeerTask,
-                    NULL,
-                    CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvPeerTaskData_t),
-                    0, 0);
-                /* TODO: more accurate stack size required */
-
-                if(Status != CFE_SUCCESS)
-                {
-                    EVSSendErr(SBN_PEER_EID, "error creating task for %d", Peer->ProcessorID);
-                    return SBN_ERROR;
-                }/* end if */
-            }/* end if */
-
-            if(Peer->TaskFlags & SBN_TASK_SEND)
-            {
-                char SendTaskName[32];
-
-                snprintf(SendTaskName, 32, "sendT_%d_%d", NetIdx,
-                    Peer->ProcessorID);
-                Status = CFE_ES_CreateChildTask(&(Peer->SendTaskID),
-                    SendTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SendTask, NULL,
-                    CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t), 0, 0);
-
-                if(Status != CFE_SUCCESS)
-                {
-                    EVSSendErr(SBN_PEER_EID, "error creating send task for %d", Peer->ProcessorID);
-                    return SBN_ERROR;
-                }/* end if */
-            }/* end if */
         }/* end for */
     }/* end for */
 
@@ -914,12 +940,6 @@ static SBN_Status_t WaitForSBStartup(void)
     /* SBN needs to re-send request messages */
     return SBN_SUCCESS;
 }/* end WaitForSBStartup */
-
-static int32 ConfTblVal(void *TblPtr)
-{
-    /** TODO: write */
-    return CFE_SUCCESS;
-}/* end ConfTblVal */
 
 static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleIDPtr)
 {
@@ -1153,7 +1173,7 @@ static uint32 LoadConfTbl(void)
     int32 Status = CFE_SUCCESS;
 
     if((Status = CFE_TBL_Register(&SBN.ConfTblHandle, "SBN_ConfTbl",
-        sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, &ConfTblVal))
+        sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, NULL))
         != CFE_SUCCESS)
     {
         EVSSendErr(SBN_TBL_EID, "unable to register conf tbl handle");
