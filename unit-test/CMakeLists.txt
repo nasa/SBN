@@ -32,7 +32,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 # Generate a dedicated "testrunner" executable that executes the tests for each FSW code unit
 # Although sbn has only one source file, this is done in a loop such that 
 # the general pattern should work for several files as well.
-foreach(SRCFILE sbn_app.c sbn_subs.c sbn_pack.c)
+foreach(SRCFILE sbn_app.c sbn_subs.c sbn_pack.c sbn_cmds.c)
     get_filename_component(UNITNAME "${SRCFILE}" NAME_WE)
     
     set(TESTNAME                "${UT_NAME}-${UNITNAME}")
