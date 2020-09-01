@@ -67,8 +67,7 @@ static SBN_Status_t LoadRemap(void)
     if((Status = CFE_TBL_GetAddress((void **)&TblPtr, RemapTblHandle))
         != CFE_TBL_INFO_UPDATED)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_TBL_EID, CFE_EVS_ERROR,
-            "unable to get conf table address");
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to get conf table address");
         CFE_TBL_Unregister(RemapTblHandle);
         return SBN_ERROR;
     }/* end if */
@@ -93,31 +92,27 @@ static SBN_Status_t LoadRemapTbl(void)
     if(CFE_TBL_Register(&RemapTblHandle, "SBN_RemapTbl", sizeof(SBN_RemapTbl_t),
         CFE_TBL_OPT_DEFAULT, &RemapTblVal) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_TBL_EID, CFE_EVS_ERROR,
-            "unable to register remap tbl handle");
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to register remap tbl handle");
         return SBN_ERROR;
     }/* end if */
 
     if(CFE_TBL_Load(RemapTblHandle, CFE_TBL_SRC_FILE, SBN_REMAP_TBL_FILENAME) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_TBL_EID, CFE_EVS_ERROR,
-            "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
         CFE_TBL_Unregister(RemapTblHandle);
         return SBN_ERROR;
     }/* end if */
 
     if(CFE_TBL_Manage(RemapTblHandle) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_TBL_EID, CFE_EVS_ERROR,
-            "unable to manage remap tbl");
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to manage remap tbl");
         CFE_TBL_Unregister(RemapTblHandle);
         return SBN_ERROR;
     }/* end if */
 
     if(CFE_TBL_NotifyByMessage(RemapTblHandle, SBN_CMD_MID, SBN_TBL_CC, 1) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_TBL_EID, CFE_EVS_ERROR,
-            "unable to set notifybymessage for remap tbl");
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to set notifybymessage for remap tbl");
         CFE_TBL_Unregister(RemapTblHandle);
         return SBN_ERROR;
     }/* end if */
@@ -134,8 +129,7 @@ static SBN_Status_t UnloadRemap(void)
 
     if((Status = CFE_TBL_ReleaseAddress(RemapTblHandle)) != CFE_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_TBL_EID, CFE_EVS_ERROR,
-            "unable to release address for remap tbl");
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to release address for remap tbl");
         return SBN_ERROR;
     }/* end if */
 
@@ -209,13 +203,17 @@ static int RemapTblSearch(uint32 ProcessorID, CFE_SB_MsgId_t MID)
 static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 {
     CFE_SB_MsgId_t FromMID = 0x0000, ToMID = 0x0000;
-    CCSDS_PriHdr_t *PriHdrPtr = msg;
+    CFE_MSG_Message_t *CFE_MsgPtr = msg;
 
-    FromMID = CCSDS_RD_SID(*PriHdrPtr);
+    if (CFE_MSG_GetApId(CFE_MsgPtr, &FromMID) != CFE_SUCCESS)
+    {
+        EVSSendErr(SBN_F_REMAP_EID, "unable to get apid");
+        return SBN_ERROR;
+    }
 
     if(OS_MutSemTake(RemapMutex) != OS_SUCCESS)
     {
-        CFE_EVS_SendEvent(SBN_F_REMAP_EID, CFE_EVS_ERROR, "unable to take mutex");
+        EVSSendErr(SBN_F_REMAP_EID, "unable to take mutex");
         return SBN_ERROR;
     }/* end if */
 
@@ -237,7 +235,7 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 
     if(OS_MutSemGive(RemapMutex) != OS_SUCCESS)
     {   
-        CFE_EVS_SendEvent(SBN_F_REMAP_EID, CFE_EVS_ERROR, "unable to give mutex");
+        EVSSendErr(SBN_F_REMAP_EID, "unable to give mutex");
         return SBN_ERROR;
     }/* end if */
 
@@ -246,7 +244,11 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
         return SBN_IF_EMPTY; /* signal to the core app that this filter recommends not sending this message */
     }/* end if */
 
-    CCSDS_WR_SID(*PriHdrPtr, ToMID);
+    if (CFE_MSG_SetApId(CFE_MsgPtr, ToMID) != CFE_SUCCESS)
+    {
+        EVSSendErr(SBN_F_REMAP_EID, "unable to set apid");
+        return SBN_ERROR;
+    }/* end if */
 
     return SBN_SUCCESS;
 }/* end Remap() */
@@ -278,7 +280,7 @@ static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
     if(Version != 1) /* TODO: define */
     {
         OS_printf("SBN_F_Remap version mismatch: expected %d, got %d\n", 1, Version);
-        return CFE_ES_APP_ERROR;
+        return SBN_ERROR;
     }/* end if */
 
     OS_printf("SBN_F_Remap Lib Initialized.\n");

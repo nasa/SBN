@@ -380,7 +380,7 @@ static void InitInt_NoNets(void)
 
 static int32 NetConfHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
-    SBN.Nets[0].Configured = FALSE;
+    SBN.Nets[0].Configured = false;
     return CFE_SUCCESS;
 }/* end NetConfHook() */
 

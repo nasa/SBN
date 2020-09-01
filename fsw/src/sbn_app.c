@@ -707,7 +707,7 @@ static SBN_Status_t PeerPoll(void)
             {
                 /* TODO: add logic/controls to prevent hammering */
                 char RecvTaskName[32];
-                snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recvs_%d", NetIdx);
+                snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_rs_%d", NetIdx);
                 CFE_Status = CFE_ES_CreateChildTask(&(Net->RecvTaskID),
                     RecvTaskName, (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvNetTask,
                     NULL, CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvNetTaskData_t),
@@ -1236,6 +1236,7 @@ void SBN_AppMain(void)
     }/* end if */
 
     strncpy(SBN.App_FullName, (const char *)TaskInfo.TaskName, OS_MAX_API_NAME - 1);
+    SBN.App_FullName[OS_MAX_API_NAME - 1] = '\0';
 
     CFE_ES_WaitForStartupSync(10000);
 

@@ -7,6 +7,12 @@
 uint8 Buffer[1024];
 CCSDS_CommandPacket_t *CmdPktPtr = (CCSDS_CommandPacket_t *)Buffer;
 
+#ifdef _cfe_msg_api_
+#define MSGINIT(MsgPtr, MsgId, Size, Clear) CFE_MSG_Init((CFE_MSG_Message_t *)MsgPtr, MsgId, Size, Clear)
+#else
+#define MSGINIT(MsgPtr, MsgId, Size, Clear) CCSDS_WR_LEN(MsgPtr->SpacePacket.Hdr, Size)
+#endif
+
 static void NOOP_MsgLenErr(void)
 {
     START();
@@ -15,7 +21,8 @@ static void NOOP_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_NOOP_CC);
@@ -34,7 +41,8 @@ static void NOOP_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_NOOP_CC);
@@ -53,7 +61,8 @@ static void HKNet_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_NET_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_NET_CC);
@@ -75,7 +84,8 @@ static void HKNet_NetIdErr(void)
     *Ptr++ = 255;
     *Ptr = 0;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_NET_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_NET_CC);
@@ -94,7 +104,8 @@ static void HKNet_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_NET_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_NET_CC);
@@ -113,7 +124,8 @@ static void HKPeer_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
@@ -135,7 +147,8 @@ static void HKPeer_NetIdErr(void)
     *Ptr++ = 255;
     *Ptr = 0;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
@@ -157,7 +170,8 @@ static void HKPeer_PeerIdErr(void)
     *Ptr++ = 0;
     *Ptr++ = 255;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
@@ -176,7 +190,8 @@ static void HKPeer_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
@@ -195,7 +210,8 @@ static void HKPeerSubs_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
@@ -217,7 +233,8 @@ static void HKPeerSubs_NetIdErr(void)
     *Ptr++ = 255;
     *Ptr++ = 0;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
@@ -239,7 +256,8 @@ static void HKPeerSubs_PeerIdErr(void)
     *Ptr++ = 0;
     *Ptr++ = 255;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
@@ -260,7 +278,8 @@ static void HKPeerSubs_Nominal(void)
 
     PeerPtr->SubCnt = 1;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
@@ -279,7 +298,8 @@ static void HKMySubs_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_MYSUBS_CC);
@@ -300,7 +320,8 @@ static void HKMySubs_Nominal(void)
 
     SBN.SubCnt = 1;
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_MYSUBS_CC);
@@ -319,7 +340,8 @@ static void HKReset_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_CC);
@@ -338,7 +360,8 @@ static void HKReset_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_CC);
@@ -357,7 +380,8 @@ static void HKResetPeer_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
@@ -379,7 +403,8 @@ static void HKResetPeer_NetIdErr(void)
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
     *Ptr++ = 255;
 
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
@@ -402,7 +427,8 @@ static void HKResetPeer_PeerIdErr(void)
     *Ptr++ = 0;
     *Ptr++ = 255;
 
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
@@ -421,7 +447,8 @@ static void HKResetPeer_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, SBN_CMD_PEER_LEN);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
@@ -440,7 +467,8 @@ static void SCH_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_SCH_WAKEUP_CC);
@@ -459,7 +487,7 @@ static void TBL_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_TBL_CC);
@@ -478,7 +506,8 @@ static void TBL_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_TBL_CC);
@@ -497,7 +526,8 @@ static void CC_Err(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_TBL_CC + 10);
@@ -516,7 +546,8 @@ static void HK_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_CC);
@@ -535,7 +566,8 @@ static void HK_MsgLenErr2(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
@@ -556,7 +588,8 @@ static void HK_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    CCSDS_WR_LEN(CmdPktPtr->SpacePacket.Hdr, CFE_SB_CMD_HDR_SIZE);
+    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_CC);
