@@ -1,0 +1,39 @@
+#!/bin/bash -x
+
+for cpu in cpu1 cpu2 cpu3
+do
+    echo starting ${cpu}
+    ( cd build/exe/${cpu} ; ./core-${cpu} -R PO ) 2>&1 > ${cpu}.log &
+    sleep 1
+done
+
+echo waiting for SBN network to settle
+sleep 5
+
+echo starting to_recv
+./to_recv 2>&1 > to_recv.log &
+to_recv_pid=$!
+sleep 1
+
+echo starting TO
+TO_MID=0x1880
+TO_START_CC=6
+printf '127.0.0.1       ' | ./cisend --mid=$TO_MID --cc=$TO_START_CC
+sleep 1
+
+echo commanding Fib
+FIB_MID=0x1882
+printf '' | ./cisend --mid=$FIB_MID --cc=0
+sleep 1
+printf '' | ./cisend --mid=$FIB_MID --cc=0
+sleep 1
+printf '' | ./cisend --mid=$FIB_MID --cc=0
+sleep 1
+
+printf '\2\0' | ./cisend --mid=0x1836 --cc=2
+printf '\2\0' | ./cisend --mid=0x181E --cc=2
+printf '\2\0' | ./cisend --mid=0x1806 --cc=2
+
+kill ${to_recv_pid}
+
+echo done

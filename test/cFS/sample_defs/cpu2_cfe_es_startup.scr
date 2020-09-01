@@ -1,0 +1,4 @@
+CFE_APP, /cf/fib_app.so,      FIB_AppMain,  FIB_APP,   70,   1024, 0x0, 0;
+CFE_APP, /cf/sch_lab.so,     SCH_Lab_AppMain, SCH_LAB_APP,  80,   16384, 0x0, 0;
+CFE_APP, /cf/sbn.so,     SBN_AppMain, SBN,  80,   100000, 0x0, 0;
+!

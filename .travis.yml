@@ -1,0 +1,49 @@
+os: linux
+dist: bionic
+language: c
+compiler:
+  - gcc
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - cmake cppcheck doxygen lcov graphviz
+env:
+  global:
+   - SIMULATION=native
+   - ENABLE_UNIT_TESTS=true
+   - DEPLOY_DIR=$TRAVIS_BUILD_DIR/deploy
+  jobs:
+   - BUILDTYPE=release OMIT_DEPRECATED=true
+
+script:
+  - git clone https://github.com/nasa/cFS.git nasa/cFS
+  - ( cd nasa/cFS && git submodule init && git submodule update )
+  # install SBN and its modules
+  - ./install nasa/cFS
+  - cp -r test/cFS nasa/
+  # git SHA report
+  - git rev-parse HEAD
+  # Prep and build
+  - cd nasa/cFS
+  - make prep
+  - make
+  - make install
+  # Run unit tests and generate coverage results
+  - make test
+  - |
+    if [[ -s build/native/Testing/Temporary/LastTestsFailed.log ]]; then
+      echo "You must fix unit test errors before submitting a pull request"
+      echo ""
+      cat build/native/Testing/Temporary/LastTestsFailed.log
+      grep "\[ FAIL\]" build/native/Testing/Temporary/LastTest.log
+      exit -1
+    fi
+  - make lcov
+  # run functional test
+  - ./run
+  - sleep 5
+  - echo === TO output ===
+  - cnt=`grep 'received from TO' to_recv.log | wc -l`
+  - if [ ${cnt} -eq 3 ] ; then echo 'success!'; sleep 5; else echo "Only ${cnt} entries in to_recv.log"; sleep 5; exit 1; fi

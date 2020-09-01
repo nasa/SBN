@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+import socket, struct, sys
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(("127.0.0.1", 1235))
+
+class FibTlm:
+    structstr = '>H'
+    structstrsz = struct.calcsize(structstr)
+    
+    def __init__(self, data):
+        (Fib,) = struct.unpack(self.structstr, data[0:self.structstrsz])
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return '<Fib %d>' % (self.Fib)
+
+class CCSDSPri:
+    structstr = '>HHH'
+    structstrsz = struct.calcsize(structstr)
+
+    def __init__(self, data):
+        (self.MID, self.Seq, self.Len) = struct.unpack(self.structstr,
+            data[0:self.structstrsz])
+
+    def __repr__(self):
+        return '<CCSDSPri MID=0x%x Seq=%d Len=%d>' % (
+            self.MID, self.Seq, self.Len)
+    def __str__(self):
+        return self.__repr__()
+
+decodemap = {
+    0x0882: FibTlm,
+}
+
+while True:
+    print('--waiting for TO messages--')
+    data, addr = sock.recvfrom(4096)
+    print('--received from TO (len=%d)--' % len(data))
+    print('%r' % data)
+    pri = CCSDSPri(data)
+    print('%r' % pri)
+    if pri.MID & 0x1000: print('cmd')
+    else:
+        if pri.MID in decodemap:
+            decodemap[pri.MID](data[12:])
+    sys.stdout.flush()
