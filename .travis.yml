@@ -13,9 +13,14 @@ env:
   global:
    - SIMULATION=native
    - ENABLE_UNIT_TESTS=true
-   - DEPLOY_DIR=$TRAVIS_BUILD_DIR/deploy
   jobs:
    - BUILDTYPE=release OMIT_DEPRECATED=true
+
+deploy:
+  provider: pages
+  github_token: $GITHUB_TOKEN
+  on:
+    branch: gh-pages
 
 script:
   - git clone https://github.com/nasa/cFS.git nasa/cFS
@@ -44,10 +49,12 @@ script:
   - lcov -c -d build/native/default_cpu1/apps/sbn -o sbn.coverage
   - |
     pct=`lcov --summary sbn.coverage 2>&1 | grep lines | sed -e 's/.*: \([0-9]*\)\..*/\1/'`
+    echo "coverage is at ${pct}%"
     if [[ ${pct} -lt 99 ]]
     then
-        echo "coverage has dropped below 99% (now ${pct}%), be sure to add coverage test code prior to pushing"
+        echo "coverage has dropped below 99%, be sure to add coverage test code (in unit-test/coverage) prior to pushing"
         exit -2
+    else
     fi
   # run functional test
   - ./run
@@ -55,7 +62,7 @@ script:
   - echo === TO output ===
   - cnt=`grep 'received from TO' to_recv.log | wc -l`
   - |
-    if [ ${cnt} -eq 3 ]
+    if [[ ${cnt} -eq 3 ]]
     then
         echo 'success!'
         sleep 5
