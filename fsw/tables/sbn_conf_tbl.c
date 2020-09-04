@@ -15,16 +15,14 @@ SBN_ConfTbl_t SBN_ConfTbl =
     .ProtocolCnt = 1,
     .FilterModules =
     {
-    #if 0
         { /* [0] */
             .Name = "Remap",
             .LibFileName = "/cf/sbn_f_remap.so",
             .LibSymbol = "SBN_F_Remap",
             .BaseEID = 0x1000
         }
-    #endif
     },
-    .FilterCnt = 0,
+    .FilterCnt = 1,
 
     .Peers =
     {
@@ -33,7 +31,7 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .SpacecraftID = 0x42,
             .NetNum = 0,
             .ProtocolName = "UDP",
-            .Filters = { },
+            .Filters = { "Remap" },
             .Address = "127.0.0.1:2234",
             .TaskFlags = SBN_TASK_POLL
         },
@@ -42,7 +40,7 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .SpacecraftID = 0x42,
             .NetNum = 0,
             .ProtocolName = "UDP",
-            .Filters = { },
+            .Filters = { "Remap" },
             .Address = "127.0.0.1:2235",
             .TaskFlags = SBN_TASK_POLL
         },
@@ -51,7 +49,7 @@ SBN_ConfTbl_t SBN_ConfTbl =
             .SpacecraftID = 0x42,
             .NetNum = 0,
             .ProtocolName = "UDP",
-            .Filters = { },
+            .Filters = { "Remap" },
             .Address = "127.0.0.1:2236",
             .TaskFlags = SBN_TASK_POLL
         },

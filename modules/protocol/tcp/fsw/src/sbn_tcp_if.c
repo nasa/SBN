@@ -53,9 +53,9 @@ typedef struct
 
 CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
 
-#define EXP_VERSION 4
+#define EXP_VERSION 5
 
-static CFE_Status_t Init(int Version, CFE_EVS_EventID_t EID)
+static SBN_Status_t Init(int Version, CFE_EVS_EventID_t EID)
 {
     SBN_TCP_FIRST_EID = EID;
     if(Version != EXP_VERSION) /* TODO: define */

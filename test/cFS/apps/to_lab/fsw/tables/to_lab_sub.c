@@ -7,7 +7,7 @@ TO_LAB_Subs_t TO_LAB_Subs =
 {
     .Subs =
     {
-        {CFE_SB_MSGID_WRAP_VALUE(FIB_TLM_MID), {0, 0}, 4}
+        {CFE_SB_MSGID_WRAP_VALUE(FIB_TLM_REMAP_MID), {0, 0}, 4}
     }
 };
 

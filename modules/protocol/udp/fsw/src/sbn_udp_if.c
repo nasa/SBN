@@ -10,20 +10,20 @@
 
 CFE_EVS_EventID_t SBN_UDP_FIRST_EID;
 
-#define EXP_VERSION 4
+#define EXP_VERSION 5
 
-static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 {
     SBN_UDP_FIRST_EID = BaseEID;
 
     if(Version != EXP_VERSION)
     {
         OS_printf("SBN_UDP version mismatch: expected %d, got %d\n", EXP_VERSION, Version);
-        return CFE_ES_ERR_APP_CREATE;
+        return SBN_ERROR;
     }/* end if */
 
     OS_printf("SBN_UDP Lib Initialized.\n");
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 }/* end Init() */
 
 /**

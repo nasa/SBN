@@ -70,7 +70,7 @@ typedef struct
      *
      * @return CFE_SUCCESS on successful initialization, otherwise error specific to failure.
      */
-    CFE_Status_t (*InitModule)(int FilterVersion, CFE_EVS_EventID_t BaseEID);
+    SBN_Status_t (*InitModule)(int FilterVersion, CFE_EVS_EventID_t BaseEID);
 
     /**
      * Interface is called to apply a filter algorithm on an SB (CCSDS) message
@@ -233,9 +233,9 @@ struct SBN_IfOps_s {
      * @param FilterVersion[in] The version # of the protocol API.
      * @param BaseEID[in] The start of the Event ID's for this module.
      *
-     * @return CFE_SUCCESS on successful initialization, otherwise error specific to failure.
+     * @return SBN_SUCCESS on successful initialization, otherwise SBN_ERROR.
      */
-    CFE_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID);
+    SBN_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID);
 
     /**
      * Initializes the host interface.

@@ -198,7 +198,7 @@ static void LoadConf_GetAddrErr(void)
     EVENT_CNT(1);
 }/* end LoadConf_GetAddrErr() */
 
-static CFE_Status_t ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID)
 {
     return 1;
 }/* end ProtoInitErr_InitModule */
@@ -218,7 +218,7 @@ static void LoadConf_ProtoInitErr(void)
     EVENT_CNT(1);
 }/* end LoadConf_ProtoInitErr() */
 
-static CFE_Status_t FilterInitErr_InitModule(int FilterVersion, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t FilterInitErr_InitModule(int FilterVersion, CFE_EVS_EventID_t BaseEID)
 {
     return 1;
 }/* end FilterInitErr_InitModule */

@@ -1,6 +1,6 @@
 SET(MISSION_NAME "SampleMission")
 SET(SPACECRAFT_ID 0x42)
-list(APPEND MISSION_GLOBAL_APPLIST sbn sbn_udp sbn_tcp sch_lab)
+list(APPEND MISSION_GLOBAL_APPLIST sbn sbn_udp sbn_tcp sch_lab sbn_f_remap)
 
 SET(FT_INSTALL_SUBDIR "host/functional-test")
 

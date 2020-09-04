@@ -8,7 +8,6 @@
 
 #include "sbn_f_remap_events.h"
 
-CFE_TBL_Handle_t RemapTblHandle = 0;
 OS_MutexID_t RemapMutex = 0;
 SBN_RemapTbl_t *RemapTbl = NULL;
 int RemapTblCnt = 0;
@@ -59,36 +58,12 @@ static int RemapTblCompar(const void *a, const void *b)
     return aEntry->FromMID - bEntry->FromMID;
 }/* end RemapTblCompar() */
 
-static SBN_Status_t LoadRemap(void)
-{
-    CFE_Status_t Status = CFE_SUCCESS;
-    SBN_RemapTbl_t *TblPtr;
-
-    if((Status = CFE_TBL_GetAddress((void **)&TblPtr, RemapTblHandle))
-        != CFE_TBL_INFO_UPDATED)
-    {
-        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to get conf table address");
-        CFE_TBL_Unregister(RemapTblHandle);
-        return SBN_ERROR;
-    }/* end if */
-
-    /* sort the entries on ProcessorID and from MID */
-    /* note: qsort is recursive, so it will use some stack space
-     * (O[N log N] * <some small amount of stack>). If this is a concern,
-     * consider using a non-recursive (insertion, bubble, etc) sort algorithm.
-     */
-
-    qsort(RemapTbl->Entries, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
-
-    CFE_TBL_Modified(RemapTblHandle);
-
-    RemapTbl = TblPtr;
-
-    return SBN_SUCCESS;
-}/* end LoadRemap() */
-
 static SBN_Status_t LoadRemapTbl(void)
 {
+    CFE_TBL_Handle_t RemapTblHandle = 0;
+    SBN_RemapTbl_t *TblPtr = NULL;
+    CFE_Status_t CFE_Status = CFE_SUCCESS;
+
     if(CFE_TBL_Register(&RemapTblHandle, "SBN_RemapTbl", sizeof(SBN_RemapTbl_t),
         CFE_TBL_OPT_DEFAULT, &RemapTblVal) != CFE_SUCCESS)
     {
@@ -103,58 +78,27 @@ static SBN_Status_t LoadRemapTbl(void)
         return SBN_ERROR;
     }/* end if */
 
-    if(CFE_TBL_Manage(RemapTblHandle) != CFE_SUCCESS)
+    if((CFE_Status = CFE_TBL_GetAddress((void **)&TblPtr, RemapTblHandle)) != CFE_TBL_INFO_UPDATED)
     {
-        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to manage remap tbl");
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to get conf table address");
         CFE_TBL_Unregister(RemapTblHandle);
         return SBN_ERROR;
     }/* end if */
 
-    if(CFE_TBL_NotifyByMessage(RemapTblHandle, SBN_CMD_MID, SBN_TBL_CC, 1) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to set notifybymessage for remap tbl");
-        CFE_TBL_Unregister(RemapTblHandle);
-        return SBN_ERROR;
-    }/* end if */
+    /* sort the entries on <ProcessorID> and <from MID> */
+    /* note: qsort is recursive, so it will use some stack space
+     * (O[N log N] * <some small amount of stack>). If this is a concern,
+     * consider using a non-recursive (insertion, bubble, etc) sort algorithm.
+     */
 
-    return LoadRemap();
-}/* end LoadRemapTbl() */
+    qsort(TblPtr->Entries, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
 
-#if 0
-static SBN_Status_t UnloadRemap(void)
-{
-    RemapTbl = NULL;
+    CFE_TBL_Modified(RemapTblHandle);
 
-    CFE_Status_t Status;
-
-    if((Status = CFE_TBL_ReleaseAddress(RemapTblHandle)) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to release address for remap tbl");
-        return SBN_ERROR;
-    }/* end if */
+    RemapTbl = TblPtr;
 
     return SBN_SUCCESS;
-}/* end UnloadRemap() */
-
-static SBN_Status_t ReloadRemapTbl(void)
-{
-    SBN_Status_t Status;
-
-    /* releases the table address */
-    if((Status = UnloadRemap()) != SBN_SUCCESS)
-    {
-        return Status;
-    }/* end if */
-
-    if(CFE_TBL_Update(RemapTblHandle) != CFE_SUCCESS)
-    {
-        return SBN_ERROR;
-    }/* end if */
-
-    /* gets the new address and loads config */
-    return LoadRemap();
-}/* end ReloadRemapTbl() */
-#endif /* ifdef out unused fn */
+}/* end LoadRemapTbl() */
 
 /* finds the entry or the one that would immediately follow it */
 static int BinarySearch(void *Entries, void *SearchEntry,
@@ -186,7 +130,7 @@ static int BinarySearch(void *Entries, void *SearchEntry,
     if(found == 0)
     {
         return EntryCnt;
-    }
+    }/* end if */
 
     return midpoint;
 }/* end BinarySearch() */
@@ -194,10 +138,7 @@ static int BinarySearch(void *Entries, void *SearchEntry,
 static int RemapTblSearch(uint32 ProcessorID, CFE_SB_MsgId_t MID)
 {
     SBN_RemapTblEntry_t Entry = {ProcessorID, MID, 0x0000};
-    return BinarySearch(RemapTbl->Entries, &Entry,
-        RemapTbl->EntryCnt,
-        sizeof(SBN_RemapTblEntry_t),
-        RemapTblCompar);
+    return BinarySearch(RemapTbl->Entries, &Entry, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
 }/* end RemapTblSearch() */
 
 static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
@@ -205,11 +146,11 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
     CFE_SB_MsgId_t FromMID = 0x0000, ToMID = 0x0000;
     CFE_MSG_Message_t *CFE_MsgPtr = msg;
 
-    if (CFE_MSG_GetApId(CFE_MsgPtr, &FromMID) != CFE_SUCCESS)
+    if (CFE_MSG_GetMsgId(CFE_MsgPtr, &FromMID) != CFE_SUCCESS)
     {
         EVSSendErr(SBN_F_REMAP_EID, "unable to get apid");
         return SBN_ERROR;
-    }
+    }/* end if */
 
     if(OS_MutSemTake(RemapMutex) != OS_SUCCESS)
     {
@@ -219,7 +160,7 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 
     int i = RemapTblSearch(Context->PeerProcessorID, FromMID);
 
-    if(i < RemapTbl->EntryCnt
+    if(i < RemapTblCnt
         && RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID
         && RemapTbl->Entries[i].FromMID == FromMID)
     {
@@ -244,9 +185,9 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
         return SBN_IF_EMPTY; /* signal to the core app that this filter recommends not sending this message */
     }/* end if */
 
-    if (CFE_MSG_SetApId(CFE_MsgPtr, ToMID) != CFE_SUCCESS)
+    if (CFE_MSG_SetMsgId(CFE_MsgPtr, ToMID) != CFE_SUCCESS)
     {
-        EVSSendErr(SBN_F_REMAP_EID, "unable to set apid");
+        EVSSendErr(SBN_F_REMAP_EID, "unable to set msgid");
         return SBN_ERROR;
     }/* end if */
 
@@ -257,7 +198,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
 {
     int i = 0;
 
-    for(i = 0; i < RemapTbl->EntryCnt; i++)
+    for(i = 0; i < RemapTblCnt; i++)
     {
         if(RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID
             && RemapTbl->Entries[i].ToMID == *InOutMsgIdPtr)
@@ -270,14 +211,13 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
     return SBN_SUCCESS;
 }/* end Remap_MID() */
 
-static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 {
     OS_Status_t OS_Status;
-    CFE_Status_t CFE_Status;
 
     SBN_F_REMAP_FIRST_EID = BaseEID;
 
-    if(Version != 1) /* TODO: define */
+    if(Version != 2) /* TODO: define */
     {
         OS_printf("SBN_F_Remap version mismatch: expected %d, got %d\n", 1, Version);
         return SBN_ERROR;
@@ -288,12 +228,10 @@ static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
     OS_Status = OS_MutSemCreate(&RemapMutex, "SBN_F_Remap", 0);
     if(OS_Status != OS_SUCCESS)
     {
-        return OS_Status;
+        return SBN_ERROR;
     }/* end if */
 
-    CFE_Status = LoadRemapTbl();
-
-    return CFE_Status;
+    return LoadRemapTbl();
 }/* end Init() */
 
 SBN_FilterInterface_t SBN_F_Remap =

@@ -33,7 +33,7 @@ class CCSDSPri:
         return self.__repr__()
 
 decodemap = {
-    0x0882: FibTlm,
+    0x0883: FibTlm,
 }
 
 while True:

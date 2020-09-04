@@ -60,7 +60,7 @@ void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText)
     UT_SetVaHookFunction(UT_KEY(CFE_EVS_SendEvent), UT_CheckEvent_Hook, &EventTest);
 }
 
-CFE_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID)
+SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID)
 {
     return CFE_SUCCESS;
 }/* end ProtoInitModule_Nominal() */
@@ -136,9 +136,9 @@ SBN_IfOps_t IfOps =
 
 SBN_IfOps_t *IfOpsPtr = &IfOps;
 
-CFE_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID)
+SBN_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID)
 {
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 }/* end InitFilterModule() */
 
 SBN_FilterInterface_t FilterInterface =

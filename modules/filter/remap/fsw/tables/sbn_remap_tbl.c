@@ -3,10 +3,12 @@
 
 SBN_RemapTbl_t SBN_RemapTbl =
 { 
-    SBN_REMAP_DEFAULT_SEND, /* Remap Default */
-    {  /* remap table */
-        /* {ProcessorID, from, to} and if to is 0x0000, filter rather than remap */
-        {0, 0x0000, 0x0000}
+    .RemapDefaultFlag = SBN_REMAP_DEFAULT_SEND,
+    .Entries = {
+        {.ProcessorID = 3, .FromMID = 0x0882, .ToMID = 0x0883},
+
+        /** ProcessorID "0" signals the end of the table. */
+        {.ProcessorID = 0, .FromMID = 0x0000, .ToMID = 0x0000}
     }
 };/* end SBN_RemapTbl */
 

@@ -74,7 +74,7 @@ extern UT_CheckEvent_t EventTest;
  */
 void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText);
 
-CFE_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID);
+SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID);
 SBN_Status_t InitNet_Nominal(SBN_NetInterface_t *Net);
 SBN_Status_t LoadNet_Nominal(SBN_NetInterface_t *Net, const char *Address);
 SBN_Status_t InitPeer_Nominal(SBN_PeerInterface_t *Peer);
@@ -86,7 +86,7 @@ SBN_Status_t UnloadPeer_Nominal(SBN_PeerInterface_t *Net);
 SBN_Status_t PollPeer_Nominal(SBN_PeerInterface_t *Peer);
 SBN_Status_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
 SBN_Status_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
-CFE_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID);
+SBN_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID);
 
 extern SBN_IfOps_t *IfOpsPtr;
 extern SBN_FilterInterface_t *FilterInterfacePtr;

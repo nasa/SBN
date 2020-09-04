@@ -59,9 +59,6 @@ typedef struct
     /** @brief Behavior for MID's not found in this table. */
     uint32 RemapDefaultFlag;
 
-    /** @brief The number of entries in the table (determined at runtime.) */
-    uint32 EntryCnt;
-
     /** @brief The remapping entries. */
     SBN_RemapTblEntry_t Entries[SBN_REMAP_TABLE_SIZE];
 }
