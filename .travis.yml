@@ -13,14 +13,17 @@ env:
   global:
    - SIMULATION=native
    - ENABLE_UNIT_TESTS=true
+   - DEPLOY_DIR=$TRAVIS_BUILD_DIR/deploy
   jobs:
    - BUILDTYPE=release OMIT_DEPRECATED=true
 
 deploy:
   provider: pages
-  github_token: $GITHUB_TOKEN
-  on:
-    branch: gh-pages
+  strategy: git
+  cleanup: false
+  token: $GITHUB_TOKEN
+  keep_history: false
+  local_dir: $DEPLOY_DIR
 
 script:
   - git clone https://github.com/nasa/cFS.git nasa/cFS
