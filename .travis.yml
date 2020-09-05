@@ -49,6 +49,8 @@ script:
       exit -1
     fi
   - make lcov
+  - genhtml build/native/coverage_total.info --output-directory $DEPLOY_DIR/
+
   - lcov -c -d build/native/default_cpu1/apps/sbn -o sbn.coverage
   - |
     pct=`lcov --summary sbn.coverage 2>&1 | grep lines | sed -e 's/.*: \([0-9]*\)\..*/\1/'`
