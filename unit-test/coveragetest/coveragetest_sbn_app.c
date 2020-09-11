@@ -4,6 +4,7 @@
 #include "cfe_sb_events.h"
 #include "sbn_pack.h"
 
+#define STUB_TASKID 1073807361 /* TODO: should be replaced with a call to a stub util fn */
 CFE_SB_MsgId_t MsgID = 0x1818;
 /********************************** tests ************************************/
 static void AppMain_ESRegisterErr(void)
@@ -1036,6 +1037,7 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
     SubRprt.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    PeerPtr->RecvTaskID = STUB_TASKID;
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
@@ -1693,7 +1695,7 @@ static void RecvPeerTask_Empty(void)
     IfOpsPtr->RecvFromNet  = NULL;
     IfOpsPtr->RecvFromPeer = RecvFromPeer_EmptyOne;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 0);
+    PeerPtr->RecvTaskID = STUB_TASKID;
 
     SBN_RecvPeerTask();
 
@@ -1718,7 +1720,8 @@ static void RecvPeerTask_Nominal(void)
     IfOpsPtr->RecvFromNet  = NULL;
     IfOpsPtr->RecvFromPeer = RecvFromPeer_One;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 0);
+    PeerPtr->RecvTaskID = STUB_TASKID;
+    /* eventually -- UT_ObjIdCompose(1, UT_OBJTYPE_TASK, &PeerPtr->RecvTaskID); */
 
     SBN_RecvPeerTask();
 
@@ -1776,7 +1779,7 @@ static void RecvNetTask_Empty(void)
 
     IfOpsPtr->RecvFromNet = RecvFromNet_EmptyOne;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 0);
+    NetPtr->RecvTaskID = STUB_TASKID;
 
     SBN_RecvNetTask();
 
@@ -1799,7 +1802,7 @@ static void RecvNetTask_PeerErr(void)
 
     IfOpsPtr->RecvFromNet = RecvFromNet_BadPeer;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 0);
+    NetPtr->RecvTaskID = STUB_TASKID;
 
     SBN_RecvNetTask();
 
@@ -1828,7 +1831,7 @@ static void RecvNetTask_Nominal(void)
 
     IfOpsPtr->RecvFromNet = RecvFromNet_One;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 0);
+    NetPtr->RecvTaskID = STUB_TASKID;
 
     SBN_RecvNetTask();
 
@@ -1862,9 +1865,8 @@ static void SendTask_ConnTaskErr(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 2);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
     SBN_SendTask();
@@ -1887,9 +1889,8 @@ static void SendTask_PeerNotConn(void)
     START();
 
     PeerPtr->Connected  = false;
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
     UT_SetHookFunction(UT_KEY(OS_TaskDelay), TaskDelayConn, NULL);
@@ -1907,7 +1908,7 @@ static void SendTask_FiltErr(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
 
     SBN_FilterInterface_t Filter_Err;
     memset(&Filter_Err, 0, sizeof(Filter_Err));
@@ -1917,7 +1918,6 @@ static void SendTask_FiltErr(void)
     PeerPtr->Filters[0] = &Filter_Err;
     PeerPtr->FilterCnt  = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
     SBN_SendTask();
@@ -1938,7 +1938,7 @@ static void SendTask_Filters(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
 
     SBN_FilterInterface_t Filter_Empty, Filter_Nominal, Filter_Out;
     memset(&Filter_Empty, 0, sizeof(Filter_Empty));
@@ -1953,7 +1953,6 @@ static void SendTask_Filters(void)
     PeerPtr->Filters[2] = &Filter_Out;
     PeerPtr->FilterCnt  = 3;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
     SBN_SendTask();
@@ -1964,11 +1963,9 @@ static void SendTask_SendNetMsgErr(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
 
     IfOpsPtr->Send = Send_Err;
-
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 1);
 
     SBN_SendTask();
 
@@ -1982,9 +1979,8 @@ static void SendTask_Nominal(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
 
-    UT_SetDeferredRetcode(UT_KEY(OS_TaskGetId), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
     SBN_SendTask();
@@ -2007,7 +2003,7 @@ void SendNetMsg_MutexTakeErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "unable to take mutex");
 
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, -1);
 
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
@@ -2021,7 +2017,7 @@ void SendNetMsg_MutexGiveErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "unable to give mutex");
 
-    PeerPtr->SendTaskID = 1;
+    PeerPtr->SendTaskID = STUB_TASKID;
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, -1);
 
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);

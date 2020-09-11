@@ -4,7 +4,7 @@
 #include "cfe_sb_events.h"
 #include "sbn_pack.h"
 
-uint8                  Buffer[1024];
+uint8 Buffer[1024];
 
 #ifdef _cfe_msg_api_
 CFE_MSG_Message_t *CmdPktPtr = (CFE_MSG_Message_t *)Buffer;

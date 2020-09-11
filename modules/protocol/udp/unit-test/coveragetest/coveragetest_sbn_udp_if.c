@@ -39,6 +39,8 @@
 #include "sbn_udp_if.h"
 #include "sbn_app.h"
 
+#define SBN_PROTOCOL_VERSION 5
+
 SBN_App_t SBN;
 
 SBN_NetInterface_t * NetPtr;
@@ -140,14 +142,14 @@ static void Init_VerErr(void)
 {
     START();
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(-1, 0), CFE_ES_ERR_APP_CREATE);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(-1, 0), SBN_ERROR);
 } /* end Init_VerErr() */
 
 static void Init_Nominal(void)
 {
     START();
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(4, 0), CFE_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0), CFE_SUCCESS);
 } /* end Init_Nominal() */
 
 void Test_SBN_UDP_Init(void)
@@ -401,7 +403,7 @@ static void Send_AddrInitErr(void)
 {
     START();
 
-    CFE_SB_MsgPtr_t         SBMsgPtr;
+    CFE_SB_MsgPtr_t           SBMsgPtr;
     CFE_MSG_TelemetryHeader_t TlmPkt;
 
     SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
@@ -419,7 +421,7 @@ static void Send_AddrInitErr(void)
 static void Send_SendErr(void)
 {
     START();
-    CFE_SB_MsgPtr_t         SBMsgPtr;
+    CFE_SB_MsgPtr_t           SBMsgPtr;
     CFE_MSG_TelemetryHeader_t TlmPkt;
 
     SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
@@ -434,7 +436,7 @@ static void Send_SendErr(void)
 static void Send_Nominal(void)
 {
     START();
-    CFE_SB_MsgPtr_t         SBMsgPtr;
+    CFE_SB_MsgPtr_t           SBMsgPtr;
     CFE_MSG_TelemetryHeader_t TlmPkt;
 
     SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
