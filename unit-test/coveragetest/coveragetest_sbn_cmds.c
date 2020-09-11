@@ -5,11 +5,12 @@
 #include "sbn_pack.h"
 
 uint8                  Buffer[1024];
-CCSDS_CommandPacket_t *CmdPktPtr = (CCSDS_CommandPacket_t *)Buffer;
 
 #ifdef _cfe_msg_api_
+CFE_MSG_Message_t *CmdPktPtr = (CFE_MSG_Message_t *)Buffer;
 #define MSGINIT(MsgPtr, MsgId, Size, Clear) CFE_MSG_Init((CFE_MSG_Message_t *)MsgPtr, MsgId, Size, Clear)
 #else
+CCSDS_CommandPacket_t *CmdPktPtr = (CCSDS_CommandPacket_t *)Buffer;
 #define MSGINIT(MsgPtr, MsgId, Size, Clear) CCSDS_WR_LEN(MsgPtr->SpacePacket.Hdr, Size)
 #endif
 

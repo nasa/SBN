@@ -402,7 +402,7 @@ static void Send_AddrInitErr(void)
     START();
 
     CFE_SB_MsgPtr_t         SBMsgPtr;
-    CCSDS_TelemetryPacket_t TlmPkt;
+    CFE_MSG_TelemetryHeader_t TlmPkt;
 
     SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
     CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
@@ -420,7 +420,7 @@ static void Send_SendErr(void)
 {
     START();
     CFE_SB_MsgPtr_t         SBMsgPtr;
-    CCSDS_TelemetryPacket_t TlmPkt;
+    CFE_MSG_TelemetryHeader_t TlmPkt;
 
     SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
     CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
@@ -435,7 +435,7 @@ static void Send_Nominal(void)
 {
     START();
     CFE_SB_MsgPtr_t         SBMsgPtr;
-    CCSDS_TelemetryPacket_t TlmPkt;
+    CFE_MSG_TelemetryHeader_t TlmPkt;
 
     SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
     CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
