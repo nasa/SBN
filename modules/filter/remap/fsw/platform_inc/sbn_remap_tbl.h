@@ -35,8 +35,7 @@ typedef struct
 
     /** @brief The MID to send to the peer. If 0, filter the from MID. */
     CFE_SB_MsgId_t ToMID;
-}
-SBN_RemapTblEntry_t;
+} SBN_RemapTblEntry_t;
 
 #define SBN_REMAP_TABLE_SHARENAME "SBN.RemapTbl"
 
@@ -61,7 +60,6 @@ typedef struct
 
     /** @brief The remapping entries. */
     SBN_RemapTblEntry_t Entries[SBN_REMAP_TABLE_SIZE];
-}
-SBN_RemapTbl_t;
+} SBN_RemapTbl_t;
 
 #endif /* _sbn_remap_tbl_h_ */

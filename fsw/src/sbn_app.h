@@ -56,7 +56,7 @@
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void SBN_ShowPeerData(void);
+void  SBN_ShowPeerData(void);
 int32 SBN_GetPeerFileData(void);
 
 SBN_Status_t SBN_RecvNetMsgs(void);
@@ -136,14 +136,14 @@ extern SBN_App_t SBN;
 /*
 ** Prototypes
 */
-void SBN_AppMain(void);
-SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType,
-    CFE_ProcessorID_t ProcessorID, SBN_MsgSz_t MsgSz, void *Msg);
+void                 SBN_AppMain(void);
+SBN_Status_t         SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID,
+                                       SBN_MsgSz_t MsgSz, void *Msg);
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
-uint32 SBN_ReloadConfTbl(void);
-void SBN_RecvNetTask(void);
-void SBN_RecvPeerTask(void);
-void SBN_SendTask(void);
+uint32               SBN_ReloadConfTbl(void);
+void                 SBN_RecvNetTask(void);
+void                 SBN_RecvPeerTask(void);
+void                 SBN_SendTask(void);
 
 #endif /* _sbn_app_ */
 /*****************************************************************************/

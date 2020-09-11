@@ -9,15 +9,15 @@
 
 typedef struct
 {
-    char EIN[32];
+    char    EIN[32];
     boolean SubsSent;
 } SBN_DTN_Peer_t;
 
 typedef struct
 {
-    char EIN[32];
-    BpSAP SAP;
-    Sdr SendSDR, RecvSDR;
+    char         EIN[32];
+    BpSAP        SAP;
+    Sdr          SendSDR, RecvSDR;
     ReqAttendant Attendant;
 } SBN_DTN_Net_t;
 

@@ -14,7 +14,7 @@ static void SendSubsRequests_SendMsg1Err(void)
 
     UtAssert_INT32_EQ(SBN_SendSubsRequests(), SBN_ERROR);
     EVENT_CNT(1);
-}/* end SendSubsRequests_SendMsg1Err() */
+} /* end SendSubsRequests_SendMsg1Err() */
 
 static void SendSubsRequests_SendMsg2Err(void)
 {
@@ -26,19 +26,19 @@ static void SendSubsRequests_SendMsg2Err(void)
 
     UtAssert_INT32_EQ(SBN_SendSubsRequests(), SBN_ERROR);
     EVENT_CNT(1);
-}/* end SendSubsRequests_SendMsg2Err() */
+} /* end SendSubsRequests_SendMsg2Err() */
 
 void Test_SBN_SendSubsRequests(void)
 {
     SendSubsRequests_SendMsg1Err();
     SendSubsRequests_SendMsg2Err();
-}/* end Test_SBN_SendSubsRequests() */
+} /* end Test_SBN_SendSubsRequests() */
 
 static void SLS2P_SendNetMsgErr(void)
 {
     START();
 
-    SBN.SubCnt = 1;
+    SBN.SubCnt        = 1;
     SBN.Subs[0].MsgID = MsgID;
 
     SBN.Nets[0].Peers[1].Net = NetPtr;
@@ -48,12 +48,12 @@ static void SLS2P_SendNetMsgErr(void)
     UtAssert_INT32_EQ(SBN_SendLocalSubsToPeer(&SBN.Nets[0].Peers[1]), SBN_ERROR);
 
     IfOpsPtr->Send = Send_Nominal;
-}/* end SLS2P_SendNetMsgErr() */
+} /* end SLS2P_SendNetMsgErr() */
 
 void Test_SBN_SendLocalSubsToPeer(void)
 {
     SLS2P_SendNetMsgErr();
-}/* end Test_SBN_SendLocalSubsToPeer() */
+} /* end Test_SBN_SendLocalSubsToPeer() */
 
 static void CSP_PLS_MaxSubsErr(void)
 {
@@ -67,7 +67,7 @@ static void CSP_PLS_MaxSubsErr(void)
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    Msg.Payload.MsgId = CFE_SB_ONESUB_TLM_MID;
+    Msg.Payload.MsgId   = CFE_SB_ONESUB_TLM_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -76,21 +76,21 @@ static void CSP_PLS_MaxSubsErr(void)
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
 
     EVENT_CNT(1);
-}/* end CSP_PLS_MaxSubsErr() */
+} /* end CSP_PLS_MaxSubsErr() */
 
 static void CSP_PLS_AddlSubs(void)
 {
     START();
 
-    SBN.SubCnt = 1;
+    SBN.SubCnt           = 1;
     SBN.Subs[0].InUseCtr = 1;
-    SBN.Subs[0].MsgID = MsgID;
+    SBN.Subs[0].MsgID    = MsgID;
 
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -99,7 +99,7 @@ static void CSP_PLS_AddlSubs(void)
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(SBN.Subs[0].InUseCtr, 2);
-}/* end CSP_PLS_AddlSubs() */
+} /* end CSP_PLS_AddlSubs() */
 
 static void CSP_PLS_SendErr(void)
 {
@@ -111,7 +111,7 @@ static void CSP_PLS_SendErr(void)
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -120,7 +120,7 @@ static void CSP_PLS_SendErr(void)
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
 
     IfOpsPtr->Send = Send_Nominal;
-}/* end CSP_PLS_SendErr() */
+} /* end CSP_PLS_SendErr() */
 
 static void CSP_PLU_NotSub(void)
 {
@@ -130,28 +130,28 @@ static void CSP_PLU_NotSub(void)
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
 
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
-}/* end CSP_PLU_NotSub() */
+} /* end CSP_PLU_NotSub() */
 
 static void CSP_PLU_OtherSub(void)
 {
     START();
 
-    SBN.SubCnt = 1;
+    SBN.SubCnt           = 1;
     SBN.Subs[0].InUseCtr = 2;
-    SBN.Subs[0].MsgID = MsgID;
+    SBN.Subs[0].MsgID    = MsgID;
 
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -161,21 +161,21 @@ static void CSP_PLU_OtherSub(void)
 
     UtAssert_INT32_EQ(SBN.Subs[0].InUseCtr, 1);
     UtAssert_INT32_EQ(SBN.SubCnt, 1);
-}/* end CSP_PLU_OtherSub() */
+} /* end CSP_PLU_OtherSub() */
 
 static void CSP_PLU_SLS2PErr(void)
 {
     START();
 
-    SBN.SubCnt = 1;
+    SBN.SubCnt           = 1;
     SBN.Subs[0].InUseCtr = 1;
-    SBN.Subs[0].MsgID = MsgID;
+    SBN.Subs[0].MsgID    = MsgID;
 
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -186,21 +186,21 @@ static void CSP_PLU_SLS2PErr(void)
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
 
     IfOpsPtr->Send = Send_Nominal;
-}/* end CSP_PLU_SLS2PErr() */
+} /* end CSP_PLU_SLS2PErr() */
 
 static void CSP_PLU_Nominal(void)
 {
     START();
 
-    SBN.SubCnt = 1;
+    SBN.SubCnt           = 1;
     SBN.Subs[0].InUseCtr = 1;
-    SBN.Subs[0].MsgID = MsgID;
+    SBN.Subs[0].MsgID    = MsgID;
 
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -210,7 +210,7 @@ static void CSP_PLU_Nominal(void)
 
     UtAssert_INT32_EQ(SBN.Subs[0].InUseCtr, 0);
     UtAssert_INT32_EQ(SBN.SubCnt, 0);
-}/* end CSP_PLU_Nominal() */
+} /* end CSP_PLU_Nominal() */
 
 static void CSP_SubTypeErr(void)
 {
@@ -222,7 +222,7 @@ static void CSP_SubTypeErr(void)
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION + 10; /* invalid subtype */
-    Msg.Payload.MsgId = MsgID;
+    Msg.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
@@ -234,14 +234,14 @@ static void CSP_SubTypeErr(void)
     UtAssert_INT32_EQ(SBN.SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end CSP_SubTypeErr() */
+} /* end CSP_SubTypeErr() */
 
 static void CSP_AllSubs_EntryCntErr(void)
 {
     START();
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "entries value ");
- 
+
     CFE_SB_AllSubscriptionsTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
@@ -257,7 +257,7 @@ static void CSP_AllSubs_EntryCntErr(void)
     UtAssert_INT32_EQ(SBN.SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end CSP_AllSubs_EntryCntErr() */
+} /* end CSP_AllSubs_EntryCntErr() */
 
 static void CSP_AllSubs_PLSErr(void)
 {
@@ -271,7 +271,7 @@ static void CSP_AllSubs_PLSErr(void)
     CFE_SB_AllSubscriptionsTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
-    Msg.Payload.Entries = 1;
+    Msg.Payload.Entries        = 1;
     Msg.Payload.Entry[0].MsgId = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
@@ -281,7 +281,7 @@ static void CSP_AllSubs_PLSErr(void)
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
 
     EVENT_CNT(1);
-}/* end CSP_AllSubs_PLSErr() */
+} /* end CSP_AllSubs_PLSErr() */
 
 static void CSP_AllSubs_Nominal(void)
 {
@@ -290,7 +290,7 @@ static void CSP_AllSubs_Nominal(void)
     CFE_SB_AllSubscriptionsTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
     memset(MsgPtr, 0, sizeof(Msg));
-    Msg.Payload.Entries = 1;
+    Msg.Payload.Entries        = 1;
     Msg.Payload.Entry[0].MsgId = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
 
@@ -301,7 +301,7 @@ static void CSP_AllSubs_Nominal(void)
 
     UtAssert_INT32_EQ(SBN.Subs[0].InUseCtr, 1);
     UtAssert_INT32_EQ(SBN.SubCnt, 1);
-}/* end CSP_AllSubs_Nominal() */
+} /* end CSP_AllSubs_Nominal() */
 
 static void CSP_NoMsg(void)
 {
@@ -310,7 +310,7 @@ static void CSP_NoMsg(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_NO_MESSAGE);
 
     UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_IF_EMPTY);
-}/* end CSP_NoMsg() */
+} /* end CSP_NoMsg() */
 
 void Test_SBN_CheckSubscriptionPipe(void)
 {
@@ -326,12 +326,12 @@ void Test_SBN_CheckSubscriptionPipe(void)
     CSP_AllSubs_PLSErr();
     CSP_AllSubs_Nominal();
     CSP_NoMsg();
-}/* end Test_SBN_CheckSubscriptionPipe() */
+} /* end Test_SBN_CheckSubscriptionPipe() */
 
-static SBN_Status_t RemapMID_Err(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context) 
+static SBN_Status_t RemapMID_Err(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context)
 {
     return SBN_ERROR;
-}/* end RemapMID_Err() */
+} /* end RemapMID_Err() */
 
 static void PSFP_PFP_FiltErr(void)
 {
@@ -341,11 +341,11 @@ static void PSFP_PFP_FiltErr(void)
     SBN_FilterInterface_t Filter1, Filter2;
     memset(&Filter1, 0, sizeof(Filter1));
     memset(&Filter2, 0, sizeof(Filter2));
-    Filter2.RemapMID = RemapMID_Err;
+    Filter2.RemapMID    = RemapMID_Err;
     PeerPtr->Filters[0] = &Filter1;
     PeerPtr->Filters[1] = &Filter2;
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -357,16 +357,16 @@ static void PSFP_PFP_FiltErr(void)
     UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_ERROR);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
-}/* end PSFP_PFP_FiltErr() */
+} /* end PSFP_PFP_FiltErr() */
 
 static void PSFP_PFP_AlreadySub(void)
 {
     START();
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -380,7 +380,7 @@ static void PSFP_PFP_AlreadySub(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
 
     EVENT_CNT(1);
-}/* end PSFP_PFP_AlreadySub() */
+} /* end PSFP_PFP_AlreadySub() */
 
 static void PSFP_PFP_SubErr(void)
 {
@@ -388,7 +388,7 @@ static void PSFP_PFP_SubErr(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "unable to subscribe to MID 0x");
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -404,7 +404,7 @@ static void PSFP_PFP_SubErr(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end PSFP_PFP_SubErr() */
+} /* end PSFP_PFP_SubErr() */
 
 static void PSFP_PFP_MaxSubsErr(void)
 {
@@ -414,7 +414,7 @@ static void PSFP_PFP_MaxSubsErr(void)
 
     PeerPtr->SubCnt = SBN_MAX_SUBS_PER_PEER;
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -428,7 +428,7 @@ static void PSFP_PFP_MaxSubsErr(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, SBN_MAX_SUBS_PER_PEER);
 
     EVENT_CNT(1);
-}/* end PSFP_PFP_MaxSubsErr() */
+} /* end PSFP_PFP_MaxSubsErr() */
 
 static void PSFP_IdentErr(void)
 {
@@ -437,7 +437,7 @@ static void PSFP_IdentErr(void)
     UT_CheckEvent_Setup(SBN_PROTO_EID, "version number mismatch with peer CpuID ");
 
     uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    char tmpident[SBN_IDENT_LEN];
+    char  tmpident[SBN_IDENT_LEN];
     memset(tmpident, 0, sizeof(tmpident));
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
@@ -452,13 +452,13 @@ static void PSFP_IdentErr(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end PSFP_IdentErr() */
+} /* end PSFP_IdentErr() */
 
 static void PSFP_Nominal(void)
 {
     START();
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -470,7 +470,7 @@ static void PSFP_Nominal(void)
     UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
-}/* end PSFP_Nominal() */
+} /* end PSFP_Nominal() */
 
 void Test_SBN_ProcessSubsFromPeer(void)
 {
@@ -480,23 +480,23 @@ void Test_SBN_ProcessSubsFromPeer(void)
     PSFP_PFP_MaxSubsErr();
     PSFP_IdentErr();
     PSFP_Nominal();
-}/* end Test_SBN_ProcessSubsFromPeer() */
+} /* end Test_SBN_ProcessSubsFromPeer() */
 
 static void PUSFP_PUFP_FiltErr(void)
 {
     START();
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
-    PeerPtr->FilterCnt = 2;
+    PeerPtr->FilterCnt     = 2;
     SBN_FilterInterface_t Filter1, Filter2;
     memset(&Filter1, 0, sizeof(Filter1));
     memset(&Filter2, 0, sizeof(Filter2));
-    Filter2.RemapMID = RemapMID_Err;
+    Filter2.RemapMID    = RemapMID_Err;
     PeerPtr->Filters[0] = &Filter1;
     PeerPtr->Filters[1] = &Filter2;
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -509,7 +509,7 @@ static void PUSFP_PUFP_FiltErr(void)
 
     /* ProcessUnsubsFromPeer() ignores any subs that the filter remap function returns an err */
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
-}/* end PUSFP_PUFP_FiltErr() */
+} /* end PUSFP_PUFP_FiltErr() */
 
 static void PUSFP_PUFP_NotSub(void)
 {
@@ -517,7 +517,7 @@ static void PUSFP_PUFP_NotSub(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "cannot process unsubscription from ProcessorID ");
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -531,7 +531,7 @@ static void PUSFP_PUFP_NotSub(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end PUSFP_PUFP_NotSub() */
+} /* end PUSFP_PUFP_NotSub() */
 
 static void PUSFP_PUFP_UnsubErr(void)
 {
@@ -539,10 +539,10 @@ static void PUSFP_PUFP_UnsubErr(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "unable to unsubscribe from MID 0x");
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -558,7 +558,7 @@ static void PUSFP_PUFP_UnsubErr(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end PUSFP_PUFP_UnsubErr() */
+} /* end PUSFP_PUFP_UnsubErr() */
 
 static void PUSFP_IdentWarn(void)
 {
@@ -566,11 +566,11 @@ static void PUSFP_IdentWarn(void)
 
     UT_CheckEvent_Setup(SBN_PROTO_EID, "version number mismatch with peer CpuID ");
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
     uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    char tmpident[SBN_IDENT_LEN];
+    char  tmpident[SBN_IDENT_LEN];
     memset(tmpident, 0, sizeof(tmpident));
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
@@ -585,16 +585,16 @@ static void PUSFP_IdentWarn(void)
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
     EVENT_CNT(1);
-}/* end PUSFP_IdentWarn() */
+} /* end PUSFP_IdentWarn() */
 
 static void PUSFP_Nominal(void)
 {
     START();
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8  Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     Pack_t Pack;
     Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -606,7 +606,7 @@ static void PUSFP_Nominal(void)
     UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
-}/* end PUSFP_Nominal() */
+} /* end PUSFP_Nominal() */
 
 void Test_SBN_ProcessUnsubsFromPeer(void)
 {
@@ -615,7 +615,7 @@ void Test_SBN_ProcessUnsubsFromPeer(void)
     PUSFP_PUFP_UnsubErr();
     PUSFP_IdentWarn();
     PUSFP_Nominal();
-}/* end Test_SBN_ProcessUnsubsFromPeer() */
+} /* end Test_SBN_ProcessUnsubsFromPeer() */
 
 static void RASFP_UnsubErr(void)
 {
@@ -623,7 +623,7 @@ static void RASFP_UnsubErr(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "unable to unsubscribe from message id 0x");
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_UnsubscribeLocal), 1, -1);
@@ -632,7 +632,7 @@ static void RASFP_UnsubErr(void)
     UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerPtr), SBN_SUCCESS);
 
     EVENT_CNT(1);
-}/* end RASFP_UnsubErr() */
+} /* end RASFP_UnsubErr() */
 
 static void RASFP_Nominal(void)
 {
@@ -640,27 +640,23 @@ static void RASFP_Nominal(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "unsubscribed 1 message id's from ProcessorID ");
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
     UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerPtr), SBN_SUCCESS);
 
     EVENT_CNT(1);
-}/* end RASFP_Nominal() */
+} /* end RASFP_Nominal() */
 
 void Test_SBN_RemoveAllSubsFromPeer(void)
 {
     RASFP_UnsubErr();
     RASFP_Nominal();
-}/* end Test_SBN_RemoveAllSubsFromPeer() */
+} /* end Test_SBN_RemoveAllSubsFromPeer() */
 
-void UT_Setup(void)
-{
-}/* end UT_Setup() */
+void UT_Setup(void) {} /* end UT_Setup() */
 
-void UT_TearDown(void)
-{
-}/* end UT_TearDown() */
+void UT_TearDown(void) {} /* end UT_TearDown() */
 
 void UtTest_Setup(void)
 {

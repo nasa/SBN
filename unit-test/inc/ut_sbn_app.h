@@ -28,4 +28,3 @@
 #define _UT_SBN_APP_H_
 
 #endif /* _UT_SBN_APP_H_ */
-

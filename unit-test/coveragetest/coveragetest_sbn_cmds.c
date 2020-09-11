@@ -4,7 +4,7 @@
 #include "cfe_sb_events.h"
 #include "sbn_pack.h"
 
-uint8 Buffer[1024];
+uint8                  Buffer[1024];
 CCSDS_CommandPacket_t *CmdPktPtr = (CCSDS_CommandPacket_t *)Buffer;
 
 #ifdef _cfe_msg_api_
@@ -20,7 +20,7 @@ static void NOOP_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "invalid no-op command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -31,7 +31,7 @@ static void NOOP_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end NOOP_MsgLenErr() */
+} /* end NOOP_MsgLenErr() */
 
 static void NOOP_Nominal(void)
 {
@@ -40,7 +40,7 @@ static void NOOP_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "no-op command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -51,7 +51,7 @@ static void NOOP_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end NOOP_Nominal() */
+} /* end NOOP_Nominal() */
 
 static void HKNet_MsgLenErr(void)
 {
@@ -60,7 +60,7 @@ static void HKNet_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk command, net=");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -71,7 +71,7 @@ static void HKNet_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HKNet_MsgLenErr() */
+} /* end HKNet_MsgLenErr() */
 
 static void HKNet_NetIdErr(void)
 {
@@ -81,9 +81,9 @@ static void HKNet_NetIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 255;
-    *Ptr = 0;
-    
+    *Ptr++     = 255;
+    *Ptr       = 0;
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -94,7 +94,7 @@ static void HKNet_NetIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKNet_NetIdErr() */
+} /* end HKNet_NetIdErr() */
 
 static void HKNet_Nominal(void)
 {
@@ -103,7 +103,7 @@ static void HKNet_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk command, net=");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -114,7 +114,7 @@ static void HKNet_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKNet_Nominal() */
+} /* end HKNet_Nominal() */
 
 static void HKPeer_MsgLenErr(void)
 {
@@ -123,7 +123,7 @@ static void HKPeer_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk command, net=");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -134,7 +134,7 @@ static void HKPeer_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HKPeer_MsgLenErr() */
+} /* end HKPeer_MsgLenErr() */
 
 static void HKPeer_NetIdErr(void)
 {
@@ -144,9 +144,9 @@ static void HKPeer_NetIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 255;
-    *Ptr = 0;
-    
+    *Ptr++     = 255;
+    *Ptr       = 0;
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -157,7 +157,7 @@ static void HKPeer_NetIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKPeer_NetIdErr() */
+} /* end HKPeer_NetIdErr() */
 
 static void HKPeer_PeerIdErr(void)
 {
@@ -167,9 +167,9 @@ static void HKPeer_PeerIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 0;
-    *Ptr++ = 255;
-    
+    *Ptr++     = 0;
+    *Ptr++     = 255;
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -180,7 +180,7 @@ static void HKPeer_PeerIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKPeer_PeerIdErr() */
+} /* end HKPeer_PeerIdErr() */
 
 static void HKPeer_Nominal(void)
 {
@@ -189,7 +189,7 @@ static void HKPeer_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk command, net=");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -200,7 +200,7 @@ static void HKPeer_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKPeer_Nominal() */
+} /* end HKPeer_Nominal() */
 
 static void HKPeerSubs_MsgLenErr(void)
 {
@@ -209,7 +209,7 @@ static void HKPeerSubs_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk subs command, net=");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -220,7 +220,7 @@ static void HKPeerSubs_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HKPeerSubs_MsgLenErr() */
+} /* end HKPeerSubs_MsgLenErr() */
 
 static void HKPeerSubs_NetIdErr(void)
 {
@@ -230,9 +230,9 @@ static void HKPeerSubs_NetIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 255;
-    *Ptr++ = 0;
-    
+    *Ptr++     = 255;
+    *Ptr++     = 0;
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -243,7 +243,7 @@ static void HKPeerSubs_NetIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKPeerSubs_NetIdErr() */
+} /* end HKPeerSubs_NetIdErr() */
 
 static void HKPeerSubs_PeerIdErr(void)
 {
@@ -253,9 +253,9 @@ static void HKPeerSubs_PeerIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 0;
-    *Ptr++ = 255;
-    
+    *Ptr++     = 0;
+    *Ptr++     = 255;
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -266,7 +266,7 @@ static void HKPeerSubs_PeerIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKPeerSubs_PeerIdErr() */
+} /* end HKPeerSubs_PeerIdErr() */
 
 static void HKPeerSubs_Nominal(void)
 {
@@ -277,7 +277,7 @@ static void HKPeerSubs_Nominal(void)
     memset(Buffer, 0, sizeof(Buffer));
 
     PeerPtr->SubCnt = 1;
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -288,7 +288,7 @@ static void HKPeerSubs_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKPeerSubs_Nominal() */
+} /* end HKPeerSubs_Nominal() */
 
 static void HKMySubs_MsgLenErr(void)
 {
@@ -297,7 +297,7 @@ static void HKMySubs_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk subs command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -308,7 +308,7 @@ static void HKMySubs_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HKMySubs_MsgLenErr() */
+} /* end HKMySubs_MsgLenErr() */
 
 static void HKMySubs_Nominal(void)
 {
@@ -319,7 +319,7 @@ static void HKMySubs_Nominal(void)
     memset(Buffer, 0, sizeof(Buffer));
 
     SBN.SubCnt = 1;
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -330,7 +330,7 @@ static void HKMySubs_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKMySubs_Nominal() */
+} /* end HKMySubs_Nominal() */
 
 static void HKReset_MsgLenErr(void)
 {
@@ -339,7 +339,7 @@ static void HKReset_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "reset command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -350,7 +350,7 @@ static void HKReset_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HKReset_MsgLenErr() */
+} /* end HKReset_MsgLenErr() */
 
 static void HKReset_Nominal(void)
 {
@@ -359,7 +359,7 @@ static void HKReset_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "reset command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -370,7 +370,7 @@ static void HKReset_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKReset_Nominal() */
+} /* end HKReset_Nominal() */
 
 static void HKResetPeer_MsgLenErr(void)
 {
@@ -390,7 +390,7 @@ static void HKResetPeer_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKResetPeer_MsgLenErr() */
+} /* end HKResetPeer_MsgLenErr() */
 
 static void HKResetPeer_NetIdErr(void)
 {
@@ -401,7 +401,7 @@ static void HKResetPeer_NetIdErr(void)
     memset(Buffer, 0, sizeof(Buffer));
 
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 255;
+    *Ptr++     = 255;
 
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
@@ -413,7 +413,7 @@ static void HKResetPeer_NetIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKResetPeer_NetIdErr() */
+} /* end HKResetPeer_NetIdErr() */
 
 static void HKResetPeer_PeerIdErr(void)
 {
@@ -424,8 +424,8 @@ static void HKResetPeer_PeerIdErr(void)
     memset(Buffer, 0, sizeof(Buffer));
 
     uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
-    *Ptr++ = 0;
-    *Ptr++ = 255;
+    *Ptr++     = 0;
+    *Ptr++     = 255;
 
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
@@ -437,7 +437,7 @@ static void HKResetPeer_PeerIdErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKResetPeer_PeerIdErr() */
+} /* end HKResetPeer_PeerIdErr() */
 
 static void HKResetPeer_Nominal(void)
 {
@@ -446,7 +446,7 @@ static void HKResetPeer_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk reset peer command (NetIdx=");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -457,7 +457,7 @@ static void HKResetPeer_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HKResetPeer_Nominal() */
+} /* end HKResetPeer_Nominal() */
 
 static void SCH_Nominal(void)
 {
@@ -466,7 +466,7 @@ static void SCH_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "wakeup");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -477,7 +477,7 @@ static void SCH_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end SCH_Nominal() */
+} /* end SCH_Nominal() */
 
 static void TBL_MsgLenErr(void)
 {
@@ -486,7 +486,7 @@ static void TBL_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "reload tbl command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
     uint32 mid = SBN_CMD_MID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
@@ -496,7 +496,7 @@ static void TBL_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end TBL_MsgLenErr() */
+} /* end TBL_MsgLenErr() */
 
 static void TBL_Nominal(void)
 {
@@ -505,7 +505,7 @@ static void TBL_Nominal(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "reload tbl command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -516,7 +516,7 @@ static void TBL_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end TBL_Nominal() */
+} /* end TBL_Nominal() */
 
 static void CC_Err(void)
 {
@@ -525,7 +525,7 @@ static void CC_Err(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "invalid command code (ID=0x");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -536,7 +536,7 @@ static void CC_Err(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end CC_Err() */
+} /* end CC_Err() */
 
 static void HK_MsgLenErr(void)
 {
@@ -545,7 +545,7 @@ static void HK_MsgLenErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -556,7 +556,7 @@ static void HK_MsgLenErr(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HK_MsgLenErr() */
+} /* end HK_MsgLenErr() */
 
 static void HK_MsgLenErr2(void)
 {
@@ -565,7 +565,7 @@ static void HK_MsgLenErr2(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "hk command");
 
     memset(Buffer, 0, sizeof(Buffer));
-    
+
     MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
 
     uint32 mid = SBN_CMD_MID;
@@ -578,7 +578,7 @@ static void HK_MsgLenErr2(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(0);
-}/* end HK_MsgLenErr2() */
+} /* end HK_MsgLenErr2() */
 
 static void HK_Nominal(void)
 {
@@ -598,7 +598,7 @@ static void HK_Nominal(void)
     SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
 
     EVENT_CNT(1);
-}/* end HK_Nominal() */
+} /* end HK_Nominal() */
 
 static void Test_SBN_Cmds(void)
 {
@@ -630,15 +630,11 @@ static void Test_SBN_Cmds(void)
     HK_MsgLenErr2();
     HK_Nominal();
     CC_Err();
-}/* end Test_SBN_SendNetMsg() */
+} /* end Test_SBN_SendNetMsg() */
 
-void UT_Setup(void)
-{
-}/* end UT_Setup() */
+void UT_Setup(void) {} /* end UT_Setup() */
 
-void UT_TearDown(void)
-{
-}/* end UT_TearDown() */
+void UT_TearDown(void) {} /* end UT_TearDown() */
 
 void UtTest_Setup(void)
 {
