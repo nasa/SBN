@@ -4,7 +4,7 @@
 #include "cfe_sb_events.h"
 #include "sbn_pack.h"
 
-#define STUB_TASKID 1073807361 /* TODO: should be replaced with a call to a stub util fn */
+/* #define STUB_TASKID 1073807361 *//* TODO: should be replaced with a call to a stub util fn */
 CFE_SB_MsgId_t MsgID = 0x1818;
 /********************************** tests ************************************/
 static void AppMain_ESRegisterErr(void)
@@ -1016,6 +1016,11 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
 } /* end PeerPoll_RecvPeerTask_ChildTaskErr() */
 
+static osal_task test_osal_task_entry(void)
+{
+    /* do nothing */
+} /* end osal_task_entry() */
+
 static void PeerPoll_RecvPeerTask_Nominal(void)
 {
     START();
@@ -1037,7 +1042,8 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
     SubRprt.Payload.MsgId   = MsgID;
     UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
-    PeerPtr->RecvTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
+    /* PeerPtr->RecvTaskID = STUB_TASKID; */
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
@@ -1695,7 +1701,7 @@ static void RecvPeerTask_Empty(void)
     IfOpsPtr->RecvFromNet  = NULL;
     IfOpsPtr->RecvFromPeer = RecvFromPeer_EmptyOne;
 
-    PeerPtr->RecvTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_RecvPeerTask();
 
@@ -1720,8 +1726,7 @@ static void RecvPeerTask_Nominal(void)
     IfOpsPtr->RecvFromNet  = NULL;
     IfOpsPtr->RecvFromPeer = RecvFromPeer_One;
 
-    PeerPtr->RecvTaskID = STUB_TASKID;
-    /* eventually -- UT_ObjIdCompose(1, UT_OBJTYPE_TASK, &PeerPtr->RecvTaskID); */
+    OS_TaskCreate(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_RecvPeerTask();
 
@@ -1779,7 +1784,7 @@ static void RecvNetTask_Empty(void)
 
     IfOpsPtr->RecvFromNet = RecvFromNet_EmptyOne;
 
-    NetPtr->RecvTaskID = STUB_TASKID;
+    OS_TaskCreate(&NetPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_RecvNetTask();
 
@@ -1802,7 +1807,7 @@ static void RecvNetTask_PeerErr(void)
 
     IfOpsPtr->RecvFromNet = RecvFromNet_BadPeer;
 
-    NetPtr->RecvTaskID = STUB_TASKID;
+    OS_TaskCreate(&NetPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_RecvNetTask();
 
@@ -1831,7 +1836,7 @@ static void RecvNetTask_Nominal(void)
 
     IfOpsPtr->RecvFromNet = RecvFromNet_One;
 
-    NetPtr->RecvTaskID = STUB_TASKID;
+    OS_TaskCreate(&NetPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_RecvNetTask();
 
@@ -1865,7 +1870,7 @@ static void SendTask_ConnTaskErr(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
@@ -1889,7 +1894,7 @@ static void SendTask_PeerNotConn(void)
     START();
 
     PeerPtr->Connected  = false;
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
@@ -1908,7 +1913,7 @@ static void SendTask_FiltErr(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_FilterInterface_t Filter_Err;
     memset(&Filter_Err, 0, sizeof(Filter_Err));
@@ -1938,7 +1943,7 @@ static void SendTask_Filters(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_FilterInterface_t Filter_Empty, Filter_Nominal, Filter_Out;
     memset(&Filter_Empty, 0, sizeof(Filter_Empty));
@@ -1963,7 +1968,7 @@ static void SendTask_SendNetMsgErr(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     IfOpsPtr->Send = Send_Err;
 
@@ -1979,7 +1984,7 @@ static void SendTask_Nominal(void)
     START();
 
     PeerPtr->Connected  = true;
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
 
@@ -2003,7 +2008,7 @@ void SendNetMsg_MutexTakeErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "unable to take mutex");
 
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, -1);
 
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
@@ -2017,7 +2022,7 @@ void SendNetMsg_MutexGiveErr(void)
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "unable to give mutex");
 
-    PeerPtr->SendTaskID = STUB_TASKID;
+    OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, -1);
 
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
