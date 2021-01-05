@@ -29,7 +29,7 @@ typedef struct
 } SBN_Module_Entry_t;
 
 typedef struct
-{   
+{
     /** @brief Needs to match the ProcessorID of the peer. */
     CFE_ProcessorID_t ProcessorID;
 
@@ -57,11 +57,11 @@ typedef struct
 typedef struct
 {
     SBN_Module_Entry_t ProtocolModules[SBN_MAX_MOD_CNT];
-    SBN_ModuleIdx_t ProtocolCnt;
+    SBN_ModuleIdx_t    ProtocolCnt;
     SBN_Module_Entry_t FilterModules[SBN_MAX_MOD_CNT];
-    SBN_ModuleIdx_t FilterCnt;
-    SBN_Peer_Entry_t Peers[SBN_MAX_PEER_CNT];
-    SBN_PeerIdx_t PeerCnt;
+    SBN_ModuleIdx_t    FilterCnt;
+    SBN_Peer_Entry_t   Peers[SBN_MAX_PEER_CNT];
+    SBN_PeerIdx_t      PeerCnt;
 } SBN_ConfTbl_t;
 
 #endif /* _sbn_tbl_h_ */

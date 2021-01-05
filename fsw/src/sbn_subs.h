@@ -11,7 +11,7 @@
 **      for use thereof.
 **
 ** Purpose:
-**      This header file contains prototypes for private functions related to 
+**      This header file contains prototypes for private functions related to
 **      handling message subscriptions
 **
 ** Authors:   J. Wilmot/GSFC Code582
@@ -27,7 +27,7 @@
 #include "sbn_app.h"
 
 SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
-SBN_Status_t SBN_CheckSubscriptionPipe(void); 
+SBN_Status_t SBN_CheckSubscriptionPipe(void);
 SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *submsg);
 SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *submsg);
 SBN_Status_t SBN_ProcessAllSubscriptions(CFE_SB_AllSubscriptionsTlm_t *Ptr);

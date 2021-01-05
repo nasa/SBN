@@ -13,7 +13,8 @@
  */
 
 #define SBN_PACKED_HDR_SZ (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(CFE_ProcessorID_t))
-#define SBN_PACKED_SUB_SZ (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
+#define SBN_PACKED_SUB_SZ \
+    (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
 #define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
 
 /**
@@ -37,26 +38,27 @@ void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_
  * @param MsgSzPtr[out] The size of the Msg parameter.
  * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
  * @param ProcessorID[out] The Processor ID of the sender (should be CFE_CPU_ID)
- * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least CFE_MISSION_SB_MAX_SB_MSG_SIZE)
+ * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least
+ * CFE_MISSION_SB_MAX_SB_MSG_SIZE)
  * @return TRUE if we were unable to unpack/verify the message.
  *
  * @sa SBN_PackMsg
  */
-bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr,
-    CFE_ProcessorID_t *ProcessorIDPtr, void *Msg);
+bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr, CFE_ProcessorID_t *ProcessorIDPtr,
+                   void *Msg);
 
 /**
  * Filters modify messages in place, doing such things as byte swapping, packing/unpacking, etc.
  *
- * @return SBN_SUCCESS if processing nominal, SBN_IF_EMPTY if the message should not be transmitted, SBN_ERROR for 
+ * @return SBN_SUCCESS if processing nominal, SBN_IF_EMPTY if the message should not be transmitted, SBN_ERROR for
  * other error conditions.
  */
 typedef struct
 {
-    CFE_ProcessorID_t MyProcessorID;
+    CFE_ProcessorID_t  MyProcessorID;
     CFE_SpacecraftID_t MySpacecraftID;
 
-    CFE_ProcessorID_t PeerProcessorID;
+    CFE_ProcessorID_t  PeerProcessorID;
     CFE_SpacecraftID_t PeerSpacecraftID;
 } SBN_Filter_Ctx_t;
 
@@ -116,10 +118,11 @@ typedef struct
     SBN_Status_t (*RemapMID)(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context);
 } SBN_FilterInterface_t;
 
-typedef struct SBN_IfOps_s SBN_IfOps_t;
+typedef struct SBN_IfOps_s        SBN_IfOps_t;
 typedef struct SBN_NetInterface_s SBN_NetInterface_t;
 
-typedef struct {
+typedef struct
+{
     /** @brief The processor ID of this peer (MUST match the ProcessorID.) */
     CFE_ProcessorID_t ProcessorID;
 
@@ -157,9 +160,9 @@ typedef struct {
      *        receiving from the peer.
      */
     SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
-    SBN_ModuleIdx_t FilterCnt;
+    SBN_ModuleIdx_t        FilterCnt;
 
-    OS_time_t LastSend, LastRecv;
+    OS_time_t   LastSend, LastRecv;
     SBN_HKTlm_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
 
     bool Connected;
@@ -188,7 +191,8 @@ SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
  */
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
 
-struct SBN_NetInterface_s {
+struct SBN_NetInterface_s
+{
     bool Configured;
 
     SBN_ModuleIdx_t ProtocolIdx;
@@ -199,7 +203,7 @@ struct SBN_NetInterface_s {
      * to communicate to peers. These tasks are used for those networks. ID's
      * are 0 if there is no task.
      */
-    OS_TaskID_t SendTaskID;
+    OS_TaskID_t  SendTaskID;
     OS_MutexID_t SendMutex;
 
     OS_TaskID_t RecvTaskID;
@@ -215,10 +219,10 @@ struct SBN_NetInterface_s {
      *        receiving from the peer.
      */
     SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
-    SBN_ModuleIdx_t FilterCnt;
+    SBN_ModuleIdx_t        FilterCnt;
 
     /** @brief generic blob of bytes, module-specific */
-    uint8  ModulePvt[128];
+    uint8 ModulePvt[128];
 };
 
 /**
@@ -226,7 +230,8 @@ struct SBN_NetInterface_s {
  * of the key SBN functions.  Every interface module must have an equivalent
  * structure that points to the approprate functions for that interface.
  */
-struct SBN_IfOps_s {
+struct SBN_IfOps_s
+{
     /**
      * Initializes the protocol module.
      *
@@ -303,8 +308,7 @@ struct SBN_IfOps_s {
      *
      * @return SBN_SUCCESS when message successfully sent, otherwise SBN_ERROR.
      */
-    SBN_Status_t (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType,
-        SBN_MsgSz_t MsgSz, void *Payload);
+    SBN_Status_t (*Send)(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
 
     /**
      * Receives an individual message from the specified peer. Note, only
@@ -321,7 +325,7 @@ struct SBN_IfOps_s {
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
     SBN_Status_t (*RecvFromPeer)(SBN_NetInterface_t *Net, SBN_PeerInterface_t *Peer, SBN_MsgType_t *MsgTypePtr,
-        SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer);
+                                 SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer);
 
     /**
      * Receives an individual message from the network.
@@ -335,9 +339,8 @@ struct SBN_IfOps_s {
      *
      * @return SBN_SUCCESS on success, SBN_ERROR on failure
      */
-    SBN_Status_t (*RecvFromNet)(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr,
-        SBN_MsgSz_t *MsgSzPtr, CFE_ProcessorID_t *ProcessorIDPtr,
-        void *PayloadBuffer);
+    SBN_Status_t (*RecvFromNet)(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
+                                CFE_ProcessorID_t *ProcessorIDPtr, void *PayloadBuffer);
 
     /**
      * Unload a network. This will unload all associated peers as well.

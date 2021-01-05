@@ -16,7 +16,7 @@
  *    Pack_Init(&Pack, Buffer, sizeof(Buffer), true);
  *    Pack_UInt32(&Pack, 0x1234);
  * }
- * 
+ *
  * void unpackfn()
  * {
  *    uint32 f;
@@ -31,8 +31,8 @@
 #include "cfe.h"
 
 typedef struct
-{   
-    void *Buf;
+{
+    void * Buf;
     size_t BufSz, BufUsed;
 } Pack_t;
 

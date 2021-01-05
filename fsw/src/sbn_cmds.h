@@ -7,7 +7,6 @@
 ** Function Prototypes
 *************************************************************************/
 
-
 /************************************************************************/
 /** \brief Process a command pipe message
 **
@@ -31,12 +30,12 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MessagePtr);
 /** \brief Reset telemetry counters to zero
 **
 **  \par Description
-**       Resets all command and message counters for the SBN app and the 
-**       modules to zero. 
+**       Resets all command and message counters for the SBN app and the
+**       modules to zero.
 **
 **  \par Assumptions, External Events, and Notes:
-**       Does NOT reset the subscription counter because that counter 
-**       is maintained and used outside of the housekeeping functions 
+**       Does NOT reset the subscription counter because that counter
+**       is maintained and used outside of the housekeeping functions
 **       and should not change regularly.
 **
 **  \param [in]   MessagePtr   A #CFE_SB_MsgPtr_t pointer that

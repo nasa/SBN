@@ -4,8 +4,9 @@
 
 Fib_AppData_t Fib_AppData;
 
-void FIB_AppMain(void) {
-    int32  status;
+void FIB_AppMain(void)
+{
+    int32     status;
     fib_tlm_t tlm;
 
     Fib_AppData.prev1 = 1;
@@ -19,12 +20,14 @@ void FIB_AppMain(void) {
 
     Fib_AppData.RunStatus = CFE_ES_RunStatus_APP_RUN;
 
-    if (CFE_SB_CreatePipe(&Fib_AppData.Pipe, FIB_PIPE_DEPTH, "FIB_CMD_PIPE") != CFE_SUCCESS) {
+    if (CFE_SB_CreatePipe(&Fib_AppData.Pipe, FIB_PIPE_DEPTH, "FIB_CMD_PIPE") != CFE_SUCCESS)
+    {
         CFE_EVS_SendEvent(FIB_EID, CFE_EVS_EventType_ERROR, "error creating pipe");
         return;
     }
 
-    if ((status = CFE_SB_Subscribe(FIB_CMD_MID, Fib_AppData.Pipe)) != CFE_SUCCESS) {
+    if ((status = CFE_SB_Subscribe(FIB_CMD_MID, Fib_AppData.Pipe)) != CFE_SUCCESS)
+    {
         CFE_EVS_SendEvent(FIB_EID, CFE_EVS_EventType_ERROR, "error subscribing to command");
         return;
     }
@@ -36,20 +39,24 @@ void FIB_AppMain(void) {
     CFE_SB_SendMsg((CFE_SB_Msg_t *)&tlm); /* send out the 1, 1; as is tradition */
     CFE_SB_SendMsg((CFE_SB_Msg_t *)&tlm);
 
-    while (CFE_ES_RunLoop(&Fib_AppData.RunStatus) == true) {
+    while (CFE_ES_RunLoop(&Fib_AppData.RunStatus) == true)
+    {
         /* Pend on receipt of command packet */
         CFE_SB_MsgPtr_t MsgPtr;
 
         status = CFE_SB_RcvMsg(&MsgPtr, Fib_AppData.Pipe, CFE_SB_PEND_FOREVER);
 
-        if (status == CFE_SUCCESS) {
-            tlm.fib = Fib_AppData.prev1 + Fib_AppData.prev2;
+        if (status == CFE_SUCCESS)
+        {
+            tlm.fib           = Fib_AppData.prev1 + Fib_AppData.prev2;
             Fib_AppData.prev2 = Fib_AppData.prev1;
             Fib_AppData.prev1 = tlm.fib;
 
             CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)&tlm);
             CFE_SB_SendMsg((CFE_SB_Msg_t *)&tlm);
-        } else {
+        }
+        else
+        {
             CFE_EVS_SendEvent(FIB_EID, CFE_EVS_EventType_ERROR, "FIB APP: SB Pipe Read Error, App Will Exit");
 
             Fib_AppData.RunStatus = CFE_ES_RunStatus_APP_ERROR;

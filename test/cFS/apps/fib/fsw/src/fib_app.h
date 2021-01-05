@@ -12,7 +12,8 @@
 
 #define FIB_PIPE_DEPTH 32
 
-typedef struct {
+typedef struct
+{
     uint32 RunStatus;
     uint32 prev1, prev2;
 

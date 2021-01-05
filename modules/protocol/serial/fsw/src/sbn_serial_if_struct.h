@@ -10,14 +10,13 @@
 typedef struct
 {
     char Filename[SBN_SERIAL_MAX_CHAR_NAME];
-    int FD;
+    int  FD;
     /* 0 = this peer connects to me, 1 = I connect to this peer */
     uint8 /** flags */
-            /** \brief recv the header first */
-            ReceivingBody,
-            /** \brief am I connected to the serial device? */
-            SerialConn,
-            BufNum;
+        /** \brief recv the header first */
+        ReceivingBody,
+        /** \brief am I connected to the serial device? */
+        SerialConn, BufNum;
     int RecvSz;
 
     /** See SBN_SERIAL_CONNTRY_TIME. */

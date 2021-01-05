@@ -13,9 +13,9 @@
 /**
  * UDP-specific message types.
  */
-#define SBN_UDP_HEARTBEAT_MSG   0xA0
-#define SBN_UDP_ANNOUNCE_MSG    0xA1
-#define SBN_UDP_DISCONN_MSG     0xA2
+#define SBN_UDP_HEARTBEAT_MSG 0xA0
+#define SBN_UDP_ANNOUNCE_MSG  0xA1
+#define SBN_UDP_DISCONN_MSG   0xA2
 
 /**
  * \brief Number of seconds since last I've sent the peer a message when
@@ -43,7 +43,7 @@ typedef struct
 typedef struct
 {
     OS_SockAddr_t Addr;
-    uint32 Socket;
+    uint32        Socket;
 } SBN_UDP_Net_t;
 
 #endif /* _SBN_UDP_IF_H_ */

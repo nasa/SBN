@@ -33,12 +33,12 @@
 void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, void *Msg)
 {
     UT_DEFAULT_IMPL(SBN_PackMsg);
-}/* end SBN_PackMsg() */
+} /* end SBN_PackMsg() */
 
-bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr,
-    CFE_ProcessorID_t *ProcessorIDPtr, void *Msg)
+bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr, CFE_ProcessorID_t *ProcessorIDPtr,
+                   void *Msg)
 {
-    uint32 status = 0;
+    uint32           status = 0;
     SBN_Unpack_Buf_t p;
 
     status = UT_DEFAULT_IMPL(SBN_UnpackMsg);
@@ -51,18 +51,22 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
         }
     }
 
-    if (MsgSzPtr != NULL) *MsgSzPtr = p.MsgSz;
-    if (MsgTypePtr != NULL) *MsgTypePtr = p.MsgType;
-    if (ProcessorIDPtr != NULL) *ProcessorIDPtr = p.ProcessorID;
-    if (Msg != NULL) memcpy(Msg, p.MsgBuf, p.MsgSz);
+    if (MsgSzPtr != NULL)
+        *MsgSzPtr = p.MsgSz;
+    if (MsgTypePtr != NULL)
+        *MsgTypePtr = p.MsgType;
+    if (ProcessorIDPtr != NULL)
+        *ProcessorIDPtr = p.ProcessorID;
+    if (Msg != NULL)
+        memcpy(Msg, p.MsgBuf, p.MsgSz);
 
     return true;
-}/* end SBN_UnpackMsg() */
+} /* end SBN_UnpackMsg() */
 
 SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 {
     SBN_Status_t status;
-    
+
     status = UT_DEFAULT_IMPL(SBN_Connected);
 
     if (status >= 0)
@@ -71,12 +75,12 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
     }
 
     return status;
-}/* end SBN_Connected() */
+} /* end SBN_Connected() */
 
 SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 {
     SBN_Status_t status;
-    
+
     status = UT_DEFAULT_IMPL(SBN_Disconnected);
 
     if (status >= 0)
@@ -85,17 +89,17 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
     }
 
     return status;
-}/* end SBN_Disconnected() */
+} /* end SBN_Disconnected() */
 
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
 {
     return UT_DEFAULT_IMPL(SBN_SendNetMsg);
-}/* end SBN_SendNetMsg() */
+} /* end SBN_SendNetMsg() */
 
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID)
 {
-    uint32 status = 0;
-    SBN_PeerInterface_t *p = NULL;
+    uint32               status = 0;
+    SBN_PeerInterface_t *p      = NULL;
 
     status = UT_DEFAULT_IMPL(SBN_GetPeer);
 
@@ -108,4 +112,4 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t Proc
     }
 
     return p;
-}/* end SBN_GetPeer() */
+} /* end SBN_GetPeer() */

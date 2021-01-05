@@ -15,7 +15,7 @@
 **   2013-06-10 | Steve Duran | Build #: Code Started
 **
 **=====================================================================================*/
-    
+
 #ifndef _SBN_MSGIDS_H_
 #define _SBN_MSGIDS_H_
 
@@ -26,13 +26,12 @@
 /*
 ** Local Defines
 */
-#define SBN_CMD_MID      0x18FA
+#define SBN_CMD_MID 0x18FA
 
-#define SBN_TLM_MID               0x08FC
+#define SBN_TLM_MID 0x08FC
 /*
 ** Include Files
 */
-
 
 /*
 ** Local Structure Declarations
@@ -59,4 +58,3 @@
 /*=======================================================================================
 ** End of file sbn_msgids.h
 **=====================================================================================*/
-    
