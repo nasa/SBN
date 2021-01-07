@@ -34,12 +34,12 @@
 SBN_Status_t SBN_SendSubsRequests(void)
 {
     CFE_Status_t    CFE_Status = CFE_SUCCESS;
-    CFE_SB_CmdHdr_t SBCmdMsg;
+    CFE_MSG_Message_t CmdMsg;
 
     /* Turn on SB subscription reporting */
-    CFE_SB_InitMsg(&SBCmdMsg, CFE_SB_SUB_RPT_CTRL_MID, sizeof(CFE_SB_CmdHdr_t), true);
-    CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&SBCmdMsg, CFE_SB_ENABLE_SUB_REPORTING_CC);
-    CFE_Status = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&SBCmdMsg);
+    CFE_MSG_Init(&CmdMsg, CFE_SB_SUB_RPT_CTRL_MID, sizeof(CmdMsg));
+    CFE_MSG_SetFcnCode(&CmdMsg, CFE_SB_ENABLE_SUB_REPORTING_CC);
+    CFE_Status = CFE_SB_TransmitMsg(&CmdMsg, true);
     if (CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_SUB_EID, "Unable to turn on sub reporting (status=%d)", CFE_Status);
@@ -47,8 +47,8 @@ SBN_Status_t SBN_SendSubsRequests(void)
     } /* end if */
 
     /* Request a list of previous subscriptions from SB */
-    CFE_SB_SetCmdCode((CFE_SB_MsgPtr_t)&SBCmdMsg, CFE_SB_SEND_PREV_SUBS_CC);
-    CFE_Status = CFE_SB_SendMsg((CFE_SB_MsgPtr_t)&SBCmdMsg);
+    CFE_MSG_SetFcnCode(&CmdMsg, CFE_SB_SEND_PREV_SUBS_CC);
+    CFE_Status = CFE_SB_TransmitMsg(&CmdMsg, true);
     if (CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_SUB_EID, "Unable to send prev subs request (status=%d)", CFE_Status);
@@ -292,37 +292,44 @@ SBN_Status_t SBN_CheckSubscriptionPipe(void)
 {
     CFE_Status_t CFE_Status = CFE_SUCCESS;
 
-    CFE_SB_MsgPtr_t                 SBMsgPtr;
-    CFE_SB_SingleSubscriptionTlm_t *SubRprtMsgPtr;
+    CFE_SB_AllSubscriptionsTlm_t *MsgPtr = NULL; /* largest message format */
+    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr = NULL; /* utility "cast" */
+    CFE_SB_MsgId_t MsgId;
 
-    CFE_Status = CFE_SB_RcvMsg(&SBMsgPtr, SBN.SubPipe, CFE_SB_POLL);
+    CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN.SubPipe, CFE_SB_POLL);
     switch (CFE_Status)
     {
         case CFE_SUCCESS:
-            SubRprtMsgPtr = (CFE_SB_SingleSubscriptionTlm_t *)SBMsgPtr;
 
-            switch (CFE_SB_GetMsgId(SBMsgPtr))
+            if (CFE_MSG_GetMsgId((CFE_MSG_Message_t *)MsgPtr, &MsgId) != CFE_SUCCESS)
+            {
+                EVSSendErr(SBN_MSG_EID, "unable to get message id");
+                return SBN_ERROR;
+            }
+
+            switch (MsgId)
             {
                 case CFE_SB_ONESUB_TLM_MID:
-                    switch (SubRprtMsgPtr->Payload.SubType)
+                    SingleMsgPtr = (CFE_SB_SingleSubscriptionTlm_t *)MsgPtr;
+                    switch (SingleMsgPtr->Payload.SubType)
                     {
                         case CFE_SB_SUBSCRIPTION:
-                            return ProcessLocalSub(SubRprtMsgPtr->Payload.MsgId, SubRprtMsgPtr->Payload.Qos);
+                            return ProcessLocalSub(SingleMsgPtr->Payload.MsgId, SingleMsgPtr->Payload.Qos);
                         case CFE_SB_UNSUBSCRIPTION:
-                            return ProcessLocalUnsub(SubRprtMsgPtr->Payload.MsgId);
+                            return ProcessLocalUnsub(SingleMsgPtr->Payload.MsgId);
                         default:
                             EVSSendErr(SBN_SUB_EID, "unexpected subscription type (%d) in SBN_CheckSubscriptionPipe",
-                                       SubRprtMsgPtr->Payload.SubType);
+                                       SingleMsgPtr->Payload.SubType);
                             return SBN_ERROR;
                     } /* end switch */
                     break;
 
                 case CFE_SB_ALLSUBS_TLM_MID:
-                    return SBN_ProcessAllSubscriptions((CFE_SB_AllSubscriptionsTlm_t *)SBMsgPtr);
+                    return SBN_ProcessAllSubscriptions(MsgPtr);
 
                 default:
                     EVSSendErr(SBN_MSG_EID, "unexpected message id (0x%04X) on SBN.SubPipe",
-                               ntohs(CFE_SB_GetMsgId(SBMsgPtr)));
+                               ntohs(MsgId));
                     return SBN_ERROR;
             } /* end switch */
 

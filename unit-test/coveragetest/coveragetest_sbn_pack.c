@@ -2,7 +2,7 @@
 #include "cfe_msgids.h"
 #include "sbn_pack.h"
 
-uint8     Buf[20];
+uint8     Buf[22];
 Pack_t    Pack;
 OS_time_t Time = {0xa, 0xb};
 
@@ -14,8 +14,8 @@ void Test_Pack(void)
     UtAssert_True(Pack_UInt16(&Pack, (uint16)2), "pack uint16");            // 4 bytes
     UtAssert_True(Pack_Int16(&Pack, (int16)-2), "pack int16");              // 6 bytes
     UtAssert_True(Pack_UInt32(&Pack, (uint32)3), "pack uint32");            // 10 bytes
-    UtAssert_True(Pack_MsgID(&Pack, (CFE_SB_MsgId_t)0xdead), "pack msgid"); // 12 bytes
-    UtAssert_True(Pack_Time(&Pack, Time), "pack time");                     // 20 bytes
+    UtAssert_True(Pack_MsgID(&Pack, (CFE_SB_MsgId_t)0xdead), "pack msgid"); // 14 bytes
+    UtAssert_True(Pack_Time(&Pack, Time), "pack time");                     // 22 bytes
     UtAssert_True(!Pack_Time(&Pack, Time), "pack time 2");                  // should fail, out of space
 
     UtAssert_True(Pack_Init(&Pack, Buf, sizeof(Buf), false), "pack init 2");

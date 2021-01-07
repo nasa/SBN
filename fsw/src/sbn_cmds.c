@@ -53,7 +53,7 @@ void SBN_InitializeCounters(void)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   msg           A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   msg           A #CFE_MSG_Message_t pointer that
 **                              references the software bus message
 **
 **  \param [in]   ExpectedLen   The expected length of the message
@@ -69,20 +69,26 @@ void SBN_InitializeCounters(void)
 **  \sa #SBN_LEN_EID
 **
 *************************************************************************/
-static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *MsgName)
+static bool VerifyMsgLen(CFE_MSG_Message_t *MsgPtr, uint16 ExpectedLen, const char *MsgName)
 {
-    uint16         CommandCode = 0;
-    uint16         ActualLen   = 0;
-    CFE_SB_MsgId_t MsgId       = 0;
+    CFE_MSG_Size_t    ActualLen = 0;
+    CFE_MSG_FcnCode_t FcnCode   = 0;
 
-    ActualLen = CFE_SB_GetTotalMsgLength(msg);
+    if(CFE_MSG_GetSize(MsgPtr, &ActualLen) != CFE_SUCCESS)
+    {
+        EVSSendErr(SBN_CMD_EID, "invalid hk message (Name=%s)", MsgName);
+        return false;
+    }
 
     if (ExpectedLen != ActualLen)
     {
-        MsgId       = CFE_SB_GetMsgId(msg);
-        CommandCode = CFE_SB_GetCmdCode(msg);
+        if(CFE_MSG_GetFcnCode(MsgPtr, &FcnCode) != CFE_SUCCESS)
+        {
+            EVSSendErr(SBN_CMD_EID, "unable to get FcnCode (Name=%s)", MsgName);
+            return false;
+        }
 
-        if (CommandCode == SBN_HK_CC)
+        if (FcnCode == SBN_HK_CC)
         {
             /*
             ** For a bad HK request, just send the event.  We only increment
@@ -91,7 +97,7 @@ static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *Ms
             EVSSendErr(SBN_CMD_EID,
                        "invalid hk message length (Name=%s ID=0x%04X "
                        "CC=%d Len=%d Expected=%d)",
-                       MsgName, MsgId, CommandCode, ActualLen, ExpectedLen);
+                       MsgName, FcnCode, (int)FcnCode, (int)ActualLen, (int)ExpectedLen);
         }
         else
         {
@@ -99,7 +105,7 @@ static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *Ms
             ** All other cases, increment error counter
             */
             EVSSendErr(SBN_CMD_EID, "invalid message length (Name=%s ID=0x%04X CC=%d Len=%d Expected=%d)", MsgName,
-                       MsgId, CommandCode, ActualLen, ExpectedLen);
+                       FcnCode, (int)FcnCode, (int)ActualLen, (int)ExpectedLen);
 
             SBN.CmdErrCnt++;
         } /* end if */
@@ -119,15 +125,15 @@ static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *Ms
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
 **                       references the software bus message
 **
 **  \sa #SBN_RESET_CC
 **
 *************************************************************************/
-static void NoopCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void NoopCmd(CFE_MSG_Message_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "noop"))
+    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "noop"))
     {
         EVSSendErr(SBN_CMD_EID, "invalid no-op command");
         return;
@@ -154,15 +160,15 @@ static void NoopCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
 **                       references the software bus message
 **
 **  \sa #SBN_RESET_CC
 **
 *************************************************************************/
-static void HKResetCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKResetCmd(CFE_MSG_Message_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "reset counters"))
+    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "reset counters"))
     {
         return;
     } /* end if */
@@ -184,20 +190,20 @@ static void HKResetCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
 **                       references the software bus message
 **
 **  \sa #SBN_RESET_PEER_CC
 **
 *************************************************************************/
-static void HKResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKResetPeerCmd(CFE_MSG_Message_t *MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "reset peer"))
     {
         return;
     } /* end if */
 
-    uint8 *Ptr     = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
@@ -231,13 +237,13 @@ static void HKResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       This message does not affect the command execution counter
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  *
  */
-static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKCmd(CFE_MSG_Message_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "hk"))
+    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "hk"))
     {
         return;
     } /* end if */
@@ -245,11 +251,12 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
     EVSSendInfo(SBN_CMD_EID, "hk command");
 
     uint8  HKBuf[SBN_HK_LEN];
+    CFE_MSG_Message_t *HKMsg = (CFE_MSG_Message_t *)HKBuf;
     Pack_t Pack;
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HK_LEN, true);
+    CFE_MSG_Init(HKMsg, SBN_TLM_MID, SBN_HK_LEN);
 
-    Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE, SBN_HK_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_CC);
     Pack_UInt16(&Pack, SBN.CmdCnt);
@@ -260,8 +267,8 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
     /*
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)HKBuf);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)HKBuf);
+    CFE_SB_TimeStampMsg(HKMsg);
+    CFE_SB_TransmitMsg(HKMsg, true);
 } /* end HKCmd */
 
 /** \brief Request for housekeeping for one network.
@@ -272,17 +279,17 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       This message does not affect the command execution counter
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  */
-static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, SBN_CMD_NET_LEN, "hk net"))
     {
         return;
     } /* end if */
 
-    uint8 *Ptr    = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr    = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx = *Ptr;
 
     if (NetIdx > SBN.NetCnt)
@@ -294,11 +301,12 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
     EVSSendInfo(SBN_CMD_EID, "hk command, net=%d", NetIdx);
 
     uint8  HKBuf[SBN_HKNET_LEN];
+    CFE_MSG_Message_t *HKMsg = (CFE_MSG_Message_t *)HKBuf;
     Pack_t Pack;
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKNET_LEN, true);
+    CFE_MSG_Init(HKMsg, SBN_TLM_MID, SBN_HKNET_LEN);
 
-    Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE, SBN_HKNET_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKNET_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_NET_CC);
     Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolIdx);
@@ -307,8 +315,8 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
     /*
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)HKBuf);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)HKBuf);
+    CFE_SB_TimeStampMsg(HKMsg);
+    CFE_SB_TransmitMsg(HKMsg, true);
 } /* end HKNetCmd */
 
 /** \brief Request for housekeeping for one peer.
@@ -319,17 +327,17 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       This message does not affect the command execution counter
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  */
-static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "hk peer"))
     {
         return;
     } /* end if */
 
-    uint8 *Ptr     = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
@@ -351,11 +359,12 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     EVSSendInfo(SBN_CMD_EID, "hk command, net=%d, peer=%d", NetIdx, PeerIdx);
 
     uint8  HKBuf[SBN_HKPEER_LEN];
+    CFE_MSG_Message_t *HKMsg = (CFE_MSG_Message_t *)HKBuf;
     Pack_t Pack;
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEER_LEN, true);
+    CFE_MSG_Init(HKMsg, SBN_TLM_MID, SBN_HKPEER_LEN);
 
-    Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE, SBN_HKPEER_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKPEER_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_PEER_CC);
     Pack_UInt32(&Pack, Peer->ProcessorID);
@@ -370,8 +379,8 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
     /*
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)HKBuf);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)HKBuf);
+    CFE_SB_TimeStampMsg(HKMsg);
+    CFE_SB_TransmitMsg(HKMsg, true);
 } /* end HKPeerCmd */
 
 /** \brief Send My Subscriptions
@@ -379,14 +388,14 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       None
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  *
  *  \sa #SBN_MYSUBS_CC
  */
-static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "my subs"))
+    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "my subs"))
     {
         return;
     } /* end if */
@@ -394,11 +403,12 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     EVSSendInfo(SBN_CMD_EID, "hk subs command");
 
     uint8  HKBuf[SBN_HKMYSUBS_LEN];
+    CFE_MSG_Message_t *HKMsg = (CFE_MSG_Message_t *)HKBuf;
     Pack_t Pack;
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKMYSUBS_LEN, true);
+    CFE_MSG_Init(HKMsg, SBN_TLM_MID, SBN_HKMYSUBS_LEN);
 
-    Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE, SBN_HKMYSUBS_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKMYSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
     Pack_UInt16(&Pack, SBN.SubCnt);
@@ -411,20 +421,20 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     /*
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)HKBuf);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)HKBuf);
+    CFE_SB_TimeStampMsg(HKMsg);
+    CFE_SB_TransmitMsg(HKMsg, true);
 } /* end MySubsCmd */
 
 /** \brief Reloads the config table.
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  *
  *  \sa #SBN_TBL_CC
  */
-static void ReloadTblCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void ReloadTblCmd(CFE_MSG_Message_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "reloadtbl"))
+    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "reloadtbl"))
     {
         return;
     } /* end if */
@@ -440,20 +450,20 @@ static void ReloadTblCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr   A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr   A #CFE_MSG_Message_t pointer that
 **                         references the software bus message
 **
 **  \sa #SBN_MYSUBS_CC
 **
 *************************************************************************/
-static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
+static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "peer subs"))
     {
         return;
     } /* end if */
 
-    uint8 *Ptr     = (uint8 *)MsgPtr + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
@@ -475,11 +485,12 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
 
     uint8  HKBuf[SBN_HKPEERSUBS_LEN];
+    CFE_MSG_Message_t *HKMsg = (CFE_MSG_Message_t *)HKBuf;
     Pack_t Pack;
 
-    CFE_SB_InitMsg(HKBuf, SBN_TLM_MID, SBN_HKPEERSUBS_LEN, true);
+    CFE_MSG_Init(HKMsg, SBN_TLM_MID, SBN_HKPEERSUBS_LEN);
 
-    Pack_Init(&Pack, HKBuf + CFE_SB_TLM_HDR_SIZE, SBN_HKPEERSUBS_LEN - CFE_SB_TLM_HDR_SIZE, 1);
+    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKPEERSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_PEERSUBS_CC);
     Pack_UInt16(&Pack, NetIdx);
@@ -495,8 +506,8 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
     /*
     ** Timestamp and send packet
     */
-    CFE_SB_TimeStampMsg((CFE_SB_Msg_t *)HKBuf);
-    CFE_SB_SendMsg((CFE_SB_Msg_t *)HKBuf);
+    CFE_SB_TimeStampMsg(HKMsg);
+    CFE_SB_TransmitMsg(HKMsg, true);
 } /* end PeerSubsCmd */
 
 /*******************************************************************/
@@ -504,19 +515,33 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 /* Process a command pipe message                                  */
 /*                                                                 */
 /*******************************************************************/
-void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
+void SBN_HandleCommand(CFE_MSG_Message_t *MsgPtr)
 {
-    CFE_SB_MsgId_t MsgId       = 0;
-    uint16         CommandCode = 0;
+    CFE_SB_MsgId_t    MsgId   = 0;
+    CFE_MSG_FcnCode_t FcnCode = 0;
 
-    if ((MsgId = CFE_SB_GetMsgId(MsgPtr)) != SBN_CMD_MID)
+    if (CFE_MSG_GetMsgId(MsgPtr, &MsgId) != CFE_SUCCESS)
     {
         SBN.CmdErrCnt++;
-        EVSSendErr(SBN_CMD_EID, "invalid command pipe message ID (ID=0x%04X)", MsgId);
+        EVSSendErr(SBN_CMD_EID, "invalid FcnCode");
+        return;
+    }
+
+    if (MsgId != SBN_CMD_MID)
+    {
+        SBN.CmdErrCnt++;
+        EVSSendErr(SBN_CMD_EID, "invalid command pipe MsgId (MsgId=0x%04X)", MsgId);
         return;
     } /* end if */
 
-    switch ((CommandCode = CFE_SB_GetCmdCode(MsgPtr)))
+    if(CFE_MSG_GetFcnCode(MsgPtr, &FcnCode) != CFE_SUCCESS)
+    {
+        SBN.CmdErrCnt++;
+        EVSSendErr(SBN_CMD_EID, "invalid FcnCode (FcnCode=0x%04X)", FcnCode);
+        return;
+    }
+
+    switch (FcnCode)
     {
         case SBN_NOOP_CC:
             NoopCmd(MsgPtr);
@@ -552,7 +577,7 @@ void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
             break;
         default:
             SBN.CmdErrCnt++;
-            EVSSendErr(SBN_CMD_EID, "invalid command code (ID=0x%04X, CC=%d)", MsgId, CommandCode);
+            EVSSendErr(SBN_CMD_EID, "invalid command code (ID=0x%04X, CC=%d)", FcnCode, FcnCode);
             break;
     } /* end switch */
 } /* end SBN_HandleCommand */

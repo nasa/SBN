@@ -460,9 +460,9 @@ typedef struct
     SBN_NetIdx_t         NetIdx;
     SBN_PeerIdx_t        PeerIdx;
     OS_TaskID_t          SendTaskID;
-    CFE_SB_MsgPtr_t      SBMsgPtr;
+    CFE_MSG_Message_t   *MsgPtr;
     CFE_SB_MsgId_t       MsgID;
-    SBN_NetInterface_t * Net;
+    SBN_NetInterface_t  *Net;
     SBN_PeerInterface_t *Peer;
 } SendTaskData_t;
 
@@ -474,6 +474,7 @@ void SBN_SendTask(void)
 {
     SendTaskData_t   D;
     SBN_Filter_Ctx_t Filter_Context;
+    CFE_MSG_Size_t   MsgSz = 0;
 
     Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
@@ -522,7 +523,7 @@ void SBN_SendTask(void)
             continue;
         } /* end if */
 
-        if (CFE_SB_RcvMsg(&D.SBMsgPtr, D.Peer->Pipe, CFE_SB_PEND_FOREVER) != CFE_SUCCESS)
+        if (CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&D.MsgPtr, D.Peer->Pipe, CFE_SB_PEND_FOREVER) != CFE_SUCCESS)
         {
             break;
         } /* end if */
@@ -537,7 +538,7 @@ void SBN_SendTask(void)
                 continue;
             } /* end if */
 
-            D.Status = (D.Peer->Filters[FilterIdx]->FilterSend)(D.SBMsgPtr, &Filter_Context);
+            D.Status = (D.Peer->Filters[FilterIdx]->FilterSend)(D.MsgPtr, &Filter_Context);
             if (D.Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
             {
                 break;
@@ -557,7 +558,12 @@ void SBN_SendTask(void)
             continue;
         } /* end if */
 
-        D.Status = SBN_SendNetMsg(SBN_APP_MSG, CFE_SB_GetTotalMsgLength(D.SBMsgPtr), D.SBMsgPtr, D.Peer);
+        if(CFE_MSG_GetSize(D.MsgPtr, &MsgSz) != CFE_SUCCESS)
+        {
+            continue;
+        } /* end if */
+
+        D.Status = SBN_SendNetMsg(SBN_APP_MSG, MsgSz, D.MsgPtr, D.Peer);
 
         if (D.Status == SBN_ERROR)
         {
@@ -574,10 +580,11 @@ void SBN_SendTask(void)
  */
 static SBN_Status_t CheckPeerPipes(void)
 {
-    CFE_Status_t     CFE_Status;
-    int              ReceivedFlag = 0, iter = 0;
-    CFE_SB_MsgPtr_t  SBMsgPtr = 0;
-    SBN_Filter_Ctx_t Filter_Context;
+    CFE_Status_t       CFE_Status;
+    int                ReceivedFlag = 0, iter = 0;
+    CFE_MSG_Message_t *MsgPtr = NULL;
+    CFE_MSG_Size_t     MsgSz = 0;
+    SBN_Filter_Ctx_t   Filter_Context;
 
     Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
@@ -630,7 +637,7 @@ static SBN_Status_t CheckPeerPipes(void)
                 } /* end if */
 
                 /* if peer data is not in use, go to next peer */
-                if (CFE_SB_RcvMsg(&SBMsgPtr, Peer->Pipe, CFE_SB_POLL) != CFE_SUCCESS)
+                if (CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, Peer->Pipe, CFE_SB_POLL) != CFE_SUCCESS)
                 {
                     continue;
                 } /* end if */
@@ -649,7 +656,7 @@ static SBN_Status_t CheckPeerPipes(void)
                         continue;
                     } /* end if */
 
-                    SBN_Status = (Peer->Filters[FilterIdx]->FilterSend)(SBMsgPtr, &Filter_Context);
+                    SBN_Status = (Peer->Filters[FilterIdx]->FilterSend)(MsgPtr, &Filter_Context);
 
                     if (SBN_Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
                     {
@@ -669,7 +676,12 @@ static SBN_Status_t CheckPeerPipes(void)
                     continue;
                 } /* end if */
 
-                SBN_SendNetMsg(SBN_APP_MSG, CFE_SB_GetTotalMsgLength(SBMsgPtr), SBMsgPtr, Peer);
+                if (CFE_MSG_GetSize(MsgPtr, &MsgSz) != CFE_SUCCESS)
+                {
+                    continue;
+                } /* end if */
+
+                SBN_SendNetMsg(SBN_APP_MSG, MsgSz, MsgPtr, Peer);
             } /* end for */
         }     /* end for */
 
@@ -805,11 +817,11 @@ static SBN_Status_t InitInterfaces(void)
  */
 static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 {
-    CFE_Status_t    CFE_Status = CFE_SUCCESS;
-    CFE_SB_MsgPtr_t Msg        = 0;
+    CFE_Status_t       CFE_Status = CFE_SUCCESS;
+    CFE_MSG_Message_t *MsgPtr    = 0;
 
     /* Wait for WakeUp messages from scheduler */
-    CFE_Status = CFE_SB_RcvMsg(&Msg, SBN.CmdPipe, iTimeOut);
+    CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN.CmdPipe, iTimeOut);
 
     switch (CFE_Status)
     {
@@ -817,7 +829,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
         case CFE_SB_TIME_OUT:
             break;
         case CFE_SUCCESS:
-            SBN_HandleCommand(Msg);
+            SBN_HandleCommand(MsgPtr);
             break;
         default:
             return SBN_ERROR;
@@ -853,7 +865,8 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 static SBN_Status_t WaitForSBStartup(void)
 {
     CFE_EVS_LongEventTlm_t *EvsTlm    = NULL;
-    CFE_SB_MsgPtr_t         SBMsgPtr  = 0;
+    CFE_MSG_Message_t      *MsgPtr    = NULL;
+    CFE_SB_MsgId_t          MsgId     = 0;
     uint8                   counter   = 0;
     CFE_SB_PipeId_t         EventPipe = 0;
     CFE_Status_t            Status    = SBN_SUCCESS;
@@ -893,11 +906,11 @@ static SBN_Status_t WaitForSBStartup(void)
         } /* end if */
 
         /* Check for event message from SB */
-        if (CFE_SB_RcvMsg(&SBMsgPtr, EventPipe, 100) == CFE_SUCCESS)
+        if (CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, EventPipe, 100) == CFE_SUCCESS && CFE_MSG_GetMsgId(MsgPtr, &MsgId) == CFE_SUCCESS)
         {
-            if (CFE_SB_GetMsgId(SBMsgPtr) == CFE_EVS_LONG_EVENT_MSG_MID)
+            if (MsgId == CFE_EVS_LONG_EVENT_MSG_MID)
             {
-                EvsTlm = (CFE_EVS_LongEventTlm_t *)SBMsgPtr;
+                EvsTlm = (CFE_EVS_LongEventTlm_t *)MsgPtr;
 
                 /* If it's an event message from SB, make sure it's the init
                  * message
@@ -944,7 +957,7 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleI
         }
 
         EVSSendInfo(SBN_TBL_EID, "loading module (Name=%s, File=%s)", e->Name, e->LibFileName);
-        if (OS_ModuleLoad(ModuleIDPtr, e->Name, e->LibFileName) != OS_SUCCESS)
+        if (OS_ModuleLoad(ModuleIDPtr, e->Name, e->LibFileName, OS_MODULE_FLAG_GLOBAL_SYMBOLS) != OS_SUCCESS)
         {
             EVSSendErr(SBN_TBL_EID, "invalid module file (Name=%s LibFileName=%s)", e->Name, e->LibFileName);
             return 0;
@@ -1295,7 +1308,7 @@ void SBN_AppMain(void)
     EVSSendInfo(SBN_INIT_EID,
                 "initialized (CFE_PLATFORM_CPU_NAME='%s' ProcessorID=%d SpacecraftId=%d %s "
                 "SBN.AppID=%d...",
-                CFE_PLATFORM_CPU_NAME, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), bit_order, (int)SBN.AppID);
+                CFE_PSP_GetProcessorName(), CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), bit_order, (int)SBN.AppID);
     EVSSendInfo(SBN_INIT_EID, "...SBN_IDENT=%s CMD_MID=0x%04X)", SBN_IDENT, SBN_CMD_MID);
 
     SBN_InitializeCounters();
@@ -1397,7 +1410,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, C
                 } /* end if */
             }     /* end for */
 
-            CFE_Status = CFE_SB_PassMsg(Msg);
+            CFE_Status = CFE_SB_TransmitMsg(Msg, false);
 
             if (CFE_Status != CFE_SUCCESS)
             {

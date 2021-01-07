@@ -111,7 +111,6 @@ typedef uint32            CFE_ES_ObjectID_t;
 typedef CFE_ES_ObjectID_t CFE_ES_ModuleID_t;
 typedef CFE_ES_ObjectID_t CFE_ES_MutexID_t;
 typedef uint16            CFE_EVS_EventID_t;
-typedef int32             CFE_Status_t;
 typedef int16             SBN_SubCnt_t;
 typedef uint16            SBN_HKTlm_t;
 

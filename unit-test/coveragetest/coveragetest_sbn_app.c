@@ -505,13 +505,12 @@ static void SBStart_RcvMsgErr(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     UT_CheckEvent_Setup(SBN_MSG_EID, "err from rcvmsg on sub pipe");
 
-    /* first call to SBN_CheckSubscriptionPipe should fail, giving us the event we are looking for */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_PIPE_RD_ERR); /* sub pipe err */
-
-    /* ...but WaitForSBStartup() keeps trying the sub pipe, so go through the loop again */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_PIPE_RD_ERR);
+    /* first time through, CheckSubscriptionPipe should generate an error */
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_PIPE_RD_ERR);
 
     /* second time through CheckSubscriptionPipe will be nominal operation */
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
@@ -519,17 +518,20 @@ static void SBStart_RcvMsgErr(void)
     memset(MsgPtr, 0, sizeof(Msg));
     Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
     Msg.Payload.MsgId   = CFE_SB_ONESUB_TLM_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &MsgPtr, sizeof(MsgPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* second call to SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_Unsubscribe), 1, CFE_SB_BAD_ARGUMENT); /* fail out of WaitForSBStartup() */
 
     SBN_AppMain();
 
     EVENT_CNT(1);
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end SBStart_RcvMsgErr() */
 
 static void SBStart_UnsubErr(void)
@@ -545,23 +547,26 @@ static void SBStart_UnsubErr(void)
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
+
     /* ...GetMsgId() -> sub msg */
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* WaitForSBStartup()... */
-    /* ...CFE_SB_RcvMsg() should succeed */
+    /* ...CFE_SB_ReceiveBuffer() should succeed */
     CFE_EVS_LongEventTlm_t EvtMsg, *EvtMsgPtr;
     EvtMsgPtr = &EvtMsg;
     memset(EvtMsgPtr, 0, sizeof(EvtMsg));
     strcpy(EvtMsg.Payload.PacketID.AppName, "CFE_SB");
     EvtMsg.Payload.PacketID.EventID = CFE_SB_INIT_EID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     /* ...GetMsgId() -> event msg */
     mid = CFE_EVS_LONG_EVENT_MSG_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_Unsubscribe), 1, CFE_SB_BAD_ARGUMENT); /* fail out of WaitForSBStartup() */
 
@@ -575,19 +580,20 @@ static void SBStart_RcvMsgSucc(void)
     START();
 
     /* call to SBN_CheckSubscriptionPipe should fail, giving us the event we are looking for */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_PIPE_RD_ERR); /* sub pipe err */
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_PIPE_RD_ERR); /* sub pipe err */
 
-    /* ...CFE_SB_RcvMsg() should succeed */
+    /* ...CFE_SB_ReceiveBuffer() should succeed */
     CFE_EVS_LongEventTlm_t EvtMsg, *EvtMsgPtr;
     EvtMsgPtr = &EvtMsg;
     memset(EvtMsgPtr, 0, sizeof(EvtMsg));
     strcpy(EvtMsg.Payload.PacketID.AppName, "CFE_SB");
     EvtMsg.Payload.PacketID.EventID = CFE_SB_INIT_EID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     /* ...GetMsgId() -> event msg */
     CFE_SB_MsgId_t mid = CFE_EVS_LONG_EVENT_MSG_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_Unsubscribe), 1, CFE_SB_BAD_ARGUMENT); /* fail out of WaitForSBStartup() */
 
@@ -598,7 +604,7 @@ static void SBStart_DelPipeErr(void)
 {
     START();
 
-    UT_CheckEvent_Setup(SBN_INIT_EID, "unable to delete event pipe");
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* SBN_CheckSubscriptionPipe() ...*/
     /* ...RcvMsg() should succeed */
@@ -607,23 +613,25 @@ static void SBStart_DelPipeErr(void)
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
     /* ...GetMsgId() -> sub msg */
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* WaitForSBStartup()...*/
-    /* ...CFE_SB_RcvMsg() should succeed */
+    /* ...CFE_SB_ReceiveBuffer() should succeed */
     CFE_EVS_LongEventTlm_t EvtMsg, *EvtMsgPtr;
     EvtMsgPtr = &EvtMsg;
     memset(EvtMsgPtr, 0, sizeof(EvtMsg));
     strcpy(EvtMsg.Payload.PacketID.AppName, "CFE_SB");
     EvtMsg.Payload.PacketID.EventID = CFE_SB_INIT_EID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     /* ...GetMsgId() -> event msg */
     mid = CFE_EVS_LONG_EVENT_MSG_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_DeletePipe), 1, CFE_SB_BAD_ARGUMENT);
 
@@ -646,25 +654,30 @@ static void W4W_NoMsg(void)
 {
     START();
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    UT_CheckEvent_Setup(SBN_INIT_EID, "unable to delete event pipe");
+
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_NO_MESSAGE);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_NO_MESSAGE);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_NO_MESSAGE);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
 
     SBN_AppMain();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end W4W_NoMsg() */
 
 static int32 PeerConnHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
@@ -677,20 +690,22 @@ static void CheckPP_SendTask(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_SEND;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetHookFunction(UT_KEY(CFE_PSP_GetProcessorId), PeerConnHook, NULL);
 
@@ -701,26 +716,30 @@ static void CheckPP_SendTask(void)
     SBN_AppMain();
 
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end CheckPP_SendTask() */
 
 static void CheckPP_SendTaskErr(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_SEND;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, -1);
 
@@ -733,26 +752,30 @@ static void CheckPP_SendTaskErr(void)
     SBN_AppMain();
 
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end CheckPP_SendTaskErr() */
 
 static void CheckPP_RecvErr(void)
 {
     START();
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 3, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 3, -1);
 
     UT_SetHookFunction(UT_KEY(CFE_PSP_GetProcessorId), PeerConnHook, NULL);
 
@@ -761,6 +784,8 @@ static void CheckPP_RecvErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
 
     SBN_AppMain();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end CheckPP_RecvErr() */
 
 static SBN_Status_t FilterSend_Empty(void *MsgBuf, SBN_Filter_Ctx_t *Context)
@@ -771,6 +796,8 @@ static SBN_Status_t FilterSend_Empty(void *MsgBuf, SBN_Filter_Ctx_t *Context)
 static void CheckPP_FilterEmpty(void)
 {
     START();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     PeerPtr->Connected = 1;
 
@@ -783,24 +810,26 @@ static void CheckPP_FilterEmpty(void)
     PeerPtr->Filters[1] = &FilterEmpty;
     PeerPtr->FilterCnt  = 2;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
 
     SBN_AppMain();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end CheckPP_FilterEmpty() */
 
 static SBN_Status_t FilterSend_Err(void *MsgBuf, SBN_Filter_Ctx_t *Context)
@@ -812,6 +841,8 @@ static void CheckPP_FilterErr(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     PeerPtr->Connected = 1;
 
     SBN_FilterInterface_t Filter;
@@ -821,24 +852,26 @@ static void CheckPP_FilterErr(void)
     PeerPtr->Filters[0] = &Filter;
     PeerPtr->FilterCnt  = 1;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
 
     SBN_AppMain();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end CheckPP_FilterErr() */
 
 static SBN_Status_t FilterSend_Nominal(void *MsgBuf, SBN_Filter_Ctx_t *Context)
@@ -850,6 +883,8 @@ static void CheckPP_Nominal(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     PeerPtr->Connected = 1;
 
     SBN_FilterInterface_t Filter;
@@ -859,46 +894,48 @@ static void CheckPP_Nominal(void)
     PeerPtr->Filters[0] = &Filter;
     PeerPtr->FilterCnt  = 1;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
 
     SBN_AppMain();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end CheckPP_Nominal() */
 
 static void W4W_RcvMsgErr(void)
 {
     START();
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SB_PIPE_RD_ERR);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_PIPE_RD_ERR);
 
     SBN_AppMain();
 } /* end W4W_RcvMsgErr() */
@@ -906,6 +943,8 @@ static void W4W_RcvMsgErr(void)
 static void PeerPoll_RecvNetTask_ChildTaskErr(void)
 {
     START();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for net ");
 
@@ -915,18 +954,18 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_RECV;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, -1);
 
@@ -939,11 +978,15 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     EVENT_CNT(1);
 
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_POLL;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end PeerPoll_RecvNetTask_ChildTaskErr() */
 
 static void PeerPoll_RecvNetTask_Nominal(void)
 {
     START();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     SBN.NetCnt          = 0;
     SBN.Nets[0].PeerCnt = 0;
@@ -951,18 +994,18 @@ static void PeerPoll_RecvNetTask_Nominal(void)
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_RECV;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
@@ -971,11 +1014,15 @@ static void PeerPoll_RecvNetTask_Nominal(void)
     SBN_AppMain();
 
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_POLL;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end PeerPoll_RecvNetTask_Nominal() */
 
 static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
 {
     START();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for ");
 
@@ -988,18 +1035,18 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
     IfOpsPtr->RecvFromNet  = NULL;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, -1);
 
@@ -1014,6 +1061,8 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     IfOpsPtr->RecvFromPeer            = NULL;
     IfOpsPtr->RecvFromNet             = RecvFromNet_Nominal;
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end PeerPoll_RecvPeerTask_ChildTaskErr() */
 
 static osal_task test_osal_task_entry(void)
@@ -1025,6 +1074,8 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     SBN.NetCnt          = 0;
     SBN.Nets[0].PeerCnt = 0;
 
@@ -1034,20 +1085,20 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
     IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
     IfOpsPtr->RecvFromNet  = NULL;
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 1, CFE_SUCCESS);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
     OS_TaskCreate(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
     /* PeerPtr->RecvTaskID = STUB_TASKID; */
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
@@ -1058,6 +1109,8 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
     IfOpsPtr->RecvFromPeer            = NULL;
     IfOpsPtr->RecvFromNet             = RecvFromNet_Nominal;
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end PeerPoll_RecvPeerTask() */
 
 static void Test_WaitForWakeup(void)
@@ -1080,34 +1133,40 @@ static void AppMain_Nominal(void)
 {
     START();
 
-    /* CFE_SB_RcvMsg() in SBN_CheckSubscriptionPipe() should succeed */
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
+    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
     SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
     SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ONESUB_TLM_MID;
     /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
-    /* CFE_SB_RcvMsg() in WaitForSBStartup() should succeed */
+    /* CFE_SB_ReceiveBuffer() in WaitForSBStartup() should succeed */
     CFE_EVS_LongEventTlm_t EvtMsg, *EvtMsgPtr;
     EvtMsgPtr = &EvtMsg;
     memset(EvtMsgPtr, 0, sizeof(EvtMsg));
     strcpy(EvtMsg.Payload.PacketID.AppName, "CFE_SB");
     EvtMsg.Payload.PacketID.EventID = CFE_SB_INIT_EID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_RcvMsg), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &EvtMsgPtr, sizeof(EvtMsgPtr), false);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     mid = CFE_EVS_LONG_EVENT_MSG_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), true);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
 
     SBN_AppMain();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end AppMain_Nominal() */
 
 static void Test_SBN_AppMain(void)
@@ -1238,7 +1297,7 @@ static void ProcessNetMsg_AppMsg_PassMsgErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_PassMsg), 1, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_TransmitMsg), 1, -1);
 
     UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, 0, NULL), SBN_ERROR);
 
@@ -1869,12 +1928,16 @@ static void SendTask_ConnTaskErr(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     PeerPtr->Connected  = true;
     OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
     SBN_SendTask();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end SendTask_ConnTaskErr() */
 
 static int32 TaskDelayConn(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
@@ -1893,14 +1956,18 @@ static void SendTask_PeerNotConn(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     PeerPtr->Connected  = false;
     OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
     UT_SetHookFunction(UT_KEY(OS_TaskDelay), TaskDelayConn, NULL);
 
     SBN_SendTask();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end SendTask_PeerNotConn() */
 
 static SBN_Status_t SendFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
@@ -1923,7 +1990,7 @@ static void SendTask_FiltErr(void)
     PeerPtr->Filters[0] = &Filter_Err;
     PeerPtr->FilterCnt  = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
     SBN_SendTask();
 } /* end SendTask_FiltErr() */
@@ -1958,7 +2025,7 @@ static void SendTask_Filters(void)
     PeerPtr->Filters[2] = &Filter_Out;
     PeerPtr->FilterCnt  = 3;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
     SBN_SendTask();
 } /* end SendTask_Filters() */
@@ -1967,6 +2034,8 @@ static void SendTask_SendNetMsgErr(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     PeerPtr->Connected  = true;
     OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
@@ -1974,21 +2043,27 @@ static void SendTask_SendNetMsgErr(void)
 
     SBN_SendTask();
 
-    UtAssert_INT32_EQ(PeerPtr->SendTaskID, 0);
+    UtAssert_INT32_EQ(PeerPtr->SendTaskID, OS_TaskGetId());
 
     IfOpsPtr->Send = Send_Nominal;
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end SendTask_SendNetMsgErr() */
 
 static void SendTask_Nominal(void)
 {
     START();
 
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
+
     PeerPtr->Connected  = true;
     OS_TaskCreate(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_RcvMsg), 2, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
     SBN_SendTask();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end SendTask_Nominal() */
 
 static void Test_SBN_SendTask(void)

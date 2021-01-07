@@ -403,17 +403,17 @@ static void Send_AddrInitErr(void)
 {
     START();
 
-    CFE_SB_MsgPtr_t           SBMsgPtr;
+    CFE_MSG_Message_t        *SBMsgPtr;
     CFE_MSG_TelemetryHeader_t TlmPkt;
 
-    SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
-    CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
+    SBMsgPtr = (CFE_MSG_Message_t *)&TlmPkt;
+    CFE_MSG_Init(SBMsgPtr, 0x1234, sizeof(TlmPkt));
 
     UT_CheckEvent_Setup(&EventTest, SBN_UDP_SOCK_EID, "socket addr init failed");
 
     UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_ERROR);
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(PeerPtr, SBN_APP_MSG, CFE_SB_TLM_HDR_SIZE, SBMsgPtr), SBN_ERROR);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(PeerPtr, SBN_APP_MSG, sizeof(TlmPkt), SBMsgPtr), SBN_ERROR);
 
     EVENT_CNT(1);
 } /* end Send_AddrInitErr() */
@@ -421,31 +421,31 @@ static void Send_AddrInitErr(void)
 static void Send_SendErr(void)
 {
     START();
-    CFE_SB_MsgPtr_t           SBMsgPtr;
+    CFE_MSG_Message_t        *SBMsgPtr;
     CFE_MSG_TelemetryHeader_t TlmPkt;
 
-    SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
-    CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
+    SBMsgPtr = (CFE_MSG_Message_t *)&TlmPkt;
+    CFE_MSG_Init(SBMsgPtr, 0x1234, sizeof(TlmPkt));
 
     UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_SocketSendTo), 1, -2);
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(PeerPtr, SBN_APP_MSG, CFE_SB_TLM_HDR_SIZE, SBMsgPtr), SBN_ERROR);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(PeerPtr, SBN_APP_MSG, sizeof(TlmPkt), SBMsgPtr), SBN_ERROR);
 } /* end Send_SendErr() */
 
 static void Send_Nominal(void)
 {
     START();
-    CFE_SB_MsgPtr_t           SBMsgPtr;
+    CFE_MSG_Message_t        *SBMsgPtr;
     CFE_MSG_TelemetryHeader_t TlmPkt;
 
-    SBMsgPtr = (CFE_SB_MsgPtr_t)&TlmPkt;
-    CFE_SB_InitMsg(SBMsgPtr, 0x1234, CFE_SB_TLM_HDR_SIZE, true);
+    SBMsgPtr = (CFE_MSG_Message_t *)&TlmPkt;
+    CFE_MSG_Init(SBMsgPtr, 0x1234, sizeof(TlmPkt));
 
     UT_SetDeferredRetcode(UT_KEY(OS_SocketAddrInit), 1, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_SocketSendTo), 1, CFE_SB_TLM_HDR_SIZE + SBN_PACKED_HDR_SZ);
+    UT_SetDeferredRetcode(UT_KEY(OS_SocketSendTo), 1, sizeof(TlmPkt) + SBN_PACKED_HDR_SZ);
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(PeerPtr, SBN_APP_MSG, CFE_SB_TLM_HDR_SIZE, SBMsgPtr), SBN_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.Send(PeerPtr, SBN_APP_MSG, sizeof(TlmPkt), SBMsgPtr), SBN_SUCCESS);
 } /* end Send_Nominal() */
 
 void Test_SBN_UDP_Send(void)
@@ -661,7 +661,8 @@ static void UnloadNet_Nominal(void)
 
     PeerPtr->Connected = true;
 
-    NetData->Socket = OS_open(NULL, 0, 0);
+    OS_OpenCreate(&(NetData->Socket), NULL, 0, 0);
+
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadNet(NetPtr), CFE_SUCCESS);
 
     /* TODO: check what was called? */
