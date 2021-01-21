@@ -10,9 +10,11 @@
 
 CFE_EVS_EventID_t SBN_UDP_FIRST_EID;
 
-#define EXP_VERSION 5
+#define EXP_VERSION 6
 
-static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
+static SBN_ProtocolOutlet_t SBN;
+
+static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
     SBN_UDP_FIRST_EID = BaseEID;
 
@@ -21,6 +23,15 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
         OS_printf("SBN_UDP version mismatch: expected %d, got %d\n", EXP_VERSION, Version);
         return SBN_ERROR;
     } /* end if */
+
+    if (Outlet == NULL)
+    {
+        OS_printf("SBN_UDP outlet is NULL\n");
+        return SBN_ERROR;
+    } /* end if */
+
+    /* copy outlet pointers to a local buffer for later use */
+    memcpy(&SBN, Outlet, sizeof(SBN));
 
     OS_printf("SBN_UDP Lib Initialized.\n");
     return SBN_SUCCESS;
@@ -156,14 +167,14 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
         {
             EVSSendInfo(SBN_UDP_DEBUG_EID, "disconnected CPU %d", Peer->ProcessorID);
 
-            SBN_Disconnected(Peer);
+            SBN.Disconnected(Peer);
             return SBN_SUCCESS;
         } /* end if */
 
         if (CurrentTime.seconds - Peer->LastSend.seconds > SBN_UDP_PEER_HEARTBEAT)
         {
             EVSSendInfo(SBN_UDP_DEBUG_EID, "heartbeat CPU %d", Peer->ProcessorID);
-            return SBN_SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
+            return SBN.SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         } /* end if */
     }
     else
@@ -172,7 +183,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
             CurrentTime.seconds - Peer->LastSend.seconds > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
             EVSSendInfo(SBN_UDP_DEBUG_EID, "announce CPU %d", Peer->ProcessorID);
-            return SBN_SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
+            return SBN.SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
         } /* end if */
     }     /* end if */
 
@@ -188,7 +199,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
     SBN_NetInterface_t *Net      = Peer->Net;
     SBN_UDP_Net_t *     NetData  = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN_PackMsg(Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
+    SBN.PackMsg(Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
 
     OS_SockAddr_t Addr;
     if (OS_SocketAddrInit(&Addr, OS_SocketDomain_INET) != OS_SUCCESS)
@@ -242,12 +253,12 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
 
     /* each UDP packet is a full SBN message */
 
-    if (SBN_UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, Payload) == false)
+    if (SBN.UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, Payload) == false)
     {
         return SBN_ERROR;
     } /* end if */
 
-    SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, *ProcessorIDPtr);
+    SBN_PeerInterface_t *Peer = SBN.GetPeer(Net, *ProcessorIDPtr);
     if (Peer == NULL)
     {
         return SBN_ERROR;
@@ -255,12 +266,12 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
 
     if (!Peer->Connected)
     {
-        SBN_Connected(Peer);
+        SBN.Connected(Peer);
     } /* end if */
 
     if (*MsgTypePtr == SBN_UDP_DISCONN_MSG)
     {
-        SBN_Disconnected(Peer);
+        SBN.Disconnected(Peer);
     }
 
     return SBN_SUCCESS;
@@ -271,8 +282,8 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
     if (Peer->Connected)
     {
         EVSSendInfo(SBN_UDP_DEBUG_EID, "peer%d - sending disconnect", Peer->ProcessorID);
-        SBN_SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
-        SBN_Disconnected(Peer);
+        SBN.SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
+        SBN.Disconnected(Peer);
     } /* end if */
 
     return SBN_SUCCESS;

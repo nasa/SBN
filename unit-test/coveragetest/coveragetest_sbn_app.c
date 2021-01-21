@@ -199,7 +199,7 @@ static void LoadConf_GetAddrErr(void)
     EVENT_CNT(1);
 } /* end LoadConf_GetAddrErr() */
 
-static SBN_Status_t ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
     return 1;
 } /* end ProtoInitErr_InitModule */

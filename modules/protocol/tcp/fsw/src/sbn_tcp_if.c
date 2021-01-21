@@ -53,19 +53,29 @@ typedef struct
 
 CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
 
-#define EXP_VERSION 5
+#define EXP_VERSION 6
 
-static SBN_Status_t Init(int Version, CFE_EVS_EventID_t EID)
+static SBN_ProtocolOutlet_t SBN;
+
+static SBN_Status_t Init(int Version, CFE_EVS_EventID_t EID, SBN_ProtocolOutlet_t *Outlet)
 {
     SBN_TCP_FIRST_EID = EID;
     if (Version != EXP_VERSION) /* TODO: define */
     {
         OS_printf("SBN_TCP version mismatch: expected %d, got %d\n", EXP_VERSION, Version);
-        return CFE_ES_ERR_APP_CREATE;
+        return SBN_ERROR;
     } /* end if */
 
+    if (Outlet == NULL)
+    {
+        OS_printf("SBN_TCP outlet is null!\n");
+        return SBN_ERROR;
+    } /* end if */
+
+    memcpy(&SBN, Outlet, sizeof(SBN));
+
     OS_printf("SBN_TCP Lib Initialized.\n");
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 } /* end Init() */
 
 static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
@@ -155,7 +165,7 @@ static void Disconnected(SBN_PeerInterface_t *Peer)
         PeerData->Conn = NULL;
     } /* end if */
 
-    SBN_Disconnected(Peer);
+    SBN.Disconnected(Peer);
 } /* end Disconnected() */
 
 static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
@@ -310,7 +320,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                     Conn->PeerInterface = Peer;
                     PeerData->Conn      = Conn;
 
-                    SBN_Connected(Peer);
+                    SBN.Connected(Peer);
                 } /* end if */
             }     /* end if */
         }         /* end if */
@@ -329,7 +339,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
         return 0;
     } /* end if */
 
-    SBN_PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
+    SBN.PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
     SBN_MsgSz_t sent_size = OS_write(PeerData->Conn->Socket, &SendBufs[NetData->BufNum], MsgSz + SBN_PACKED_HDR_SZ);
     if (sent_size < MsgSz + SBN_PACKED_HDR_SZ)
     {
@@ -472,7 +482,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
             }                            /* end if */
 
             /* we have the complete body, decode! */
-            if (SBN_UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, MsgBuf) == false)
+            if (SBN.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, MsgBuf) == false)
             {
                 return SBN_ERROR;
             } /* end if */
@@ -494,7 +504,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
 
                         Conn->PeerInterface = PeerInterface;
 
-                        SBN_Connected(PeerInterface);
+                        SBN.Connected(PeerInterface);
 
                         break;
                     } /* end if */

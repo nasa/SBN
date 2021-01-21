@@ -20,10 +20,10 @@
 
 /* version updates when there's a change in the API's or other functional changes */
 #define SBN_MAJOR_VERSION 1
-#define SBN_MINOR_VERSION 17
+#define SBN_MINOR_VERSION 18
 #define SBN_REVISION      0
 
-#define SBN_PROTOCOL_VERSION 5 /* Init() returns SBN_Status_t */
+#define SBN_PROTOCOL_VERSION 6 /* Init() takes outlet */
 #define SBN_FILTER_VERSION   2 /* Init() returns SBN_Status_t */
 
 #endif /*_sbn_version_*/

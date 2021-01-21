@@ -34,12 +34,12 @@
 SBN_Status_t SBN_SendSubsRequests(void)
 {
     CFE_Status_t    CFE_Status = CFE_SUCCESS;
-    CFE_MSG_Message_t CmdMsg;
+    CFE_MSG_CommandHeader_t CmdMsg;
 
     /* Turn on SB subscription reporting */
-    CFE_MSG_Init(&CmdMsg, CFE_SB_SUB_RPT_CTRL_MID, sizeof(CmdMsg));
-    CFE_MSG_SetFcnCode(&CmdMsg, CFE_SB_ENABLE_SUB_REPORTING_CC);
-    CFE_Status = CFE_SB_TransmitMsg(&CmdMsg, true);
+    CFE_MSG_Init((CFE_MSG_Message_t *)&CmdMsg, CFE_SB_SUB_RPT_CTRL_MID, sizeof(CmdMsg));
+    CFE_MSG_SetFcnCode((CFE_MSG_Message_t *)&CmdMsg, CFE_SB_ENABLE_SUB_REPORTING_CC);
+    CFE_Status = CFE_SB_TransmitMsg((CFE_MSG_Message_t *)&CmdMsg, true);
     if (CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_SUB_EID, "Unable to turn on sub reporting (status=%d)", CFE_Status);
@@ -47,8 +47,8 @@ SBN_Status_t SBN_SendSubsRequests(void)
     } /* end if */
 
     /* Request a list of previous subscriptions from SB */
-    CFE_MSG_SetFcnCode(&CmdMsg, CFE_SB_SEND_PREV_SUBS_CC);
-    CFE_Status = CFE_SB_TransmitMsg(&CmdMsg, true);
+    CFE_MSG_SetFcnCode((CFE_MSG_Message_t *)&CmdMsg, CFE_SB_SEND_PREV_SUBS_CC);
+    CFE_Status = CFE_SB_TransmitMsg((CFE_MSG_Message_t *)&CmdMsg, true);
     if (CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_SUB_EID, "Unable to send prev subs request (status=%d)", CFE_Status);
