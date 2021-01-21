@@ -39,7 +39,7 @@
 #include "sbn_udp_if.h"
 #include "sbn_app.h"
 
-#define SBN_PROTOCOL_VERSION 5
+#define SBN_PROTOCOL_VERSION 6
 
 SBN_App_t SBN;
 
@@ -142,19 +142,29 @@ static void Init_VerErr(void)
 {
     START();
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(-1, 0), SBN_ERROR);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(-1, 0, NULL), SBN_ERROR);
 } /* end Init_VerErr() */
 
-static void Init_Nominal(void)
+static void Init_NullOutlet(void)
 {
     START();
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0), CFE_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0, NULL), CFE_SUCCESS);
+} /* end Init_Nominal() */
+
+
+static void Init_Nominal(void)
+{
+    SBN_ProtocolOutlet_t Outlet;
+    START();
+
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0, &Outlet), CFE_SUCCESS);
 } /* end Init_Nominal() */
 
 void Test_SBN_UDP_Init(void)
 {
     Init_VerErr();
+    Init_NullOutlet();
     Init_Nominal();
 } /* end Test_SBN_UDP_Init() */
 

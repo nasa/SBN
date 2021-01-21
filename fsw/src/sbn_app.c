@@ -74,7 +74,8 @@ static SBN_Status_t UnloadModules(void)
 } /* end UnloadModules() */
 
 /**
- * \brief Packs a CCSDS message with an SBN message header.
+ * Packs a CCSDS message with an SBN message header.
+ *
  * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
  *       are in network (big-endian) byte order.
  * \param SBNBuf[out] The buffer to pack into.
@@ -102,7 +103,8 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_Pro
 } /* end SBN_PackMsg */
 
 /**
- * \brief Unpacks a CCSDS message with an SBN message header.
+ * Unpacks a CCSDS message with an SBN message header.
+ *
  * \param SBNBuf[in] The buffer to unpack.
  * \param MsgTypePtr[out] The SBN message type.
  * \param MsgSzPtr[out] The payload size.
@@ -114,8 +116,8 @@ void SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_Pro
  *       are in platform byte order.
  * \todo Use a type for SBNBuf.
  */
-bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr, CFE_ProcessorID_t *ProcessorIDPtr,
-                   void *Msg)
+bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr,
+    CFE_ProcessorID_t *ProcessorIDPtr, void *Msg)
 {
     uint8  t = 0;
     Pack_t Pack;
@@ -139,6 +141,92 @@ bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePt
 
     return true;
 } /* end SBN_UnpackMsg */
+
+/**
+ * Called by a protocol module to signal that a peer has been connected.
+ *
+ * @param Peer[in] The peer that has been connected.
+ * @return SBN_SUCCESS or SBN_ERROR if there was an issue.
+ */
+SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
+{
+    SBN_Status_t SBN_Status = SBN_SUCCESS;
+    CFE_Status_t CFE_Status;
+
+    if (Peer->Connected != 0)
+    {
+        EVSSendErr(SBN_PEER_EID, "CPU %d already connected", Peer->ProcessorID);
+        return SBN_ERROR;
+    } /* end if */
+
+    char PipeName[OS_MAX_API_NAME];
+
+    /* create a pipe name string similar to SBN_0_Pipe */
+    snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_Pipe", Peer->ProcessorID);
+    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH, PipeName);
+
+    if (CFE_Status != CFE_SUCCESS)
+    {
+        EVSSendErr(SBN_PEER_EID, "failed to create pipe '%s'", PipeName);
+
+        return SBN_ERROR;
+    } /* end if */
+
+    EVSSendInfo(SBN_PEER_EID, "pipe created '%s'", PipeName);
+
+    CFE_Status = CFE_SB_SetPipeOpts(Peer->Pipe, CFE_SB_PIPEOPTS_IGNOREMINE);
+    if (CFE_Status != CFE_SUCCESS)
+    {
+        EVSSendErr(SBN_PEER_EID, "failed to set pipe options '%s'", PipeName);
+
+        return SBN_ERROR;
+    } /* end if */
+
+    EVSSendInfo(SBN_PEER_EID, "CPU %d connected", Peer->ProcessorID);
+
+    uint8 ProtocolVer = SBN_PROTO_VER;
+    SBN_Status        = SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
+    if (SBN_Status != SBN_SUCCESS)
+    {
+        return SBN_Status;
+    } /* end if */
+
+    /* set this to current time so we don't think we've already timed out */
+    OS_GetLocalTime(&Peer->LastRecv);
+
+    SBN_Status = SBN_SendLocalSubsToPeer(Peer);
+
+    Peer->Connected = 1;
+
+    return SBN_Status;
+} /* end SBN_Connected() */
+
+/**
+ * Called by a protocol module to signal that a peer has been disconnected.
+ *
+ * @param Peer[in] The peer that has been disconnected.
+ * @return SBN_SUCCESS or SBN_ERROR if there was an issue.
+ */
+SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
+{
+    if (Peer->Connected == 0)
+    {
+        EVSSendErr(SBN_PEER_EID, "CPU %d not connected", Peer->ProcessorID);
+
+        return SBN_ERROR;
+    }
+
+    Peer->Connected = 0; /**< mark as disconnected before deleting pipe */
+
+    CFE_SB_DeletePipe(Peer->Pipe); /* ignore returned errors */
+    Peer->Pipe = 0;
+
+    Peer->SubCnt = 0; /* reset sub count, in case this is a reconnection */
+
+    EVSSendInfo(SBN_PEER_EID, "CPU %d disconnected", Peer->ProcessorID);
+
+    return SBN_SUCCESS;
+} /* end SBN_Disconnected() */
 
 /* Use a struct for all local variables in the task so we can specify exactly
  * how large of a stack we need for the task.
@@ -405,7 +493,7 @@ SBN_Status_t SBN_RecvNetMsgs(void)
 } /* end SBN_RecvNetMsgs */
 
 /**
- * Sends a message to a peer using the module's SendNetMsg.
+ * Sends a message to a peer using the module's send API.
  *
  * @param MsgType SBN type of the message
  * @param MsgSz Size of the message
@@ -1021,6 +1109,7 @@ static SBN_Status_t LoadConf(void)
     SBN_ModuleIdx_t        ModuleIdx = 0;
     SBN_PeerIdx_t          PeerIdx   = 0;
     SBN_FilterInterface_t *Filters[SBN_MAX_MOD_CNT];
+    SBN_ProtocolOutlet_t   Outlet = {.PackMsg = SBN_PackMsg, .UnpackMsg = SBN_UnpackMsg, .Connected = SBN_Connected, .Disconnected = SBN_Disconnected, .SendNetMsg = SBN_SendNetMsg, .GetPeer = SBN_GetPeer};
 
     memset(Filters, 0, sizeof(Filters));
 
@@ -1045,7 +1134,7 @@ static SBN_Status_t LoadConf(void)
         } /* end if */
 
         EVSSendInfo(SBN_TBL_EID, "calling init fn");
-        if (Ops->InitModule(SBN_PROTOCOL_VERSION, TblPtr->ProtocolModules[ModuleIdx].BaseEID) != CFE_SUCCESS)
+        if (Ops->InitModule(SBN_PROTOCOL_VERSION, TblPtr->ProtocolModules[ModuleIdx].BaseEID, &Outlet) != CFE_SUCCESS)
         {
             EVSSendErr(SBN_TBL_EID, "error in protocol init");
             return SBN_ERROR;
@@ -1438,8 +1527,8 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, C
 
 /**
  * Find the PeerIndex for a given ProcessorID and net.
- * @param[in] Net The network interface to search.
- * @param[in] ProcessorID The ProcessorID of the peer being sought.
+ * @param Net[in] The network interface to search.
+ * @param ProcessorID[in] The ProcessorID of the peer being sought.
  * @return The Peer interface pointer, or NULL if not found.
  */
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID)
@@ -1456,80 +1545,6 @@ SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t Proc
 
     return NULL;
 } /* end SBN_GetPeer */
-
-SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
-{
-    SBN_Status_t SBN_Status = SBN_SUCCESS;
-    CFE_Status_t CFE_Status;
-
-    if (Peer->Connected != 0)
-    {
-        EVSSendErr(SBN_PEER_EID, "CPU %d already connected", Peer->ProcessorID);
-        return SBN_ERROR;
-    } /* end if */
-
-    char PipeName[OS_MAX_API_NAME];
-
-    /* create a pipe name string similar to SBN_0_Pipe */
-    snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_Pipe", Peer->ProcessorID);
-    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH, PipeName);
-
-    if (CFE_Status != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEER_EID, "failed to create pipe '%s'", PipeName);
-
-        return SBN_ERROR;
-    } /* end if */
-
-    EVSSendInfo(SBN_PEER_EID, "pipe created '%s'", PipeName);
-
-    CFE_Status = CFE_SB_SetPipeOpts(Peer->Pipe, CFE_SB_PIPEOPTS_IGNOREMINE);
-    if (CFE_Status != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEER_EID, "failed to set pipe options '%s'", PipeName);
-
-        return SBN_ERROR;
-    } /* end if */
-
-    EVSSendInfo(SBN_PEER_EID, "CPU %d connected", Peer->ProcessorID);
-
-    uint8 ProtocolVer = SBN_PROTO_VER;
-    SBN_Status        = SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
-    if (SBN_Status != SBN_SUCCESS)
-    {
-        return SBN_Status;
-    } /* end if */
-
-    /* set this to current time so we don't think we've already timed out */
-    OS_GetLocalTime(&Peer->LastRecv);
-
-    SBN_Status = SBN_SendLocalSubsToPeer(Peer);
-
-    Peer->Connected = 1;
-
-    return SBN_Status;
-} /* end SBN_Connected() */
-
-SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
-{
-    if (Peer->Connected == 0)
-    {
-        EVSSendErr(SBN_PEER_EID, "CPU %d not connected", Peer->ProcessorID);
-
-        return SBN_ERROR;
-    }
-
-    Peer->Connected = 0; /**< mark as disconnected before deleting pipe */
-
-    CFE_SB_DeletePipe(Peer->Pipe); /* ignore returned errors */
-    Peer->Pipe = 0;
-
-    Peer->SubCnt = 0; /* reset sub count, in case this is a reconnection */
-
-    EVSSendInfo(SBN_PEER_EID, "CPU %d disconnected", Peer->ProcessorID);
-
-    return SBN_SUCCESS;
-} /* end SBN_Disconnected() */
 
 SBN_Status_t SBN_ReloadConfTbl(void)
 {

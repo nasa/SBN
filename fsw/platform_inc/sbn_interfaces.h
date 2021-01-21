@@ -5,47 +5,24 @@
 #include "sbn_types.h"
 #include "sbn_msg.h"
 
+typedef struct SBN_IfOps_s         SBN_IfOps_t;
+typedef struct SBN_NetInterface_s  SBN_NetInterface_t;
+typedef struct SBN_PeerInterface_s SBN_PeerInterface_t;
+
 /**
+ * SBN packs messages for transmission over the wire, reducing the size to the minimum
+ * required (structs in memory are padded to align values and pointers to CPU-friendly
+ * alignments.)
+ *
  * @note The packed size is likely smaller than an in-memory's struct
  * size, as the compiler will align objects.
  * SBN headers are MsgSz + MsgType + ProcessorID
  * SBN subscription messages are MsgID + QoS
  */
-
 #define SBN_PACKED_HDR_SZ (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(CFE_ProcessorID_t))
 #define SBN_PACKED_SUB_SZ \
     (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
 #define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
-
-/**
- * @brief Used by modules to pack messages to send.
- *
- * @param SBNMsgBuf[out] The buffer pointer to receive the packed message.
- *                       Should be MsgSz + SBN_PACKED_HDR_SZ bytes or larger.
- * @param MsgSz[in] The size of the Msg parameter.
- * @param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
- * @param ProcessorID[in] The Processor ID of the sender (should be CFE_CPU_ID)
- * @param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
- *
- * @sa SBN_UnpackMsg
- */
-void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, void *Msg);
-
-/**
- * @brief Used by modules to unpack messages received.
- *
- * @param SBNMsgBuf[in] The buffer pointer containing the SBN message.
- * @param MsgSzPtr[out] The size of the Msg parameter.
- * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
- * @param ProcessorID[out] The Processor ID of the sender (should be CFE_CPU_ID)
- * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least
- * CFE_MISSION_SB_MAX_SB_MSG_SIZE)
- * @return TRUE if we were unable to unpack/verify the message.
- *
- * @sa SBN_PackMsg
- */
-bool SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr, CFE_ProcessorID_t *ProcessorIDPtr,
-                   void *Msg);
 
 /**
  * Filters modify messages in place, doing such things as byte swapping, packing/unpacking, etc.
@@ -118,10 +95,7 @@ typedef struct
     SBN_Status_t (*RemapMID)(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context);
 } SBN_FilterInterface_t;
 
-typedef struct SBN_IfOps_s        SBN_IfOps_t;
-typedef struct SBN_NetInterface_s SBN_NetInterface_t;
-
-typedef struct
+struct SBN_PeerInterface_s
 {
     /** @brief The processor ID of this peer (MUST match the ProcessorID.) */
     CFE_ProcessorID_t ProcessorID;
@@ -169,7 +143,7 @@ typedef struct
 
     /** @brief generic blob of bytes for the module-specific data. */
     uint8 ModulePvt[128];
-} SBN_PeerInterface_t;
+};
 
 /**
  * @brief When a module detects a (re)connection, a full subscription update
@@ -179,17 +153,7 @@ typedef struct
  *
  * @return SBN_SUCCESS on successfully sending of subs to peer, otherwise SBN_ERROR
  */
-SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);
-
-/**
- * @brief For a given network and processor ID, get the peer interface.
- *
- * @param Net[in] The network to check.
- * @param ProcessorID[in] The processor of the peer.
- *
- * @return A pointer to the peer interface structure.
- */
-SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
+/*SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);*/
 
 struct SBN_NetInterface_s
 {
@@ -226,6 +190,85 @@ struct SBN_NetInterface_s
 };
 
 /**
+ * When a protocol module is loaded, SBN provides the module a number of functions for sending,
+ * receiving, and processing SBN messages on the local bus.
+ */
+typedef struct
+{
+    /**
+     * @brief Used by modules to pack messages to send.
+     *
+     * @param SBNMsgBuf[out] The buffer pointer to receive the packed message.
+     *                       Should be MsgSz + SBN_PACKED_HDR_SZ bytes or larger.
+     * @param MsgSz[in] The size of the Msg parameter.
+     * @param MsgType[in] The type of the Msg (app, sub/unsub, heartbeat, announce).
+     * @param ProcessorID[in] The Processor ID of the sender (should be CFE_CPU_ID)
+     * @param Msg[in] The SBN message payload (CCSDS message, sub/unsub)
+     *
+     * @sa UnpackMsg
+     */
+    void (*PackMsg)(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, void *Msg);
+
+    /**
+     * @brief Used by modules to unpack messages received.
+     *
+     * @param SBNMsgBuf[in] The buffer pointer containing the SBN message.
+     * @param MsgSzPtr[out] The size of the Msg parameter.
+     * @param MsgTypePtr[out] The type of the Msg (app, sub/unsub, heartbeat, announce).
+     * @param ProcessorID[out] The Processor ID of the sender (should be CFE_CPU_ID)
+     * @param Msg[out] The SBN message payload (CCSDS message, sub/unsub, ensure it is at least
+     * CFE_MISSION_SB_MAX_SB_MSG_SIZE)
+     * @return TRUE if we were unable to unpack/verify the message.
+     *
+     * @sa PackMsg
+     */
+    bool (*UnpackMsg)(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr, CFE_ProcessorID_t *ProcessorIDPtr,
+                       void *Msg);
+
+    /**
+     * Called by backend modules to signal that the connection has been
+     * established and that the initial handshake should ensue.
+     *
+     * @param Peer[in]      The peer to mark as disconnected.
+     *
+     * @return SBN_SUCCESS on successfully marking the peer connected, otherwise SBN_ERROR.
+     */
+    SBN_Status_t (*Connected)(SBN_PeerInterface_t *Peer);
+
+    /**
+     * Called by backend modules to signal that the connection has been lost.
+     *
+     * @param Peer[in]      The peer to mark as disconnected.
+     *
+     * @return SBN_SUCCESS on successfully marking the peer disconnected, otherwise SBN_ERROR.
+     */
+    SBN_Status_t (*Disconnected)(SBN_PeerInterface_t *Peer);
+
+    /**
+     * Used by modules to send protocol-specific messages (which will loop through SBN and come back to the
+     * module's send endpoint, particularly UDP which needs to send announcement/heartbeat msgs.)
+     *
+     * @param MsgType[in]   The type of SBN message to send.
+     * @param MsgSz[in]     The size of the message payload.
+     * @param Msg[in]       The payload.
+     * @param Peer[in]      The peer to send the message to.
+     *
+     * @return SBN_SUCCESS when message successfully sent, otherwise SBN_ERROR
+     */
+    SBN_Status_t (*SendNetMsg)(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
+
+    /**
+     * @brief For a given network and processor ID, get the peer interface.
+     *
+     * @param Net[in] The network to check.
+     * @param ProcessorID[in] The processor of the peer.
+     *
+     * @return A pointer to the peer interface structure.
+     */
+    SBN_PeerInterface_t *(*GetPeer)(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
+} SBN_ProtocolOutlet_t;
+
+/**
  * This structure contains function pointers to interface-specific versions
  * of the key SBN functions.  Every interface module must have an equivalent
  * structure that points to the approprate functions for that interface.
@@ -237,10 +280,11 @@ struct SBN_IfOps_s
      *
      * @param FilterVersion[in] The version # of the protocol API.
      * @param BaseEID[in] The start of the Event ID's for this module.
+     * @param Outlet[in] The SBN functions provided to protocol modules.
      *
      * @return SBN_SUCCESS on successful initialization, otherwise SBN_ERROR.
      */
-    SBN_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID);
+    SBN_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet);
 
     /**
      * Initializes the host interface.
@@ -370,37 +414,5 @@ struct SBN_IfOps_s
      */
     SBN_Status_t (*UnloadPeer)(SBN_PeerInterface_t *Peer);
 };
-
-/**
- * Called by backend modules to signal that the connection has been
- * established and that the initial handshake should ensue.
- *
- * @param Peer[in]      The peer to mark as disconnected.
- *
- * @return SBN_SUCCESS on successfully marking the peer connected, otherwise SBN_ERROR.
- */
-SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer);
-
-/**
- * Called by backend modules to signal that the connection has been lost.
- *
- * @param Peer[in]      The peer to mark as disconnected.
- *
- * @return SBN_SUCCESS on successfully marking the peer disconnected, otherwise SBN_ERROR.
- */
-SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
-
-/**
- * Used by modules to send protocol-specific messages.
- * (particularly UDP which needs to send announcement/heartbeat msgs.)
- *
- * @param MsgType[in]   The type of SBN message to send.
- * @param MsgSz[in]     The size of the message payload.
- * @param Msg[in]       The payload.
- * @param Peer[in]      The peer to send the message to.
- *
- * @return SBN_SUCCESS when message successfully sent, otherwise SBN_ERROR
- */
-SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 
 #endif /* _sbn_interfaces_h_ */

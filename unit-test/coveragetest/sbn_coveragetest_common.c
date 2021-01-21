@@ -60,7 +60,7 @@ void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText)
     UT_SetVaHookFunction(UT_KEY(CFE_EVS_SendEvent), UT_CheckEvent_Hook, &EventTest);
 }
 
-SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID)
+SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
     return CFE_SUCCESS;
 } /* end ProtoInitModule_Nominal() */

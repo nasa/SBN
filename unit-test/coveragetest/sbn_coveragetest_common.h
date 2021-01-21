@@ -72,7 +72,7 @@ extern UT_CheckEvent_t EventTest;
  */
 void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText);
 
-SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID);
+SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet);
 SBN_Status_t InitNet_Nominal(SBN_NetInterface_t *Net);
 SBN_Status_t LoadNet_Nominal(SBN_NetInterface_t *Net, const char *Address);
 SBN_Status_t InitPeer_Nominal(SBN_PeerInterface_t *Peer);
