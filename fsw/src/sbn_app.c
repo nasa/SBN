@@ -1012,7 +1012,7 @@ static SBN_Status_t WaitForSBStartup(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not wait for SB startup:";
     CFE_EVS_LongEventTlm_t *EvsTlm    = NULL;
-    CFE_MSG_Message_t      *MsgPtr    = NULL;
+    CFE_SB_Buffer_t        *BufPtr    = NULL;
     CFE_SB_MsgId_t          MsgId     = 0;
     uint8                   counter   = 0;
     CFE_SB_PipeId_t         EventPipe = 0;
@@ -1053,11 +1053,11 @@ static SBN_Status_t WaitForSBStartup(void)
         } /* end if */
 
         /* Check for event message from SB */
-        if (CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, EventPipe, 100) == CFE_SUCCESS && CFE_MSG_GetMsgId(MsgPtr, &MsgId) == CFE_SUCCESS)
+        if (CFE_SB_ReceiveBuffer(&BufPtr, EventPipe, 100) == CFE_SUCCESS && CFE_MSG_GetMsgId((CFE_MSG_Message_t*)BufPtr, &MsgId) == CFE_SUCCESS)
         {
             if (MsgId == CFE_EVS_LONG_EVENT_MSG_MID)
             {
-                EvsTlm = (CFE_EVS_LongEventTlm_t *)MsgPtr;
+                EvsTlm = (CFE_EVS_LongEventTlm_t *)BufPtr;
 
                 /* If it's an event message from SB, make sure it's the init
                  * message
