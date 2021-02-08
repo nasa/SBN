@@ -4,7 +4,6 @@
 #include "cfe.h"
 #include "cfe_sb_msg.h"
 #include "cfe_sb.h"
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 

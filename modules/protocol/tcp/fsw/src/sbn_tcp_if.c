@@ -3,7 +3,6 @@
 #include "cfe.h"
 #include "sbn_tcp_events.h"
 
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 

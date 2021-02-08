@@ -23,7 +23,6 @@
 #ifndef _sbn_app_
 #define _sbn_app_
 
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 
