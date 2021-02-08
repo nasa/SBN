@@ -93,6 +93,7 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     } /* end if */
 
     strncpy(AddrHost, Address, ColonLen);
+    AddrHost[ColonLen] = '\0';
 
     char *ValidatePtr = NULL;
     long  Port        = strtol(Colon + 1, &ValidatePtr, 0);
