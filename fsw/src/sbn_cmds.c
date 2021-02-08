@@ -139,7 +139,7 @@ static void NoopCmd(CFE_MSG_Message_t *MsgPtr)
         return;
     } /* end if */
 
-    EVSSendInfo(SBN_CMD_EID, "no-op command");
+    EVSSendDbg(SBN_CMD_EID, "no-op command");
 
     SBN.CmdCnt++;
 } /* end NoopCmd */

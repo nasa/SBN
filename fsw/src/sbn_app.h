@@ -121,7 +121,7 @@ typedef struct
 
     /** Global mutex for Send Tasks. */
     CFE_ES_MutexID_t SendMutex;
-    
+
     /** Global mutex for reconfiguring. */
     CFE_ES_MutexID_t ConfMutex;
 

@@ -1267,16 +1267,17 @@ static SBN_Status_t LoadConf(void)
             return SBN_ERROR;
         } /* end if */
 
+        /* Net initialization */
         if (e->NetNum + 1 > SBN.NetCnt)
         {
             EVSSendInfo(SBN_TBL_EID, "found new highest net id: %d", e->NetNum);
             SBN.NetCnt = e->NetNum + 1;
+            SBN.Nets[e->NetNum].PeerCnt = 0;
             EVSSendInfo(SBN_TBL_EID, "increasing net count to %d", SBN.NetCnt);
         } /* end if */
 
         SBN_NetInterface_t *Net = &SBN.Nets[e->NetNum];
         /* Reset peer count since we're initializing the net */
-        Net->PeerCnt = 0;
         if (e->ProcessorID == CFE_PSP_GetProcessorId() && e->SpacecraftID == CFE_PSP_GetSpacecraftId())
         {
             EVSSendInfo(SBN_TBL_EID, "peer is this processor: loading net %d", e->NetNum);

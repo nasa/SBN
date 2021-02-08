@@ -325,7 +325,7 @@ static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
     {
         if(UnloadPeer(&Net->Peers[PeerIdx]) != SBN_SUCCESS) {
           EVSSendInfo(SBN_UDP_DEBUG_EID, "failed to unload peer: %d\n", PeerIdx);
-	  Status = SBN_ERROR;        
+	  Status = SBN_ERROR;
 	} else {
           EVSSendInfo(SBN_UDP_DEBUG_EID, "unloaded peer: %d\n", PeerIdx);
         }
