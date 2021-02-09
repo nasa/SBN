@@ -142,7 +142,10 @@ struct SBN_PeerInterface_s
     bool Connected;
 
     /** @brief generic blob of bytes for the module-specific data. */
-    uint8 ModulePvt[128];
+    union {
+      uint8 _buf[128];
+      uint32 _align;
+    } ModulePvt[1];
 };
 
 /**
@@ -186,7 +189,10 @@ struct SBN_NetInterface_s
     SBN_ModuleIdx_t        FilterCnt;
 
     /** @brief generic blob of bytes, module-specific */
-    uint8 ModulePvt[128];
+    union {
+      uint8 _buf[128];
+      uint32 _align;
+    } ModulePvt[1];
 };
 
 /**
