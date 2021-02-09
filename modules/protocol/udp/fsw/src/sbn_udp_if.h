@@ -39,7 +39,7 @@ typedef struct
     OS_SockAddr_t Addr;
 } SBN_UDP_Peer_t;
 
-typedef struct
+typedef struct SBN_UDP_Net_s
 {
     OS_SockAddr_t Addr;
     uint32        Socket;
