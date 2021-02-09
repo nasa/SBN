@@ -1455,6 +1455,12 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, C
         return SBN_ERROR;
     } /* end if */
 
+    /* Check if message is protocol-specific (unkown to SBN core) */
+    if(MsgType & SBN_MODULE_SPECIFIC_MESSAGE_ID_MASK) {
+      EVSSendDbg(SBN_PEERTASK_EID, "SBN received module-specific message type: 0x%08x", MsgType);
+      return SBN_SUCCESS;
+    }
+
     switch (MsgType)
     {
         case SBN_PROTO_MSG:
