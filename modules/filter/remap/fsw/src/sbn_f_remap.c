@@ -8,9 +8,13 @@
 
 #include "sbn_f_remap_events.h"
 
-OS_MutexID_t    RemapMutex  = 0;
-SBN_RemapTbl_t *RemapTbl    = NULL;
-int             RemapTblCnt = 0;
+const char SBN_F_REMAP_TABLE_NAME[] = "SBN_RemapTbl";
+
+bool             RemapInitialized = false;
+OS_MutexID_t     RemapMutex  = 0;
+CFE_TBL_Handle_t RemapTblHandle = 0;
+SBN_RemapTbl_t   *RemapTbl    = NULL;
+int              RemapTblCnt = 0;
 
 CFE_EVS_EventID_t SBN_F_REMAP_FIRST_EID;
 
@@ -51,6 +55,10 @@ static int RemapTblCompar(const void *a, const void *b)
     SBN_RemapTblEntry_t *aEntry = (SBN_RemapTblEntry_t *)a;
     SBN_RemapTblEntry_t *bEntry = (SBN_RemapTblEntry_t *)b;
 
+    if (aEntry->SpacecraftID != bEntry->SpacecraftID)
+    {
+        return aEntry->SpacecraftID - bEntry->SpacecraftID;
+    }
     if (aEntry->ProcessorID != bEntry->ProcessorID)
     {
         return aEntry->ProcessorID - bEntry->ProcessorID;
@@ -60,11 +68,10 @@ static int RemapTblCompar(const void *a, const void *b)
 
 static SBN_Status_t LoadRemapTbl(void)
 {
-    CFE_TBL_Handle_t RemapTblHandle = 0;
     SBN_RemapTbl_t * TblPtr         = NULL;
     CFE_Status_t     CFE_Status     = CFE_SUCCESS;
 
-    if (CFE_TBL_Register(&RemapTblHandle, "SBN_RemapTbl", sizeof(SBN_RemapTbl_t), CFE_TBL_OPT_DEFAULT, &RemapTblVal) !=
+    if (CFE_TBL_Register(&RemapTblHandle, SBN_F_REMAP_TABLE_NAME, sizeof(SBN_RemapTbl_t), CFE_TBL_OPT_DEFAULT, &RemapTblVal) !=
         CFE_SUCCESS)
     {
         EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to register remap tbl handle");
@@ -132,9 +139,9 @@ static int BinarySearch(void *Entries, void *SearchEntry, size_t EntryCnt, size_
     return midpoint;
 } /* end BinarySearch() */
 
-static int RemapTblSearch(uint32 ProcessorID, CFE_SB_MsgId_t MID)
+static int RemapTblSearch(uint32 ProcessorID, uint32 SpacecraftID, CFE_SB_MsgId_t MID)
 {
-    SBN_RemapTblEntry_t Entry = {ProcessorID, MID, 0x0000};
+    SBN_RemapTblEntry_t Entry = {ProcessorID, SpacecraftID, MID, 0x0000};
     return BinarySearch(RemapTbl->Entries, &Entry, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
 } /* end RemapTblSearch() */
 
@@ -155,9 +162,11 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
         return SBN_ERROR;
     } /* end if */
 
-    int i = RemapTblSearch(Context->PeerProcessorID, FromMID);
+    int i = RemapTblSearch(Context->PeerProcessorID, Context->PeerSpacecraftID, FromMID);
 
-    if (i < RemapTblCnt && RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
+    if (i < RemapTblCnt &&
+        RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
+        RemapTbl->Entries[i].SpacecraftID == Context->PeerSpacecraftID &&
         RemapTbl->Entries[i].FromMID == FromMID)
     {
         ToMID = RemapTbl->Entries[i].ToMID;
@@ -197,6 +206,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
     for (i = 0; i < RemapTblCnt; i++)
     {
         if (RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
+            RemapTbl->Entries[i].SpacecraftID == Context->PeerSpacecraftID &&
             RemapTbl->Entries[i].ToMID == *InOutMsgIdPtr)
         {
             *InOutMsgIdPtr = RemapTbl->Entries[i].FromMID;
@@ -207,9 +217,62 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
     return SBN_SUCCESS;
 } /* end Remap_MID() */
 
+static SBN_Status_t UnloadRemapTbl(void)
+{
+    //  Check the handle to a previously-registered table
+    if (CFE_TBL_GetStatus(RemapTblHandle) == CFE_SUCCESS)
+    {
+        // Unregister and free resources used by table
+        if(CFE_TBL_Unregister(RemapTblHandle) != CFE_SUCCESS) {
+            EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to unregister table");
+        }
+        RemapTbl = NULL;
+    } else {
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to get registered table");
+        return SBN_ERROR;
+    }
+
+    return SBN_SUCCESS;
+}
+
+static SBN_Status_t Deinit(CFE_EVS_EventID_t BaseEID)
+{
+    if (OS_MutSemTake(RemapMutex) != OS_SUCCESS)
+    {
+        EVSSendErr(BaseEID, "unable to take mutex");
+        return SBN_ERROR;
+    } /* end if */
+
+    if(UnloadRemapTbl() != SBN_SUCCESS) {
+        EVSSendErr(BaseEID, "unable to unload table");
+        return SBN_ERROR;
+    }
+
+    if (OS_MutSemGive(RemapMutex) != OS_SUCCESS)
+    {
+        EVSSendErr(BaseEID, "unable to give mutex");
+        return SBN_ERROR;
+    } /* end if */
+
+    if (RemapMutex != 0)
+    {
+        if(OS_MutSemDelete(RemapMutex) != OS_SUCCESS) {
+            EVSSendErr(BaseEID, "unable to delete mutex");
+            return SBN_ERROR;
+        }
+        RemapMutex = 0;
+    }
+
+    RemapInitialized = false;
+
+    return SBN_SUCCESS;
+}
+
 static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 {
+    CFE_ES_TaskInfo_t TaskInfo;
     OS_Status_t OS_Status;
+    CFE_Status_t CFE_Status;
 
     SBN_F_REMAP_FIRST_EID = BaseEID;
 
@@ -219,7 +282,21 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
         return SBN_ERROR;
     } /* end if */
 
-    OS_printf("SBN_F_Remap Lib Initialized.\n");
+    /* get task name to retrieve table after loading */
+    uint32 TskId = OS_TaskGetId();
+    if ((CFE_Status = CFE_ES_GetTaskInfo(&TaskInfo, TskId)) != CFE_SUCCESS)
+    {
+        EVSSendErr(BaseEID, "SBN failed to get task info (%d)", (int)CFE_Status);
+        return SBN_ERROR;
+    } /* end if */
+
+    if(RemapInitialized)
+    {
+        OS_printf("SBN_F_Remap Lib already initialized.\n");
+        if(Deinit(BaseEID) !=  SBN_SUCCESS) {
+            EVSSendErr(BaseEID, "unable to deinitialize SBN_F_Remap");
+        }
+    }
 
     OS_Status = OS_MutSemCreate(&RemapMutex, "SBN_F_Remap", 0);
     if (OS_Status != OS_SUCCESS)
@@ -227,7 +304,15 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
         return SBN_ERROR;
     } /* end if */
 
-    return LoadRemapTbl();
+    if(LoadRemapTbl() != SBN_SUCCESS) {
+        EVSSendErr(BaseEID, "unable to load remap table");
+    }
+
+    RemapInitialized = true;
+
+    OS_printf("SBN_F_Remap Lib Initialized.\n");
+
+    return SBN_SUCCESS;
 } /* end Init() */
 
 SBN_FilterInterface_t SBN_F_Remap = {Init, Remap, Remap, Remap_MID};

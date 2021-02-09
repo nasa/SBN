@@ -436,13 +436,13 @@ static void ReloadTblCmd(CFE_MSG_Message_t *MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "reloadtbl"))
     {
-        return;
-    } /* end if */
-
-    EVSSendInfo(SBN_CMD_EID, "reload tbl command");
-
-    SBN_ReloadConfTbl();
-} /* end MySubsCmd */
+        EVSSendInfo(SBN_CMD_EID, "reload tbl command");
+        SBN_ReloadConfTbl();
+    } else {
+        EVSSendErr(SBN_CMD_EID, "Recevied tbl reload command, but message was wrong size. This command should only be triggered from the TBL service, itself, and not called directly.");
+    }
+    return;
+}
 
 /************************************************************************/
 /** \brief Send A Peer's Subscriptions
