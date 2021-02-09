@@ -909,7 +909,7 @@ static SBN_Status_t InitInterfaces(void)
     SBN_NetIdx_t NetIdx = 0;
     for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
-        EVSSendInfo(SBN_PEER_EID, "initializing net: %d\n", (int)NetIdx);
+        EVSSendInfo(SBN_PEER_EID, "initializing net: %d", (int)NetIdx);
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
         if (!Net->Configured)
@@ -922,12 +922,12 @@ static SBN_Status_t InitInterfaces(void)
         Net->IfOps->InitNet(Net);
 
         SBN_PeerIdx_t PeerIdx = 0;
-        EVSSendInfo(SBN_PEER_EID, "Net %d has %d peers\n", NetIdx, Net->PeerCnt);
+        EVSSendInfo(SBN_PEER_EID, "Net %d has %d peers", NetIdx, Net->PeerCnt);
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-            EVSSendInfo(SBN_PEER_EID, "initializing net: %d peer: %d: sc: %d cpu: %d\n", (int)NetIdx, (int)PeerIdx, Peer->SpacecraftID, Peer->ProcessorID);
+            EVSSendInfo(SBN_PEER_EID, "initializing net: %d peer: %d: sc: %d cpu: %d", (int)NetIdx, (int)PeerIdx, Peer->SpacecraftID, Peer->ProcessorID);
 
             Net->IfOps->InitPeer(Peer);
         } /* end for */
@@ -1403,7 +1403,7 @@ static SBN_Status_t UnloadNets(void)
         } /* end if */
         else
         {
-            OS_printf("Terminated net: %d\n", NetIdx);
+            EVSSendInfo(SBN_TBL_EID, "Terminated net: %d", NetIdx);
         }
 
         SBN_PeerIdx_t PeerIdx = 0;
