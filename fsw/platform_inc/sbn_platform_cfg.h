@@ -50,13 +50,6 @@
 #define SBN_MAIN_LOOP_DELAY 200
 
 /**
- * @brief If I haven't sent a message to a peer in this amount of time (in
- * seconds), call the poll function of the API in case it needs to perform
- * some connection maintenance.
- */
-#define SBN_POLL_TIME 5
-
-/**
  * @brief For each peer, a pipe is created to receive messages that the peer has
  * subscribed to. The pipe should be deep enough to handle all messages that
  * will queue between wakeups.
