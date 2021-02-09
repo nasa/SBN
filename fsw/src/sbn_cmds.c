@@ -12,8 +12,8 @@
  */
 static void InitializePeerCounters(SBN_PeerInterface_t *Peer)
 {
-    Peer->LastSend   = (OS_time_t) {0, 0};
-    Peer->LastRecv   = (OS_time_t) {0, 0};
+    Peer->LastSend   = (OS_time_t) {0};
+    Peer->LastRecv   = (OS_time_t) {0};
     Peer->SendCnt    = 0;
     Peer->RecvCnt    = 0;
     Peer->SendErrCnt = 0;
