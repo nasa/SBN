@@ -148,15 +148,6 @@ struct SBN_PeerInterface_s
     } ModulePvt[1];
 };
 
-/**
- * @brief When a module detects a (re)connection, a full subscription update
- * should be sent.
- *
- * @param Peer[in] The peer to which to send the subs.
- *
- * @return SBN_SUCCESS on successfully sending of subs to peer, otherwise SBN_ERROR
- */
-/*SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer);*/
 
 struct SBN_NetInterface_s
 {
