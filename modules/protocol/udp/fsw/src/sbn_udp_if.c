@@ -46,15 +46,22 @@ static SBN_Status_t InitNet(SBN_NetInterface_t *Net)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    EVSSendDbg(SBN_UDP_SOCK_EID, "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
+    OS_SockAddr_t LOCAL_ADDR;
+    uint16 Port;
+    OS_SocketAddrInit(&LOCAL_ADDR, OS_SocketDomain_INET);
+    OS_SocketAddrFromString(&LOCAL_ADDR, "0.0.0.0");
+    OS_SocketAddrGetPort(&Port, &NetData->Addr);
+    OS_SocketAddrSetPort(&LOCAL_ADDR, Port);
+
+    EVSSendInfo(SBN_UDP_SOCK_EID, "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
 
     if (OS_SocketOpen(&(NetData->Socket), OS_SocketDomain_INET, OS_SocketType_DATAGRAM) != OS_SUCCESS)
     {
-        EVSSendErr(SBN_UDP_SOCK_EID, "socket call failed");
+        EVSSendErr(SBN_UDP_SOCK_EID, "socket open call failed");
         return SBN_ERROR;
     } /* end if */
 
-    if (OS_SocketBind(NetData->Socket, &NetData->Addr) != OS_SUCCESS)
+    if (OS_SocketBind(NetData->Socket, &LOCAL_ADDR) != OS_SUCCESS)
     {
         EVSSendErr(SBN_UDP_SOCK_EID, "bind call failed (NetData=0x%lx, Socket=%d)", (long unsigned int)NetData,
                    NetData->Socket);
