@@ -244,8 +244,10 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
 
     uint32 StateFlags = OS_STREAM_STATE_READABLE;
 
-    /* timeout returns an OS error */
-    if (OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS || !(StateFlags & OS_STREAM_STATE_READABLE))
+    /* polling uses select, otherwise drop through to block on read for task */
+    if(!(Net->TaskFlags & SBN_TASK_RECV)
+        && (OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS
+        || !(StateFlags & OS_STREAM_STATE_READABLE)))
     {
         /* nothing to receive */
         return SBN_IF_EMPTY;
