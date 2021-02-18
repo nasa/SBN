@@ -12,8 +12,8 @@
  */
 static void InitializePeerCounters(SBN_PeerInterface_t *Peer)
 {
-    Peer->LastSend   = (OS_time_t) {0, 0};
-    Peer->LastRecv   = (OS_time_t) {0, 0};
+    Peer->LastSend   = (OS_time_t) {0};
+    Peer->LastRecv   = (OS_time_t) {0};
     Peer->SendCnt    = 0;
     Peer->RecvCnt    = 0;
     Peer->SendErrCnt = 0;
@@ -139,7 +139,7 @@ static void NoopCmd(CFE_MSG_Message_t *MsgPtr)
         return;
     } /* end if */
 
-    EVSSendInfo(SBN_CMD_EID, "no-op command");
+    EVSSendDbg(SBN_CMD_EID, "no-op command");
 
     SBN.CmdCnt++;
 } /* end NoopCmd */
@@ -436,13 +436,13 @@ static void ReloadTblCmd(CFE_MSG_Message_t *MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "reloadtbl"))
     {
-        return;
-    } /* end if */
-
-    EVSSendInfo(SBN_CMD_EID, "reload tbl command");
-
-    SBN_ReloadConfTbl();
-} /* end MySubsCmd */
+        EVSSendInfo(SBN_CMD_EID, "reload tbl command");
+        SBN_ReloadConfTbl();
+    } else {
+        EVSSendErr(SBN_CMD_EID, "Recevied tbl reload command, but message was wrong size. This command should only be triggered from the TBL service, itself, and not called directly.");
+    }
+    return;
+}
 
 /************************************************************************/
 /** \brief Send A Peer's Subscriptions

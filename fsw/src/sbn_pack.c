@@ -61,8 +61,9 @@ bool Pack_UInt32(Pack_t *PackPtr, uint32 Data)
 bool Pack_Time(Pack_t *PackPtr, OS_time_t Data)
 {
     OS_time_t D;
-    D.seconds   = CFE_MAKE_BIG32(Data.seconds);
-    D.microsecs = CFE_MAKE_BIG32(Data.microsecs);
+    OS_TimeAssembleFromMicroseconds(
+        CFE_MAKE_BIG32(OS_TimeGetTotalSeconds(Data)),
+        CFE_MAKE_BIG32(OS_TimeGetMicrosecondsPart(Data)));
     return Pack_Data(PackPtr, &D, sizeof(D));
 } /* end Pack_Time() */
 

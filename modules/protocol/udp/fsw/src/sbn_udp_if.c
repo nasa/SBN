@@ -1,7 +1,6 @@
 #include "sbn_udp_events.h"
 #include "sbn_udp_if.h"
 #include "sbn_platform_cfg.h"
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 
@@ -47,15 +46,22 @@ static SBN_Status_t InitNet(SBN_NetInterface_t *Net)
 {
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    EVSSendDbg(SBN_UDP_SOCK_EID, "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
+    OS_SockAddr_t LOCAL_ADDR;
+    uint16 Port;
+    OS_SocketAddrInit(&LOCAL_ADDR, OS_SocketDomain_INET);
+    OS_SocketAddrFromString(&LOCAL_ADDR, "0.0.0.0");
+    OS_SocketAddrGetPort(&Port, &NetData->Addr);
+    OS_SocketAddrSetPort(&LOCAL_ADDR, Port);
+
+    EVSSendInfo(SBN_UDP_SOCK_EID, "creating socket (NetData=0x%lx)", (long unsigned int)NetData);
 
     if (OS_SocketOpen(&(NetData->Socket), OS_SocketDomain_INET, OS_SocketType_DATAGRAM) != OS_SUCCESS)
     {
-        EVSSendErr(SBN_UDP_SOCK_EID, "socket call failed");
+        EVSSendErr(SBN_UDP_SOCK_EID, "socket open call failed");
         return SBN_ERROR;
     } /* end if */
 
-    if (OS_SocketBind(NetData->Socket, &NetData->Addr) != OS_SUCCESS)
+    if (OS_SocketBind(NetData->Socket, &LOCAL_ADDR) != OS_SUCCESS)
     {
         EVSSendErr(SBN_UDP_SOCK_EID, "bind call failed (NetData=0x%lx, Socket=%d)", (long unsigned int)NetData,
                    NetData->Socket);
@@ -93,6 +99,7 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     } /* end if */
 
     strncpy(AddrHost, Address, ColonLen);
+    AddrHost[ColonLen] = '\0';
 
     char *ValidatePtr = NULL;
     long  Port        = strtol(Colon + 1, &ValidatePtr, 0);
@@ -108,12 +115,14 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
         return SBN_ERROR;
     } /* end if */
 
+    EVSSendInfo(SBN_UDP_CONFIG_EID, "addr host: '%s'", AddrHost);
     if ((Status = OS_SocketAddrFromString(Addr, AddrHost)) != OS_SUCCESS)
     {
         EVSSendErr(SBN_UDP_CONFIG_EID, "addr host set failed (AddrHost=%s, Status=%d)", AddrHost, Status);
         return SBN_ERROR;
     } /* end if */
 
+    EVSSendInfo(SBN_UDP_CONFIG_EID, "addr port: '%ld'", Port);
     if ((Status = OS_SocketAddrSetPort(Addr, Port)) != OS_SUCCESS)
     {
         EVSSendErr(SBN_UDP_CONFIG_EID, "addr port set failed (Port=%ld, Status=%d)", Port, Status);
@@ -143,14 +152,19 @@ static SBN_Status_t LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
     SBN_UDP_Peer_t *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
 
-    EVSSendInfo(SBN_UDP_CONFIG_EID, "configuring peer (PeerData=0x%lx, Address=%s)", (long unsigned int)PeerData,
-                Address);
+    EVSSendInfo(SBN_UDP_CONFIG_EID, "configuring peer (SC=%d, CPU=%d, Address=%s)",
+        Peer->SpacecraftID,
+        Peer->ProcessorID,
+        Address);
 
     SBN_Status_t Status = ConfAddr(&PeerData->Addr, Address);
 
     if (Status == SBN_SUCCESS)
     {
-        EVSSendInfo(SBN_UDP_CONFIG_EID, "configured (PeerData=0x%lx)", (long unsigned int)PeerData);
+      EVSSendInfo(SBN_UDP_CONFIG_EID, "configured peer (SC=%d, CPU=%d, Address=%s)",
+          Peer->SpacecraftID,
+          Peer->ProcessorID,
+          Address);
     } /* end if */
 
     return Status;
@@ -161,28 +175,33 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
     OS_time_t CurrentTime;
     OS_GetLocalTime(&CurrentTime);
 
+    EVSSendDbg(SBN_UDP_DEBUG_EID, "polling peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
+
     if (Peer->Connected)
     {
-        if (CurrentTime.seconds - Peer->LastRecv.seconds > SBN_UDP_PEER_TIMEOUT)
+        if (OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastRecv)) > SBN_UDP_PEER_TIMEOUT)
         {
-            EVSSendInfo(SBN_UDP_DEBUG_EID, "disconnected CPU %d", Peer->ProcessorID);
+            EVSSendInfo(SBN_UDP_DEBUG_EID, "disconnected peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
 
             SBN.Disconnected(Peer);
             return SBN_SUCCESS;
         } /* end if */
 
-        if (CurrentTime.seconds - Peer->LastSend.seconds > SBN_UDP_PEER_HEARTBEAT)
+        if (OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastSend)) > SBN_UDP_PEER_HEARTBEAT)
         {
-            EVSSendInfo(SBN_UDP_DEBUG_EID, "heartbeat CPU %d", Peer->ProcessorID);
+            OS_GetLocalTime(&Peer->LastSend);
+            EVSSendDbg(SBN_UDP_DEBUG_EID, "sending heartbeat to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
             return SBN.SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         } /* end if */
     }
     else
     {
-        if (Peer->ProcessorID < CFE_PSP_GetProcessorId() &&
-            CurrentTime.seconds - Peer->LastSend.seconds > SBN_UDP_ANNOUNCE_TIMEOUT)
+        if (Peer->ProcessorID != CFE_PSP_GetProcessorId() &&
+            Peer->SpacecraftID != CFE_PSP_GetSpacecraftId() &&
+            OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastSend)) > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
-            EVSSendInfo(SBN_UDP_DEBUG_EID, "announce CPU %d", Peer->ProcessorID);
+            OS_GetLocalTime(&Peer->LastSend);
+            EVSSendInfo(SBN_UDP_DEBUG_EID, "announce to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
             return SBN.SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
         } /* end if */
     }     /* end if */
@@ -199,7 +218,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
     SBN_NetInterface_t *Net      = Peer->Net;
     SBN_UDP_Net_t *     NetData  = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN.PackMsg(Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), Payload);
+    SBN.PackMsg(Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Payload);
 
     OS_SockAddr_t Addr;
     if (OS_SocketAddrInit(&Addr, OS_SocketDomain_INET) != OS_SUCCESS)
@@ -227,7 +246,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
  * good!
  */
 static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
-                         CFE_ProcessorID_t *ProcessorIDPtr, void *Payload)
+                         CFE_ProcessorID_t *ProcessorIDPtr, CFE_SpacecraftID_t *SpacecraftIDPtr, void *Payload)
 {
     uint8 RecvBuf[SBN_MAX_PACKED_MSG_SZ];
 
@@ -237,36 +256,44 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
 
     uint32 StateFlags = OS_STREAM_STATE_READABLE;
 
-    /* timeout returns an OS error */
-    if (OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS || !(StateFlags & OS_STREAM_STATE_READABLE))
+    /* polling uses select, otherwise drop through to block on read for task */
+    if(!(Net->TaskFlags & SBN_TASK_RECV)
+        && (OS_SelectSingle(NetData->Socket, &StateFlags, 0) != OS_SUCCESS
+        || !(StateFlags & OS_STREAM_STATE_READABLE)))
     {
         /* nothing to receive */
         return SBN_IF_EMPTY;
-    } /* end if */
+    }/* end if */
 
     int Received = OS_SocketRecvFrom(NetData->Socket, (char *)&RecvBuf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, NULL, OS_PEND);
 
     if (Received < 0)
     {
+        EVSSendErr(SBN_UDP_DEBUG_EID, "ERROR: could not receive from socket: status=%d", Received);
         return SBN_ERROR;
     } /* end if */
 
     /* each UDP packet is a full SBN message */
 
-    if (SBN.UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, Payload) == false)
+    if (SBN.UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, Payload) == false)
     {
+        EVSSendErr(SBN_UDP_DEBUG_EID, "ERROR: could not unpack message");
         return SBN_ERROR;
     } /* end if */
 
-    SBN_PeerInterface_t *Peer = SBN.GetPeer(Net, *ProcessorIDPtr);
+    SBN_PeerInterface_t *Peer = SBN.GetPeer(Net, *ProcessorIDPtr, *SpacecraftIDPtr);
     if (Peer == NULL)
     {
+        EVSSendErr(SBN_UDP_DEBUG_EID, "ERROR: unknown peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
         return SBN_ERROR;
     } /* end if */
 
     if (!Peer->Connected)
     {
+        EVSSendInfo(SBN_UDP_DEBUG_EID, "connecting to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
         SBN.Connected(Peer);
+    } else {
+        EVSSendDbg(SBN_UDP_DEBUG_EID, "already connected to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
     } /* end if */
 
     if (*MsgTypePtr == SBN_UDP_DISCONN_MSG)
@@ -281,7 +308,7 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 {
     if (Peer->Connected)
     {
-        EVSSendInfo(SBN_UDP_DEBUG_EID, "peer%d - sending disconnect", Peer->ProcessorID);
+        EVSSendInfo(SBN_UDP_DEBUG_EID, "peer %d:%d - sending disconnect", Peer->SpacecraftID, Peer->ProcessorID);
         SBN.SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
         SBN.Disconnected(Peer);
     } /* end if */
@@ -291,17 +318,20 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 
 static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
 {
-    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
-
-    OS_close(NetData->Socket);
+    SBN_Status_t Status = SBN_SUCCESS;
 
     SBN_PeerIdx_t PeerIdx = 0;
     for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
-        UnloadPeer(&Net->Peers[PeerIdx]);
+        if(UnloadPeer(&Net->Peers[PeerIdx]) != SBN_SUCCESS) {
+          EVSSendInfo(SBN_UDP_DEBUG_EID, "failed to unload peer: %d\n", PeerIdx);
+	  Status = SBN_ERROR;
+	} else {
+          EVSSendInfo(SBN_UDP_DEBUG_EID, "unloaded peer: %d\n", PeerIdx);
+        }
     } /* end if */
 
-    return SBN_SUCCESS;
+    return Status;
 } /* end UnloadNet() */
 
 SBN_IfOps_t SBN_UDP_Ops = {Init, InitNet, InitPeer, LoadNet,   LoadPeer,  PollPeer,

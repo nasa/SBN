@@ -3,7 +3,6 @@
 
 #include "sbn_udp_events.h"
 #include "sbn_platform_cfg.h"
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 
@@ -40,7 +39,7 @@ typedef struct
     OS_SockAddr_t Addr;
 } SBN_UDP_Peer_t;
 
-typedef struct
+typedef struct SBN_UDP_Net_s
 {
     OS_SockAddr_t Addr;
     uint32        Socket;
