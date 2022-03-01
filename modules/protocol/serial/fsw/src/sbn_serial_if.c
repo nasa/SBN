@@ -2,7 +2,6 @@
 #include "sbn_serial_if.h"
 #include "sbn_serial_events.h"
 #include "cfe.h"
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 

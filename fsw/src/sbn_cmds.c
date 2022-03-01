@@ -12,8 +12,8 @@
  */
 static void InitializePeerCounters(SBN_PeerInterface_t *Peer)
 {
-    Peer->LastSend   = (OS_time_t) {0, 0};
-    Peer->LastRecv   = (OS_time_t) {0, 0};
+    Peer->LastSend   = (OS_time_t) {0};
+    Peer->LastRecv   = (OS_time_t) {0};
     Peer->SendCnt    = 0;
     Peer->RecvCnt    = 0;
     Peer->SendErrCnt = 0;
@@ -53,7 +53,7 @@ void SBN_InitializeCounters(void)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   msg           A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   msg           A #CFE_SB_MsgPtr_t that
 **                              references the software bus message
 **
 **  \param [in]   ExpectedLen   The expected length of the message
@@ -91,7 +91,7 @@ static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *Ms
             EVSSendErr(SBN_CMD_EID,
                        "invalid hk message length (Name=%s ID=0x%04X "
                        "CC=%d Len=%d Expected=%d)",
-                       MsgName, MsgId, CommandCode, ActualLen, ExpectedLen);
+                       MsgName, MsgId, (int)CommandCode, (int)ActualLen, (int)ExpectedLen);
         }
         else
         {
@@ -99,7 +99,7 @@ static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *Ms
             ** All other cases, increment error counter
             */
             EVSSendErr(SBN_CMD_EID, "invalid message length (Name=%s ID=0x%04X CC=%d Len=%d Expected=%d)", MsgName,
-                       MsgId, CommandCode, ActualLen, ExpectedLen);
+                       MsgId, (int)CommandCode, (int)ActualLen, (int)ExpectedLen);
 
             SBN.CmdErrCnt++;
         } /* end if */
@@ -119,7 +119,7 @@ static bool VerifyMsgLen(CFE_SB_MsgPtr_t msg, uint16 ExpectedLen, const char *Ms
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
 **                       references the software bus message
 **
 **  \sa #SBN_RESET_CC
@@ -133,7 +133,7 @@ static void NoopCmd(CFE_SB_MsgPtr_t MsgPtr)
         return;
     } /* end if */
 
-    EVSSendInfo(SBN_CMD_EID, "no-op command");
+    EVSSendDbg(SBN_CMD_EID, "no-op command");
 
     SBN.CmdCnt++;
 } /* end NoopCmd */
@@ -154,7 +154,7 @@ static void NoopCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
 **                       references the software bus message
 **
 **  \sa #SBN_RESET_CC
@@ -184,7 +184,7 @@ static void HKResetCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
 **                       references the software bus message
 **
 **  \sa #SBN_RESET_PEER_CC
@@ -231,7 +231,7 @@ static void HKResetPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       This message does not affect the command execution counter
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
  *                       references the software bus message
  *
  */
@@ -272,7 +272,7 @@ static void HKCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       This message does not affect the command execution counter
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
  *                       references the software bus message
  */
 static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
@@ -319,7 +319,7 @@ static void HKNetCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       This message does not affect the command execution counter
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
  *                       references the software bus message
  */
 static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
@@ -379,7 +379,7 @@ static void HKPeerCmd(CFE_SB_MsgPtr_t MsgPtr)
  *  \par Assumptions, External Events, and Notes:
  *       None
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
  *                       references the software bus message
  *
  *  \sa #SBN_MYSUBS_CC
@@ -417,7 +417,7 @@ static void MySubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 
 /** \brief Reloads the config table.
  *
- *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t pointer that
+ *  \param [in]   MsgPtr A #CFE_SB_MsgPtr_t that
  *                       references the software bus message
  *
  *  \sa #SBN_TBL_CC
@@ -426,13 +426,13 @@ static void ReloadTblCmd(CFE_SB_MsgPtr_t MsgPtr)
 {
     if (!VerifyMsgLen(MsgPtr, CFE_SB_CMD_HDR_SIZE, "reloadtbl"))
     {
-        return;
-    } /* end if */
-
-    EVSSendInfo(SBN_CMD_EID, "reload tbl command");
-
-    SBN_ReloadConfTbl();
-} /* end MySubsCmd */
+        EVSSendInfo(SBN_CMD_EID, "reload tbl command");
+        SBN_ReloadConfTbl();
+    } else {
+        EVSSendErr(SBN_CMD_EID, "Recevied tbl reload command, but message was wrong size. This command should only be triggered from the TBL service, itself, and not called directly.");
+    }
+    return;
+}
 
 /************************************************************************/
 /** \brief Send A Peer's Subscriptions
@@ -440,7 +440,7 @@ static void ReloadTblCmd(CFE_SB_MsgPtr_t MsgPtr)
 **  \par Assumptions, External Events, and Notes:
 **       None
 **
-**  \param [in]   MsgPtr   A #CFE_SB_MsgPtr_t pointer that
+**  \param [in]   MsgPtr   A #CFE_SB_MsgPtr_t that
 **                         references the software bus message
 **
 **  \sa #SBN_MYSUBS_CC
@@ -506,17 +506,20 @@ static void PeerSubsCmd(CFE_SB_MsgPtr_t MsgPtr)
 /*******************************************************************/
 void SBN_HandleCommand(CFE_SB_MsgPtr_t MsgPtr)
 {
-    CFE_SB_MsgId_t MsgId       = 0;
-    uint16         CommandCode = 0;
+    CFE_SB_MsgId_t    MsgId   = 0;
+    uint16        CommandCode = 0;
 
-    if ((MsgId = CFE_SB_GetMsgId(MsgPtr)) != SBN_CMD_MID)
+    MsgId       = CFE_SB_GetMsgId(MsgPtr);
+    CommandCode = CFE_SB_GetCmdCode(MsgPtr);
+
+    if (MsgId != SBN_CMD_MID)
     {
         SBN.CmdErrCnt++;
-        EVSSendErr(SBN_CMD_EID, "invalid command pipe message ID (ID=0x%04X)", MsgId);
+        EVSSendErr(SBN_CMD_EID, "invalid command pipe MsgId (MsgId=0x%04X)", MsgId);
         return;
     } /* end if */
 
-    switch ((CommandCode = CFE_SB_GetCmdCode(MsgPtr)))
+    switch (CommandCode)
     {
         case SBN_NOOP_CC:
             NoopCmd(MsgPtr);

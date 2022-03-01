@@ -6,13 +6,12 @@
 
 uint8 Buffer[1024];
 
-#ifdef _cfe_msg_api_
 CFE_MSG_Message_t *CmdPktPtr = (CFE_MSG_Message_t *)Buffer;
-#define MSGINIT(MsgPtr, MsgId, Size, Clear) CFE_MSG_Init((CFE_MSG_Message_t *)MsgPtr, MsgId, Size, Clear)
-#else
-CCSDS_CommandPacket_t *CmdPktPtr = (CCSDS_CommandPacket_t *)Buffer;
-#define MSGINIT(MsgPtr, MsgId, Size, Clear) CCSDS_WR_LEN(MsgPtr->SpacePacket.Hdr, Size)
-#endif
+CFE_MSG_Size_t MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+CFE_SB_MsgId_t MsgId = SBN_CMD_MID;
+CFE_MSG_FcnCode_t FcnCode = SBN_NOOP_CC;
+
+#define MSGINIT() CFE_MSG_Init(CmdPktPtr, MsgId, MsgSz); UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &MsgId, sizeof(MsgId), false); UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &MsgSz, sizeof(MsgSz), false); UT_SetDataBuffer(UT_KEY(CFE_MSG_GetFcnCode), &FcnCode, sizeof(FcnCode), false); UT_SetDataBuffer(UT_KEY(CFE_MSG_GetFcnCode), &FcnCode, sizeof(FcnCode), false);
 
 static void NOOP_MsgLenErr(void)
 {
@@ -22,14 +21,13 @@ static void NOOP_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = -1;
+    FcnCode = SBN_NOOP_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_NOOP_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, -1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_MSG_GetSize), 1, -1);
 
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end NOOP_MsgLenErr() */
@@ -42,14 +40,11 @@ static void NOOP_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_NOOP_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_NOOP_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end NOOP_Nominal() */
@@ -62,14 +57,11 @@ static void HKNet_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_NET_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_NET_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, -1);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HKNet_MsgLenErr() */
@@ -81,18 +73,15 @@ static void HKNet_NetIdErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid NetIdx (");
 
     memset(Buffer, 0, sizeof(Buffer));
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 255;
     *Ptr       = 0;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
+    MsgSz = SBN_CMD_NET_LEN;
+    FcnCode = SBN_HK_NET_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_NET_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_NET_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKNet_NetIdErr() */
@@ -105,14 +94,11 @@ static void HKNet_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_NET_LEN, false);
+    MsgSz = SBN_CMD_NET_LEN;
+    FcnCode = SBN_HK_NET_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_NET_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_NET_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKNet_Nominal() */
@@ -125,14 +111,11 @@ static void HKPeer_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, -1);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HKPeer_MsgLenErr() */
@@ -144,18 +127,15 @@ static void HKPeer_NetIdErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid NetIdx (");
 
     memset(Buffer, 0, sizeof(Buffer));
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 255;
     *Ptr       = 0;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKPeer_NetIdErr() */
@@ -167,18 +147,15 @@ static void HKPeer_PeerIdErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid PeerIdx (");
 
     memset(Buffer, 0, sizeof(Buffer));
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 0;
     *Ptr++     = 255;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKPeer_PeerIdErr() */
@@ -191,14 +168,11 @@ static void HKPeer_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKPeer_Nominal() */
@@ -211,14 +185,11 @@ static void HKPeerSubs_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_PEERSUBS_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, 0);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HKPeerSubs_MsgLenErr() */
@@ -230,18 +201,15 @@ static void HKPeerSubs_NetIdErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid NetIdx (");
 
     memset(Buffer, 0, sizeof(Buffer));
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 255;
     *Ptr++     = 0;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEERSUBS_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKPeerSubs_NetIdErr() */
@@ -253,18 +221,15 @@ static void HKPeerSubs_PeerIdErr(void)
     UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid PeerIdx (");
 
     memset(Buffer, 0, sizeof(Buffer));
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 0;
     *Ptr++     = 255;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEERSUBS_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKPeerSubs_PeerIdErr() */
@@ -279,14 +244,11 @@ static void HKPeerSubs_Nominal(void)
 
     PeerPtr->SubCnt = 1;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEERSUBS_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_PEERSUBS_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKPeerSubs_Nominal() */
@@ -299,14 +261,11 @@ static void HKMySubs_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_MYSUBS_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_MYSUBS_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, 0);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HKMySubs_MsgLenErr() */
@@ -321,14 +280,11 @@ static void HKMySubs_Nominal(void)
 
     SBN.SubCnt = 1;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_HK_MYSUBS_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_MYSUBS_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKMySubs_Nominal() */
@@ -341,14 +297,11 @@ static void HKReset_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_RESET_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, -1);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HKReset_MsgLenErr() */
@@ -361,14 +314,11 @@ static void HKReset_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_HK_RESET_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKReset_Nominal() */
@@ -381,14 +331,11 @@ static void HKResetPeer_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_RESET_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, 0);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKResetPeer_MsgLenErr() */
@@ -401,17 +348,14 @@ static void HKResetPeer_NetIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 255;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_RESET_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKResetPeer_NetIdErr() */
@@ -424,18 +368,15 @@ static void HKResetPeer_PeerIdErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    uint8 *Ptr = Buffer + CFE_SB_CMD_HDR_SIZE;
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
     *Ptr++     = 0;
     *Ptr++     = 255;
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_RESET_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKResetPeer_PeerIdErr() */
@@ -448,14 +389,11 @@ static void HKResetPeer_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, SBN_CMD_PEER_LEN, false);
+    MsgSz = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_RESET_PEER_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_RESET_PEER_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, SBN_CMD_PEER_LEN);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HKResetPeer_Nominal() */
@@ -468,14 +406,11 @@ static void SCH_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_SCH_WAKEUP_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_SCH_WAKEUP_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end SCH_Nominal() */
@@ -488,13 +423,11 @@ static void TBL_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_TBL_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, 0);
+    MsgSz = -1;
+    FcnCode = SBN_TBL_CC;
+    MSGINIT();
 
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end TBL_MsgLenErr() */
@@ -507,14 +440,11 @@ static void TBL_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_TBL_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_TBL_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end TBL_Nominal() */
@@ -527,14 +457,11 @@ static void CC_Err(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_TBL_CC + 10;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_TBL_CC + 10);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end CC_Err() */
@@ -547,14 +474,11 @@ static void HK_MsgLenErr(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = -1;
+    FcnCode = SBN_HK_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, 0);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HK_MsgLenErr() */
@@ -567,16 +491,20 @@ static void HK_MsgLenErr2(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    FcnCode = SBN_HK_CC;
+    MsgSz = 0; /* force an invalid size, should be skipped */
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, 0);
+    CFE_MSG_Message_t *CmdPktPtr2 = (CFE_MSG_Message_t *)Buffer;
+    CFE_MSG_Size_t MsgSz2 = sizeof(CFE_MSG_CommandHeader_t);
 
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    CFE_MSG_Init(CmdPktPtr2, MsgId, MsgSz2);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &MsgId, sizeof(MsgId), false);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &MsgSz2, sizeof(MsgSz2), false);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetFcnCode), &FcnCode, sizeof(FcnCode), false);
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetFcnCode), &FcnCode, sizeof(FcnCode), false);
+
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(0);
 } /* end HK_MsgLenErr2() */
@@ -589,14 +517,11 @@ static void HK_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    MSGINIT(CmdPktPtr, SBN_CMD_MID, CFE_SB_CMD_HDR_SIZE, false);
+    MsgSz = sizeof(CFE_MSG_CommandHeader_t);
+    FcnCode = SBN_HK_CC;
+    MSGINIT();
 
-    uint32 mid = SBN_CMD_MID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_GetMsgId), &mid, sizeof(mid), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetCmdCode), 1, SBN_HK_CC);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_GetTotalMsgLength), 1, CFE_SB_CMD_HDR_SIZE);
-
-    SBN_HandleCommand((CFE_SB_MsgPtr_t)CmdPktPtr);
+    SBN_HandleCommand(CmdPktPtr);
 
     EVENT_CNT(1);
 } /* end HK_Nominal() */

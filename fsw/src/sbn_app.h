@@ -23,7 +23,6 @@
 #ifndef _sbn_app_
 #define _sbn_app_
 
-#include <network_includes.h>
 #include <string.h>
 #include <errno.h>
 
@@ -123,9 +122,15 @@ typedef struct
     /** Global mutex for Send Tasks. */
     CFE_ES_MutexID_t SendMutex;
 
+    /** Global mutex for reconfiguring. */
+    CFE_ES_MutexID_t ConfMutex;
+
     SBN_HKTlm_t CmdCnt, CmdErrCnt;
 
     CFE_TBL_Handle_t ConfTblHandle;
+
+    /* Buffer for receiving messages, allocated here to avoid stack smashing */
+    uint8 MsgBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_App_t;
 
 /**
@@ -137,13 +142,18 @@ extern SBN_App_t SBN;
 ** Prototypes
 */
 void                 SBN_AppMain(void);
-SBN_Status_t         SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID,
+SBN_Status_t         SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID,
                                        SBN_MsgSz_t MsgSz, void *Msg);
-SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID);
-uint32               SBN_ReloadConfTbl(void);
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID);
+SBN_Status_t         SBN_ReloadConfTbl(void);
 void                 SBN_RecvNetTask(void);
 void                 SBN_RecvPeerTask(void);
 void                 SBN_SendTask(void);
+SBN_Status_t         SBN_Connected(SBN_PeerInterface_t *Peer);
+SBN_Status_t         SBN_Disconnected(SBN_PeerInterface_t *Peer);
+void                 SBN_PackMsg(void *SBNBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID, void *Msg);
+bool                 SBN_UnpackMsg(void *SBNBuf, SBN_MsgSz_t *MsgSzPtr, SBN_MsgType_t *MsgTypePtr, CFE_ProcessorID_t *ProcessorIDPtr, CFE_SpacecraftID_t *SpacecraftIDPtr, void *Msg);
+SBN_Status_t         SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID);
 
 #endif /* _sbn_app_ */
-/*****************************************************************************/
