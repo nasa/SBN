@@ -148,13 +148,9 @@ static int RemapTblSearch(uint32 ProcessorID, uint32 SpacecraftID, CFE_SB_MsgId_
 static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 {
     CFE_SB_MsgId_t     FromMID = 0x0000, ToMID = 0x0000;
-    CFE_MSG_Message_t *CFE_MsgPtr = msg;
+    CCSDS_PriHdr_t *PriHdrPtr = msg;
 
-    if (CFE_MSG_GetMsgId(CFE_MsgPtr, &FromMID) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_F_REMAP_EID, "unable to get apid");
-        return SBN_ERROR;
-    } /* end if */
+    FromMID = CCSDS_RD_SID(*PriHdrPtr);
 
     if (OS_MutSemTake(RemapMutex) != OS_SUCCESS)
     {
@@ -190,11 +186,7 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
         return SBN_IF_EMPTY; /* signal to the core app that this filter recommends not sending this message */
     }                        /* end if */
 
-    if (CFE_MSG_SetMsgId(CFE_MsgPtr, ToMID) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_F_REMAP_EID, "unable to set msgid");
-        return SBN_ERROR;
-    } /* end if */
+    CCSDS_WR_SID(*PriHdrPtr, ToMID);
 
     return SBN_SUCCESS;
 } /* end Remap() */
