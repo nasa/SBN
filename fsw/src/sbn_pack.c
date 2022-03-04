@@ -1,14 +1,6 @@
 #include "sbn_pack.h"
 #include <string.h> /* memcpy */
 
-#undef CFE_MAKE_BIG32
-#ifdef SOFTWARE_BIG_BIT_ORDER
-#define CFE_MAKE_BIG32(n) (n)
-#else /* !SOFTWARE_BIG_BIT_ORDER */
-#define CFE_MAKE_BIG32(n) \
-    ((((n) << 24) & 0xFF000000) | (((n) << 8) & 0x00FF0000) | (((n) >> 8) & 0x0000FF00) | (((n) >> 24) & 0x000000FF))
-#endif /* SOFTWARE_BIG_BIT_ORDER */
-
 bool Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag)
 {
     PackPtr->Buf     = Buf;
@@ -69,8 +61,8 @@ bool Pack_Time(Pack_t *PackPtr, OS_time_t Data)
 
 bool Pack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t Data)
 {
-    CFE_SB_MsgId_t D;
-    D = CFE_MAKE_BIG16(Data);
+    uint32 D;
+    D = CFE_MAKE_BIG32(CFE_SB_MsgIdToValue(Data));
     return Pack_Data(PackPtr, &D, sizeof(D));
 } /* end Pack_MsgID() */
 
@@ -128,11 +120,11 @@ bool Unpack_UInt32(Pack_t *Pack, uint32 *DataBuf)
 
 bool Unpack_MsgID(Pack_t *Pack, CFE_SB_MsgId_t *DataBuf)
 {
-    CFE_SB_MsgId_t D;
+    uint32 D;
     if (!Unpack_Data(Pack, &D, sizeof(D)))
     {
         return false;
     }
-    *DataBuf = CFE_MAKE_BIG16(D);
+    *DataBuf = CFE_SB_ValueToMsgId(CFE_MAKE_BIG32(D));
     return true;
 } /* end Unpack_MsgID() */

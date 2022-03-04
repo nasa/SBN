@@ -275,11 +275,6 @@ void SBN_RecvPeerTask(void)
 {
     RecvPeerTaskData_t D;
     memset(&D, 0, sizeof(D));
-    if (CFE_ES_RegisterChildTask() != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEERTASK_EID, "unable to register child task");
-        return;
-    } /* end if */
 
     D.RecvTaskID = OS_TaskGetId();
 
@@ -367,11 +362,6 @@ void SBN_RecvNetTask(void)
     static const char FAIL_PREFIX_RUNNING[] = "ERROR: during SBN Receive Net Task:";
     RecvNetTaskData_t D;
     memset(&D, 0, sizeof(D));
-    if (CFE_ES_RegisterChildTask() != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEERTASK_EID, "%s unable to register child task", FAIL_PREFIX_STARTUP);
-        return;
-    } /* end if */
 
     D.RecvTaskID = OS_TaskGetId();
 
@@ -457,7 +447,7 @@ SBN_Status_t SBN_RecvNetMsgs(void)
             // TODO: make configurable
             for (MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from the net */
             {
-                memset(SBN.MsgBuffer, 0, sizeof(SBN.MsgBuffer));
+                /*memset(SBN.MsgBuffer, 0, sizeof(SBN.MsgBuffer));*/
 
                 SBN_Status = Net->IfOps->RecvFromNet(Net, &MsgType, &MsgSz, &ProcessorID, &SpacecraftID, SBN.MsgBuffer);
 
@@ -603,12 +593,6 @@ void SBN_SendTask(void)
     Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
 
     memset(&D, 0, sizeof(D));
-
-    if (CFE_ES_RegisterChildTask() != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEERTASK_EID, "unable to register child task");
-        return;
-    } /* end if */
 
     D.SendTaskID = OS_TaskGetId();
 
@@ -1001,96 +985,6 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 } /* end WaitForWakeup */
 
 /**
- * Waits for either a response to the "get subscriptions" message from SB, OR
- * an event message that says SB has finished initializing. The latter message
- * means that SB was not started at the time SBN sent the "get subscriptions"
- * message, so that message will need to be sent again.
- *
- * @return SBN_SUCCESS or SBN_ERROR
- */
-static SBN_Status_t WaitForSBStartup(void)
-{
-    static const char FAIL_PREFIX[] = "ERROR: could not wait for SB startup:";
-    CFE_EVS_LongEventTlm_t *EvsTlm    = NULL;
-    CFE_SB_Buffer_t        *BufPtr    = NULL;
-    CFE_SB_MsgId_t          MsgId     = 0;
-    uint8                   counter   = 0;
-    CFE_SB_PipeId_t         EventPipe = 0;
-    CFE_Status_t            Status    = SBN_SUCCESS;
-
-    /* Create event message pipe */
-    Status = CFE_SB_CreatePipe(&EventPipe, 20, "SBNEventPipe");
-    if (Status != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_INIT_EID, "%s failed to create event pipe (%d)", FAIL_PREFIX, (int)Status);
-        return SBN_ERROR;
-    } /* end if */
-
-    /* Subscribe to event messages temporarily to be notified when SB is done
-     * initializing
-     */
-    Status = CFE_SB_Subscribe(CFE_EVS_LONG_EVENT_MSG_MID, EventPipe);
-    if (Status != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_INIT_EID, "%s failed to subscribe to event pipe (%d)", FAIL_PREFIX, (int)Status);
-        return SBN_ERROR;
-    } /* end if */
-
-    while (1)
-    {
-        /* Check for subscription message from SB */
-        if (SBN_CheckSubscriptionPipe() == SBN_SUCCESS)
-        {
-            /* SBN does not need to re-send request messages to SB */
-            break;
-        }
-        else if (counter % 100 == 0)
-        {
-            /* Send subscription request messages again. This may cause the SB
-             * to respond to duplicate requests but that should be okay
-             */
-            SBN_SendSubsRequests();
-        } /* end if */
-
-        /* Check for event message from SB */
-        if (CFE_SB_ReceiveBuffer(&BufPtr, EventPipe, 100) == CFE_SUCCESS && CFE_MSG_GetMsgId((CFE_MSG_Message_t*)BufPtr, &MsgId) == CFE_SUCCESS)
-        {
-            if (MsgId == CFE_EVS_LONG_EVENT_MSG_MID)
-            {
-                EvsTlm = (CFE_EVS_LongEventTlm_t *)BufPtr;
-
-                /* If it's an event message from SB, make sure it's the init
-                 * message
-                 */
-                if (strcmp(EvsTlm->Payload.PacketID.AppName, "CFE_SB") == 0 &&
-                    EvsTlm->Payload.PacketID.EventID == CFE_SB_INIT_EID)
-                {
-                    break;
-                } /* end if */
-            }     /* end if */
-        }         /* end if */
-
-        counter++;
-    } /* end while */
-
-    /* Unsubscribe from event messages */
-    if (CFE_SB_Unsubscribe(CFE_EVS_LONG_EVENT_MSG_MID, EventPipe) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_INIT_EID, "%s: SB initialized, but unable to unsubscribe from event messages", FAIL_PREFIX);
-        return SBN_ERROR;
-    } /* end if */
-
-    if (CFE_SB_DeletePipe(EventPipe) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_INIT_EID, "%s SB initialized, but unable to delete event pipe", FAIL_PREFIX);
-        return SBN_ERROR;
-    } /* end if */
-
-    /* SBN needs to re-send request messages */
-    return SBN_SUCCESS;
-} /* end WaitForSBStartup */
-
-/**
  * Load Protocol or Filter Module from the table
  *
  * Cleaned up by UnloadModules()
@@ -1448,7 +1342,7 @@ static uint32 LoadConfTbl(void)
         return Status;
     } /* end if */
 
-    if ((Status = CFE_TBL_NotifyByMessage(SBN.ConfTblHandle, SBN_CMD_MID, SBN_TBL_CC, 0)) != CFE_SUCCESS)
+    if ((Status = CFE_TBL_NotifyByMessage(SBN.ConfTblHandle, CFE_SB_ValueToMsgId(SBN_CMD_MID), SBN_TBL_CC, 0)) != CFE_SUCCESS)
     {
         EVSSendErr(SBN_TBL_EID, "unable to set notifybymessage for conf tbl");
         CFE_TBL_Unregister(SBN.ConfTblHandle);
@@ -1485,14 +1379,14 @@ static SBN_Status_t SetupSubPipe(void)
         return SBN_ERROR;
     } /* end if */
 
-    Status = CFE_SB_SubscribeLocal(CFE_SB_ALLSUBS_TLM_MID, SBN.SubPipe, SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID), SBN.SubPipe, SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to allsubs (Status=%d)", (int)Status);
         return SBN_ERROR;
     } /* end if */
 
-    Status = CFE_SB_SubscribeLocal(CFE_SB_ONESUB_TLM_MID, SBN.SubPipe, SBN_MAX_ONESUB_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID), SBN.SubPipe, SBN_MAX_ONESUB_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to sub (Status=%d)", (int)Status);
@@ -1506,7 +1400,6 @@ static SBN_Status_t SetupSubPipe(void)
 static SBN_Status_t Init(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not initialize SBN:";
-    uint32            Status    = CFE_SUCCESS;
 
     /* Load the configuration from the table */
     if(LoadConf() != SBN_SUCCESS)
@@ -1534,9 +1427,10 @@ static SBN_Status_t Init(void)
 #endif /* SOFTWARE_BIG_BIT_ORDER */
 
     EVSSendInfo(SBN_INIT_EID,
-                "initialized (CFE_PLATFORM_CPU_NAME='%s' ProcessorID=%d SpacecraftId=%d %s "
+                "initialized (ProcessorID=%d SpacecraftId=%d %s "
                 "SBN.AppID=%d...",
-                CFE_PLATFORM_CPU_NAME, (int)CFE_PSP_GetProcessorId(), (int)CFE_PSP_GetSpacecraftId(), bit_order, (int)SBN.AppID);
+                (int)CFE_PSP_GetProcessorId(), (int)CFE_PSP_GetSpacecraftId(), bit_order, (int)SBN.AppID);
+
     EVSSendInfo(SBN_INIT_EID, "...SBN_IDENT=%s CMD_MID=0x%04X)", SBN_IDENT, SBN_CMD_MID);
 
     SBN_InitializeCounters();
@@ -1545,18 +1439,10 @@ static SBN_Status_t Init(void)
        to the above messages. true means it needs to re-send subscription
        requests */
 
-    Status = WaitForSBStartup();
+    while(CFE_ES_WaitForSystemState(CFE_ES_SystemState_OPERATIONAL, 1000) == CFE_ES_OPERATION_TIMED_OUT) /* do nothing but keep waiting */;
 
-    if (Status == SBN_SUCCESS)
-    {
-        EVSSendInfo(SBN_INIT_EID, "Re-sending SB subscription requests...");
-        SBN_SendSubsRequests();
-    }
-    else
-    {
-        EVSSendInfo(SBN_INIT_EID, "%s waiting for SB startup failed", FAIL_PREFIX);
-      return SBN_ERROR;
-    } /* end if */
+    EVSSendInfo(SBN_INIT_EID, "Re-sending SB subscription requests...");
+    SBN_SendSubsRequests();
 
     EVSSendInfo(SBN_INIT_EID, "SBN initialized.");
 
@@ -1579,11 +1465,7 @@ static SBN_Status_t Cleanup(void)
     } /* end if */
 
     // cleanup subs
-    for(int i = 0; i < SBN_MAX_SUBS_PER_PEER + 1; i++) {
-      SBN.Subs[i].InUseCtr = 0;
-      SBN.Subs[i].MsgID = 0;
-      SBN.Subs[i].QoS = CFE_SB_Default_Qos;
-    }
+    memset(SBN.Subs, 0, sizeof(SBN.Subs));
 
     SBN.SubCnt = 0;
 
@@ -1603,9 +1485,6 @@ void SBN_AppMain(void)
     CFE_ES_TaskInfo_t TaskInfo;
     uint32            Status    = CFE_SUCCESS;
     uint32            RunStatus = CFE_ES_RunStatus_APP_RUN, AppID = 0;
-
-    if (CFE_ES_RegisterApp() != CFE_SUCCESS)
-        return;
 
     if (CFE_EVS_Register(NULL, 0, CFE_EVS_NO_FILTER != CFE_SUCCESS))
         return;
@@ -1655,7 +1534,7 @@ void SBN_AppMain(void)
         return;
     } /* end if */
 
-    Status = CFE_SB_Subscribe(SBN_CMD_MID, SBN.CmdPipe);
+    Status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(SBN_CMD_MID), SBN.CmdPipe);
     if (Status == CFE_SUCCESS)
     {
         EVSSendInfo(SBN_INIT_EID, "SBN subscribed to command pipe SBN_CMD_MID 0x%04X", SBN_CMD_MID);

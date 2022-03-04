@@ -39,7 +39,7 @@ static int RemapTblVal(void *TblPtr)
      */
     for (i = 0; i < SBN_REMAP_TABLE_SIZE; i++)
     {
-        if (r->Entries[i].FromMID == 0x0000)
+        if (CFE_SB_MsgId_Equal(r->Entries[i].FromMID, CFE_SB_ValueToMsgId(0x0000)))
         {
             break;
         } /* end if */
@@ -63,7 +63,7 @@ static int RemapTblCompar(const void *a, const void *b)
     {
         return aEntry->ProcessorID - bEntry->ProcessorID;
     }
-    return aEntry->FromMID - bEntry->FromMID;
+    return CFE_SB_MsgIdToValue(aEntry->FromMID) - CFE_SB_MsgIdToValue(bEntry->FromMID);
 } /* end RemapTblCompar() */
 
 static SBN_Status_t LoadRemapTbl(void)
@@ -141,13 +141,13 @@ static int BinarySearch(void *Entries, void *SearchEntry, size_t EntryCnt, size_
 
 static int RemapTblSearch(uint32 ProcessorID, uint32 SpacecraftID, CFE_SB_MsgId_t MID)
 {
-    SBN_RemapTblEntry_t Entry = {ProcessorID, SpacecraftID, MID, 0x0000};
+    SBN_RemapTblEntry_t Entry = {ProcessorID, SpacecraftID, MID, {0}};
     return BinarySearch(RemapTbl->Entries, &Entry, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
 } /* end RemapTblSearch() */
 
 static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 {
-    CFE_SB_MsgId_t     FromMID = 0x0000, ToMID = 0x0000;
+    CFE_SB_MsgId_t     FromMID = CFE_SB_ValueToMsgId(0x0000), ToMID = CFE_SB_ValueToMsgId(0x0000);
     CFE_MSG_Message_t *CFE_MsgPtr = msg;
 
     if (CFE_MSG_GetMsgId(CFE_MsgPtr, &FromMID) != CFE_SUCCESS)
@@ -167,7 +167,7 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
     if (i < RemapTblCnt &&
         RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
         RemapTbl->Entries[i].SpacecraftID == Context->PeerSpacecraftID &&
-        RemapTbl->Entries[i].FromMID == FromMID)
+        CFE_SB_MsgId_Equal(RemapTbl->Entries[i].FromMID, FromMID))
     {
         ToMID = RemapTbl->Entries[i].ToMID;
     }
@@ -185,7 +185,7 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
         return SBN_ERROR;
     } /* end if */
 
-    if (ToMID == 0x0000)
+    if (CFE_SB_MsgId_Equal(ToMID, CFE_SB_ValueToMsgId(0x0000)))
     {
         return SBN_IF_EMPTY; /* signal to the core app that this filter recommends not sending this message */
     }                        /* end if */
@@ -207,7 +207,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
     {
         if (RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
             RemapTbl->Entries[i].SpacecraftID == Context->PeerSpacecraftID &&
-            RemapTbl->Entries[i].ToMID == *InOutMsgIdPtr)
+            CFE_SB_MsgId_Equal(RemapTbl->Entries[i].ToMID, *InOutMsgIdPtr))
         {
             *InOutMsgIdPtr = RemapTbl->Entries[i].FromMID;
             return SBN_SUCCESS;

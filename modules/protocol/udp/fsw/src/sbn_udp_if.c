@@ -292,7 +292,9 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
     {
         EVSSendInfo(SBN_UDP_DEBUG_EID, "connecting to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
         SBN.Connected(Peer);
-    } else {
+    }
+    else
+    {
         EVSSendDbg(SBN_UDP_DEBUG_EID, "already connected to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
     } /* end if */
 

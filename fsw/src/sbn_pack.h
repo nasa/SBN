@@ -29,6 +29,7 @@
 #include <stdlib.h> /* size_t */
 #include "osconfig.h"
 #include "cfe.h"
+#include "cfe_endian.h"
 
 typedef struct
 {
