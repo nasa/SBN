@@ -182,7 +182,7 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 
     int SubIdx = 0;
 
-    /* if there is already an entry for this msg id,just incr InUseCtr */
+    /* if there is already an entry for this msg id, just incr InUseCtr */
     if (IsMsgIDSub(&SubIdx, MsgID))
     {
         SBN.Subs[SubIdx].InUseCtr++;

@@ -272,7 +272,7 @@ typedef struct
 /**
  * This structure contains function pointers to interface-specific versions
  * of the key SBN functions.  Every interface module must have an equivalent
- * structure that points to the approprate functions for that interface.
+ * structure that points to the appropriate functions for that interface.
  */
 struct SBN_IfOps_s
 {

@@ -72,7 +72,7 @@ typedef enum
 } SBN_MsgTypeEnum_t;
 
 /**
- * Mask to identift module-specific message types
+ * Mask to identify module-specific message types
  */
 #define SBN_MODULE_SPECIFIC_MESSAGE_ID_MASK (0x80)
 

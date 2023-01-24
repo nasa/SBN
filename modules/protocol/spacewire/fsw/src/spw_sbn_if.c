@@ -190,7 +190,7 @@ int SBN_SPWRcvMsg(SBN_InterfaceData *Peer, NetDataUnion *DataMsgBuf)
      * Parses the peer data file into SBN_FileEntry_t structures.
      * Parses information that is common to all interface types and
      * allows individual interface modules to parse out interface-
-     * specfic information.
+     * specific information.
      *
      * @param FileEntry  Interface description line as read from file
      * @param LineNum    The line number in the peer file
