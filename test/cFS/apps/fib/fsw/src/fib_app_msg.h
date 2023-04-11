@@ -3,7 +3,7 @@
 
 typedef struct
 {
-    uint8  TlmHdr[CFE_SB_TLM_HDR_SIZE];
+    uint8  TlmHdr[sizeof(CFE_MSG_TelemetryHeader_t)];
     uint32 fib;
 } fib_tlm_t;
 

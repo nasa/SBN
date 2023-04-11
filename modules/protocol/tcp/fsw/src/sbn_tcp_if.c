@@ -1,6 +1,7 @@
 #include "sbn_interfaces.h"
 #include "sbn_platform_cfg.h"
 #include "cfe.h"
+#include "cfe_endian.h"
 #include "sbn_tcp_events.h"
 
 #include <string.h>
@@ -285,12 +286,12 @@ static void CheckNet(SBN_NetInterface_t *Net)
         if (PeerData->ConnectOut && !Peer->Connected)
         {
             /* TODO: make a #define */
-            if (LocalTime.seconds > PeerData->LastConnectTry.seconds + 5)
+            if (OS_TimeGetTotalSeconds(OS_TimeSubtract(LocalTime, PeerData->LastConnectTry)) > 5)
             {
                 EVSSendInfo(SBN_TCP_DEBUG_EID, "connecting to peer (PeerData=0x%lx, ProcessorID=%d)",
                             (unsigned long int)PeerData, Peer->ProcessorID);
 
-                PeerData->LastConnectTry.seconds = LocalTime.seconds;
+                PeerData->LastConnectTry = LocalTime;
 
                 OS_SocketID_t Socket = 0;
 
@@ -338,7 +339,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
         return 0;
     } /* end if */
 
-    SBN.PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), Msg);
+    SBN.PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Msg);
     SBN_MsgSz_t sent_size = OS_write(PeerData->Conn->Socket, &SendBufs[NetData->BufNum], MsgSz + SBN_PACKED_HDR_SZ);
     if (sent_size < MsgSz + SBN_PACKED_HDR_SZ)
     {
@@ -363,12 +364,12 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
     OS_time_t CurrentTime;
     OS_GetLocalTime(&CurrentTime);
 
-    if (SBN_TCP_PEER_HEARTBEAT > 0 && CurrentTime.seconds - Peer->LastSend.seconds > SBN_TCP_PEER_HEARTBEAT)
+    if (SBN_TCP_PEER_HEARTBEAT > 0 && OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastSend)) > SBN_TCP_PEER_HEARTBEAT)
     {
         Send(Peer, SBN_TCP_HEARTBEAT_MSG, 0, NULL);
     } /* end if */
 
-    if (SBN_TCP_PEER_TIMEOUT > 0 && CurrentTime.seconds - Peer->LastRecv.seconds > SBN_TCP_PEER_TIMEOUT)
+    if (SBN_TCP_PEER_TIMEOUT > 0 && OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastRecv)) > SBN_TCP_PEER_TIMEOUT)
     {
         EVSSendInfo(SBN_TCP_DEBUG_EID, "CPU %d timeout, disconnected", Peer->ProcessorID);
 
@@ -379,7 +380,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
 } /* end PollPeer() */
 
 static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN_MsgSz_t *MsgSzPtr,
-                         CFE_ProcessorID_t *ProcessorIDPtr, void *MsgBuf)
+                         CFE_ProcessorID_t *ProcessorIDPtr, CFE_SpacecraftID_t *SpacecraftIDPtr, void *MsgBuf)
 {
     OS_FdSet           FdSet;
     OS_SelectTimeout_t timeout = 0;
@@ -481,7 +482,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net, SBN_MsgType_t *MsgTypePtr, SBN
             }                            /* end if */
 
             /* we have the complete body, decode! */
-            if (SBN.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, MsgBuf) == false)
+            if (SBN.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, MsgBuf) == false)
             {
                 return SBN_ERROR;
             } /* end if */
