@@ -415,7 +415,7 @@ static SBN_Status_t ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t
     Filter_Context.MyProcessorID   = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID  = CFE_PSP_GetSpacecraftId();
     Filter_Context.PeerProcessorID = Peer->ProcessorID;
-    Filter_Context.MySpacecraftID  = Peer->SpacecraftID;
+    Filter_Context.PeerSpacecraftID  = Peer->SpacecraftID;
 
     for (FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
     {
@@ -501,7 +501,7 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
     Filter_Context.MyProcessorID   = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID  = CFE_PSP_GetSpacecraftId();
     Filter_Context.PeerProcessorID = Peer->ProcessorID;
-    Filter_Context.MySpacecraftID  = Peer->SpacecraftID;
+    Filter_Context.PeerSpacecraftID  = Peer->SpacecraftID;
 
     for (FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
     {
