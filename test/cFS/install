@@ -1,0 +1,192 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <CFS_FOLDER>"
+    exit 1
+fi
+
+CFS_ROOT="$1"
+pushd ../..
+export SBN_ROOT=$(pwd)
+popd
+
+for app in to_lab sch_lab; do
+    if [ ! -r "${CFS_ROOT}/apps/${app}" ]; then
+        echo "${app} not in ${CFS_ROOT}/apps"
+        exit 1
+    fi
+done
+
+cp "${CFS_ROOT}/cfe/cmake/Makefile.sample" "${CFS_ROOT}/Makefile"
+rsync -r -v "${CFS_ROOT}/cfe/cmake/sample_defs" "${CFS_ROOT}"
+
+sed -e 's/BASE/BASE2/g' -e 's/0x1800/0x1818/' -e 's/0x0800/0x0818/' < "${CFS_ROOT}/sample_defs/cpu1_msgids.h" > "${CFS_ROOT}/sample_defs/cpu2_msgids.h"
+sed -e 's/BASE/BASE3/g' -e 's/0x1800/0x1830/' -e 's/0x0800/0x0830/' < "${CFS_ROOT}/sample_defs/cpu1_msgids.h" > "${CFS_ROOT}/sample_defs/cpu3_msgids.h"
+
+# -e 's/CFE_PLATFORM_EVS_DEFAULT_TYPE_FLAG 0xE/CFE_PLATFORM_EVS_DEFAULT_TYPE_FLAG 0xF/' \
+sed \
+    -e 's/CFE_PLATFORM_EVS_MAX_APP_EVENT_BURST 32/CFE_PLATFORM_EVS_MAX_APP_EVENT_BURST 3200/' \
+    -i "${CFS_ROOT}/sample_defs/cpu1_platform_cfg.h"
+cp "${CFS_ROOT}/sample_defs/cpu1_platform_cfg.h" "${CFS_ROOT}/sample_defs/cpu2_platform_cfg.h"
+cp "${CFS_ROOT}/sample_defs/cpu1_platform_cfg.h" "${CFS_ROOT}/sample_defs/cpu3_platform_cfg.h"
+
+cat > "${CFS_ROOT}/sample_defs/targets.cmake" <<- "EOF"
+	SET(MISSION_NAME "SampleMission")
+	SET(SPACECRAFT_ID 0x42)
+	list(APPEND MISSION_GLOBAL_APPLIST sbn sbn_udp sbn_tcp sch_lab sbn_f_remap)
+
+	SET(FT_INSTALL_SUBDIR "host/functional-test")
+	SET(MISSION_CPUNAMES cpu1 cpu2 cpu3)
+
+	SET(cpu1_PROCESSORID 1)
+	SET(cpu1_APPLIST ci_lab)
+	SET(cpu1_FILELIST cfe_es_startup.scr)
+	SET(cpu1_SYSTEM i686-linux-gnu)
+
+	SET(cpu2_PROCESSORID 2)
+	SET(cpu2_APPLIST fib)
+	SET(cpu2_FILELIST cfe_es_startup.scr)
+	SET(cpu2_SYSTEM i686-linux-gnu)
+
+	SET(cpu3_PROCESSORID 3)
+	SET(cpu3_APPLIST to_lab)
+	SET(cpu3_FILELIST cfe_es_startup.scr)
+	SET(cpu3_SYSTEM i686-linux-gnu)
+EOF
+
+cat > "${CFS_ROOT}/sample_defs/cpu1_cfe_es_startup.scr" <<- "EOF"
+	CFE_APP, /cf/ci_lab.so,      CI_Lab_AppMain,  CI_LAB_APP,   60,   16384, 0x0, 0;
+	CFE_APP, /cf/sch_lab.so,     SCH_Lab_AppMain, SCH_LAB_APP,  80,   16384, 0x0, 0;
+	CFE_APP, /cf/sbn.so,     SBN_AppMain, SBN,  80,   100000, 0x0, 0;
+	!
+EOF
+
+cat > "${CFS_ROOT}/sample_defs/cpu2_cfe_es_startup.scr" <<- "EOF"
+	CFE_APP, /cf/fib_app.so,      FIB_AppMain,  FIB_APP,   70,   1024, 0x0, 0;
+	CFE_APP, /cf/sch_lab.so,     SCH_Lab_AppMain, SCH_LAB_APP,  80,   16384, 0x0, 0;
+	CFE_APP, /cf/sbn.so,     SBN_AppMain, SBN,  80,   100000, 0x0, 0;
+	!
+EOF
+
+cat > "${CFS_ROOT}/sample_defs/cpu3_cfe_es_startup.scr" <<- "EOF"
+	CFE_APP, /cf/to_lab.so,      TO_LAB_AppMain,  TO_LAB_APP,   70,   16384, 0x0, 0;
+	CFE_APP, /cf/sch_lab.so,     SCH_Lab_AppMain, SCH_LAB_APP,  80,   16384, 0x0, 0;
+	CFE_APP, /cf/sbn.so,     SBN_AppMain, SBN,  80,   100000, 0x0, 0;
+	!
+EOF
+
+cat > "${CFS_ROOT}/apps/to_lab/fsw/tables/to_lab_sub.c" <<- "EOF"
+	#include "cfe_tbl_filedef.h"
+	#include "to_lab_sub_table.h"
+	#include "to_lab_msgids.h"
+	#include "fib_app_msgids.h"
+	
+	TO_LAB_Subs_t TO_LAB_Subs = {
+            .Subs = {
+                {CFE_SB_MSGID_WRAP_VALUE(FIB_TLM_REMAP_MID), {0, 0}, 4},
+                {CFE_SB_MSGID_WRAP_VALUE(FIB_TLM_MID), {0, 0}, 4},
+            }
+	};
+	
+	CFE_TBL_FILEDEF(TO_LAB_Subs, TO_LAB_APP.TO_LAB_Subs, TO Lab Sub Tbl, to_lab_sub.tbl)
+EOF
+
+cat > "${CFS_ROOT}/apps/sbn/fsw/tables/sbn_conf_tbl.c" <<- "EOF"
+	#include "sbn_tbl.h"
+	#include "cfe_tbl_filedef.h"
+	
+	SBN_ConfTbl_t SBN_ConfTbl = {
+	    .ProtocolModules = {
+	        { .Name = "UDP", .LibFileName = "/cf/sbn_udp.so", .LibSymbol = "SBN_UDP_Ops", .BaseEID = 0x0100 }
+	    },
+	    .ProtocolCnt = 1,
+	    .FilterModules = {
+	        { .Name = "Remap", .LibFileName = "/cf/sbn_f_remap.so", .LibSymbol = "SBN_F_Remap", .BaseEID = 0x1000 }
+	    },
+	    .FilterCnt = 1,
+	
+	    .Peers = {
+	        { .ProcessorID = 1, .SpacecraftID = 0x42, .NetNum = 0, .ProtocolName = "UDP", .Filters = {"Remap"}, .Address = "127.0.0.1:2234", .TaskFlags = SBN_TASK_POLL },
+	        { .ProcessorID = 2, .SpacecraftID = 0x42, .NetNum = 0, .ProtocolName = "UDP", .Filters = {"Remap"}, .Address = "127.0.0.1:2235", .TaskFlags = SBN_TASK_POLL },
+	        { .ProcessorID = 3, .SpacecraftID = 0x42, .NetNum = 0, .ProtocolName = "UDP", .Filters = {"Remap"}, .Address = "127.0.0.1:2236", .TaskFlags = SBN_TASK_POLL },
+	    },
+	    .PeerCnt = 3
+	};
+	
+	CFE_TBL_FILEDEF(SBN_ConfTbl, SBN.SBN_ConfTbl, SBN Configuration Table, sbn_conf_tbl.tbl)
+EOF
+
+cat > "${CFS_ROOT}/apps/sbn_f_remap/fsw/tables/sbn_remap_tbl.c" <<- "EOF"
+	#include "sbn_remap_tbl.h"
+	#include "cfe_tbl_filedef.h"
+	#include "cfe_sb.h" 
+	
+	SBN_RemapTbl_t SBN_RemapTbl = {
+	    .RemapDefaultFlag = SBN_REMAP_DEFAULT_SEND,
+	    .Entries = {
+	        {.ProcessorID = 3, .SpacecraftID = 0x42, .FromMID = CFE_SB_MSGID_WRAP_VALUE(0x0882), .ToMID = CFE_SB_MSGID_WRAP_VALUE(0x0883)},
+	        {0}
+	    }
+	};
+	
+	CFE_TBL_FILEDEF(SBN_RemapTbl, SBN.SBN_RemapTbl, SBN Remap Table, sbn_remap_tbl.tbl)
+EOF
+
+cat > "${CFS_ROOT}/apps/sch_lab/fsw/tables/sch_lab_table.c" <<- "EOF"
+	#include "cfe_tbl_filedef.h" 
+	#include "sch_lab_table.h"
+	#include "cfe_sb.h" 
+	#include "sbn_msgids.h"
+	
+	SCH_LAB_ScheduleTable_t SCH_TBL_Structure = {.TickRate = 1, .Config = {{CFE_SB_MSGID_WRAP_VALUE(SBN_CMD_MID), 4, 0}}};
+
+	CFE_TBL_FILEDEF(SCH_TBL_Structure, SCH_LAB_APP.SCH_LAB_SchTbl, Schedule Lab MsgID Table, sch_lab_table.tbl)
+EOF
+
+cat > "${CFS_ROOT}/apps/to_lab/CMakeLists.txt" <<- "EOF"
+	cmake_minimum_required(VERSION 3.5)
+	project(CFS_TO_LAB C)
+	
+	include_directories(fsw/mission_inc)
+	include_directories(fsw/platform_inc)
+	include_directories(${fib_MISSION_DIR}/fsw/platform_inc)
+	
+	aux_source_directory(fsw/src APP_SRC_FILES)
+	
+	# Create the app module
+	add_cfe_app(to_lab ${APP_SRC_FILES})
+
+        add_cfe_tables(TO_LAB_Subs fsw/tables/to_lab_sub.c)
+EOF
+
+cat > "${CFS_ROOT}/apps/sch_lab/CMakeLists.txt" <<- "EOF"
+	cmake_minimum_required(VERSION 3.5)
+	project(CFS_SCH_LAB C)
+	
+	include_directories(fsw/mission_inc)
+	include_directories(fsw/platform_inc)
+	include_directories(${ci_lab_MISSION_DIR}/fsw/platform_inc)
+	include_directories(${to_lab_MISSION_DIR}/fsw/platform_inc)
+	include_directories(${sbn_MISSION_DIR}/fsw/platform_inc)
+	include_directories(${fib_MISSION_DIR}/fsw/platform_inc)
+	
+	# Create the app module
+	add_cfe_app(sch_lab fsw/src/sch_lab_app.c)
+	add_cfe_tables(sch_lab_table fsw/tables/sch_lab_table.c)
+EOF
+
+rm ${CFS_ROOT}/apps/sbn
+ln -s ${SBN_ROOT} ${CFS_ROOT}/apps/sbn
+rm ${CFS_ROOT}/apps/sbn_udp
+ln -s ${SBN_ROOT}/modules/protocol/udp ${CFS_ROOT}/apps/sbn_udp
+rm ${CFS_ROOT}/apps/sbn_tcp
+ln -s ${SBN_ROOT}/modules/protocol/tcp ${CFS_ROOT}/apps/sbn_tcp
+rm ${CFS_ROOT}/apps/sbn_f_remap
+ln -s ${SBN_ROOT}/modules/filter/remap ${CFS_ROOT}/apps/sbn_f_remap
+rm ${CFS_ROOT}/apps/fib
+ln -s $(pwd)/apps/fib ${CFS_ROOT}/apps/fib
+
+cd ${CFS_ROOT}
+rm -rf build
+make SIMULATION=native prep
+make install

@@ -85,6 +85,8 @@ static SBN_Status_t LoadRemapTbl(void)
         return SBN_ERROR;
     } /* end if */
 
+    EVSSendDebug(SBN_F_REMAP_TBL_EID, "remap table loaded");
+
     if ((CFE_Status = CFE_TBL_GetAddress((void **)&TblPtr, RemapTblHandle)) != CFE_TBL_INFO_UPDATED)
     {
         EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to get conf table address");
@@ -92,6 +94,7 @@ static SBN_Status_t LoadRemapTbl(void)
         return SBN_ERROR;
     } /* end if */
 
+    EVSSendDebug(SBN_F_REMAP_TBL_EID, "remap table address retrieved");
     /* sort the entries on <ProcessorID> and <from MID> */
     /* note: qsort is recursive, so it will use some stack space
      * (O[N log N] * <some small amount of stack>). If this is a concern,
@@ -99,6 +102,7 @@ static SBN_Status_t LoadRemapTbl(void)
      */
 
     qsort(TblPtr->Entries, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
+    EVSSendDebug(SBN_F_REMAP_TBL_EID, "remap table sorted");
 
     CFE_TBL_Modified(RemapTblHandle);
 
@@ -203,6 +207,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
 {
     int i = 0;
 
+    EVSSendDebug(SBN_F_REMAP_TBL_EID, "Remap check 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
     for (i = 0; i < RemapTblCnt; i++)
     {
         if (RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
@@ -210,6 +215,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
             CFE_SB_MsgId_Equal(RemapTbl->Entries[i].ToMID, *InOutMsgIdPtr))
         {
             *InOutMsgIdPtr = RemapTbl->Entries[i].FromMID;
+            EVSSendDebug(SBN_F_REMAP_TBL_EID, " --> 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
             return SBN_SUCCESS;
         } /* end if */
     }     /* end for */
@@ -278,7 +284,7 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 
     if (Version != 2) /* TODO: define */
     {
-        OS_printf("SBN_F_Remap version mismatch: expected %d, got %d\n", 1, Version);
+        EVSSendErr(BaseEID, "version mismatch: expected %d, got %d", 1, Version);
         return SBN_ERROR;
     } /* end if */
 
@@ -292,7 +298,7 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 
     if(RemapInitialized)
     {
-        OS_printf("SBN_F_Remap Lib already initialized.\n");
+        EVSSendErr(BaseEID, "already initialized.");
         if(Deinit(BaseEID) !=  SBN_SUCCESS) {
             EVSSendErr(BaseEID, "unable to deinitialize SBN_F_Remap");
         }
@@ -310,7 +316,7 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
 
     RemapInitialized = true;
 
-    OS_printf("SBN_F_Remap Lib Initialized.\n");
+    EVSSendInfo(BaseEID, "SBN_F_Remap Lib Initialized.");
 
     return SBN_SUCCESS;
 } /* end Init() */
