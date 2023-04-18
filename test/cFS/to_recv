@@ -38,6 +38,7 @@ decodemap = {
 
 while True:
     print('--waiting for TO messages--')
+    sys.stdout.flush()
     data, addr = sock.recvfrom(4096)
     print('--received from TO (len=%d)--' % len(data))
     print('%r' % data)
