@@ -85,7 +85,7 @@ static SBN_Status_t LoadRemapTbl(void)
         return SBN_ERROR;
     } /* end if */
 
-    EVSSendDebug(SBN_F_REMAP_TBL_EID, "remap table loaded");
+    EVSSendDbg(SBN_F_REMAP_TBL_EID, "remap table loaded");
 
     if ((CFE_Status = CFE_TBL_GetAddress((void **)&TblPtr, RemapTblHandle)) != CFE_TBL_INFO_UPDATED)
     {
@@ -94,7 +94,7 @@ static SBN_Status_t LoadRemapTbl(void)
         return SBN_ERROR;
     } /* end if */
 
-    EVSSendDebug(SBN_F_REMAP_TBL_EID, "remap table address retrieved");
+    EVSSendDbg(SBN_F_REMAP_TBL_EID, "remap table address retrieved");
     /* sort the entries on <ProcessorID> and <from MID> */
     /* note: qsort is recursive, so it will use some stack space
      * (O[N log N] * <some small amount of stack>). If this is a concern,
@@ -102,7 +102,7 @@ static SBN_Status_t LoadRemapTbl(void)
      */
 
     qsort(TblPtr->Entries, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
-    EVSSendDebug(SBN_F_REMAP_TBL_EID, "remap table sorted");
+    EVSSendDbg(SBN_F_REMAP_TBL_EID, "remap table sorted");
 
     CFE_TBL_Modified(RemapTblHandle);
 
@@ -207,7 +207,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
 {
     int i = 0;
 
-    EVSSendDebug(SBN_F_REMAP_TBL_EID, "Remap check 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
+    EVSSendDbg(SBN_F_REMAP_TBL_EID, "Remap check 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
     for (i = 0; i < RemapTblCnt; i++)
     {
         if (RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID &&
@@ -215,7 +215,7 @@ static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *C
             CFE_SB_MsgId_Equal(RemapTbl->Entries[i].ToMID, *InOutMsgIdPtr))
         {
             *InOutMsgIdPtr = RemapTbl->Entries[i].FromMID;
-            EVSSendDebug(SBN_F_REMAP_TBL_EID, " --> 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
+            EVSSendDbg(SBN_F_REMAP_TBL_EID, " --> 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
             return SBN_SUCCESS;
         } /* end if */
     }     /* end for */
