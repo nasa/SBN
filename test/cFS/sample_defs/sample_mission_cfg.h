@@ -46,7 +46,7 @@
 **      CFE_PSP_GetSpacecraftId.
 **
 **  \par Limits
-**       The cFE does not place a limit on this configuration paramter.
+**       The cFE does not place a limit on this configuration parameter.
 **       CCSDS allocates 8 bits for this field in the standard VCDU.
 */
 #define CFE_MISSION_SPACECRAFT_ID       0x42

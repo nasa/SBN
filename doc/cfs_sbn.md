@@ -46,7 +46,7 @@ table-configured.)
 SBN Build and Configuration
 ---------------------------
 SBN is built like any other cFS application, either via specifying it in 
-the the `TGT#_APPLISTS` parameter in the targets.cmake. Protocol modules
+the `TGT#_APPLISTS` parameter in the targets.cmake. Protocol modules
 (`sbn_udp`, `sbn_tcp`, `sbn_dtn`, ...) must also be specified as an
 application in the build process and loaded by ES after the core SBN
 application.
@@ -271,7 +271,7 @@ Currently SBN provides the following modules:
 
 - Serial - Supports SBN over standard serial devices.
 
-SBN Datastructures
+SBN Data Structures
 ------------------
 SBN utilizes a complex set of data structures in memory to track
 the state of the local system and its state knowledge of the peers on

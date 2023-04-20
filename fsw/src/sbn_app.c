@@ -269,7 +269,7 @@ typedef struct
 
 /**
  * \brief Receive task created for each direct peer-based connection.
- * Spanwed from PeerPoll()
+ * Spawned from PeerPoll()
  */
 void SBN_RecvPeerTask(void)
 {
@@ -354,7 +354,7 @@ typedef struct RecvNetTaskData_s
 
 /**
  * \brief Receive task created for each net-based connection.
- * Spanwed from PeerPoll()
+ * Spawned from PeerPoll()
  */
 void SBN_RecvNetTask(void)
 {
@@ -993,7 +993,7 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleI
 {
     cpuaddr StructAddr;
 
-    EVSSendInfo(SBN_TBL_EID, "checking if module (%s) already loded", e->Name);
+    EVSSendInfo(SBN_TBL_EID, "checking if module (%s) already loaded", e->Name);
     if (OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
     {
         EVSSendInfo(SBN_TBL_EID, "symbol not yet loaded (%s)", e->LibSymbol);
@@ -1521,7 +1521,7 @@ void SBN_AppMain(void)
     Status = OS_MutSemCreate(&(SBN.ConfMutex), "sbn_conf_mutex", 0);
     if (Status != OS_SUCCESS)
     {
-        EVSSendErr(SBN_INIT_EID, "%s error creating mutex for configuiration", FAIL_PREFIX);
+        EVSSendErr(SBN_INIT_EID, "%s error creating mutex for configuration", FAIL_PREFIX);
         return;
     }
 
@@ -1607,7 +1607,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, C
         return SBN_ERROR;
     } /* end if */
 
-    /* Check if message is protocol-specific (unkown to SBN core) */
+    /* Check if message is protocol-specific (unknown to SBN core) */
     if(MsgType & SBN_MODULE_SPECIFIC_MESSAGE_ID_MASK) {
       EVSSendDbg(SBN_PEERTASK_EID, "SBN received module-specific message type: 0x%08x", MsgType);
       return SBN_SUCCESS;
@@ -1689,7 +1689,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net, SBN_MsgType_t MsgType, C
  * Find the PeerIndex for a given ProcessorID and net.
  * @param Net[in] The network interface to search.
  * @param ProcessorID[in] The ProcessorID of the peer being sought.
- * @param SpacecraftID[in] The SpacecraftI of the peer being sought.
+ * @param SpacecraftID[in] The SpacecraftID of the peer being sought.
  * @return The Peer interface pointer, or NULL if not found.
  */
 SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID)

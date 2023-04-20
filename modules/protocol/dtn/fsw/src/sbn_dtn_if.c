@@ -135,7 +135,7 @@ int SBN_DTN_Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t M
     return SBN_SUCCESS;
 } /* end SBN_DTN_Send */
 
-/* Note that this Recv function is indescriminate, packets will be received
+/* Note that this Recv function is indiscriminate, packets will be received
  * from all peers but that's ok, I just inject them into the SB and all is
  * good!
  */

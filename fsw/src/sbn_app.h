@@ -45,7 +45,7 @@
 #include "cfe_platform_cfg.h"
 
 #ifndef SBN_TLM_MID
-/* backwards compatability in case you're using a MID generator */
+/* backwards compatibility in case you're using a MID generator */
 #define SBN_TLM_MID SBN_HK_TLM_MID
 #endif /* SBN_TLM_MID */
 

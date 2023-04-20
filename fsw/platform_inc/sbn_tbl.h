@@ -8,7 +8,7 @@
 /****
  * @brief The config table contains entries for peers (other CPU's),
  * modules (back-end libraries used to talk to peers), networks
- * (all peers that communicate amonsgt each other using a specific
+ * (all peers that communicate amongst each other using a specific
  * protocol/network technology), and interfaces (the interconnection
  * between the "host" end and the peer end of the network.)
  */
