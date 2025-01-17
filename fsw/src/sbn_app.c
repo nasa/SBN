@@ -26,7 +26,7 @@
 
 #include "sbn_pack.h"
 #include "sbn_app.h"
-#include "cfe_sb_events.h" /* For event message IDs */
+#include "cfe_sb_eventids.h" /* For event message IDs */
 #include "cfe_es.h"        /* PerfLog */
 #include "cfe_platform_cfg.h"
 #include "cfe_msgids.h"
