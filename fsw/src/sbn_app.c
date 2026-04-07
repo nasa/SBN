@@ -1681,7 +1681,7 @@ void SBN_AppMain(void)
  * @param[in] MsgType The type of the message (application data, SBN protocol)
  * @param[in] ProcessorID The ProcessorID to send this message to.
  * @param[in] SpacecraftID The SpacecraftID to send this message to.
- * @param[in] MsgSize The size of the message (in bytes).
+ * @param[in] MsgSz The size of the message (in bytes).
  * @param[in] Msg The message contents.
  *
  * @return SBN_SUCCESS on successful processing, SBN_ERROR otherwise
@@ -1690,7 +1690,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
                                CFE_ProcessorID_t   ProcessorID,
                                CFE_SpacecraftID_t  SpacecraftID,
-                               SBN_MsgSz_t         MsgSize,
+                               SBN_MsgSz_t         MsgSz,
                                void               *Msg)
 {
     static const char    FAIL_PREFIX[] = "ERROR: could not process peer message:";
