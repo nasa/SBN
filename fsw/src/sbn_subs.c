@@ -633,6 +633,20 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     uint16 SubCnt;
     Unpack_UInt16(&Pack, &SubCnt);
 
+    /* Same cap as in SBN_ProcessSubsFromPeer — a peer can send SubCnt up
+       to 65535 and the loop will dispatch that many unsubscribe requests
+       per packet, with no per-iteration error short-circuit (the comment
+       below explicitly ignores the return value to "unsub as much as I
+       can"). Cap here so a single malformed packet can't tie up a CPU. */
+    if (SubCnt > SBN_MAX_SUBS_PER_PEER)
+    {
+        EVSSendErr(SBN_PROTO_EID,
+                   "peer CpuID %d sent SubCnt=%u in Unsubs message, exceeds SBN_MAX_SUBS_PER_PEER=%u",
+                   Peer->ProcessorID, (unsigned)SubCnt,
+                   (unsigned)SBN_MAX_SUBS_PER_PEER);
+        return SBN_ERROR;
+    }
+
     int SubIdx = 0;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
