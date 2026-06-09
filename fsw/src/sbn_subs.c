@@ -503,6 +503,21 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     uint16 SubCnt;
     Unpack_UInt16(&Pack, &SubCnt);
 
+    /* Reject up front if the peer-supplied SubCnt exceeds the per-peer
+       subscription cap.  Without this we walk the loop SubCnt times
+       (up to 65535) doing Unpack_Data + ProcessSubFromPeer; ProcessSub
+       returns SBN_ERROR once the cap is hit, but on the way we waste
+       CPU + log churn.  Bound the loop at SBN_MAX_SUBS_PER_PEER so a
+       single malformed subscription message can't pin a CPU. */
+    if (SubCnt > SBN_MAX_SUBS_PER_PEER)
+    {
+        EVSSendErr(SBN_PROTO_EID,
+                   "peer CpuID %d sent SubCnt=%u, exceeds SBN_MAX_SUBS_PER_PEER=%u",
+                   Peer->ProcessorID, (unsigned)SubCnt,
+                   (unsigned)SBN_MAX_SUBS_PER_PEER);
+        return SBN_ERROR;
+    }
+
     int SubIdx = 0;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
