@@ -128,7 +128,8 @@ bool SBN_UnpackMsg(void               *SBNBuf,
                    CFE_SpacecraftID_t *SpacecraftIDPtr,
                    void               *Msg)
 {
-    uint8  t = 0;
+    *MsgSzPtr = 0;
+    uint8  t  = 0;
     Pack_t Pack;
     Pack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ, false);
     Unpack_UInt32(&Pack, MsgSzPtr);
@@ -1059,7 +1060,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
  */
 static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleIDPtr)
 {
-    cpuaddr StructAddr;
+    cpuaddr StructAddr = 0;
 
     EVSSendInfo(SBN_TBL_EID, "checking if module (%s) already loaded", e->Name);
     if (OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
@@ -1579,10 +1580,10 @@ static SBN_Status_t Cleanup(void)
 void SBN_AppMain(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not start SBN:";
-    CFE_ES_TaskInfo_t TaskInfo;
-    uint32            Status    = CFE_SUCCESS;
-    uint32            RunStatus = CFE_ES_RunStatus_APP_RUN;
-    CFE_ES_AppId_t    AppID     = CFE_ES_APPID_UNDEFINED;
+    CFE_ES_TaskInfo_t TaskInfo      = { 0 };
+    uint32            Status        = CFE_SUCCESS;
+    uint32            RunStatus     = CFE_ES_RunStatus_APP_RUN;
+    CFE_ES_AppId_t    AppID         = CFE_ES_APPID_UNDEFINED;
 
     if (CFE_EVS_Register(NULL, 0, CFE_EVS_NO_FILTER) != CFE_SUCCESS)
         return;
@@ -1596,7 +1597,7 @@ void SBN_AppMain(void)
     SBN.AppID = AppID;
 
     /* load my TaskName so I can ignore messages I send out to SB */
-    CFE_ES_TaskId_t TskId;
+    CFE_ES_TaskId_t TskId = CFE_ES_TASKID_UNDEFINED;
     CFE_ES_GetTaskID(&TskId);
     if ((Status = CFE_ES_GetTaskInfo(&TaskInfo, TskId)) != CFE_SUCCESS)
     {

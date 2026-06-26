@@ -330,9 +330,9 @@ SBN_Status_t SBN_CheckSubscriptionPipe(void)
 {
     CFE_Status_t CFE_Status = CFE_SUCCESS;
 
-    CFE_SB_AllSubscriptionsTlm_t   *MsgPtr       = NULL; /* largest message format */
-    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr = NULL; /* utility "cast" */
-    CFE_SB_MsgId_t                  MsgId;
+    CFE_SB_AllSubscriptionsTlm_t   *MsgPtr             = NULL; /* largest message format */
+    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr       = NULL; /* utility "cast" */
+    CFE_SB_MsgId_t                  MsgId              = CFE_SB_INVALID_MSG_ID;
     static CFE_SB_MsgId_t           SB_ONESUB_TLM_MID  = CFE_SB_MSGID_RESERVED;
     static CFE_SB_MsgId_t           SB_ALLSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
@@ -500,15 +500,15 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         return SBN_ERROR;
     }
 
-    uint16 SubCnt;
+    uint16 SubCnt = 0;
     Unpack_UInt16(&Pack, &SubCnt);
 
     int SubIdx = 0;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
-        CFE_SB_MsgId_t MsgID;
+        CFE_SB_MsgId_t MsgID = CFE_SB_INVALID_MSG_ID;
         Unpack_MsgID(&Pack, &MsgID);
-        CFE_SB_Qos_t QoS;
+        CFE_SB_Qos_t QoS = { 0 };
         Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
         SBN_Status = ProcessSubFromPeer(Peer, MsgID, QoS);
@@ -615,13 +615,13 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         EVSSendInfo(SBN_PROTO_EID, "version number mismatch with peer CpuID %d", Peer->ProcessorID);
     }
 
-    uint16 SubCnt;
+    uint16 SubCnt = 0;
     Unpack_UInt16(&Pack, &SubCnt);
 
     int SubIdx = 0;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
-        CFE_SB_MsgId_t MsgID;
+        CFE_SB_MsgId_t MsgID = CFE_SB_INVALID_MSG_ID;
         Unpack_MsgID(&Pack, &MsgID);
         CFE_SB_Qos_t QoS;
         Unpack_Data(&Pack, &QoS, sizeof(QoS));
