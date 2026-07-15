@@ -1214,7 +1214,7 @@ static SBN_Status_t LoadConf(void)
 
         if (ModuleIdx == SBN_AppData.ConfTbl->ProtocolCnt)
         {
-            EVSSendCrit(SBN_TBL_EID, "invalid module type %s", e->ProtocolName);
+            EVSSendCrit(SBN_TBL_EID, "invalid module name %s", e->ProtocolName);
             return SBN_ERROR;
         } /* end if */
 
