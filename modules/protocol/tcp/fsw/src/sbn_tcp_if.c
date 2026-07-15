@@ -21,6 +21,7 @@
 #include "cfe.h"
 #include "cfe_endian.h"
 #include "sbn_tcp_events.h"
+#include "sbn_error.h"
 
 #include <string.h>
 #include <errno.h>
@@ -183,7 +184,7 @@ static void Disconnected(SBN_PeerInterface_t *Peer)
         PeerData->Conn = NULL;
     } /* end if */
 
-    SBN.Disconnected(Peer);
+    SBN_AppData.Disconnected(Peer);
 } /* end Disconnected() */
 
 static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
@@ -344,7 +345,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                     Conn->PeerInterface = Peer;
                     PeerData->Conn      = Conn;
 
-                    SBN.Connected(Peer);
+                    SBN_AppData.Connected(Peer);
                 } /* end if */
             } /* end if */
         } /* end if */
@@ -363,7 +364,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
         return 0;
     } /* end if */
 
-    SBN.PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Msg);
+    SBN_AppData.PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Msg);
     int32 sent_size = OS_write(PeerData->Conn->Socket, &SendBufs[NetData->BufNum], MsgSz + SBN_PACKED_HDR_SZ);
     if ((sent_size < 0) || (sent_size < MsgSz + SBN_PACKED_HDR_SZ))
     {
@@ -512,7 +513,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
             } /* end if */
 
             /* we have the complete body, decode! */
-            if (SBN.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, MsgBuf)
+            if (SBN_AppData.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, MsgBuf)
                 == false)
             {
                 return SBN_ERROR;
@@ -535,7 +536,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
                         Conn->PeerInterface = PeerInterface;
 
-                        SBN.Connected(PeerInterface);
+                        SBN_AppData.Connected(PeerInterface);
 
                         break;
                     } /* end if */

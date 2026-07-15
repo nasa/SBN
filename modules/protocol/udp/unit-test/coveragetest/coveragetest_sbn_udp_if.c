@@ -36,10 +36,11 @@
 #include "sbn_udp_if_coveragetest_common.h"
 #include "sbn_udp_if.h"
 #include "sbn_app.h"
+#include "sbn_error.h"
 
 #define SBN_PROTOCOL_VERSION 6
 
-SBN_App_t SBN;
+SBN_AppData_t SBN_AppData;
 
 SBN_NetInterface_t  *NetPtr;
 SBN_PeerInterface_t *PeerPtr;
@@ -85,9 +86,9 @@ static void START_fn(const char *fn, int ln)
 {
     UT_ResetState(0);
     printf("Start item %s (%d)\n", fn, ln);
-    memset(&SBN, 0, sizeof(SBN));
-    SBN.NetCnt            = 1;
-    NetPtr                = &SBN.Nets[0];
+    memset(&SBN_AppData, 0, sizeof(SBN_AppData));
+    SBN_AppData.NetCnt            = 1;
+    NetPtr                = &SBN_AppData.Nets[0];
     PeerPtr               = &NetPtr->Peers[0];
     NetPtr->PeerCnt       = 1;
     PeerPtr->Net          = NetPtr;
@@ -181,7 +182,7 @@ static void Init_Nominal(void)
     SBN_ProtocolOutlet_t Outlet;
     START();
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0, &Outlet), CFE_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0, &Outlet), SBN_SUCCESS);
 } /* end Init_Nominal() */
 
 void Test_SBN_UDP_Init(void)
@@ -343,8 +344,8 @@ void Test_SBN_UDP_LoadPeer(void)
 static void PollPeer_ConnTimeout(void)
 {
     START();
-    memset(&SBN, 0, sizeof(SBN));
-    SBN.NetCnt = 1;
+    memset(&SBN_AppData, 0, sizeof(SBN_AppData));
+    SBN_AppData.NetCnt = 1;
     SBN_ProtocolOutlet_t Outlet;
     Outlet.Disconnected = DisconnectCallback;
     Outlet.SendNetMsg   = SendNetMsgCallback;
@@ -915,7 +916,7 @@ static void UnloadPeer_Nominal(void)
 {
     START();
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadPeer(PeerPtr), CFE_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadPeer(PeerPtr), SBN_SUCCESS);
 
     UtAssert_True(PeerPtr->Connected == false, "Peer connected (%s)", __func__);
 } /* end UnloadPeer_Nominal() */
@@ -936,7 +937,7 @@ static void UnloadNet_Nominal(void)
 
     OS_OpenCreate(&(NetData->Socket), NULL, 0, 0);
 
-    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadNet(NetPtr), CFE_SUCCESS);
+    UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadNet(NetPtr), SBN_SUCCESS);
 
     /* TODO: check what was called? */
     UtAssert_True(PeerPtr->Connected == false, "Peer still connected (%s)", __func__);
