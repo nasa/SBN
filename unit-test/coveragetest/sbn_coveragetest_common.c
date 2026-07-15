@@ -256,7 +256,7 @@ void START_fn(const char *func, int line)
     memset(&SBN_AppData, 0, sizeof(SBN_AppData));
 
     NetPtr                = &SBN_AppData.Nets[0];
-    SBN_AppData.NetCnt            = 1;
+    SBN_AppData.NetCnt    = 1;
     NetPtr->PeerCnt       = 1;
     NetPtr->Configured    = 1;
     PeerPtr               = &NetPtr->Peers[0];

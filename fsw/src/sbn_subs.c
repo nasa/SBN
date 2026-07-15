@@ -307,7 +307,8 @@ static SBN_Status_t ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             EVSSendInfo(SBN_PEER_EID, "process local unsub %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
-            SBN_Status = SendLocalSubToPeer(SBN_UNSUB_MSG, SBN_AppData.Subs[PeerIdx].MsgID, SBN_AppData.Subs[PeerIdx].QoS, Peer);
+            SBN_Status =
+                SendLocalSubToPeer(SBN_UNSUB_MSG, SBN_AppData.Subs[PeerIdx].MsgID, SBN_AppData.Subs[PeerIdx].QoS, Peer);
 
             if (SBN_Status != SBN_SUCCESS)
             {
@@ -375,7 +376,9 @@ SBN_Status_t SBN_CheckSubscriptionPipe(void)
             }
             else
             {
-                EVSSendErr(SBN_MSG_EID, "unexpected message id (0x%04X) on SBN_AppData.SubPipe", CFE_SB_MsgIdToValue(MsgId));
+                EVSSendErr(SBN_MSG_EID,
+                           "unexpected message id (0x%04X) on SBN_AppData.SubPipe",
+                           CFE_SB_MsgIdToValue(MsgId));
                 return SBN_ERROR;
             } /* end switch */
 

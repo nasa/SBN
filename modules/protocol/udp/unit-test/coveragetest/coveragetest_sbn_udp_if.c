@@ -87,7 +87,7 @@ static void START_fn(const char *fn, int ln)
     UT_ResetState(0);
     printf("Start item %s (%d)\n", fn, ln);
     memset(&SBN_AppData, 0, sizeof(SBN_AppData));
-    SBN_AppData.NetCnt            = 1;
+    SBN_AppData.NetCnt    = 1;
     NetPtr                = &SBN_AppData.Nets[0];
     PeerPtr               = &NetPtr->Peers[0];
     NetPtr->PeerCnt       = 1;
