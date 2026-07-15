@@ -469,7 +469,8 @@ SBN_Status_t SBN_RecvNetMsgs(void)
             {
                 /*memset(SBN_AppData.MsgBuffer, 0, sizeof(SBN_AppData.MsgBuffer));*/
 
-                SBN_Status = Net->IfOps->RecvFromNet(Net, &MsgType, &MsgSz, &ProcessorID, &SpacecraftID, SBN_AppData.MsgBuffer);
+                SBN_Status =
+                    Net->IfOps->RecvFromNet(Net, &MsgType, &MsgSz, &ProcessorID, &SpacecraftID, SBN_AppData.MsgBuffer);
 
                 if (SBN_Status == SBN_IF_EMPTY)
                 {
@@ -489,7 +490,12 @@ SBN_Status_t SBN_RecvNetMsgs(void)
                 } /* end if */
 
                 OS_GetLocalTime(&Peer->LastRecv);
-                SBN_ProcessNetMsg(Net, MsgType, ProcessorID, SpacecraftID, MsgSz, SBN_AppData.MsgBuffer); /* ignore errors */
+                SBN_ProcessNetMsg(Net,
+                                  MsgType,
+                                  ProcessorID,
+                                  SpacecraftID,
+                                  MsgSz,
+                                  SBN_AppData.MsgBuffer); /* ignore errors */
             } /* end for */
         }
         else if (Net->IfOps->RecvFromPeer)
@@ -505,9 +511,13 @@ SBN_Status_t SBN_RecvNetMsgs(void)
                 {
                     memset(SBN_AppData.MsgBuffer, 0, sizeof(SBN_AppData.MsgBuffer));
 
-                    SBN_Status =
-                        Net->IfOps
-                            ->RecvFromPeer(Net, Peer, &MsgType, &MsgSz, &ProcessorID, &SpacecraftID, SBN_AppData.MsgBuffer);
+                    SBN_Status = Net->IfOps->RecvFromPeer(Net,
+                                                          Peer,
+                                                          &MsgType,
+                                                          &MsgSz,
+                                                          &ProcessorID,
+                                                          &SpacecraftID,
+                                                          SBN_AppData.MsgBuffer);
 
                     if (SBN_Status == SBN_IF_EMPTY)
                     {
@@ -516,7 +526,8 @@ SBN_Status_t SBN_RecvNetMsgs(void)
 
                     OS_GetLocalTime(&Peer->LastRecv);
 
-                    SBN_Status = SBN_ProcessNetMsg(Net, MsgType, ProcessorID, SpacecraftID, MsgSz, SBN_AppData.MsgBuffer);
+                    SBN_Status =
+                        SBN_ProcessNetMsg(Net, MsgType, ProcessorID, SpacecraftID, MsgSz, SBN_AppData.MsgBuffer);
 
                     if (SBN_Status != SBN_SUCCESS)
                     {
@@ -1161,7 +1172,8 @@ static SBN_Status_t LoadConf(void)
         } /* end if */
 
         EVSSendInfo(SBN_TBL_EID, "initializing protocol module");
-        if (Ops->InitModule(SBN_PROTOCOL_VERSION, SBN_AppData.ConfTbl->ProtocolModules[ModuleIdx].BaseEID, &Outlet) != SBN_SUCCESS)
+        if (Ops->InitModule(SBN_PROTOCOL_VERSION, SBN_AppData.ConfTbl->ProtocolModules[ModuleIdx].BaseEID, &Outlet)
+            != SBN_SUCCESS)
         {
             EVSSendErr(SBN_TBL_EID, "error in protocol init");
             return SBN_ERROR;
@@ -1178,7 +1190,8 @@ static SBN_Status_t LoadConf(void)
     {
         CFE_ES_ModuleID_t ModuleID = OS_OBJECT_ID_UNDEFINED;
 
-        Filters[ModuleIdx] = (SBN_FilterInterface_t *)LoadConf_Module(&SBN_AppData.ConfTbl->FilterModules[ModuleIdx], &ModuleID);
+        Filters[ModuleIdx] =
+            (SBN_FilterInterface_t *)LoadConf_Module(&SBN_AppData.ConfTbl->FilterModules[ModuleIdx], &ModuleID);
 
         if (Filters[ModuleIdx] == NULL)
         {
@@ -1187,7 +1200,8 @@ static SBN_Status_t LoadConf(void)
         } /* end if */
 
         EVSSendInfo(SBN_TBL_EID, "initializing filter module");
-        if (Filters[ModuleIdx]->InitModule(SBN_FILTER_VERSION, SBN_AppData.ConfTbl->FilterModules[ModuleIdx].BaseEID) != SBN_SUCCESS)
+        if (Filters[ModuleIdx]->InitModule(SBN_FILTER_VERSION, SBN_AppData.ConfTbl->FilterModules[ModuleIdx].BaseEID)
+            != SBN_SUCCESS)
         {
             EVSSendErr(SBN_TBL_EID, "error in filter init");
             return SBN_ERROR;
@@ -1243,8 +1257,11 @@ static SBN_Status_t LoadConf(void)
             Net->IfOps       = SBN_AppData.IfOps[ModuleIdx];
             Net->IfOps->LoadNet(Net, (const char *)e->Address);
 
-            Net->FilterCnt =
-                LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules, SBN_AppData.ConfTbl->FilterCnt, Filters, e->Filters, Net->Filters);
+            Net->FilterCnt = LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules,
+                                              SBN_AppData.ConfTbl->FilterCnt,
+                                              Filters,
+                                              e->Filters,
+                                              Net->Filters);
 
             Net->TaskFlags = e->TaskFlags;
         }
@@ -1257,8 +1274,11 @@ static SBN_Status_t LoadConf(void)
             Peer->ProcessorID  = e->ProcessorID;
             Peer->SpacecraftID = e->SpacecraftID;
 
-            Peer->FilterCnt =
-                LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules, SBN_AppData.ConfTbl->FilterCnt, Filters, e->Filters, Peer->Filters);
+            Peer->FilterCnt = LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules,
+                                               SBN_AppData.ConfTbl->FilterCnt,
+                                               Filters,
+                                               e->Filters,
+                                               Peer->Filters);
 
             SBN_AppData.IfOps[ModuleIdx]->LoadPeer(Peer, (const char *)e->Address);
 
@@ -1396,7 +1416,11 @@ static uint32 LoadConfTbl(void)
 {
     int32 Status = CFE_SUCCESS;
 
-    if ((Status = CFE_TBL_Register(&SBN_AppData.ConfTblHandle, "SBN_ConfTbl", sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, NULL))
+    if ((Status = CFE_TBL_Register(&SBN_AppData.ConfTblHandle,
+                                   "SBN_ConfTbl",
+                                   sizeof(SBN_ConfTbl_t),
+                                   CFE_TBL_OPT_DEFAULT,
+                                   NULL))
         != CFE_SUCCESS)
     {
         EVSSendErr(SBN_TBL_EID, "unable to register conf tbl handle");
@@ -1455,16 +1479,18 @@ static SBN_Status_t SetupSubPipe(void)
         return SBN_ERROR;
     } /* end if */
 
-    Status =
-        CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID), SBN_AppData.SubPipe, SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID),
+                                   SBN_AppData.SubPipe,
+                                   SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to allsubs (Status=%d)", (int)Status);
         return SBN_ERROR;
     } /* end if */
 
-    Status =
-        CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID), SBN_AppData.SubPipe, SBN_MAX_ONESUB_PKTS_ON_PIPE);
+    Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID),
+                                   SBN_AppData.SubPipe,
+                                   SBN_MAX_ONESUB_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to sub (Status=%d)", (int)Status);
