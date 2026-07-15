@@ -17,6 +17,7 @@
  ************************************************************************/
 
 #include "sbn_coveragetest_common.h"
+#include "sbn_error.h"
 
 int32 UT_CheckEvent_Hook(void                   *UserObj,
                          int32                   StubRetcode,
@@ -83,7 +84,7 @@ void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText)
 
 SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
-    return CFE_SUCCESS;
+    return SBN_SUCCESS;
 } /* end ProtoInitModule_Nominal() */
 
 SBN_Status_t InitNet_Nominal(SBN_NetInterface_t *Net)
@@ -252,10 +253,10 @@ void START_fn(const char *func, int line)
 {
     UT_ResetState(0);
     printf("Start item %s (%d)\n", func, line);
-    memset(&SBN, 0, sizeof(SBN));
+    memset(&SBN_AppData, 0, sizeof(SBN_AppData));
 
-    NetPtr                = &SBN.Nets[0];
-    SBN.NetCnt            = 1;
+    NetPtr                = &SBN_AppData.Nets[0];
+    SBN_AppData.NetCnt            = 1;
     NetPtr->PeerCnt       = 1;
     NetPtr->Configured    = 1;
     PeerPtr               = &NetPtr->Peers[0];

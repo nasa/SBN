@@ -115,12 +115,12 @@ typedef struct
 
     /* Buffer for receiving messages, allocated here to avoid stack smashing */
     uint8 MsgBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} SBN_App_t;
+} SBN_AppData_t;
 
 /**
  * \brief SBN glocal data structure references, indexed by AppId.
  */
-extern SBN_App_t SBN;
+extern SBN_AppData_t SBN_AppData;
 
 /*
 ** Prototypes
