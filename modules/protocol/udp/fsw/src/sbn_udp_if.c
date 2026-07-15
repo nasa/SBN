@@ -30,7 +30,7 @@ CFE_EVS_EventID_t SBN_UDP_FIRST_EID;
 
 #define EXP_VERSION 6
 
-static SBN_ProtocolOutlet_t SBN;
+static SBN_ProtocolOutlet_t UDP_ProtocolOutlet;
 
 static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
@@ -49,7 +49,7 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOut
     } /* end if */
 
     /* copy outlet pointers to a local buffer for later use */
-    memcpy(&SBN, Outlet, sizeof(SBN));
+    memcpy(&UDP_ProtocolOutlet, Outlet, sizeof(UDP_ProtocolOutlet));
 
     OS_printf("SBN_UDP Lib Initialized.\n");
     return SBN_SUCCESS;
@@ -206,7 +206,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
         {
             EVSSendInfo(SBN_UDP_DEBUG_EID, "disconnected peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
 
-            SBN.Disconnected(Peer);
+            UDP_ProtocolOutlet.Disconnected(Peer);
             return SBN_SUCCESS;
         } /* end if */
 
@@ -214,7 +214,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
         {
             OS_GetLocalTime(&Peer->LastSend);
             EVSSendDbg(SBN_UDP_DEBUG_EID, "sending heartbeat to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
-            return SBN.SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
+            return UDP_ProtocolOutlet.SendNetMsg(SBN_UDP_HEARTBEAT_MSG, 0, NULL, Peer);
         } /* end if */
     }
     else
@@ -224,7 +224,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
         {
             OS_GetLocalTime(&Peer->LastSend);
             EVSSendInfo(SBN_UDP_DEBUG_EID, "announce to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
-            return SBN.SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
+            return UDP_ProtocolOutlet.SendNetMsg(SBN_UDP_ANNOUNCE_MSG, 0, NULL, Peer);
         } /* end if */
     } /* end if */
 
@@ -241,7 +241,7 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
     SBN_NetInterface_t *Net      = Peer->Net;
     SBN_UDP_Net_t      *NetData  = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN.PackMsg(Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Payload);
+    UDP_ProtocolOutlet.PackMsg(Buf, MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Payload);
 
     OS_SockAddr_t Addr;
     if (OS_SocketAddrInit(&Addr, OS_SocketDomain_INET) != OS_SUCCESS)
@@ -303,13 +303,13 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
     /* each UDP packet is a full SBN message */
 
-    if (SBN.UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, Payload) == false)
+    if (UDP_ProtocolOutlet.UnpackMsg(&RecvBuf, MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, Payload) == false)
     {
         EVSSendErr(SBN_UDP_DEBUG_EID, "ERROR: could not unpack message");
         return SBN_ERROR;
     } /* end if */
 
-    SBN_PeerInterface_t *Peer = SBN.GetPeer(Net, *ProcessorIDPtr, *SpacecraftIDPtr);
+    SBN_PeerInterface_t *Peer = UDP_ProtocolOutlet.GetPeer(Net, *ProcessorIDPtr, *SpacecraftIDPtr);
     if (Peer == NULL)
     {
         EVSSendErr(SBN_UDP_DEBUG_EID, "ERROR: unknown peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
@@ -319,7 +319,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
     if (!Peer->Connected)
     {
         EVSSendInfo(SBN_UDP_DEBUG_EID, "connecting to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
-        SBN.Connected(Peer);
+        UDP_ProtocolOutlet.Connected(Peer);
     }
     else
     {
@@ -328,7 +328,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
     if (*MsgTypePtr == SBN_UDP_DISCONN_MSG)
     {
-        SBN.Disconnected(Peer);
+        UDP_ProtocolOutlet.Disconnected(Peer);
     }
 
     return SBN_SUCCESS;
@@ -339,8 +339,8 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
     if (Peer->Connected)
     {
         EVSSendInfo(SBN_UDP_DEBUG_EID, "peer %d:%d - sending disconnect", Peer->SpacecraftID, Peer->ProcessorID);
-        SBN.SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
-        SBN.Disconnected(Peer);
+        UDP_ProtocolOutlet.SendNetMsg(SBN_UDP_DISCONN_MSG, 0, NULL, Peer);
+        UDP_ProtocolOutlet.Disconnected(Peer);
     } /* end if */
 
     return SBN_SUCCESS;
