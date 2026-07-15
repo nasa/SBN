@@ -19,6 +19,7 @@
 #include "sbn_udp_events.h"
 #include "sbn_udp_if.h"
 #include "sbn_platform_cfg.h"
+#include "sbn_error.h"
 #include <string.h>
 #include <errno.h>
 
