@@ -129,7 +129,8 @@ bool SBN_UnpackMsg(void               *SBNBuf,
                    CFE_SpacecraftID_t *SpacecraftIDPtr,
                    void               *Msg)
 {
-    uint8  t = 0;
+    *MsgSzPtr = 0;
+    uint8  t  = 0;
     Pack_t Pack;
     Pack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ, false);
     Unpack_UInt32(&Pack, MsgSzPtr);
@@ -445,17 +446,22 @@ void SBN_RecvNetTask(void)
  */
 SBN_Status_t SBN_RecvNetMsgs(void)
 {
-    SBN_Status_t SBN_Status = 0;
+    SBN_Status_t         SBN_Status;
+    SBN_PeerInterface_t *Peer;
+    uint8                MsgCnt;
+    SBN_NetIdx_t         NetIdx;
+    SBN_NetInterface_t  *Net;
+    SBN_MsgType_t        MsgType;
+    SBN_MsgSz_t          MsgSz;
+    CFE_ProcessorID_t    ProcessorID;
+    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_PeerIdx_t        PeerIdx;
 
-    SBN_NetIdx_t NetIdx = 0;
+    SBN_Status = SBN_ERROR;
+
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
-        SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
-        SBN_MsgType_t       MsgType;
-        SBN_MsgSz_t         MsgSz;
-        CFE_ProcessorID_t   ProcessorID;
-        CFE_SpacecraftID_t  SpacecraftID;
-
+        Net = &SBN_AppData.Nets[NetIdx];
         if (Net->TaskFlags & SBN_TASK_RECV)
         {
             continue; /* separate task handles receiving from a net */
@@ -463,7 +469,7 @@ SBN_Status_t SBN_RecvNetMsgs(void)
 
         if (Net->IfOps->RecvFromNet)
         {
-            int MsgCnt = 0;
+            MsgCnt = 0;
             // TODO: make configurable
             for (MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from the net */
             {
@@ -480,7 +486,7 @@ SBN_Status_t SBN_RecvNetMsgs(void)
                 /* for UDP, the message received may not be from the peer
                  * expected.
                  */
-                SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID, SpacecraftID);
+                Peer = SBN_GetPeer(Net, ProcessorID, SpacecraftID);
 
                 if (!Peer)
                 {
@@ -500,12 +506,12 @@ SBN_Status_t SBN_RecvNetMsgs(void)
         }
         else if (Net->IfOps->RecvFromPeer)
         {
-            SBN_PeerIdx_t PeerIdx = 0;
+            PeerIdx = 0;
             for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
-                SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
+                Peer = &Net->Peers[PeerIdx];
+                MsgCnt = 0;
 
-                int MsgCnt = 0;
                 // TODO: make configurable
                 for (MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from peer */
                 {
