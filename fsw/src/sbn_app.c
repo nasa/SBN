@@ -727,7 +727,7 @@ static SBN_Status_t CheckPeerPipes(void)
 {
     CFE_Status_t       CFE_Status;
     int                ReceivedFlag;
-    int                iter;
+    int                iter      = 0;
     CFE_MSG_Message_t *MsgPtr    = NULL;
     CFE_MSG_Size_t     MsgSz     = 0;
     SBN_MsgSz_t        SBN_MsgSz = 0;
@@ -1063,7 +1063,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
  */
 static cpuaddr LoadConf_Module(SBN_Module_Entry_t *e, CFE_ES_ModuleID_t *ModuleIDPtr)
 {
-    cpuaddr StructAddr;
+    cpuaddr StructAddr = 0;
 
     EVSSendInfo(SBN_TBL_EID, "checking if module (%s) already loaded", e->Name);
     if (OS_SymbolLookup(&StructAddr, e->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
@@ -1597,7 +1597,7 @@ static SBN_Status_t Cleanup(void)
 void SBN_AppMain(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not start SBN:";
-    CFE_ES_TaskInfo_t TaskInfo;
+    CFE_ES_TaskInfo_t TaskInfo  = { 0 };
     uint32            Status    = CFE_SUCCESS;
     uint32            RunStatus = CFE_ES_RunStatus_APP_RUN;
     CFE_ES_AppId_t    AppID     = CFE_ES_APPID_UNDEFINED;
