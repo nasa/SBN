@@ -25,6 +25,7 @@
 #include <stdlib.h> /* qsort */
 
 #include "sbn_f_remap_events.h"
+#include "sbn_error.h"
 
 const char SBN_F_REMAP_TABLE_NAME[] = "SBN_RemapTbl";
 

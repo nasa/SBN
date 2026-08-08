@@ -115,12 +115,57 @@ typedef struct
 
     /* Buffer for receiving messages, allocated here to avoid stack smashing */
     uint8 MsgBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} SBN_App_t;
+} SBN_AppData_t;
 
 /**
  * \brief SBN glocal data structure references, indexed by AppId.
  */
-extern SBN_App_t SBN;
+extern SBN_AppData_t SBN_AppData;
+
+/* Use a struct for all local variables in the task so we can specify exactly
+ * how large of a stack we need for the task.
+ */
+
+typedef struct
+{
+    SBN_Status_t         Status;
+    CFE_ES_TaskId_t      RecvTaskID;
+    SBN_PeerIdx_t        PeerIdx;
+    SBN_NetIdx_t         NetIdx;
+    SBN_PeerInterface_t *Peer;
+    SBN_NetInterface_t  *Net;
+    CFE_ProcessorID_t    ProcessorID;
+    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_MsgType_t        MsgType;
+    SBN_MsgSz_t          MsgSz;
+    uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+} RecvPeerTaskData_t;
+
+typedef struct RecvNetTaskData_s
+{
+    SBN_NetIdx_t         NetIdx;
+    SBN_NetInterface_t  *Net;
+    SBN_PeerInterface_t *Peer;
+    SBN_Status_t         Status;
+    CFE_ES_TaskId_t      RecvTaskID;
+    CFE_ProcessorID_t    ProcessorID;
+    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_MsgType_t        MsgType;
+    SBN_MsgSz_t          MsgSz;
+    uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+} RecvNetTaskData_t;
+
+typedef struct
+{
+    SBN_Status_t         Status;
+    SBN_NetIdx_t         NetIdx;
+    SBN_PeerIdx_t        PeerIdx;
+    CFE_ES_TaskId_t      SendTaskID;
+    CFE_MSG_Message_t   *MsgPtr;
+    CFE_SB_MsgId_t       MsgID;
+    SBN_NetInterface_t  *Net;
+    SBN_PeerInterface_t *Peer;
+} SendTaskData_t;
 
 /*
 ** Prototypes

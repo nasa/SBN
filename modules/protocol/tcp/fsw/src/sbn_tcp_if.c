@@ -21,6 +21,7 @@
 #include "cfe.h"
 #include "cfe_endian.h"
 #include "sbn_tcp_events.h"
+#include "sbn_error.h"
 
 #include <string.h>
 #include <errno.h>
@@ -73,7 +74,7 @@ CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
 
 #define EXP_VERSION 6
 
-static SBN_ProtocolOutlet_t SBN;
+static SBN_ProtocolOutlet_t TCP_ProtocolOutlet;
 
 static SBN_Status_t Init(int Version, CFE_EVS_EventID_t EID, SBN_ProtocolOutlet_t *Outlet)
 {
@@ -90,7 +91,7 @@ static SBN_Status_t Init(int Version, CFE_EVS_EventID_t EID, SBN_ProtocolOutlet_
         return SBN_ERROR;
     } /* end if */
 
-    memcpy(&SBN, Outlet, sizeof(SBN));
+    memcpy(&TCP_ProtocolOutlet, Outlet, sizeof(TCP_ProtocolOutlet));
 
     OS_printf("SBN_TCP Lib Initialized.\n");
     return SBN_SUCCESS;
@@ -183,7 +184,7 @@ static void Disconnected(SBN_PeerInterface_t *Peer)
         PeerData->Conn = NULL;
     } /* end if */
 
-    SBN.Disconnected(Peer);
+    TCP_ProtocolOutlet.Disconnected(Peer);
 } /* end Disconnected() */
 
 static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
@@ -344,7 +345,7 @@ static void CheckNet(SBN_NetInterface_t *Net)
                     Conn->PeerInterface = Peer;
                     PeerData->Conn      = Conn;
 
-                    SBN.Connected(Peer);
+                    TCP_ProtocolOutlet.Connected(Peer);
                 } /* end if */
             } /* end if */
         } /* end if */
@@ -363,7 +364,8 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
         return 0;
     } /* end if */
 
-    SBN.PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Msg);
+    TCP_ProtocolOutlet
+        .PackMsg(&SendBufs[NetData->BufNum], MsgSz, MsgType, CFE_PSP_GetProcessorId(), CFE_PSP_GetSpacecraftId(), Msg);
     int32 sent_size = OS_write(PeerData->Conn->Socket, &SendBufs[NetData->BufNum], MsgSz + SBN_PACKED_HDR_SZ);
     if ((sent_size < 0) || (sent_size < MsgSz + SBN_PACKED_HDR_SZ))
     {
@@ -512,7 +514,8 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
             } /* end if */
 
             /* we have the complete body, decode! */
-            if (SBN.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, MsgBuf)
+            if (TCP_ProtocolOutlet
+                    .UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, MsgBuf)
                 == false)
             {
                 return SBN_ERROR;
@@ -535,7 +538,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
                         Conn->PeerInterface = PeerInterface;
 
-                        SBN.Connected(PeerInterface);
+                        TCP_ProtocolOutlet.Connected(PeerInterface);
 
                         break;
                     } /* end if */
