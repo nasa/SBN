@@ -302,7 +302,7 @@ int SBN_SERIAL_Recv(SBN_NetInterface_t  *Net,
         } /* end if */
     } /* end if */
 
-    /* only get here if we're read'd the header and ready for the body */
+    /* only get here if we've read the header and ready for the body */
 
     ToRead = CFE_MAKE_BIG32(*((SBN_MsgSz_t *)&RecvBufs[PeerData->BufNum])) + SBN_PACKED_HDR_SZ - PeerData->RecvSz;
     if (ToRead)

@@ -21,7 +21,7 @@
 **
 **   2014/11/21 ejtimmon
 **
-**   Specification for the Software Bus Network event identifers.
+**   Specification for the Software Bus Network event identifiers.
 **
 *************************************************************************/
 
