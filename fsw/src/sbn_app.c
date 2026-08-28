@@ -1006,7 +1006,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 {
     CFE_Status_t       CFE_Status = CFE_SUCCESS;
     SBN_Status_t       SBN_Status = SBN_SUCCESS;
-    CFE_MSG_Message_t *MsgPtr     = 0;
+    CFE_MSG_Message_t *MsgPtr     = NULL;
 
     /* Wait for WakeUp messages from scheduler */
     CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN.CmdPipe, iTimeOut);
