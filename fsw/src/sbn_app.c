@@ -1133,7 +1133,10 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModu
             continue;
         } /* end if */
 
-        Filters[FilterCnt++] = ConfFilters[FilterIdx];
+        Filters[FilterCnt] = ConfFilters[FilterIdx];
+
+        /* Increment FilterCnt */
+        FilterCnt++;
     } /* end for */
 
     return FilterCnt;
