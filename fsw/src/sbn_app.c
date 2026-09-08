@@ -37,7 +37,7 @@ static SBN_Status_t UnloadNets(void);
 
 static SBN_Status_t UnloadModules(void)
 {
-    SBN_ModuleIdx_t i = 0;
+    SBN_ModuleIdx_t i;
 
     for (i = 0; i < SBN_MAX_MOD_CNT; i++)
     {
@@ -162,7 +162,7 @@ bool SBN_UnpackMsg(void               *SBNBuf,
 SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not disconnect peer:";
-    SBN_Status_t      SBN_Status    = SBN_SUCCESS;
+    SBN_Status_t      SBN_Status;
     CFE_Status_t      CFE_Status;
 
     if (Peer->Connected != 0)
@@ -445,9 +445,9 @@ void SBN_RecvNetTask(void)
  */
 SBN_Status_t SBN_RecvNetMsgs(void)
 {
-    SBN_Status_t SBN_Status = 0;
+    SBN_Status_t SBN_Status;
 
-    SBN_NetIdx_t NetIdx = 0;
+    SBN_NetIdx_t NetIdx;
     for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
@@ -463,7 +463,7 @@ SBN_Status_t SBN_RecvNetMsgs(void)
 
         if (Net->IfOps->RecvFromNet)
         {
-            int MsgCnt = 0;
+            int MsgCnt;
             // TODO: make configurable
             for (MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from the net */
             {
@@ -494,12 +494,12 @@ SBN_Status_t SBN_RecvNetMsgs(void)
         }
         else if (Net->IfOps->RecvFromPeer)
         {
-            SBN_PeerIdx_t PeerIdx = 0;
+            SBN_PeerIdx_t PeerIdx;
             for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
-                int MsgCnt = 0;
+                int MsgCnt;
                 // TODO: make configurable
                 for (MsgCnt = 0; MsgCnt < 100; MsgCnt++) /* read at most 100 messages from peer */
                 {
@@ -562,8 +562,8 @@ SBN_Status_t SBN_RecvNetMsgs(void)
  */
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
 {
-    SBN_NetInterface_t *Net        = Peer->Net;
-    SBN_Status_t        SBN_Status = SBN_SUCCESS;
+    SBN_NetInterface_t *Net = Peer->Net;
+    SBN_Status_t        SBN_Status;
 
     if (CFE_RESOURCEID_TEST_DEFINED(Peer->SendTaskID))
     {
@@ -620,8 +620,8 @@ void SBN_SendTask(void)
 {
     SendTaskData_t   D;
     SBN_Filter_Ctx_t Filter_Context;
-    CFE_MSG_Size_t   MsgSz     = 0;
-    SBN_MsgSz_t      SBN_MsgSz = 0;
+    CFE_MSG_Size_t   MsgSz = 0;
+    SBN_MsgSz_t      SBN_MsgSz;
 
     Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
@@ -656,7 +656,7 @@ void SBN_SendTask(void)
 
     while (1)
     {
-        SBN_ModuleIdx_t FilterIdx = 0;
+        SBN_ModuleIdx_t FilterIdx;
 
         if (!D.Peer->Connected)
         {
@@ -724,10 +724,10 @@ static SBN_Status_t CheckPeerPipes(void)
 {
     CFE_Status_t       CFE_Status;
     int                ReceivedFlag;
-    int                iter      = 0;
-    CFE_MSG_Message_t *MsgPtr    = NULL;
-    CFE_MSG_Size_t     MsgSz     = 0;
-    SBN_MsgSz_t        SBN_MsgSz = 0;
+    int                iter;
+    CFE_MSG_Message_t *MsgPtr = NULL;
+    CFE_MSG_Size_t     MsgSz  = 0;
+    SBN_MsgSz_t        SBN_MsgSz;
     SBN_Filter_Ctx_t   Filter_Context;
 
     Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
@@ -742,16 +742,16 @@ static SBN_Status_t CheckPeerPipes(void)
     {
         ReceivedFlag = 0;
 
-        SBN_NetIdx_t NetIdx = 0;
+        SBN_NetIdx_t NetIdx;
         for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
         {
             SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
 
-            SBN_PeerIdx_t PeerIdx = 0;
+            SBN_PeerIdx_t PeerIdx;
             for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
-                SBN_ModuleIdx_t      FilterIdx = 0;
-                SBN_PeerInterface_t *Peer      = &Net->Peers[PeerIdx];
+                SBN_ModuleIdx_t      FilterIdx;
+                SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
                 // Poll peer here to detect disconnections and to reconnect
                 if (Net->IfOps->PollPeer(Peer) != SBN_SUCCESS)
@@ -867,7 +867,7 @@ static SBN_Status_t CheckPeerPipes(void)
 static SBN_Status_t PeerPoll(void)
 {
     CFE_Status_t CFE_Status;
-    SBN_NetIdx_t NetIdx = 0;
+    SBN_NetIdx_t NetIdx;
     for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
@@ -898,7 +898,7 @@ static SBN_Status_t PeerPoll(void)
         }
         else
         {
-            SBN_PeerIdx_t PeerIdx = 0;
+            SBN_PeerIdx_t PeerIdx;
             for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -953,7 +953,7 @@ static SBN_Status_t InitInterfaces(void)
         return SBN_ERROR;
     } /* end if */
 
-    SBN_NetIdx_t NetIdx = 0;
+    SBN_NetIdx_t NetIdx;
     for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         EVSSendInfo(SBN_PEER_EID, "initializing net: %d", (int)NetIdx);
@@ -968,7 +968,7 @@ static SBN_Status_t InitInterfaces(void)
 
         Net->IfOps->InitNet(Net);
 
-        SBN_PeerIdx_t PeerIdx = 0;
+        SBN_PeerIdx_t PeerIdx;
         EVSSendInfo(SBN_PEER_EID, "Net %d has %d peers", NetIdx, Net->PeerCnt);
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
@@ -1004,9 +1004,9 @@ static SBN_Status_t InitInterfaces(void)
  */
 static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 {
-    CFE_Status_t       CFE_Status = CFE_SUCCESS;
-    SBN_Status_t       SBN_Status = SBN_SUCCESS;
-    CFE_MSG_Message_t *MsgPtr     = NULL;
+    CFE_Status_t       CFE_Status;
+    SBN_Status_t       SBN_Status;
+    CFE_MSG_Message_t *MsgPtr = NULL;
 
     /* Wait for WakeUp messages from scheduler */
     CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN.CmdPipe, iTimeOut);
@@ -1111,14 +1111,14 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModu
                                         char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
                                         SBN_FilterInterface_t **Filters)
 {
-    int             i         = 0;
+    int             i;
     SBN_ModuleIdx_t FilterCnt = 0;
 
     memset(FilterModules, 0, sizeof(*FilterModules) * FilterCnt);
 
     for (i = 0; i < SBN_MAX_FILTERS_PER_PEER && *ModuleNames[i]; i++)
     {
-        SBN_ModuleIdx_t FilterIdx = 0;
+        SBN_ModuleIdx_t FilterIdx;
         for (FilterIdx = 0; FilterIdx < FilterModuleCnt; FilterIdx++)
         {
             if (strcmp(ModuleNames[i], FilterModules[FilterIdx].Name) == 0)
@@ -1141,9 +1141,9 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModu
 
 static SBN_Status_t LoadConf(void)
 {
-    SBN_ConfTbl_t         *TblPtr    = NULL;
-    SBN_ModuleIdx_t        ModuleIdx = 0;
-    SBN_PeerIdx_t          PeerIdx   = 0;
+    SBN_ConfTbl_t         *TblPtr = NULL;
+    SBN_ModuleIdx_t        ModuleIdx;
+    SBN_PeerIdx_t          PeerIdx;
     SBN_FilterInterface_t *Filters[SBN_MAX_MOD_CNT];
     SBN_ProtocolOutlet_t   Outlet = { .PackMsg      = SBN_PackMsg,
                                       .UnpackMsg    = SBN_UnpackMsg,
@@ -1363,7 +1363,7 @@ static SBN_Status_t UnloadNets(void)
 {
     uint32 Status;
 
-    int NetIdx = 0;
+    int NetIdx;
     for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
@@ -1390,7 +1390,7 @@ static SBN_Status_t UnloadNets(void)
             EVSSendInfo(SBN_TBL_EID, "Terminated net: %d", NetIdx);
         }
 
-        SBN_PeerIdx_t PeerIdx = 0;
+        SBN_PeerIdx_t PeerIdx;
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -1409,7 +1409,7 @@ static SBN_Status_t UnloadNets(void)
 
 static uint32 LoadConfTbl(void)
 {
-    int32 Status = CFE_SUCCESS;
+    int32 Status;
 
     if ((Status = CFE_TBL_Register(&SBN.ConfTblHandle, "SBN_ConfTbl", sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, NULL))
         != CFE_SUCCESS)
@@ -1581,9 +1581,9 @@ void SBN_AppMain(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not start SBN:";
     CFE_ES_TaskInfo_t TaskInfo      = { 0 };
-    uint32            Status        = CFE_SUCCESS;
-    uint32            RunStatus     = CFE_ES_RunStatus_APP_RUN;
-    CFE_ES_AppId_t    AppID         = CFE_ES_APPID_UNDEFINED;
+    uint32            Status;
+    uint32            RunStatus = CFE_ES_RunStatus_APP_RUN;
+    CFE_ES_AppId_t    AppID     = CFE_ES_APPID_UNDEFINED;
 
     if (CFE_EVS_Register(NULL, 0, CFE_EVS_NO_FILTER) != CFE_SUCCESS)
         return;
@@ -1705,9 +1705,9 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                void               *Msg)
 {
     static const char    FAIL_PREFIX[] = "ERROR: could not process peer message:";
-    SBN_Status_t         SBN_Status    = SBN_SUCCESS;
-    CFE_Status_t         CFE_Status    = CFE_SUCCESS;
-    SBN_PeerInterface_t *Peer          = SBN_GetPeer(Net, ProcessorID, SpacecraftID);
+    SBN_Status_t         SBN_Status;
+    CFE_Status_t         CFE_Status;
+    SBN_PeerInterface_t *Peer = SBN_GetPeer(Net, ProcessorID, SpacecraftID);
 
     if (!Peer)
     {
@@ -1749,7 +1749,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
         } /* end case */
         case SBN_APP_MSG:
         {
-            SBN_ModuleIdx_t  FilterIdx = 0;
+            SBN_ModuleIdx_t  FilterIdx;
             SBN_Filter_Ctx_t Filter_Context;
 
             Filter_Context.MyProcessorID    = CFE_PSP_GetProcessorId();
@@ -1813,7 +1813,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
 SBN_PeerInterface_t *
 SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID)
 {
-    SBN_PeerIdx_t PeerIdx = 0;
+    SBN_PeerIdx_t PeerIdx;
 
     for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
