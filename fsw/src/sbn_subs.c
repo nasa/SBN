@@ -99,7 +99,7 @@ SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
     Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     Pack_UInt16(&Pack, SBN_AppData.SubCnt);
 
-    int i = 0;
+    int i;
     for (i = 0; i < SBN_AppData.SubCnt; i++)
     {
         Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
@@ -121,7 +121,7 @@ SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
  */
 static int IsMsgIDSub(int *IdxPtr, CFE_SB_MsgId_t MsgID)
 {
-    int i = 0;
+    int i;
 
     for (i = 0; i < SBN_AppData.SubCnt; i++)
     {
@@ -151,7 +151,7 @@ static int IsMsgIDSub(int *IdxPtr, CFE_SB_MsgId_t MsgID)
  */
 static int IsPeerSubMsgID(int *SubIdxPtr, CFE_SB_MsgId_t MsgID, SBN_PeerInterface_t *Peer)
 {
-    int i = 0;
+    int i;
 
     for (i = 0; i < Peer->SubCnt; i++)
     {
@@ -232,7 +232,7 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
     SBN_AppData.Subs[SBN_AppData.SubCnt].QoS      = QoS;
     SBN_AppData.SubCnt++;
 
-    int NetIdx = 0, PeerIdx = 0;
+    int NetIdx, PeerIdx;
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
@@ -298,7 +298,7 @@ static SBN_Status_t ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
 
     /* send unsubscription to all peers if peer state is heartbeating and */
     /* only if no more local subs (InUseCtr = 0)  */
-    int NetIdx = 0, PeerIdx = 0;
+    int NetIdx, PeerIdx;
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
         SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
@@ -328,10 +328,10 @@ static SBN_Status_t ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
  */
 SBN_Status_t SBN_CheckSubscriptionPipe(void)
 {
-    CFE_Status_t CFE_Status = CFE_SUCCESS;
+    CFE_Status_t CFE_Status;
 
-    CFE_SB_AllSubscriptionsTlm_t   *MsgPtr             = NULL; /* largest message format */
-    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr       = NULL; /* utility "cast" */
+    CFE_SB_AllSubscriptionsTlm_t   *MsgPtr = NULL; /* largest message format */
+    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr;  /* utility "cast" */
     CFE_SB_MsgId_t                  MsgId              = CFE_SB_INVALID_MSG_ID;
     static CFE_SB_MsgId_t           SB_ONESUB_TLM_MID  = CFE_SB_MSGID_RESERVED;
     static CFE_SB_MsgId_t           SB_ALLSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
@@ -405,8 +405,8 @@ SBN_Status_t SBN_CheckSubscriptionPipe(void)
  */
 static SBN_Status_t AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 {
-    int          idx        = 0;
-    CFE_Status_t CFE_Status = SBN_SUCCESS;
+    int          idx = 0;
+    CFE_Status_t CFE_Status;
 
     /* if msg id already in the list, ignore */
     if (IsPeerSubMsgID(&idx, MsgID, Peer))
@@ -505,7 +505,7 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     uint16 SubCnt = 0;
     Unpack_UInt16(&Pack, &SubCnt);
 
-    int SubIdx = 0;
+    int SubIdx;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID = CFE_SB_INVALID_MSG_ID;
@@ -539,7 +539,8 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
     SBN_Filter_Ctx_t Filter_Context;
     SBN_Status_t     SBN_Status;
 
-    int i = 0, idx = 0;
+    int i;
+    int idx = 0;
 
     Filter_Context.MyProcessorID    = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID   = CFE_PSP_GetSpacecraftId();
@@ -620,7 +621,7 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     uint16 SubCnt = 0;
     Unpack_UInt16(&Pack, &SubCnt);
 
-    int SubIdx = 0;
+    int SubIdx;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID = CFE_SB_INVALID_MSG_ID;
@@ -645,7 +646,7 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 SBN_Status_t SBN_ProcessAllSubscriptions(CFE_SB_AllSubscriptionsTlm_t *Ptr)
 {
     SBN_Status_t SBN_Status = SBN_SUCCESS;
-    int          i          = 0;
+    int          i;
 
     if (Ptr->Payload.Entries > CFE_MISSION_SB_SUB_ENTRIES_PER_PKT)
     {
@@ -680,7 +681,7 @@ SBN_Status_t SBN_ProcessAllSubscriptions(CFE_SB_AllSubscriptionsTlm_t *Ptr)
  */
 SBN_Status_t SBN_RemoveAllSubsFromPeer(SBN_PeerInterface_t *Peer)
 {
-    int          i = 0;
+    int          i;
     CFE_Status_t CFE_Status;
 
     for (i = 0; i < Peer->SubCnt; i++)
