@@ -69,6 +69,26 @@ typedef struct
     SBN_TCP_Conn_t Conns[SBN_MAX_PEER_CNT];
 } SBN_TCP_Net_t;
 
+/* ModulePvt is only 128 bytes and does not guarantee pointer alignment.
+ * Keep typed state in bounded, aligned storage and copy only its pointer
+ * into the opaque interface bytes. */
+static SBN_TCP_Net_t  NetStates[SBN_MAX_NETS];
+static SBN_TCP_Peer_t PeerStates[SBN_MAX_PEER_CNT];
+
+static SBN_TCP_Net_t *GetNetData(SBN_NetInterface_t *Net)
+{
+    SBN_TCP_Net_t *Data;
+    memcpy(&Data, Net->ModulePvt, sizeof(Data));
+    return Data;
+}
+
+static SBN_TCP_Peer_t *GetPeerData(SBN_PeerInterface_t *Peer)
+{
+    SBN_TCP_Peer_t *Data;
+    memcpy(&Data, Peer->ModulePvt, sizeof(Data));
+    return Data;
+}
+
 CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
 
 #define EXP_VERSION 6
@@ -170,37 +190,66 @@ static SBN_TCP_Conn_t *NewConn(SBN_TCP_Net_t *NetData, osal_id_t Socket)
     return Conn;
 } /* end NewConn() */
 
+/* Release the socket even before a peer has identified itself. */
+static void CloseConn(SBN_TCP_Conn_t *Conn)
+{
+    SBN_PeerInterface_t *Peer = Conn->PeerInterface;
+
+    OS_close(Conn->Socket);
+    Conn->Socket        = OS_OBJECT_ID_UNDEFINED;
+    Conn->InUse         = false;
+    Conn->ReceivingBody = false;
+    Conn->RecvSz        = 0;
+    Conn->PeerInterface = NULL;
+
+    if (Peer != NULL)
+    {
+        SBN_TCP_Peer_t *PeerData = GetPeerData(Peer);
+        if (PeerData != NULL)
+        {
+            PeerData->Conn = NULL;
+        }
+        SBN.Disconnected(Peer);
+    }
+}
+
 static void Disconnected(SBN_PeerInterface_t *Peer)
 {
-    SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
-    SBN_TCP_Conn_t *Conn     = PeerData->Conn;
+    SBN_TCP_Peer_t *PeerData = GetPeerData(Peer);
 
-    if (Conn)
+    if (PeerData == NULL)
     {
-        OS_close(Conn->Socket);
-
-        Conn->InUse    = false;
-        PeerData->Conn = NULL;
-    } /* end if */
-
-    SBN.Disconnected(Peer);
+        return;
+    }
+    if (PeerData->Conn != NULL)
+    {
+        CloseConn(PeerData->Conn);
+    }
+    else
+    {
+        SBN.Disconnected(Peer);
+    }
 } /* end Disconnected() */
 
 static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
 {
-    SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+    SBN_TCP_Net_t *NetData;
+    SBN_Status_t   Status;
 
-    EVSSendInfo(SBN_TCP_CONFIG_EID, "configuring net 0x%lx -> %s", (unsigned long int)NetData, Address);
-
-    SBN_Status_t Status = ConfAddr(&NetData->Addr, Address);
-
+    if (SendBufCnt >= SBN_MAX_NETS)
+    {
+        EVSSendErr(SBN_TCP_CONFIG_EID, "too many TCP networks");
+        return SBN_ERROR;
+    }
+    NetData = &NetStates[SendBufCnt];
+    memset(NetData, 0, sizeof(*NetData));
+    Status = ConfAddr(&NetData->Addr, Address);
     if (Status == SBN_SUCCESS)
     {
         NetData->BufNum = SendBufCnt++;
-
+        memcpy(Net->ModulePvt, &NetData, sizeof(NetData));
         EVSSendInfo(SBN_TCP_CONFIG_EID, "net 0x%lx configured", (unsigned long int)NetData);
-    } /* end if */
-
+    }
     return Status;
 } /* end LoadNet() */
 
@@ -209,19 +258,23 @@ static uint8 RecvBufCnt = 0;
 
 static SBN_Status_t LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
 {
-    SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+    SBN_TCP_Peer_t *PeerData;
+    SBN_Status_t    Status;
 
-    EVSSendInfo(SBN_TCP_CONFIG_EID, "configuring peer 0x%lx -> %s", (unsigned long int)PeerData, Address);
-
-    SBN_Status_t Status = ConfAddr(&PeerData->Addr, Address);
-
+    if (RecvBufCnt >= SBN_MAX_PEER_CNT)
+    {
+        EVSSendErr(SBN_TCP_CONFIG_EID, "too many TCP peers");
+        return SBN_ERROR;
+    }
+    PeerData = &PeerStates[RecvBufCnt];
+    memset(PeerData, 0, sizeof(*PeerData));
+    Status = ConfAddr(&PeerData->Addr, Address);
     if (Status == SBN_SUCCESS)
     {
         PeerData->BufNum = RecvBufCnt++;
-
+        memcpy(Peer->ModulePvt, &PeerData, sizeof(PeerData));
         EVSSendInfo(SBN_TCP_CONFIG_EID, "peer 0x%lx configured", (unsigned long int)PeerData);
-    } /* end if */
-
+    }
     return Status;
 } /* end LoadPeer() */
 
@@ -234,10 +287,14 @@ static SBN_Status_t LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
  */
 static SBN_Status_t InitNet(SBN_NetInterface_t *Net)
 {
-    SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+    SBN_TCP_Net_t *NetData = GetNetData(Net);
 
     OS_SocketID_t Socket = OS_OBJECT_ID_UNDEFINED;
 
+    if (NetData == NULL)
+    {
+        return SBN_ERROR;
+    }
     if (OS_SocketOpen(&Socket, OS_SocketDomain_INET, OS_SocketType_STREAM) != OS_SUCCESS)
     {
         EVSSendErr(SBN_TCP_SOCK_EID, "unable to create socket");
@@ -266,8 +323,12 @@ static SBN_Status_t InitNet(SBN_NetInterface_t *Net)
  */
 static SBN_Status_t InitPeer(SBN_PeerInterface_t *Peer)
 {
-    SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+    SBN_TCP_Peer_t *PeerData = GetPeerData(Peer);
 
+    if (PeerData == NULL)
+    {
+        return SBN_ERROR;
+    }
     PeerData->ConnectOut = (Peer->ProcessorID > CFE_PSP_GetProcessorId());
 
     return SBN_SUCCESS;
@@ -276,10 +337,14 @@ static SBN_Status_t InitPeer(SBN_PeerInterface_t *Peer)
 static void CheckNet(SBN_NetInterface_t *Net)
 {
     CFE_Status_t   Status  = CFE_SUCCESS;
-    SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+    SBN_TCP_Net_t *NetData = GetNetData(Net);
     SBN_PeerIdx_t  PeerIdx = 0;
 
     OS_time_t LocalTime;
+    if (NetData == NULL)
+    {
+        return;
+    }
     OS_GetLocalTime(&LocalTime);
 
     OS_SockFileDes_t ClientFd = OS_OBJECT_ID_UNDEFINED;
@@ -302,9 +367,9 @@ static void CheckNet(SBN_NetInterface_t *Net)
     for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         SBN_PeerInterface_t *Peer     = &Net->Peers[PeerIdx];
-        SBN_TCP_Peer_t      *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+        SBN_TCP_Peer_t      *PeerData = GetPeerData(Peer);
 
-        if (PeerData->ConnectOut && !Peer->Connected)
+        if (PeerData != NULL && PeerData->ConnectOut && !Peer->Connected)
         {
             /* TODO: make a #define */
             if (OS_TimeGetTotalSeconds(OS_TimeSubtract(LocalTime, PeerData->LastConnectTry)) > 5)
@@ -353,11 +418,11 @@ static void CheckNet(SBN_NetInterface_t *Net)
 
 static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg)
 {
-    SBN_TCP_Peer_t     *PeerData = (SBN_TCP_Peer_t *)Peer->ModulePvt;
+    SBN_TCP_Peer_t     *PeerData = GetPeerData(Peer);
     SBN_NetInterface_t *Net      = Peer->Net;
-    SBN_TCP_Net_t      *NetData  = (SBN_TCP_Net_t *)Net->ModulePvt;
+    SBN_TCP_Net_t      *NetData  = GetNetData(Net);
 
-    if (PeerData->Conn == NULL)
+    if (PeerData == NULL || NetData == NULL || PeerData->Conn == NULL)
     {
         /* fail silently as the peer is not connected (yet) */
         return 0;
@@ -416,8 +481,12 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
     OS_SelectTimeout_t timeout = 0;
     int                ConnID  = 0;
 
-    SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+    SBN_TCP_Net_t *NetData = GetNetData(Net);
 
+    if (NetData == NULL)
+    {
+        return SBN_ERROR;
+    }
     if (Net->TaskFlags & SBN_TASK_RECV)
     {
         timeout = 1000;
@@ -464,9 +533,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
                 {
                     EVSSendInfo(SBN_TCP_DEBUG_EID, "Connection %d head recv failed, disconnected", ConnID);
 
-                    OS_close(Conn->Socket);
-
-                    Disconnected(Conn->PeerInterface);
+                    CloseConn(Conn);
 
                     return SBN_IF_EMPTY;
                 } /* end if */
@@ -485,7 +552,21 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
             /* only get here if we're recv'd the header and ready for the body */
 
-            ToRead = CFE_MAKE_BIG32(*((SBN_MsgSz_t *)&RecvBufs[Conn->BufNum])) + SBN_PACKED_HDR_SZ - Conn->RecvSz;
+            SBN_MsgSz_t PayloadSize;
+            /* Receive-buffer rows are not necessarily uint32-aligned. */
+            memcpy(&PayloadSize, RecvBufs[Conn->BufNum], sizeof(PayloadSize));
+            PayloadSize = CFE_MAKE_BIG32(PayloadSize);
+            if (PayloadSize > CFE_MISSION_SB_MAX_SB_MSG_SIZE || Conn->RecvSz < SBN_PACKED_HDR_SZ
+                || (SBN_MsgSz_t)(Conn->RecvSz - SBN_PACKED_HDR_SZ) > PayloadSize)
+            {
+                EVSSendErr(SBN_TCP_SOCK_EID,
+                           "Connection %d invalid message size %lu",
+                           ConnID,
+                           (unsigned long)PayloadSize);
+                CloseConn(Conn);
+                return SBN_ERROR;
+            }
+            ToRead = PayloadSize + SBN_PACKED_HDR_SZ - Conn->RecvSz;
             if (ToRead)
             {
                 Received = OS_read(Conn->Socket, (char *)&RecvBufs[Conn->BufNum] + Conn->RecvSz, ToRead);
@@ -499,7 +580,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
                     } /* end if */
 
                     EVSSendInfo(SBN_TCP_DEBUG_EID, "CPUID %d body recv failed, disconnected", ProcessorID);
-
+                    CloseConn(Conn);
                     return SBN_ERROR;
                 } /* end if */
 
@@ -515,6 +596,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
             if (SBN.UnpackMsg(&RecvBufs[Conn->BufNum], MsgSzPtr, MsgTypePtr, ProcessorIDPtr, SpacecraftIDPtr, MsgBuf)
                 == false)
             {
+                CloseConn(Conn);
                 return SBN_ERROR;
             } /* end if */
 
@@ -529,8 +611,12 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
                     if (PeerInterface->ProcessorID == *ProcessorIDPtr)
                     {
-                        SBN_TCP_Peer_t *PeerData = (SBN_TCP_Peer_t *)PeerInterface->ModulePvt;
-
+                        SBN_TCP_Peer_t *PeerData = GetPeerData(PeerInterface);
+                        if (PeerData == NULL)
+                        {
+                            CloseConn(Conn);
+                            return SBN_ERROR;
+                        }
                         PeerData->Conn = Conn;
 
                         Conn->PeerInterface = PeerInterface;
@@ -559,8 +645,12 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 
 static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
 {
-    SBN_TCP_Net_t *NetData = (SBN_TCP_Net_t *)Net->ModulePvt;
+    SBN_TCP_Net_t *NetData = GetNetData(Net);
 
+    if (NetData == NULL)
+    {
+        return SBN_SUCCESS;
+    }
     if (OS_ObjectIdDefined(NetData->Socket))
     {
         OS_close(NetData->Socket);
