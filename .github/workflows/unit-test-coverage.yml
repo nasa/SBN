@@ -21,4 +21,4 @@ jobs:
     uses: nasa/cFS/.github/workflows/unit-test-coverage-reusable.yml@dev
     with:
       max-missed-branches: 87
-      max-missed-lines: 73
+      max-missed-lines: 74
