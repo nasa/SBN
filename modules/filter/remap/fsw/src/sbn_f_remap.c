@@ -39,7 +39,7 @@ CFE_EVS_EventID_t SBN_F_REMAP_FIRST_EID;
 static int RemapTblVal(void *TblPtr)
 {
     SBN_RemapTbl_t *r = (SBN_RemapTbl_t *)TblPtr;
-    int             i = 0;
+    int             i;
 
     switch (r->RemapDefaultFlag)
     {
@@ -86,8 +86,8 @@ static int RemapTblCompar(const void *a, const void *b)
 
 static SBN_Status_t LoadRemapTbl(void)
 {
-    SBN_RemapTbl_t *TblPtr     = NULL;
-    CFE_Status_t    CFE_Status = CFE_SUCCESS;
+    SBN_RemapTbl_t *TblPtr = NULL;
+    CFE_Status_t    CFE_Status;
 
     if (CFE_TBL_Register(&RemapTblHandle,
                          SBN_F_REMAP_TABLE_NAME,
@@ -229,7 +229,7 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
 
 static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *Context)
 {
-    int i = 0;
+    int i;
 
     EVSSendDbg(SBN_F_REMAP_TBL_EID, "Remap check 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
     for (i = 0; i < RemapTblCnt; i++)
