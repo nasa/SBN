@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 2.6.4)
 project(SBN_APP C)
 
 # workaround until these definitions are exposed by cfe_sb
