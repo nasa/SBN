@@ -330,9 +330,9 @@ SBN_Status_t SBN_CheckSubscriptionPipe(void)
 {
     CFE_Status_t CFE_Status = CFE_SUCCESS;
 
-    CFE_SB_AllSubscriptionsTlm_t   *MsgPtr       = NULL; /* largest message format */
-    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr = NULL; /* utility "cast" */
-    CFE_SB_MsgId_t                  MsgId        = CFE_SB_INVALID_MSG_ID;
+    CFE_SB_AllSubscriptionsTlm_t   *MsgPtr             = NULL; /* largest message format */
+    CFE_SB_SingleSubscriptionTlm_t *SingleMsgPtr       = NULL; /* utility "cast" */
+    CFE_SB_MsgId_t                  MsgId              = CFE_SB_INVALID_MSG_ID;
     static CFE_SB_MsgId_t           SB_ONESUB_TLM_MID  = CFE_SB_MSGID_RESERVED;
     static CFE_SB_MsgId_t           SB_ALLSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
