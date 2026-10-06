@@ -689,20 +689,20 @@ void SBN_SendTask(void)
  */
 static SBN_Status_t CheckPeerPipes(void)
 {
-    SBN_Status_t SBN_Status;
-    CFE_Status_t       CFE_Status;
-    int                ReceivedFlag;
-    int                iter;
-    CFE_MSG_Message_t *MsgPtr;
-    CFE_MSG_Size_t     MsgSz;
-    SBN_MsgSz_t        SBN_MsgSz;
-    SBN_Filter_Ctx_t   Filter_Context;
-    SBN_NetIdx_t       NetIdx;
-    SBN_NetInterface_t *Net;
-    SBN_PeerIdx_t PeerIdx;
+    SBN_Status_t         SBN_Status;
+    CFE_Status_t         CFE_Status;
+    int                  ReceivedFlag;
+    int                  iter;
+    CFE_MSG_Message_t   *MsgPtr;
+    CFE_MSG_Size_t       MsgSz;
+    SBN_MsgSz_t          SBN_MsgSz;
+    SBN_Filter_Ctx_t     Filter_Context;
+    SBN_NetIdx_t         NetIdx;
+    SBN_NetInterface_t  *Net;
+    SBN_PeerIdx_t        PeerIdx;
     SBN_ModuleIdx_t      FilterIdx;
     SBN_PeerInterface_t *Peer;
-    char SendTaskName[32];
+    char                 SendTaskName[32];
 
     iter                          = 0;
     MsgPtr                        = NULL;
@@ -841,11 +841,11 @@ static SBN_Status_t CheckPeerPipes(void)
  */
 static SBN_Status_t PeerPoll(void)
 {
-    CFE_Status_t CFE_Status;
-    SBN_NetIdx_t NetIdx;
-    SBN_NetInterface_t *Net;
-    char RecvTaskName[32];
-    SBN_PeerIdx_t PeerIdx;
+    CFE_Status_t         CFE_Status;
+    SBN_NetIdx_t         NetIdx;
+    SBN_NetInterface_t  *Net;
+    char                 RecvTaskName[32];
+    SBN_PeerIdx_t        PeerIdx;
     SBN_PeerInterface_t *Peer;
 
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
@@ -923,9 +923,9 @@ static SBN_Status_t PeerPoll(void)
  */
 static SBN_Status_t InitInterfaces(void)
 {
-    SBN_NetIdx_t NetIdx;
-    SBN_NetInterface_t *Net;
-    SBN_PeerIdx_t PeerIdx;
+    SBN_NetIdx_t         NetIdx;
+    SBN_NetInterface_t  *Net;
+    SBN_PeerIdx_t        PeerIdx;
     SBN_PeerInterface_t *Peer;
 
     if (SBN_AppData.NetCnt < 1)
@@ -1048,7 +1048,8 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t 
     StructAddr = 0;
 
     EVSSendInfo(SBN_TBL_EID, "checking if module (%s) already loaded", PeerEntry->Name);
-    if (OS_SymbolLookup(&StructAddr, PeerEntry->LibSymbol) != OS_SUCCESS) /* try loading it if it's not already loaded */
+    if (OS_SymbolLookup(&StructAddr, PeerEntry->LibSymbol)
+        != OS_SUCCESS) /* try loading it if it's not already loaded */
     {
         EVSSendInfo(SBN_TBL_EID, "symbol not yet loaded (%s)", PeerEntry->LibSymbol);
         if (PeerEntry->LibFileName[0] == '\0')
@@ -1058,9 +1059,13 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t 
         }
 
         EVSSendInfo(SBN_TBL_EID, "loading module (Name=%s, File=%s)", PeerEntry->Name, PeerEntry->LibFileName);
-        if (OS_ModuleLoad(ModuleIDPtr, PeerEntry->Name, PeerEntry->LibFileName, OS_MODULE_FLAG_GLOBAL_SYMBOLS) != OS_SUCCESS)
+        if (OS_ModuleLoad(ModuleIDPtr, PeerEntry->Name, PeerEntry->LibFileName, OS_MODULE_FLAG_GLOBAL_SYMBOLS)
+            != OS_SUCCESS)
         {
-            EVSSendErr(SBN_TBL_EID, "invalid module file (Name=%s LibFileName=%s)", PeerEntry->Name, PeerEntry->LibFileName);
+            EVSSendErr(SBN_TBL_EID,
+                       "invalid module file (Name=%s LibFileName=%s)",
+                       PeerEntry->Name,
+                       PeerEntry->LibFileName);
             return 0;
         } /* end if */
 
@@ -1134,11 +1139,11 @@ static SBN_Status_t LoadConf(void)
     SBN_ModuleIdx_t        ModuleIdx;
     SBN_PeerIdx_t          PeerIdx;
     SBN_FilterInterface_t *Filters[SBN_MAX_MOD_CNT];
-    CFE_ES_ModuleID_t ModuleID;
-    SBN_IfOps_t *Ops;
-    SBN_Peer_Entry_t *PeerEntry;
-    SBN_NetInterface_t *Net;
-    SBN_PeerInterface_t *Peer;
+    CFE_ES_ModuleID_t      ModuleID;
+    SBN_IfOps_t           *Ops;
+    SBN_Peer_Entry_t      *PeerEntry;
+    SBN_NetInterface_t    *Net;
+    SBN_PeerInterface_t   *Peer;
     SBN_ProtocolOutlet_t   Outlet = { .PackMsg      = SBN_PackMsg,
                                       .UnpackMsg    = SBN_UnpackMsg,
                                       .Connected    = SBN_Connected,
@@ -1213,7 +1218,10 @@ static SBN_Status_t LoadConf(void)
     {
         PeerEntry = &SBN_AppData.ConfTbl->Peers[PeerIdx];
 
-        EVSSendInfo(SBN_TBL_EID, "configuring peer (SC=%d, CPU=%d)...", PeerEntry->SpacecraftID, PeerEntry->ProcessorID);
+        EVSSendInfo(SBN_TBL_EID,
+                    "configuring peer (SC=%d, CPU=%d)...",
+                    PeerEntry->SpacecraftID,
+                    PeerEntry->ProcessorID);
 
         for (ModuleIdx = 0; ModuleIdx < SBN_AppData.ConfTbl->ProtocolCnt; ModuleIdx++)
         {
@@ -1239,7 +1247,7 @@ static SBN_Status_t LoadConf(void)
         if (PeerEntry->NetNum + 1 > SBN_AppData.NetCnt)
         {
             EVSSendInfo(SBN_TBL_EID, "found new highest net id: %d", PeerEntry->NetNum);
-            SBN_AppData.NetCnt                  = PeerEntry->NetNum + 1;
+            SBN_AppData.NetCnt                          = PeerEntry->NetNum + 1;
             SBN_AppData.Nets[PeerEntry->NetNum].PeerCnt = 0;
             EVSSendInfo(SBN_TBL_EID, "increasing net count to %d", SBN_AppData.NetCnt);
         } /* end if */
@@ -1363,16 +1371,16 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 
 static SBN_Status_t UnloadNets(void)
 {
-    uint32 Status;
-    int NetIdx;
-    SBN_NetInterface_t *Net;
-    SBN_PeerIdx_t PeerIdx;
+    uint32               Status;
+    int                  NetIdx;
+    SBN_NetInterface_t  *Net;
+    SBN_PeerIdx_t        PeerIdx;
     SBN_PeerInterface_t *Peer;
 
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
-        Net = &SBN_AppData.Nets[NetIdx];
-        Net->Configured         = false;
+        Net             = &SBN_AppData.Nets[NetIdx];
+        Net->Configured = false;
 
         if (CFE_RESOURCEID_TEST_DEFINED(Net->RecvTaskID))
         {
@@ -1723,9 +1731,9 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
     SBN_Status_t         SBN_Status;
     CFE_Status_t         CFE_Status;
     SBN_PeerInterface_t *Peer;
-    uint8 Ver;
-    SBN_ModuleIdx_t  FilterIdx;
-    SBN_Filter_Ctx_t Filter_Context;
+    uint8                Ver;
+    SBN_ModuleIdx_t      FilterIdx;
+    SBN_Filter_Ctx_t     Filter_Context;
 
     SBN_Status = SBN_SUCCESS;
     CFE_Status = CFE_SUCCESS;
