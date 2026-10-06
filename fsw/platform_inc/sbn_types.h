@@ -44,7 +44,7 @@ typedef enum
     SBN_TASKS     = SBN_TASK_SEND | SBN_TASK_RECV, /**< @brief create two tasks per net/peer, tasks block on reads */
 } SBN_Task_Flag_t;
 
-typedef enum
+enum
 {
     SBN_UDP            = 1,
     SBN_TCP            = 2,
@@ -54,7 +54,7 @@ typedef enum
     SBN_SERIAL         = 6,
     SBN_1553           = 7,
     SBN_DTN            = 8,
-} SBN_Protocol_t;
+};
 
 /**
  * Message types definitions, reserve the high 128 values for module-specific
