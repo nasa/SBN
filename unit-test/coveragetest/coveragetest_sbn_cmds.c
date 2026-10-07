@@ -316,7 +316,7 @@ static void HKMySubs_Nominal(void)
 
     memset(Buffer, 0, sizeof(Buffer));
 
-    SBN.SubCnt = 1;
+    SBN_AppData.SubCnt = 1;
 
     MsgSz   = sizeof(CFE_MSG_CommandHeader_t);
     FcnCode = SBN_HK_MYSUBS_CC;
