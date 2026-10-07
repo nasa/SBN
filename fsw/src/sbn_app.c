@@ -278,7 +278,7 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
  */
 void SBN_RecvPeerTask(void)
 {
-    RecvPeerTaskData_t D;
+    SBN_RecvPeerTaskData_t D;
     memset(&D, 0, sizeof(D));
 
     CFE_ES_GetTaskID(&D.RecvTaskID);
@@ -350,9 +350,9 @@ void SBN_RecvPeerTask(void)
  */
 void SBN_RecvNetTask(void)
 {
-    static const char FAIL_PREFIX_STARTUP[] = "ERROR: could not start SBN Receive Net Task:";
-    static const char FAIL_PREFIX_RUNNING[] = "ERROR: during SBN Receive Net Task:";
-    RecvNetTaskData_t D;
+    static const char     FAIL_PREFIX_STARTUP[] = "ERROR: could not start SBN Receive Net Task:";
+    static const char     FAIL_PREFIX_RUNNING[] = "ERROR: during SBN Receive Net Task:";
+    SBN_RecvNetTaskData_t D;
     memset(&D, 0, sizeof(D));
 
     CFE_ES_GetTaskID(&D.RecvTaskID);
@@ -584,11 +584,11 @@ SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg,
  */
 void SBN_SendTask(void)
 {
-    SendTaskData_t   D;
-    SBN_Filter_Ctx_t Filter_Context;
-    CFE_MSG_Size_t   MsgSz;
-    SBN_MsgSz_t      SBN_MsgSz;
-    SBN_ModuleIdx_t  FilterIdx;
+    SBN_SendTaskData_t D;
+    SBN_Filter_Ctx_t   Filter_Context;
+    CFE_MSG_Size_t     MsgSz;
+    SBN_MsgSz_t        SBN_MsgSz;
+    SBN_ModuleIdx_t    FilterIdx;
 
     MsgSz                         = 0;
     SBN_MsgSz                     = 0;
@@ -761,7 +761,7 @@ static SBN_Status_t CheckPeerPipes(void)
                                                    SendTaskName,
                                                    (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_SendTask,
                                                    NULL,
-                                                   CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SendTaskData_t),
+                                                   CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SBN_SendTaskData_t),
                                                    0,
                                                    0);
 
@@ -860,13 +860,14 @@ static SBN_Status_t PeerPoll(void)
 
                 /* TODO: add logic/controls to prevent hammering */
                 snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_rs_%d", (int)NetIdx);
-                CFE_Status = CFE_ES_CreateChildTask(&(Net->RecvTaskID),
-                                                    RecvTaskName,
-                                                    (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvNetTask,
-                                                    NULL,
-                                                    CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvNetTaskData_t),
-                                                    0,
-                                                    0);
+                CFE_Status =
+                    CFE_ES_CreateChildTask(&(Net->RecvTaskID),
+                                           RecvTaskName,
+                                           (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvNetTask,
+                                           NULL,
+                                           CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(SBN_RecvNetTaskData_t),
+                                           0,
+                                           0);
 
                 if (CFE_Status != CFE_SUCCESS)
                 {
@@ -887,14 +888,14 @@ static SBN_Status_t PeerPoll(void)
                     {
                         /* TODO: add logic/controls to prevent hammering */
                         snprintf(RecvTaskName, OS_MAX_API_NAME, "sbn_recv_%d", (int)PeerIdx);
-                        CFE_Status =
-                            CFE_ES_CreateChildTask(&(Peer->RecvTaskID),
-                                                   RecvTaskName,
-                                                   (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvPeerTask,
-                                                   NULL,
-                                                   CFE_PLATFORM_ES_DEFAULT_STACK_SIZE + 2 * sizeof(RecvPeerTaskData_t),
-                                                   0,
-                                                   0);
+                        CFE_Status = CFE_ES_CreateChildTask(&(Peer->RecvTaskID),
+                                                            RecvTaskName,
+                                                            (CFE_ES_ChildTaskMainFuncPtr_t)&SBN_RecvPeerTask,
+                                                            NULL,
+                                                            CFE_PLATFORM_ES_DEFAULT_STACK_SIZE
+                                                                + 2 * sizeof(SBN_RecvPeerTaskData_t),
+                                                            0,
+                                                            0);
                         /* TODO: more accurate stack size required */
 
                         if (CFE_Status != CFE_SUCCESS)

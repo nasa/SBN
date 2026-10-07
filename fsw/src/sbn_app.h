@@ -139,9 +139,9 @@ typedef struct
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
     uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} RecvPeerTaskData_t;
+} SBN_RecvPeerTaskData_t;
 
-typedef struct RecvNetTaskData_s
+typedef struct
 {
     SBN_NetIdx_t         NetIdx;
     SBN_NetInterface_t  *Net;
@@ -153,7 +153,7 @@ typedef struct RecvNetTaskData_s
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
     uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} RecvNetTaskData_t;
+} SBN_RecvNetTaskData_t;
 
 typedef struct
 {
@@ -165,7 +165,7 @@ typedef struct
     CFE_SB_MsgId_t       MsgID;
     SBN_NetInterface_t  *Net;
     SBN_PeerInterface_t *Peer;
-} SendTaskData_t;
+} SBN_SendTaskData_t;
 
 /*
 ** Prototypes
