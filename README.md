@@ -10,3 +10,11 @@ The SBN application connects the cFE Software Bus (SB) to other buses, bridging 
 
 ## License
 This software is licensed under the [Apache 2.0 License](LICENSE).
+
+## Building the default configuration
+
+Selecting `sbn` in the cFE target application list also builds and installs the UDP
+and remap modules required by the bundled configuration table, including the remap
+table. Modules explicitly listed by the mission are still built through their normal
+cFE targets. Missions supplying a different SBN configuration can set
+`SBN_BUILD_DEFAULT_MODULES=OFF` and select their required modules explicitly.
