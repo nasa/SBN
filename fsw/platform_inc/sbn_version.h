@@ -24,7 +24,7 @@
 #define SBN_MINOR_VERSION 0
 #define SBN_REVISION      1
 
-#define SBN_PROTOCOL_VERSION 6 /* Init() takes outlet */
-#define SBN_FILTER_VERSION   2 /* Init() returns SBN_Status_t */
+#define SBN_PROTOCOL_VERSION 6 /* SBN_Init() takes outlet */
+#define SBN_FILTER_VERSION   2 /* SBN_Init() returns SBN_Status_t */
 
 #endif /*_sbn_version_*/
