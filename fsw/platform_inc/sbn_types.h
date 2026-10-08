@@ -16,10 +16,10 @@
  * limitations under the License.
  ************************************************************************/
 
-#include "cfe.h"
-
 #ifndef _sbn_types_h_
 #define _sbn_types_h_
+
+#include "cfe.h"
 
 /**
  * Below are types that the user shouldn't have to change, but are useful

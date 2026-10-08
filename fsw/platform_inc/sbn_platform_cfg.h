@@ -16,10 +16,10 @@
  * limitations under the License.
  ************************************************************************/
 
-#include "cfe.h"
-
 #ifndef _sbn_platform_cfg_h
 #define _sbn_platform_cfg_h
+
+#include "cfe.h"
 
 /** @brief Maximum number of networks allowed. */
 #define SBN_MAX_NETS 16
