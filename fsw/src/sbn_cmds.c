@@ -44,13 +44,13 @@ static void InitializePeerCounters(SBN_PeerInterface_t *Peer)
  */
 void SBN_InitializeCounters(void)
 {
-    SBN.CmdCnt    = 0;
-    SBN.CmdErrCnt = 0;
+    SBN_AppData.CmdCnt    = 0;
+    SBN_AppData.CmdErrCnt = 0;
 
     int NetIdx = 0;
-    for (NetIdx = 0; NetIdx < SBN.NetCnt; NetIdx++)
+    for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
-        SBN_NetInterface_t *Net     = &SBN.Nets[NetIdx];
+        SBN_NetInterface_t *Net     = &SBN_AppData.Nets[NetIdx];
         int                 PeerIdx = 0;
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
@@ -130,7 +130,7 @@ static bool VerifyMsgLen(CFE_MSG_Message_t *MsgPtr, uint16 ExpectedLen, const ch
                        (int)ActualLen,
                        (int)ExpectedLen);
 
-            SBN.CmdErrCnt++;
+            SBN_AppData.CmdErrCnt++;
         } /* end if */
 
         return false;
@@ -164,7 +164,7 @@ static void NoopCmd(CFE_MSG_Message_t *MsgPtr)
 
     EVSSendInfo(SBN_CMD_EID, "no-op command");
 
-    SBN.CmdCnt++;
+    SBN_AppData.CmdCnt++;
 } /* end NoopCmd */
 
 /************************************************************************/
@@ -230,13 +230,13 @@ static void HKResetPeerCmd(CFE_MSG_Message_t *MsgPtr)
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
-    if (NetIdx < 0 || NetIdx >= SBN.NetCnt)
+    if (NetIdx < 0 || NetIdx >= SBN_AppData.NetCnt)
     {
-        EVSSendErr(SBN_CMD_EID, "invalid net idx %d (max=%d)", NetIdx, SBN.NetCnt);
+        EVSSendErr(SBN_CMD_EID, "invalid net idx %d (max=%d)", NetIdx, SBN_AppData.NetCnt);
         return;
     } /* end if */
 
-    SBN_NetInterface_t *Net = &SBN.Nets[NetIdx];
+    SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
 
     if (PeerIdx < 0 || PeerIdx >= Net->PeerCnt)
     {
@@ -247,7 +247,7 @@ static void HKResetPeerCmd(CFE_MSG_Message_t *MsgPtr)
     SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
     EVSSendInfo(SBN_CMD_EID, "hk reset peer command (NetIdx=%d, PeerIdx=%d)", NetIdx, PeerIdx);
-    SBN.CmdCnt++;
+    SBN_AppData.CmdCnt++;
 
     InitializePeerCounters(Peer);
 } /* end HKResetPeerCmd */
@@ -289,10 +289,10 @@ static void HKCmd(CFE_MSG_Message_t *MsgPtr)
     Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_CC);
-    Pack_UInt16(&Pack, SBN.CmdCnt);
-    Pack_UInt16(&Pack, SBN.CmdErrCnt);
-    Pack_UInt16(&Pack, SBN.SubCnt);
-    Pack_UInt16(&Pack, SBN.NetCnt);
+    Pack_UInt16(&Pack, SBN_AppData.CmdCnt);
+    Pack_UInt16(&Pack, SBN_AppData.CmdErrCnt);
+    Pack_UInt16(&Pack, SBN_AppData.SubCnt);
+    Pack_UInt16(&Pack, SBN_AppData.NetCnt);
 
     /*
     ** Timestamp and send packet
@@ -322,9 +322,9 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
     uint8 *Ptr    = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx = *Ptr;
 
-    if (NetIdx > SBN.NetCnt)
+    if (NetIdx > SBN_AppData.NetCnt)
     {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt - 1);
+        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
         return;
     } /* end if */
 
@@ -346,8 +346,8 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
     Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKNET_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
     Pack_UInt8(&Pack, SBN_HK_NET_CC);
-    Pack_UInt8(&Pack, SBN.Nets[NetIdx].ProtocolIdx);
-    Pack_UInt16(&Pack, SBN.Nets[NetIdx].PeerCnt);
+    Pack_UInt8(&Pack, SBN_AppData.Nets[NetIdx].ProtocolIdx);
+    Pack_UInt16(&Pack, SBN_AppData.Nets[NetIdx].PeerCnt);
 
     /*
     ** Timestamp and send packet
@@ -378,23 +378,23 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
-    if (NetIdx > SBN.NetCnt)
+    if (NetIdx > SBN_AppData.NetCnt)
     {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt - 1);
+        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
         return;
     } /* end if */
 
-    if (PeerIdx > SBN.Nets[NetIdx].PeerCnt)
+    if (PeerIdx > SBN_AppData.Nets[NetIdx].PeerCnt)
     {
         EVSSendErr(SBN_CMD_EID,
                    "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
                    NetIdx,
                    PeerIdx,
-                   SBN.Nets[NetIdx].PeerCnt - 1);
+                   SBN_AppData.Nets[NetIdx].PeerCnt - 1);
         return;
     } /* end if */
 
-    SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
+    SBN_PeerInterface_t *Peer = &SBN_AppData.Nets[NetIdx].Peers[PeerIdx];
 
     EVSSendInfo(SBN_CMD_EID, "hk command, net=%d, peer=%d", NetIdx, PeerIdx);
 
@@ -468,11 +468,11 @@ static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
               1);
 
     Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
-    Pack_UInt16(&Pack, SBN.SubCnt);
+    Pack_UInt16(&Pack, SBN_AppData.SubCnt);
     int i;
-    for (i = 0; i < SBN.SubCnt; i++)
+    for (i = 0; i < SBN_AppData.SubCnt; i++)
     {
-        Pack_MsgID(&Pack, SBN.Subs[i].MsgID);
+        Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
     }
 
     /*
@@ -528,25 +528,25 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
-    if (NetIdx >= SBN.NetCnt)
+    if (NetIdx >= SBN_AppData.NetCnt)
     {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN.NetCnt - 1);
+        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
         return;
     } /* end if */
 
-    if (PeerIdx >= SBN.Nets[NetIdx].PeerCnt)
+    if (PeerIdx >= SBN_AppData.Nets[NetIdx].PeerCnt)
     {
         EVSSendErr(SBN_CMD_EID,
                    "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
                    NetIdx,
                    PeerIdx,
-                   SBN.Nets[NetIdx].PeerCnt - 1);
+                   SBN_AppData.Nets[NetIdx].PeerCnt - 1);
         return;
     } /* end if */
 
     EVSSendInfo(SBN_CMD_EID, "hk subs command, net=%d peer=%d", NetIdx, PeerIdx);
 
-    SBN_PeerInterface_t *Peer = &SBN.Nets[NetIdx].Peers[PeerIdx];
+    SBN_PeerInterface_t *Peer = &SBN_AppData.Nets[NetIdx].Peers[PeerIdx];
 
     uint8                 HKBuf[SBN_HKPEERSUBS_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
@@ -603,21 +603,21 @@ void SBN_HandleCommand(CFE_MSG_Message_t *MsgPtr)
 
     if (CFE_MSG_GetMsgId(MsgPtr, &MsgId) != CFE_SUCCESS)
     {
-        SBN.CmdErrCnt++;
+        SBN_AppData.CmdErrCnt++;
         EVSSendErr(SBN_CMD_EID, "invalid FcnCode");
         return;
     }
 
     if (!CFE_SB_MsgId_Equal(MsgId, CMD_MID))
     {
-        SBN.CmdErrCnt++;
+        SBN_AppData.CmdErrCnt++;
         EVSSendErr(SBN_CMD_EID, "invalid command pipe MsgId");
         return;
     } /* end if */
 
     if (CFE_MSG_GetFcnCode(MsgPtr, &FcnCode) != CFE_SUCCESS)
     {
-        SBN.CmdErrCnt++;
+        SBN_AppData.CmdErrCnt++;
         EVSSendErr(SBN_CMD_EID, "invalid FcnCode (FcnCode=0x%04X)", FcnCode);
         return;
     }
@@ -657,7 +657,7 @@ void SBN_HandleCommand(CFE_MSG_Message_t *MsgPtr)
             ReloadTblCmd(MsgPtr);
             break;
         default:
-            SBN.CmdErrCnt++;
+            SBN_AppData.CmdErrCnt++;
             EVSSendErr(SBN_CMD_EID, "invalid command code (ID=0x%04X, CC=%d)", FcnCode, FcnCode);
             break;
     } /* end switch */
