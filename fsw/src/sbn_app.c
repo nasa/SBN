@@ -1325,52 +1325,6 @@ static uint32 UnloadConf(void)
     return SBN_SUCCESS;
 } /* end UnloadConf() */
 
-static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
-{
-    SBN_RemoveAllSubsFromPeer(Peer);
-
-    SBN_Disconnected(Peer);
-
-    if (Peer->TaskFlags & SBN_TASK_SEND)
-    {
-        if (CFE_RESOURCEID_TEST_DEFINED(Peer->SendTaskID))
-        {
-            if (CFE_ES_DeleteChildTask(Peer->SendTaskID) != CFE_SUCCESS)
-            {
-                EVSSendCrit(SBN_TBL_EID,
-                            "unable to delete send task for peer %d:%d",
-                            Peer->SpacecraftID,
-                            Peer->ProcessorID);
-                return SBN_ERROR;
-            }
-        }
-    }
-
-    if (Peer->TaskFlags & SBN_TASK_RECV)
-    {
-        if (CFE_RESOURCEID_TEST_DEFINED(Peer->RecvTaskID))
-        {
-            if (CFE_ES_DeleteChildTask(Peer->RecvTaskID) != CFE_SUCCESS)
-            {
-                EVSSendCrit(SBN_TBL_EID,
-                            "unable to delete recv task for peer %d:%d",
-                            Peer->SpacecraftID,
-                            Peer->ProcessorID);
-            }
-        }
-    }
-
-    // Reset peer description
-    Peer->ProcessorID  = 0;
-    Peer->SpacecraftID = 0;
-    Peer->Net          = NULL;
-    Peer->TaskFlags    = 0;
-    Peer->Pipe         = CFE_SB_INVALID_PIPE;
-    Peer->FilterCnt    = 0;
-
-    return SBN_SUCCESS;
-}
-
 static SBN_Status_t UnloadNets(void)
 {
     uint32               Status;
@@ -1408,7 +1362,7 @@ static SBN_Status_t UnloadNets(void)
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             Peer = &Net->Peers[PeerIdx];
-            UnloadPeer(Peer);
+            Net->IfOps->UnloadPeer(Peer);
         }
 
         // Peers were cleared, reset the count
