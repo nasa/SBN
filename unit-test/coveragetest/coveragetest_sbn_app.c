@@ -433,7 +433,7 @@ static void LoadConf_ProtoNameErr(void)
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
     UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
     UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-    // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
+    // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
 
     SBN_AppMain();
 
@@ -485,7 +485,7 @@ static void LoadConf_FiltNameErr(void)
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
     UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
     UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-    // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
+    // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
 
     SBN_AppMain();
 
@@ -618,7 +618,7 @@ static void LoadConf_Nominal(void)
     UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_INIT_EID, "ERROR: could not start SBN: error creating mutex for send tasks");
 
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after LoadConfTbl() */
+    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
 
     SBN_AppMain();
 
@@ -666,7 +666,7 @@ static void InitInt_NoNets(void)
      * - PeerCnt: 0 - No peers configured to ensure NetCnt remains 0, triggering the expected error
      *
      * Additionally, SBN_AppData.NetCnt is explicitly set to 0 and maintained that way using NoNetsHook
-     * to test the "no networks configured" error path in InitInterfaces */
+     * to test the "no networks configured" error path in SBN_InitInterfaces */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 0;
     TestConfTbl.FilterCnt   = 0;
@@ -719,14 +719,14 @@ static SBN_IfOps_t MockIfOps = { .InitModule   = NULL,
                                  .UnloadNet    = Mock_UnloadNet,
                                  .UnloadPeer   = NULL };
 
-/* Hook function to modify SBN after LoadConf completes but before InitInterfaces */
+/* Hook function to modify SBN after SBN_LoadConf completes but before SBN_InitInterfaces */
 static int32 SetupNetConfErr_Hook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
-    /* At this point LoadConf has completed, modify SBN to have an unconfigured network */
+    /* At this point SBN_LoadConf has completed, modify SBN to have an unconfigured network */
     SBN_AppData.NetCnt = 1;
     memset(&SBN_AppData.Nets[0], 0, sizeof(SBN_AppData.Nets[0]));
-    SBN_AppData.Nets[0].Configured = false;      /* This will trigger the error in InitInterfaces */
-    SBN_AppData.Nets[0].IfOps      = &MockIfOps; /* Prevent segfault in UnloadNets */
+    SBN_AppData.Nets[0].Configured = false;      /* This will trigger the error in SBN_InitInterfaces */
+    SBN_AppData.Nets[0].IfOps      = &MockIfOps; /* Prevent segfault in SBN_UnloadNets */
     SBN_AppData.Nets[0].PeerCnt    = 0;          /* No peers */
 
     return StubRetcode;
@@ -741,9 +741,9 @@ static void InitInt_NetConfErr(void)
      * - FilterCnt: 0 - No filter modules needed for this network configuration validation test
      * - PeerCnt: 0 - No peers needed since SetupNetConfErr_Hook will artificially create an unconfigured network
      *
-     * The hook function SetupNetConfErr_Hook modifies SBN after LoadConf completes to create
+     * The hook function SetupNetConfErr_Hook modifies SBN after SBN_LoadConf completes to create
      * a network with Configured=false, simulating a network that failed to initialize properly.
-     * This tests InitInterfaces' ability to detect and report unconfigured networks. */
+     * This tests SBN_InitInterfaces' ability to detect and report unconfigured networks. */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
     TestConfTbl.FilterCnt   = 0; /* No filters needed */
@@ -758,7 +758,7 @@ static void InitInt_NetConfErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* THE KEY HOOK: Modify SBN structure after LoadConf completes */
+    /* THE KEY HOOK: Modify SBN structure after SBN_LoadConf completes */
     UT_SetHookFunction(UT_KEY(CFE_TBL_ReleaseAddress), SetupNetConfErr_Hook, NULL);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
 
@@ -770,7 +770,7 @@ static void InitInt_NetConfErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_Subscribe), 1, CFE_SUCCESS);
 
-    /* Let LoadConfTbl succeed */
+    /* Let SBN_LoadConfTbl succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
@@ -807,8 +807,8 @@ static void AppMain_SubPipeCrErr(void)
     /* Configuration Setup Rationale:
      * - ProtocolCnt: 0 - No protocols needed, test focuses on subscription pipe creation failure
      * - FilterCnt: 0 - No filters needed for pipe creation error testing
-     * - PeerCnt: 0 - No peers needed, minimal config to reach SetupSubPipe where error occurs
-     * This allows LoadConf and InitInterfaces to succeed, then tests subscription pipe creation failure */
+     * - PeerCnt: 0 - No peers needed, minimal config to reach SBN_SetupSubPipe where error occurs
+     * This allows SBN_LoadConf and SBN_InitInterfaces to succeed, then tests subscription pipe creation failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
     TestConfTbl.FilterCnt   = 0; /* No filters needed */
@@ -822,7 +822,7 @@ static void AppMain_SubPipeCrErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* Let LoadConfTbl succeed */
+    /* Let SBN_LoadConfTbl succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
@@ -831,7 +831,7 @@ static void AppMain_SubPipeCrErr(void)
     /* Set up command pipe creation to succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_Subscribe), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SB_BAD_ARGUMENT); /* fail just after InitInterfaces() */
+    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SB_BAD_ARGUMENT); /* fail just after SBN_InitInterfaces() */
 
     SBN_AppMain();
 
@@ -860,7 +860,7 @@ static void AppMain_SubPipeAllSubErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* Let LoadConfTbl succeed */
+    /* Let SBN_LoadConfTbl succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
@@ -899,7 +899,7 @@ static void AppMain_SubPipeOneSubErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* Let LoadConfTbl succeed */
+    /* Let SBN_LoadConfTbl succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
@@ -925,7 +925,7 @@ static void AppMain_CmdPipeCrErr(void)
      * - ProtocolCnt: 0 - No protocols needed, test focuses on command pipe creation failure
      * - FilterCnt: 0 - No filters needed for command pipe error testing
      * - PeerCnt: 0 - No peers needed, minimal config to reach command pipe creation
-     * This allows LoadConf to succeed, then tests the very first CFE_SB_CreatePipe failure */
+     * This allows SBN_LoadConf to succeed, then tests the very first CFE_SB_CreatePipe failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
     TestConfTbl.FilterCnt   = 0; /* No filters needed */
@@ -939,7 +939,7 @@ static void AppMain_CmdPipeCrErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* Let LoadConfTbl succeed */
+    /* Let SBN_LoadConfTbl succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
@@ -974,7 +974,7 @@ static void AppMain_CmdPipeSubErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* Let LoadConfTbl succeed */
+    /* Let SBN_LoadConfTbl succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
@@ -1444,7 +1444,7 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, true);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 2, false);
 
-    /* Set up WaitForWakeup to complete quickly */
+    /* Set up SBN_WaitForWakeup to complete quickly */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_TIME_OUT);
 
     /* Set up SBN_CheckSubscriptionPipe to succeed */
@@ -1615,7 +1615,7 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, true);
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 2, false);
 
-    /* Set up WaitForWakeup to complete quickly - command pipe timeout */
+    /* Set up SBN_WaitForWakeup to complete quickly - command pipe timeout */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_TIME_OUT);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, CFE_SB_NO_MESSAGE);
@@ -2299,12 +2299,12 @@ static void ReloadConfTbl_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, OS_SUCCESS);
     SBN_AppData.ConfMutex = 1; /* Valid non-zero value */
 
-    /* Set up for Cleanup */
+    /* Set up for SBN_Cleanup */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_DeletePipe), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, OS_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 2, OS_SUCCESS);
 
-    /* Set up for Init - SetupSubPipe */
+    /* Set up for Init - SBN_SetupSubPipe */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 2, CFE_SUCCESS);
