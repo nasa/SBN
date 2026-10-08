@@ -34,9 +34,7 @@
 /** \brief SBN global application data, indexed by AppID. */
 SBN_AppData_t SBN_AppData;
 
-static SBN_Status_t SBN_UnloadNets(void);
-
-static SBN_Status_t SBN_UnloadModules(void)
+SBN_Status_t SBN_UnloadModules(void)
 {
     SBN_ModuleIdx_t i;
 
@@ -686,7 +684,7 @@ void SBN_SendTask(void)
  * Iterate through all peers, examining the pipe to see if there are messages
  * I need to send to that peer.
  */
-static SBN_Status_t SBN_CheckPeerPipes(void)
+SBN_Status_t SBN_CheckPeerPipes(void)
 {
     SBN_Status_t         SBN_Status;
     CFE_Status_t         CFE_Status;
@@ -834,7 +832,7 @@ static SBN_Status_t SBN_CheckPeerPipes(void)
 /**
  * Iterate through all nets and create receive tasks if they do not yet exist.
  */
-static SBN_Status_t SBN_PeerPoll(void)
+SBN_Status_t SBN_PeerPoll(void)
 {
     CFE_Status_t         CFE_Status;
     SBN_NetIdx_t         NetIdx;
@@ -917,7 +915,7 @@ static SBN_Status_t SBN_PeerPoll(void)
  * @return SBN_SUCCESS if interface is initialized successfully
  *         SBN_ERROR otherwise
  */
-static SBN_Status_t SBN_InitInterfaces(void)
+SBN_Status_t SBN_InitInterfaces(void)
 {
     SBN_NetIdx_t         NetIdx;
     SBN_NetInterface_t  *Net;
@@ -978,7 +976,7 @@ static SBN_Status_t SBN_InitInterfaces(void)
  * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
  * @return CFE_SUCCESS on success, otherwise an error value.
  */
-static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
+SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
 {
     CFE_Status_t       CFE_Status;
     SBN_Status_t       SBN_Status;
@@ -1036,7 +1034,7 @@ static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
  *
  * Cleaned up by SBN_UnloadModules()
  */
-static cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr)
+cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr)
 {
     cpuaddr StructAddr;
 
@@ -1090,7 +1088,7 @@ static cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleI
  * @param[out] Filters - The function pointers for the filters requested.
  * @return The number of entries in Filters.
  */
-static SBN_ModuleIdx_t
+SBN_ModuleIdx_t
 SBN_LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
                      SBN_ModuleIdx_t               FilterModuleCnt,
                      SBN_FilterInterface_t *const *ConfFilters,
@@ -1130,7 +1128,7 @@ SBN_LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
     return FilterCnt;
 } /* end SBN_LoadConf_Filters() */
 
-static SBN_Status_t SBN_LoadConf(void)
+SBN_Status_t SBN_LoadConf(void)
 {
     SBN_ModuleIdx_t        ModuleIdx;
     SBN_PeerIdx_t          PeerIdx;
@@ -1298,7 +1296,7 @@ static SBN_Status_t SBN_LoadConf(void)
     return SBN_SUCCESS;
 } /* end SBN_LoadConf() */
 
-static uint32 SBN_UnloadConf(void)
+uint32 SBN_UnloadConf(void)
 {
     uint32 Status;
 
@@ -1319,53 +1317,7 @@ static uint32 SBN_UnloadConf(void)
     return SBN_SUCCESS;
 } /* end SBN_UnloadConf() */
 
-static SBN_Status_t SBN_UnloadPeer(SBN_PeerInterface_t *Peer)
-{
-    SBN_RemoveAllSubsFromPeer(Peer);
-
-    SBN_Disconnected(Peer);
-
-    if (Peer->TaskFlags & SBN_TASK_SEND)
-    {
-        if (CFE_RESOURCEID_TEST_DEFINED(Peer->SendTaskID))
-        {
-            if (CFE_ES_DeleteChildTask(Peer->SendTaskID) != CFE_SUCCESS)
-            {
-                EVSSendCrit(SBN_TBL_EID,
-                            "unable to delete send task for peer %d:%d",
-                            Peer->SpacecraftID,
-                            Peer->ProcessorID);
-                return SBN_ERROR;
-            }
-        }
-    }
-
-    if (Peer->TaskFlags & SBN_TASK_RECV)
-    {
-        if (CFE_RESOURCEID_TEST_DEFINED(Peer->RecvTaskID))
-        {
-            if (CFE_ES_DeleteChildTask(Peer->RecvTaskID) != CFE_SUCCESS)
-            {
-                EVSSendCrit(SBN_TBL_EID,
-                            "unable to delete recv task for peer %d:%d",
-                            Peer->SpacecraftID,
-                            Peer->ProcessorID);
-            }
-        }
-    }
-
-    // Reset peer description
-    Peer->ProcessorID  = 0;
-    Peer->SpacecraftID = 0;
-    Peer->Net          = NULL;
-    Peer->TaskFlags    = 0;
-    Peer->Pipe         = CFE_SB_INVALID_PIPE;
-    Peer->FilterCnt    = 0;
-
-    return SBN_SUCCESS;
-}
-
-static SBN_Status_t SBN_UnloadNets(void)
+SBN_Status_t SBN_UnloadNets(void)
 {
     uint32               Status;
     int                  NetIdx;
@@ -1420,7 +1372,7 @@ static SBN_Status_t SBN_UnloadNets(void)
     return SBN_SUCCESS;
 }
 
-static uint32 SBN_LoadConfTbl(void)
+uint32 SBN_LoadConfTbl(void)
 {
     int32 Status;
 
@@ -1461,7 +1413,7 @@ static uint32 SBN_LoadConfTbl(void)
     return SBN_SUCCESS;
 } /* end SBN_LoadConfTbl() */
 
-static SBN_Status_t SBN_TeardownSubPipe(void)
+SBN_Status_t SBN_TeardownSubPipe(void)
 {
     CFE_Status_t Status;
 
@@ -1481,7 +1433,7 @@ static SBN_Status_t SBN_TeardownSubPipe(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t SBN_SetupSubPipe(void)
+SBN_Status_t SBN_SetupSubPipe(void)
 {
     CFE_Status_t Status;
 
@@ -1515,7 +1467,7 @@ static SBN_Status_t SBN_SetupSubPipe(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t SBN_Init(void)
+SBN_Status_t SBN_Init(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not initialize SBN:";
 
@@ -1572,7 +1524,7 @@ static SBN_Status_t SBN_Init(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t SBN_Cleanup(void)
+SBN_Status_t SBN_Cleanup(void)
 {
     SBN_Status_t Status;
 

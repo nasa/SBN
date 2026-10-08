@@ -170,6 +170,7 @@ typedef struct
 /*
 ** Prototypes
 */
+SBN_Status_t UnloadNets(void);
 void         SBN_AppMain(void);
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
