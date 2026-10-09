@@ -28,7 +28,7 @@
 #include "sbn_stubs.h"
 #include "utstubs.h"
 
-void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, void *Msg)
+void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, SBN_ProcessorID_t ProcessorID, void *Msg)
 {
     UT_DEFAULT_IMPL(SBN_PackMsg);
 } /* end SBN_PackMsg() */
@@ -36,7 +36,7 @@ void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_
 bool SBN_UnpackMsg(void              *SBNBuf,
                    SBN_MsgSz_t       *MsgSzPtr,
                    SBN_MsgType_t     *MsgTypePtr,
-                   CFE_ProcessorID_t *ProcessorIDPtr,
+                   SBN_ProcessorID_t *ProcessorIDPtr,
                    void              *Msg)
 {
     uint32           status = 0;
@@ -99,7 +99,7 @@ SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg,
     return UT_DEFAULT_IMPL(SBN_SendNetMsg);
 } /* end SBN_SendNetMsg() */
 
-SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID)
+SBN_PeerInterface_t *SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID)
 {
     uint32               status = 0;
     SBN_PeerInterface_t *p      = NULL;

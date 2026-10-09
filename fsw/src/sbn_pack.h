@@ -47,6 +47,7 @@
 #include <stdlib.h> /* size_t */
 #include "cfe.h"
 #include "cfe_endian.h"
+#include "sbn_extern_typedefs.h"
 
 typedef struct
 {
@@ -82,7 +83,7 @@ bool Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag);
  *
  * @sa #Pack_Init, #Unpack_Data
  */
-bool Pack_Data(Pack_t *PackPtr, void *DataBuf, size_t DataBufSz);
+bool Pack_Data(Pack_t *PackPtr, const void *DataBuf, size_t DataBufSz);
 
 /**
  * Pack an unsigned 8-bit integer into the buffer.
@@ -147,7 +148,7 @@ bool Pack_UInt32(Pack_t *PackPtr, uint32 Data);
  *
  * @sa #Pack_Data
  */
-bool Pack_Time(Pack_t *PackPtr, OS_time_t Data);
+bool Pack_Time(Pack_t *PackPtr, SBN_Timestamp_t Data);
 
 /**
  * Pack a CFE Software Bus message identifier into the buffer.
@@ -240,7 +241,7 @@ bool Unpack_UInt32(Pack_t *PackPtr, uint32 *DataBuf);
  *
  * @sa #Unpack_Data
  */
-bool Unpack_Time(Pack_t *PackPtr, OS_time_t *DataBuf);
+bool Unpack_Time(Pack_t *PackPtr, SBN_Timestamp_t *DataBuf);
 
 /**
  * Unpack a CFE software bus message identifier from the pack buffer.

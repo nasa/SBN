@@ -54,7 +54,7 @@ int SBN_SERIAL_LoadNet(SBN_NetInterface_t *Net, const char *Address)
     return SBN_SUCCESS;
 } /* end SBN_SERIAL_LoadNet */
 
-static uint8 SendBuf[SBN_MAX_PACKED_MSG_SZ], RecvBufs[SBN_MAX_NETS * SBN_MAX_PEERS_PER_NET];
+static uint8 SendBuf[SBN_MAX_PACKED_MSG_SZ], RecvBufs[SBN_PLATFORM_MAX_NETS * SBN_MAX_PEERS_PER_NET];
 static int   BufCnt = 0;
 
 int SBN_SERIAL_LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)

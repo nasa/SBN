@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    GSC-18128-1, "Core Flight Executive Version 6.7"
+
+    Copyright (c) 2006-2019 United States Government as represented by
+    the Administrator of the National Aeronautics and Space Administration.
+    All Rights Reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+    This document adheres to the Electronic Data Sheet (EDS) XML schema
+    as prescribed in CCSDS book 876.0.
+
+    Purpose:
+      This describes all interface objects for the Executive Services (CFE_ES)
+      core application
+
+-->
+<PackageFile xmlns="http://www.ccsds.org/schema/sois/seds">
+  <Package name="SBN" shortDescription="Software Bus Network">
+    <DataTypeSet>
+      <IntegerDataType name="NetIdx">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="ModuleIdx">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="PeerIdx">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="SubCnt">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="HkCounter">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="EventID">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="ProcessorID">
+        <IntegerDataEncoding sizeInBits="32" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="SpacecraftID">
+        <IntegerDataEncoding sizeInBits="32" encoding="unsigned" />
+      </IntegerDataType>
+      <IntegerDataType name="Timestamp">
+        <IntegerDataEncoding sizeInBits="64" encoding="twosComplement" />
+      </IntegerDataType>
+      <BinaryDataType name="ModuleStatus" sizeInBits="${SBN/MOD_STATUS_MSG_SZ} * 8" />
+
+      <ArrayDataType name="SubsList" dataTypeRef="CFE_SB/MsgId">
+        <DimensionList>
+          <Dimension size="${SBN/MAX_SUBS_PER_PEER}" />
+        </DimensionList>
+      </ArrayDataType>
+
+      <ContainerDataType name="HkTlm_Payload" shortDescription="SBN housekeeping information">
+        <EntryList>
+          <Entry name="CmdCnt" type="HkCounter" />
+          <Entry name="CmdErrCnt" type="HkCounter" />
+          <Entry name="SubCnt" type="SubCnt" />
+          <Entry name="NetCnt" type="HkCounter" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkNetTlm_Payload" shortDescription="SBN housekeeping information">
+        <EntryList>
+          <Entry name="ProtocolIdx" type="ModuleIdx" />
+          <Entry name="PeerCnt" type="PeerIdx" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkPeerTlm_Payload" shortDescription="SBN housekeeping information">
+        <EntryList>
+          <Entry name="ProcessorId" type="ProcessorID" />
+          <Entry name="LastSend" type="Timestamp" />
+          <Entry name="LastRecv" type="Timestamp" />
+          <Entry name="SendCnt" type="HkCounter" />
+          <Entry name="RecvCnt" type="HkCounter" />
+          <Entry name="SendErrCnt" type="HkCounter" />
+          <Entry name="RecvErrCnt" type="HkCounter" />
+          <Entry name="SubCnt" type="SubCnt" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkPeerSubsTlm_Payload" shortDescription="SBN housekeeping information">
+        <EntryList>
+          <Entry name="NetIdx" type="NetIdx" />
+          <Entry name="PeerIdx" type="PeerIdx" />
+          <Entry name="SubCnt" type="SubCnt" />
+          <Entry name="Subs" type="SubsList" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkMySubsTlm_Payload" shortDescription="SBN housekeeping information">
+        <EntryList>
+          <Entry name="SubCnt" type="SubCnt" />
+          <Entry name="Subs" type="SubsList" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkModuleStatusTlm_Payload" shortDescription="SBN housekeeping information">
+        <EntryList>
+          <!-- JPHFIX: Why is this mismatched -->
+          <Entry name="ProtocolIdx" type="ModuleIdx" />
+          <Entry name="ModuleStatus" type="ModuleStatus" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="NetCmd_Payload" shortDescription="SBN Net command">
+        <EntryList>
+          <Entry name="NetIdx" type="NetIdx" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="PeerCmd_Payload" shortDescription="SBN Peer command">
+        <EntryList>
+          <Entry name="NetIdx" type="NetIdx" />
+          <Entry name="PeerIdx" type="PeerIdx" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="CommandBase" baseType="CFE_HDR/CommandHeader">
+      </ContainerDataType>
+
+      <!-- SBN has various telemetry packets sent on the same base MsgID -->
+      <ContainerDataType name="TlmBase" baseType="CFE_HDR/TelemetryHeader">
+        <EntryList>
+          <Entry name="TlmId" type="BASE_TYPES/uint8" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkTlm" baseType="TlmBase">
+        <ConstraintSet>
+          <ValueConstraint entry="TlmId" value="10" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="HkTlm_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkNetTlm" baseType="TlmBase">
+        <ConstraintSet>
+          <ValueConstraint entry="TlmId" value="11" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="HkNetTlm_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkPeerTlm" baseType="TlmBase">
+        <ConstraintSet>
+          <ValueConstraint entry="TlmId" value="12" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="HkPeerTlm_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkPeerSubsTlm" baseType="TlmBase">
+        <ConstraintSet>
+          <ValueConstraint entry="TlmId" value="13" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="HkPeerSubsTlm_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="HkMySubsTlm" baseType="TlmBase">
+        <ConstraintSet>
+          <ValueConstraint entry="TlmId" value="14" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="HkMySubsTlm_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="NoopCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="0" />
+        </ConstraintSet>
+      </ContainerDataType>
+
+      <ContainerDataType name="SendHkCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="10" />
+        </ConstraintSet>
+      </ContainerDataType>
+
+      <ContainerDataType name="SendHkNetCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="11" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="NetCmd_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="SendHkPeerCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="12" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="PeerCmd_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="SendHkPeerSubsCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="13" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="PeerCmd_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="SendHkMySubsCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="14" />
+        </ConstraintSet>
+      </ContainerDataType>
+
+      <!-- The CFE standard for reset counters is 1, but SBN had it as 15. -->
+      <ContainerDataType name="ResetCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="15" />
+        </ConstraintSet>
+      </ContainerDataType>
+
+      <ContainerDataType name="ResetPeerCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="16" />
+        </ConstraintSet>
+        <EntryList>
+          <Entry type="PeerCmd_Payload" name="Payload" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="WakeupCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="100" />
+        </ConstraintSet>
+      </ContainerDataType>
+
+      <ContainerDataType name="ReloadTblCmd" baseType="CommandBase">
+        <ConstraintSet>
+          <ValueConstraint entry="Sec.FunctionCode" value="110" />
+        </ConstraintSet>
+      </ContainerDataType>
+
+      <StringDataType name="ProtocolName" length="${SBN/MAX_MOD_NAME_LEN}" />
+      <ArrayDataType name="FilterSet" dataTypeRef="ProtocolName">
+        <DimensionList>
+          <Dimension size="${SBN/MAX_FILTERS_PER_PEER}" />
+        </DimensionList>
+      </ArrayDataType>
+      <StringDataType name="Address" length="${SBN/ADDR_SZ}" />
+
+      <EnumeratedDataType name="TaskFlag">
+        <EnumerationList>
+          <Enumeration label="POLL"  value="0" shortDescription="poll connections for this net/peer" />
+          <Enumeration label="SEND"  value="1" shortDescription="create a task for each net/peer and blocks on the pipe" />
+          <Enumeration label="RECV"  value="2" shortDescription="create a task for each net/peer and blocks on the net recv" />
+          <Enumeration label="SENDRECV"  value="3" shortDescription="create two tasks per net/peer, tasks block on reads" />
+        </EnumerationList>
+      </EnumeratedDataType>
+
+      <ContainerDataType name="Peer_Entry">
+        <EntryList>
+          <Entry type="ProcessorID" name="ProcessorID"     shortDescription="Needs to match the ProcessorID of the peer." />
+          <Entry type="SpacecraftID" name="SpacecraftID"     shortDescription="Needs to match the SpacecraftID of the peer." />
+          <Entry type="NetIdx" name="NetNum"     shortDescription="Network number indicating peers that inter-communicate using a common protocol." />
+          <Entry type="ProtocolName" name="ProtocolName"     shortDescription="The name of the protocol module for which to use for this peer." />
+          <Entry type="FilterSet" name="Filters"  shortDescription="The modules name for the filter interface for this peer." />
+          <Entry type="Address" name="Address"    shortDescription="Protocol-specific address, such as 127.0.0.1:3234." />
+          <Entry type="TaskFlag" name="TaskFlags"     shortDescription="Indicates whether to spawn tasks for send/recv; for a given netnum, probably wise to use the same TaskFlags setting." />
+        </EntryList>
+      </ContainerDataType>
+
+      <ContainerDataType name="Module_Entry">
+        <EntryList>
+          <Entry type="ProtocolName" name="Name" shortDescription="The name for this protocol module." />
+          <Entry type="BASE_TYPES/PathName" name="LibFileName" shortDescription="The file name to load the module from, if it's not already loaded by ES." />
+          <Entry type="BASE_TYPES/ApiName" name="LibSymbol" shortDescription="The entry symbol to call when loaded. For protocol modules, this is the initialization fn. For filter modules, this is the filter function symbol name." />
+          <Entry type="BASE_TYPES/uint16" name="BaseEID" />
+        </EntryList>
+      </ContainerDataType>
+
+      <ArrayDataType name="ModuleList" dataTypeRef="Module_Entry">
+        <DimensionList>
+          <Dimension size="${SBN/MAX_MOD_COUNT}" />
+        </DimensionList>
+      </ArrayDataType>
+
+      <ArrayDataType name="PeerList" dataTypeRef="Peer_Entry">
+        <DimensionList>
+          <Dimension size="${SBN/MAX_PEER_COUNT}" />
+        </DimensionList>
+      </ArrayDataType>
+
+      <ContainerDataType name="ConfTbl">
+        <EntryList>
+          <Entry type="ModuleList" name="ProtocolModules" />
+          <Entry type="ModuleIdx" name="ProtocolCnt" />
+          <Entry type="ModuleList" name="FilterModules" />
+          <Entry type="ModuleIdx" name="FilterCnt" />
+          <Entry type="PeerList" name="Peers" />
+          <Entry type="PeerIdx" name="PeerCnt" />
+        </EntryList>
+      </ContainerDataType>
+
+    </DataTypeSet>
+
+    <ComponentSet>
+      <Component name="Application">
+        <RequiredInterfaceSet>
+          <Interface name="ConfTbl" shortDescription="Configuration Table" type="CFE_TBL/Table">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TableDataType" type="ConfTbl" />
+            </GenericTypeMapSet>
+          </Interface>
+          <Interface name="CMD" shortDescription="Software bus telecommand interface" type="CFE_SB/Telecommand">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TelecommandDataType" type="CommandBase" />
+            </GenericTypeMapSet>
+          </Interface>
+          <Interface name="HK_TLM" shortDescription="Software bus housekeeping telemetry interface" type="CFE_SB/Telemetry">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TelemetryDataType" type="HkTlm" />
+            </GenericTypeMapSet>
+          </Interface>
+          <Interface name="HK_NET_TLM" shortDescription="Software bus housekeeping telemetry interface" type="CFE_SB/Telemetry">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TelemetryDataType" type="HkNetTlm" />
+            </GenericTypeMapSet>
+          </Interface>
+          <Interface name="HK_PEER_TLM" shortDescription="Software bus housekeeping telemetry interface" type="CFE_SB/Telemetry">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TelemetryDataType" type="HkPeerTlm" />
+            </GenericTypeMapSet>
+          </Interface>
+          <Interface name="HK_MYSUBS_TLM" shortDescription="Software bus housekeeping telemetry interface" type="CFE_SB/Telemetry">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TelemetryDataType" type="HkMySubsTlm" />
+            </GenericTypeMapSet>
+          </Interface>
+          <Interface name="HK_PEERSUBS_TLM" shortDescription="Software bus housekeeping telemetry interface" type="CFE_SB/Telemetry">
+            <GenericTypeMapSet>
+              <GenericTypeMap name="TelemetryDataType" type="HkPeerSubsTlm" />
+            </GenericTypeMapSet>
+          </Interface>
+
+        </RequiredInterfaceSet>
+        <Implementation>
+          <VariableSet>
+            <Variable type="BASE_TYPES/uint16" readOnly="true" name="CmdTopicId" initialValue="${CFE_MISSION/SBN_CMD_TOPICID}" />
+            <Variable type="BASE_TYPES/uint16" readOnly="true" name="HkTlmTopicId" initialValue="${CFE_MISSION/SBN_HK_TLM_TOPICID}" />
+            <Variable type="BASE_TYPES/uint16" readOnly="true" name="HkPeerTlmTopicId" initialValue="${CFE_MISSION/SBN_HK_PEER_TLM_TOPICID}" />
+            <Variable type="BASE_TYPES/uint16" readOnly="true" name="HkNetTlmTopicId" initialValue="${CFE_MISSION/SBN_HK_NET_TLM_TOPICID}" />
+            <Variable type="BASE_TYPES/uint16" readOnly="true" name="HkPeerSubsTlmTopicId" initialValue="${CFE_MISSION/SBN_HK_PEERSUBS_TLM_TOPICID}" />
+            <Variable type="BASE_TYPES/uint16" readOnly="true" name="HkMySubsTlmTopicId" initialValue="${CFE_MISSION/SBN_HK_MYSUBS_TLM_TOPICID}" />
+          </VariableSet>
+          <!-- Assign fixed numbers to the "TopicId" parameter of each interface -->
+          <ParameterMapSet>
+            <ParameterMap interface="CMD" parameter="TopicId" variableRef="CmdTopicId" />
+            <ParameterMap interface="HK_TLM" parameter="TopicId" variableRef="HkTlmTopicId" />
+            <ParameterMap interface="HK_PEER_TLM" parameter="TopicId" variableRef="HkPeerTlmTopicId" />
+            <ParameterMap interface="HK_NET_TLM" parameter="TopicId" variableRef="HkNetTlmTopicId" />
+            <ParameterMap interface="HK_PEERSUBS_TLM" parameter="TopicId" variableRef="HkPeerSubsTlmTopicId" />
+            <ParameterMap interface="HK_MYSUBS_TLM" parameter="TopicId" variableRef="HkMySubsTlmTopicId" />
+          </ParameterMapSet>
+        </Implementation>
+      </Component>
+    </ComponentSet>
+
+  </Package>
+</PackageFile>

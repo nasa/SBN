@@ -55,8 +55,8 @@ UT_CheckEvent_t EventTest;
 static bool               g_MockUnpackResult = true;
 static SBN_MsgSz_t        g_MockMsgSz        = 0;
 static SBN_MsgType_t      g_MockMsgType      = 0;
-static CFE_ProcessorID_t  g_MockProcessorID  = 0;
-static CFE_SpacecraftID_t g_MockSpacecraftID = 0;
+static SBN_ProcessorID_t  g_MockProcessorID  = 0;
+static SBN_SpacecraftID_t g_MockSpacecraftID = 0;
 
 #define EVENT_CNT(C) UtAssert_True(EventTest.MatchCount == (C), "SBN_UDP_SOCK_EID generated (%d)", EventTest.MatchCount)
 
@@ -75,8 +75,8 @@ static SBN_Status_t SendNetMsgCallback(SBN_MsgType_t type, SBN_MsgSz_t size, voi
 static void PackMsgCallback(void              *buf,
                             SBN_MsgSz_t        size,
                             SBN_MsgType_t      type,
-                            CFE_ProcessorID_t  procID,
-                            CFE_SpacecraftID_t scID,
+                            SBN_ProcessorID_t  procID,
+                            SBN_SpacecraftID_t scID,
                             void              *payload)
 {
     return;
@@ -534,8 +534,8 @@ static void Recv_SockRecvErr(void)
 static bool SBN_UnpackMsg_Fail(void               *RecvBuf,
                                SBN_MsgSz_t        *MsgSzPtr,
                                SBN_MsgType_t      *MsgTypePtr,
-                               CFE_ProcessorID_t  *ProcessorIDPtr,
-                               CFE_SpacecraftID_t *SpacecraftIDPtr,
+                               SBN_ProcessorID_t  *ProcessorIDPtr,
+                               SBN_SpacecraftID_t *SpacecraftIDPtr,
                                void               *Payload)
 {
     return false;
@@ -561,8 +561,8 @@ static void Recv_GetPeerErr(void)
 
     SBN_MsgType_t      MsgType;
     SBN_MsgSz_t        MsgSz;
-    CFE_ProcessorID_t  ProcessorID;
-    CFE_SpacecraftID_t SpacecraftID;
+    SBN_ProcessorID_t  ProcessorID;
+    SBN_SpacecraftID_t SpacecraftID;
     uint8              PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_Unpack_Buf_t   UnpackBuf;
 
@@ -619,18 +619,18 @@ static SBN_Status_t MockSendNetMsg_Test(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz
 {
     return SBN_SUCCESS;
 }
-static void MockPackMsg_Test(void             *SBNBuf,
-                             SBN_MsgSz_t       MsgSz,
-                             SBN_MsgType_t     MsgType,
-                             CFE_ProcessorID_t ProcessorID,
-                             CFE_ProcessorID_t SpacecraftID,
-                             void             *Msg)
+static void MockPackMsg_Test(void              *SBNBuf,
+                             SBN_MsgSz_t        MsgSz,
+                             SBN_MsgType_t      MsgType,
+                             SBN_ProcessorID_t  ProcessorID,
+                             SBN_SpacecraftID_t SpacecraftID,
+                             void              *Msg)
 {
 }
 
 /* Mock GetPeer that returns our test peer */
 static SBN_PeerInterface_t *
-MockGetPeer_NewConn(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID)
+MockGetPeer_NewConn(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID)
 {
     if (ProcessorID == PeerPtr->ProcessorID && SpacecraftID == PeerPtr->SpacecraftID)
     {
@@ -641,7 +641,7 @@ MockGetPeer_NewConn(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_
 
 /* Mock GetPeer that returns our test peer */
 static SBN_PeerInterface_t *
-MockGetPeer_Disconnect(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID)
+MockGetPeer_Disconnect(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID)
 {
     if (ProcessorID == PeerPtr->ProcessorID && SpacecraftID == PeerPtr->SpacecraftID)
     {
@@ -654,8 +654,8 @@ MockGetPeer_Disconnect(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, C
 static bool MockUnpackMsg_Configurable(void               *SBNBuf,
                                        SBN_MsgSz_t        *MsgSzPtr,
                                        SBN_MsgType_t      *MsgTypePtr,
-                                       CFE_ProcessorID_t  *ProcessorIDPtr,
-                                       CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                       SBN_ProcessorID_t  *ProcessorIDPtr,
+                                       SBN_SpacecraftID_t *SpacecraftIDPtr,
                                        void               *Msg)
 {
     if (g_MockUnpackResult && MsgSzPtr && MsgTypePtr && ProcessorIDPtr && SpacecraftIDPtr)
@@ -676,8 +676,8 @@ static bool MockUnpackMsg_Configurable(void               *SBNBuf,
 static bool MockUnpackMsg_Disconnect(void               *SBNBuf,
                                      SBN_MsgSz_t        *MsgSzPtr,
                                      SBN_MsgType_t      *MsgTypePtr,
-                                     CFE_ProcessorID_t  *ProcessorIDPtr,
-                                     CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                     SBN_ProcessorID_t  *ProcessorIDPtr,
+                                     SBN_SpacecraftID_t *SpacecraftIDPtr,
                                      void               *Msg)
 {
     *MsgSzPtr        = 16;
@@ -691,8 +691,8 @@ static bool MockUnpackMsg_Disconnect(void               *SBNBuf,
 static bool MockUnpackMsg_Nominal(void               *SBNBuf,
                                   SBN_MsgSz_t        *MsgSzPtr,
                                   SBN_MsgType_t      *MsgTypePtr,
-                                  CFE_ProcessorID_t  *ProcessorIDPtr,
-                                  CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                  SBN_ProcessorID_t  *ProcessorIDPtr,
+                                  SBN_SpacecraftID_t *SpacecraftIDPtr,
                                   void               *Msg)
 {
     *MsgSzPtr        = 16;
@@ -710,8 +710,8 @@ static void Recv_NewConn(void)
     SBN_ProtocolOutlet_t Outlet;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     uint8                PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 
     /* Configure the mock behavior */
@@ -787,8 +787,8 @@ static void Recv_Disconn(void)
     SBN_ProtocolOutlet_t Outlet;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     uint8                PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 
     /* Set up the outlet with all required function pointers */
@@ -833,8 +833,8 @@ static void Recv_Nominal(void)
     SBN_ProtocolOutlet_t Outlet;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     uint8                PayloadBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 
     /* Set up the outlet with all required function pointers */

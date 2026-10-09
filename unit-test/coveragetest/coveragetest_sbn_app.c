@@ -297,8 +297,7 @@ static void LoadConf_GetAddrErr(void)
     EVENT_CNT(1);
 } /* end LoadConf_GetAddrErr() */
 
-static SBN_Status_t
-ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
+static SBN_Status_t ProtoInitErr_InitModule(int ProtocolVersion, SBN_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
     return SBN_ERROR;
 } /* end ProtoInitErr_InitModule */
@@ -349,7 +348,7 @@ static void LoadConf_ProtoInitErr(void)
     EVENT_CNT(1);
 } /* end LoadConf_ProtoInitErr() */
 
-static SBN_Status_t FilterInitErr_InitModule(int FilterVersion, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t FilterInitErr_InitModule(int FilterVersion, SBN_EventID_t BaseEID)
 {
     return SBN_ERROR;
 } /* end FilterInitErr_InitModule */
@@ -498,7 +497,7 @@ static void LoadConf_TooManyNets(void)
      * - ProtocolCnt: 2 - Need at least one valid protocol module for peer reference
      * - FilterCnt: 0 - Skip filter processing, focus on network validation
      * - PeerCnt: 1 - Need one peer with NetNum that exceeds maximum allowed
-     * Expected Error: "network index too large" when peer NetNum > SBN_MAX_NETS */
+     * Expected Error: "network index too large" when peer NetNum > SBN_PLATFORM_MAX_NETS */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 2;
     TestConfTbl.FilterCnt   = 0;
@@ -511,7 +510,7 @@ static void LoadConf_TooManyNets(void)
             sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
     TestConfTbl.Peers[0].SpacecraftID = 1234;
     TestConfTbl.Peers[0].ProcessorID  = 5678;
-    TestConfTbl.Peers[0].NetNum       = SBN_MAX_NETS + 1;
+    TestConfTbl.Peers[0].NetNum       = SBN_PLATFORM_MAX_NETS + 1;
     strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
 
     START();
@@ -787,8 +786,8 @@ static SBN_Status_t RecvFromPeer_Nominal(SBN_NetInterface_t  *Net,
                                          SBN_PeerInterface_t *Peer,
                                          SBN_MsgType_t       *MsgTypePtr,
                                          SBN_MsgSz_t         *MsgSzPtr,
-                                         CFE_ProcessorID_t   *ProcessorIDPtr,
-                                         CFE_SpacecraftID_t  *SpacecraftIDPtr,
+                                         SBN_ProcessorID_t   *ProcessorIDPtr,
+                                         SBN_SpacecraftID_t  *SpacecraftIDPtr,
                                          void                *PayloadBuffer)
 {
     return SBN_SUCCESS;
@@ -2340,8 +2339,8 @@ static void Unpack_Empty(void)
     uint8              Buf[SBN_MAX_PACKED_MSG_SZ] = { 0 }, Payload[1] = { 0 };
     SBN_MsgSz_t        MsgSz;
     SBN_MsgType_t      MsgType;
-    CFE_ProcessorID_t  ProcID;
-    CFE_SpacecraftID_t SpaceID;
+    SBN_ProcessorID_t  ProcID;
+    SBN_SpacecraftID_t SpaceID;
 
     SBN_PackMsg(Buf, 0, SBN_APP_MSG, ProcessorID, SpacecraftID, NULL);
     UtAssert_True(SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, &SpaceID, Payload), "unpack of an empty pack");
@@ -2360,8 +2359,8 @@ static void Unpack_Err(void)
     uint8              Buf[SBN_MAX_PACKED_MSG_SZ] = { 0 }, Payload[1] = { 0 };
     SBN_MsgSz_t        MsgSz;
     SBN_MsgType_t      MsgType;
-    CFE_ProcessorID_t  ProcID;
-    CFE_SpacecraftID_t SpaceID;
+    SBN_ProcessorID_t  ProcID;
+    SBN_SpacecraftID_t SpaceID;
 
     Pack_t Pack;
     Pack_Init(&Pack, Buf, SBN_MAX_PACKED_MSG_SZ + SBN_PACKED_HDR_SZ, 0);
@@ -2383,8 +2382,8 @@ static void Unpack_Nominal(void)
     uint8              TestData = 123;
     SBN_MsgSz_t        MsgSz;
     SBN_MsgType_t      MsgType;
-    CFE_ProcessorID_t  ProcID;
-    CFE_SpacecraftID_t SpaceID;
+    SBN_ProcessorID_t  ProcID;
+    SBN_SpacecraftID_t SpaceID;
 
     SBN_PackMsg(Buf, 1, SBN_APP_MSG, ProcessorID, SpacecraftID, &TestData);
 
@@ -2417,8 +2416,8 @@ void RecvNetMsgs_TaskRecv(void)
 static SBN_Status_t RecvFromNet_Empty(SBN_NetInterface_t *Net,
                                       SBN_MsgType_t      *MsgTypePtr,
                                       SBN_MsgSz_t        *MsgSzPtr,
-                                      CFE_ProcessorID_t  *ProcessorIDPtr,
-                                      CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                      SBN_ProcessorID_t  *ProcessorIDPtr,
+                                      SBN_SpacecraftID_t *SpacecraftIDPtr,
                                       void               *PayloadBuffer)
 {
     *ProcessorIDPtr = 1235;
@@ -2519,8 +2518,8 @@ static SBN_Status_t RecvFromPeer_EmptyOne(SBN_NetInterface_t  *Net,
                                           SBN_PeerInterface_t *Peer,
                                           SBN_MsgType_t       *MsgTypePtr,
                                           SBN_MsgSz_t         *MsgSzPtr,
-                                          CFE_ProcessorID_t   *ProcessorIDPtr,
-                                          CFE_SpacecraftID_t  *SpacecraftIDPtr,
+                                          SBN_ProcessorID_t   *ProcessorIDPtr,
+                                          SBN_SpacecraftID_t  *SpacecraftIDPtr,
                                           void                *PayloadBuffer)
 {
     static int c = 0;
@@ -2556,8 +2555,8 @@ static SBN_Status_t RecvFromPeer_One(SBN_NetInterface_t  *Net,
                                      SBN_PeerInterface_t *Peer,
                                      SBN_MsgType_t       *MsgTypePtr,
                                      SBN_MsgSz_t         *MsgSzPtr,
-                                     CFE_ProcessorID_t   *ProcessorIDPtr,
-                                     CFE_SpacecraftID_t  *SpacecraftIDPtr,
+                                     SBN_ProcessorID_t   *ProcessorIDPtr,
+                                     SBN_SpacecraftID_t  *SpacecraftIDPtr,
                                      void                *PayloadBuffer)
 {
     static int c = 0;
@@ -2617,8 +2616,8 @@ static void RecvNetTask_NetConfErr(void)
 static SBN_Status_t RecvFromNet_EmptyOne(SBN_NetInterface_t *Net,
                                          SBN_MsgType_t      *MsgTypePtr,
                                          SBN_MsgSz_t        *MsgSzPtr,
-                                         CFE_ProcessorID_t  *ProcessorIDPtr,
-                                         CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                         SBN_ProcessorID_t  *ProcessorIDPtr,
+                                         SBN_SpacecraftID_t *SpacecraftIDPtr,
                                          void               *PayloadBuffer)
 {
     static int c = 0;
@@ -2650,8 +2649,8 @@ static void RecvNetTask_Empty(void)
 static SBN_Status_t RecvFromNet_BadPeer(SBN_NetInterface_t *Net,
                                         SBN_MsgType_t      *MsgTypePtr,
                                         SBN_MsgSz_t        *MsgSzPtr,
-                                        CFE_ProcessorID_t  *ProcessorIDPtr,
-                                        CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                        SBN_ProcessorID_t  *ProcessorIDPtr,
+                                        SBN_SpacecraftID_t *SpacecraftIDPtr,
                                         void               *PayloadBuffer)
 {
     *ProcessorIDPtr = 0;
@@ -2685,8 +2684,8 @@ static void RecvNetTask_PeerErr(void)
 static SBN_Status_t RecvFromNet_One(SBN_NetInterface_t *Net,
                                     SBN_MsgType_t      *MsgTypePtr,
                                     SBN_MsgSz_t        *MsgSzPtr,
-                                    CFE_ProcessorID_t  *ProcessorIDPtr,
-                                    CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                    SBN_ProcessorID_t  *ProcessorIDPtr,
+                                    SBN_SpacecraftID_t *SpacecraftIDPtr,
                                     void               *PayloadBuffer)
 {
     static int c = 0;

@@ -26,14 +26,14 @@ Pack_t Pack;
 void Test_Pack(void)
 {
     UtAssert_True(Pack_Init(&Pack, Buf, sizeof(Buf), true), "pack init");
-    UtAssert_True(Pack_UInt8(&Pack, (uint8)1), "pack uint8");                                // 1 byte
-    UtAssert_True(Pack_UInt8(&Pack, (uint8)255), "pack uint8");                              // 2 bytes
-    UtAssert_True(Pack_UInt16(&Pack, (uint16)2), "pack uint16");                             // 4 bytes
-    UtAssert_True(Pack_Int16(&Pack, (int16)-2), "pack int16");                               // 6 bytes
-    UtAssert_True(Pack_UInt32(&Pack, (uint32)3), "pack uint32");                             // 10 bytes
-    UtAssert_True(Pack_MsgID(&Pack, CFE_SB_ValueToMsgId(0xdead)), "pack msgid");             // 14 bytes
-    UtAssert_True(Pack_Time(&Pack, OS_TimeAssembleFromMicroseconds(0xa, 0xb)), "pack time"); // 22 bytes
-    UtAssert_True(!Pack_Time(&Pack, OS_TimeAssembleFromMicroseconds(0xa, 0xb)),
+    UtAssert_True(Pack_UInt8(&Pack, (uint8)1), "pack uint8");                    // 1 byte
+    UtAssert_True(Pack_UInt8(&Pack, (uint8)255), "pack uint8");                  // 2 bytes
+    UtAssert_True(Pack_UInt16(&Pack, (uint16)2), "pack uint16");                 // 4 bytes
+    UtAssert_True(Pack_Int16(&Pack, (int16)-2), "pack int16");                   // 6 bytes
+    UtAssert_True(Pack_UInt32(&Pack, (uint32)3), "pack uint32");                 // 10 bytes
+    UtAssert_True(Pack_MsgID(&Pack, CFE_SB_ValueToMsgId(0xdead)), "pack msgid"); // 14 bytes
+    UtAssert_True(Pack_Time(&Pack, 123456), "pack time");                        // 22 bytes
+    UtAssert_True(!Pack_Time(&Pack, 123456),
                   "pack time 2"); // should fail, out of space
 
     UtAssert_True(Pack_Init(&Pack, Buf, sizeof(Buf), false), "pack init 2");
@@ -61,9 +61,9 @@ void Test_Pack(void)
     UtAssert_True(Unpack_MsgID(&Pack, &MsgID), "unpack msgid"); // 14 bytes
     UtAssert_UINT32_EQ(MsgID.Value, 0xdead);
 
-    OS_time_t T;
+    SBN_Timestamp_t T;
     UtAssert_True(Unpack_Time(&Pack, &T), "unpack time"); // 22 bytes
-    UtAssert_True(OS_TimeEqual(T, OS_TimeAssembleFromMicroseconds(0xa, 0xb)), "check time");
+    UtAssert_EQ(SBN_Timestamp_t, T, 123456);
 
     UtAssert_True(!Unpack_UInt8(&Pack, &u8), "unpack uint8");
     UtAssert_True(!Unpack_UInt16(&Pack, &u16), "unpack uint16");

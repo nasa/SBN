@@ -16,68 +16,21 @@
  * limitations under the License.
  ************************************************************************/
 
-/*=======================================================================================
-** File Name:  sbn_msgids.h
-**
-** Title:
-**
-** $Author:    Steve Duran
-** $Revision:  $
-** $Date:      2013-06-10
-**
-** Purpose:
-**
-** Modification History:
-**   Date | Author | Description
-**   ---------------------------
-**   2013-06-10 | Steve Duran | Build #: Code Started
-**
-**=====================================================================================*/
+/**
+ * @file
+ *   SBN Application Message IDs
+ */
+#ifndef DEFAULT_SBN_MSGIDS_H
+#define DEFAULT_SBN_MSGIDS_H
 
-#ifndef _SBN_MSGIDS_H_
-#define _SBN_MSGIDS_H_
+#include "cfe_core_api_base_msgids.h"
+#include "sbn_msgid_values.h"
 
-/*
-** Pragmas
-*/
+#define SBN_CMD_MID            SBN_CMD_PLATFORM_MIDVAL(CMD)
+#define SBN_HK_TLM_MID         SBN_TLM_PLATFORM_MIDVAL(HK_TLM)
+#define SBN_HKNET_TLM_MID      SBN_TLM_PLATFORM_MIDVAL(HK_NET_TLM)
+#define SBN_HKPEERSUBS_TLM_MID SBN_TLM_PLATFORM_MIDVAL(HK_PEERSUBS_TLM)
+#define SBN_HKPEER_TLM_MID     SBN_TLM_PLATFORM_MIDVAL(HK_PEER_TLM)
+#define SBN_HKMYSUBS_TLM_MID   SBN_TLM_PLATFORM_MIDVAL(HK_MYSUBS_TLM)
 
-/*
-** Local Defines
-*/
-#define SBN_CMD_MID 0x18FA
-
-#define SBN_HK_TLM_MID         0x08FB
-#define SBN_HKNET_TLM_MID      0x08FC
-#define SBN_HKPEER_TLM_MID     0x08FD
-#define SBN_HKMYSUBS_TLM_MID   0x08FE
-#define SBN_HKPEERSUBS_TLM_MID 0x08FF
-
-/*
-** Include Files
-*/
-
-/*
-** Local Structure Declarations
-*/
-
-/*
-** External Global Variables
-*/
-
-/*
-** Global Variables
-*/
-
-/*
-** Local Variables
-*/
-
-/*
-** Local Function Prototypes
-*/
-
-#endif /* _SBN_MSGIDS_H_ */
-
-/*=======================================================================================
-** End of file sbn_msgids.h
-**=====================================================================================*/
+#endif
