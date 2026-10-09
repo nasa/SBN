@@ -25,8 +25,8 @@ typedef struct SBN_Unpack_Buf
 {
     SBN_MsgSz_t        MsgSz;
     SBN_MsgType_t      MsgType;
-    CFE_ProcessorID_t  ProcessorID;
-    CFE_SpacecraftID_t SpacecraftID;
+    SBN_ProcessorID_t  ProcessorID;
+    SBN_SpacecraftID_t SpacecraftID;
     uint8              MsgBuf[256]; /* TODO: use a defined buffer size? */
 } SBN_Unpack_Buf_t;
 

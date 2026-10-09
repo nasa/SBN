@@ -31,7 +31,7 @@ bool Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag)
     return true;
 } /* end Pack_Init() */
 
-bool Pack_Data(Pack_t *PackPtr, void *DataBuf, size_t DataBufSz)
+bool Pack_Data(Pack_t *PackPtr, const void *DataBuf, size_t DataBufSz)
 {
     if (PackPtr->BufUsed + DataBufSz > PackPtr->BufSz)
     {
@@ -68,7 +68,7 @@ bool Pack_UInt32(Pack_t *PackPtr, uint32 Data)
     return Pack_Data(PackPtr, &D, sizeof(D));
 } /* end Pack_UInt32() */
 
-bool Pack_Time(Pack_t *PackPtr, OS_time_t Data)
+bool Pack_Time(Pack_t *PackPtr, SBN_Timestamp_t Data)
 {
     return Pack_Data(PackPtr, &Data, sizeof(Data));
 } /* end Pack_Time() */
@@ -132,9 +132,9 @@ bool Unpack_UInt32(Pack_t *PackPtr, uint32 *DataBuf)
     return true;
 } /* end Unpack_UInt32() */
 
-bool Unpack_Time(Pack_t *PackPtr, OS_time_t *DataBuf)
+bool Unpack_Time(Pack_t *PackPtr, SBN_Timestamp_t *DataBuf)
 {
-    OS_time_t D;
+    SBN_Timestamp_t D;
     if (!Unpack_Data(PackPtr, &D, sizeof(D)))
     {
         return false;

@@ -54,7 +54,7 @@ typedef struct
     SBN_NetIdx_t NetCnt;
 
     /** \brief Data only on host definitions. */
-    SBN_NetInterface_t Nets[SBN_MAX_NETS];
+    SBN_NetInterface_t Nets[SBN_PLATFORM_MAX_NETS];
 
     /** \brief The application ID provided by ES */
     CFE_ES_AppId_t AppID;
@@ -84,7 +84,7 @@ typedef struct
      * and they send me theirs. All messages on the local bus that are
      * subscribed to by the peer are sent over, and vice-versa.
      */
-    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
 
     /** \brief CFE scheduling pipe */
     CFE_SB_PipeId_t SchPipe;
@@ -93,13 +93,13 @@ typedef struct
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_IfOps_t *IfOps[SBN_MAX_MOD_CNT];
+    SBN_IfOps_t *IfOps[SBN_MISSION_MAX_MOD_COUNT];
 
     /** @brief Retain the module ID's for each interface in case we need to unload. */
-    CFE_ES_ModuleID_t ProtocolModules[SBN_MAX_MOD_CNT];
+    CFE_ES_ModuleID_t ProtocolModules[SBN_MISSION_MAX_MOD_COUNT];
 
     /** @brief Retain the module ID's for each interface in case we need to unload. */
-    CFE_ES_ModuleID_t FilterModules[SBN_MAX_MOD_CNT];
+    CFE_ES_ModuleID_t FilterModules[SBN_MISSION_MAX_MOD_COUNT];
 
     SBN_ConfTbl_t *ConfTbl;
 
@@ -109,7 +109,7 @@ typedef struct
     /** Global mutex for reconfiguring. */
     CFE_ES_MutexID_t ConfMutex;
 
-    SBN_HKTlm_t CmdCnt, CmdErrCnt;
+    SBN_HkCounter_t CmdCnt, CmdErrCnt;
 
     CFE_TBL_Handle_t ConfTblHandle;
 
@@ -134,8 +134,8 @@ typedef struct
     SBN_NetIdx_t         NetIdx;
     SBN_PeerInterface_t *Peer;
     SBN_NetInterface_t  *Net;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
     uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
@@ -148,8 +148,8 @@ typedef struct
     SBN_PeerInterface_t *Peer;
     SBN_Status_t         Status;
     CFE_ES_TaskId_t      RecvTaskID;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
     uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
@@ -173,12 +173,12 @@ typedef struct
 void         SBN_AppMain(void);
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
-                               CFE_ProcessorID_t   ProcessorID,
-                               CFE_SpacecraftID_t  SpacecraftID,
+                               SBN_ProcessorID_t   ProcessorID,
+                               SBN_SpacecraftID_t  SpacecraftID,
                                SBN_MsgSz_t         MsgSz,
                                void               *Msg);
 SBN_PeerInterface_t              *
-SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID);
+SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
 SBN_Status_t SBN_ReloadConfTbl(void);
 void         SBN_RecvNetTask(void);
 void         SBN_RecvPeerTask(void);
@@ -188,16 +188,29 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
 void         SBN_PackMsg(void              *SBNBuf,
                          SBN_MsgSz_t        MsgSz,
                          SBN_MsgType_t      MsgType,
-                         CFE_ProcessorID_t  ProcessorID,
-                         CFE_SpacecraftID_t SpacecraftID,
+                         SBN_ProcessorID_t  ProcessorID,
+                         SBN_SpacecraftID_t SpacecraftID,
                          void              *Msg);
 bool         SBN_UnpackMsg(void               *SBNBuf,
                            SBN_MsgSz_t        *MsgSzPtr,
                            SBN_MsgType_t      *MsgTypePtr,
-                           CFE_ProcessorID_t  *ProcessorIDPtr,
-                           CFE_SpacecraftID_t *SpacecraftIDPtr,
+                           SBN_ProcessorID_t  *ProcessorIDPtr,
+                           SBN_SpacecraftID_t *SpacecraftIDPtr,
                            void               *Msg);
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 SBN_Status_t SBN_RecvNetMsgs(void);
+
+/**
+ * @brief Initializes the housekeeping counters for a peer.
+ *
+ * @param[in] Peer The peer interface for which to reset housekeeping.
+ */
+void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer);
+
+/**
+ * @brief Initializes the housekeeping counters both at the app level
+ *        and for each peer.
+ */
+void SBN_InitializeCounters(void);
 
 #endif /* _sbn_app_ */

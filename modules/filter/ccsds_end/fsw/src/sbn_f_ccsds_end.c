@@ -20,7 +20,7 @@
 #include "sbn_f_ccsds_end_events.h"
 #include "cfe.h"
 
-CFE_EVS_EventID_t SBN_F_CCSDS_END_FIRST_EID;
+SBN_EventID_t SBN_F_CCSDS_END_FIRST_EID;
 
 static SBN_Status_t End(void *Msg, SBN_Filter_Ctx_t *Context)
 {
@@ -53,7 +53,7 @@ static SBN_Status_t End(void *Msg, SBN_Filter_Ctx_t *Context)
     return SBN_SUCCESS;
 } /* SBN_F_CCSDS_End() */
 
-static CFE_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
+static CFE_Status_t Init(int Version, SBN_EventID_t BaseEID)
 {
     SBN_F_CCSDS_END_FIRST_EID = BaseEID;
 

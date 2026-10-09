@@ -21,7 +21,7 @@
 
 #include "cfe.h"
 #include "sbn_platform_cfg.h"
-#include "sbn_types.h"
+#include "sbn_extern_typedefs.h"
 
 /****
  * @brief The RemapTbl defines, for a peer, which MID's should be remapped
@@ -46,10 +46,10 @@
 typedef struct
 {
     /** @brief The ProcessorID of the peer to remap this MID for. */
-    CFE_ProcessorID_t ProcessorID;
+    SBN_ProcessorID_t ProcessorID;
 
     /** @brief The SpacecraftID of the peer to remap this MID for. */
-    CFE_SpacecraftID_t SpacecraftID;
+    SBN_SpacecraftID_t SpacecraftID;
 
     /** @brief The local MID I'll receive from the pipe. */
     CFE_SB_MsgId_t FromMID;

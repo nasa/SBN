@@ -32,14 +32,6 @@ typedef int32 SBN_Status_t;
 
 typedef enum
 {
-    SBN_TASK_POLL = 0x00, /**< @brief poll connections for this net/peer */
-    SBN_TASK_SEND = 0x01, /**< @brief create a task for each net/peer and blocks on the pipe */
-    SBN_TASK_RECV = 0x02, /**< @brief create a task for each net/peer and blocks on the net recv */
-    SBN_TASKS     = SBN_TASK_SEND | SBN_TASK_RECV, /**< @brief create two tasks per net/peer, tasks block on reads */
-} SBN_Task_Flag_t;
-
-typedef enum
-{
     SBN_UDP            = 1,
     SBN_TCP            = 2,
     SBN_SPACEWIRE_RMAP = 3,
@@ -90,11 +82,6 @@ typedef struct
 /* most/all scalars should be typedef'd for readability and type checking */
 typedef uint32            SBN_MsgSz_t;
 typedef SBN_MsgTypeEnum_t SBN_MsgType_t;
-typedef uint8             SBN_ModuleIdx_t;
-typedef uint8             SBN_NetIdx_t;
-typedef uint16            SBN_PeerIdx_t;
-typedef uint32            CFE_ProcessorID_t;
-typedef uint32            CFE_SpacecraftID_t;
 typedef osal_id_t         OS_MutexID_t;
 typedef int32             OS_SocketPort_t;
 typedef osal_id_t         OS_SocketID_t;
@@ -105,9 +92,6 @@ typedef int32             OS_Status_t;
 typedef osal_id_t         CFE_ES_ObjectID_t;
 typedef CFE_ES_ObjectID_t CFE_ES_ModuleID_t;
 typedef CFE_ES_ObjectID_t CFE_ES_MutexID_t;
-typedef uint16            CFE_EVS_EventID_t;
-typedef int16             SBN_SubCnt_t;
-typedef uint16            SBN_HKTlm_t;
 
 #define EVSSendInfo(E, ...) CFE_EVS_SendEvent((E), CFE_EVS_EventType_INFORMATION, __VA_ARGS__)
 #define EVSSendDbg(E, ...)  CFE_EVS_SendEvent((E), CFE_EVS_EventType_DEBUG, __VA_ARGS__)
