@@ -1,0 +1,6 @@
+[submodule "talker_listener/apps/talker_app"]
+	path = talker_listener/apps/talker_app
+	url = git@developer.nasa.gov:cFS/talker_app.git
+[submodule "talker_listener/apps/listener_app"]
+	path = talker_listener/apps/listener_app
+	url = git@developer.nasa.gov:cFS/listener_app.git
