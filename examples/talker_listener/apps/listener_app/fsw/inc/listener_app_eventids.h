@@ -1,0 +1,25 @@
+/**
+ * @file
+ *
+ * Define Listener App Events IDs
+ */
+
+#ifndef LISTENER_APP_EVENTS_H
+#define LISTENER_APP_EVENTS_H
+
+#define LISTENER_APP_RESERVED_EID      0
+#define LISTENER_APP_INIT_INF_EID      1
+#define LISTENER_APP_CC_ERR_EID        2
+#define LISTENER_APP_NOOP_INF_EID      3
+#define LISTENER_APP_RESET_INF_EID     4
+#define LISTENER_APP_MID_ERR_EID       5
+#define LISTENER_APP_CMD_LEN_ERR_EID   6
+#define LISTENER_APP_PIPE_ERR_EID      7
+#define LISTENER_APP_VALUE_INF_EID     8
+#define LISTENER_APP_CR_PIPE_ERR_EID   9
+#define LISTENER_APP_SUB_HK_ERR_EID    10
+#define LISTENER_APP_SUB_CMD_ERR_EID   11
+#define LISTENER_APP_TABLE_REG_ERR_EID 12
+#define LISTENER_COUNTER_SENT          13
+
+#endif /* LISTENER_APP_EVENTS_H */
