@@ -499,7 +499,7 @@ static void ReloadTblCmd(CFE_MSG_Message_t *MsgPtr)
     else
     {
         EVSSendErr(SBN_CMD_EID,
-                   "Recevied tbl reload command, but message was wrong size. This command should only be "
+                   "Received tbl reload command, but message was wrong size. This command should only be "
                    "triggered from the TBL service, itself, and not called directly.");
     }
     return;

@@ -274,7 +274,7 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 
 /**
  * \brief Receive task created for each direct peer-based connection.
- * Spanwed from PeerPoll()
+ * Spawned from PeerPoll()
  */
 void SBN_RecvPeerTask(void)
 {
@@ -346,7 +346,7 @@ void SBN_RecvPeerTask(void)
 
 /**
  * \brief Receive task created for each net-based connection.
- * Spanwed from PeerPoll()
+ * Spawned from PeerPoll()
  */
 void SBN_RecvNetTask(void)
 {
@@ -1008,7 +1008,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
             return SBN_ERROR;
     } /* end switch */
 
-    /* For sbn, we still want to perform cyclic processing
+    /* For SBN, we still want to perform cyclic processing
     ** if the WaitForWakeup time out
     ** cyclic processing at timeout rate
     */
@@ -1646,7 +1646,7 @@ void SBN_AppMain(void)
     Status = OS_MutSemCreate(&(SBN_AppData.ConfMutex), "sbn_conf_mutex", 0);
     if (Status != OS_SUCCESS)
     {
-        EVSSendErr(SBN_INIT_EID, "%s error creating mutex for configuiration", FAIL_PREFIX);
+        EVSSendErr(SBN_INIT_EID, "%s error creating mutex for configuration", FAIL_PREFIX);
         return;
     }
 
@@ -1836,7 +1836,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
  * Find the PeerIndex for a given ProcessorID and net.
  * @param[in] Net The network interface to search.
  * @param[in] ProcessorID The ProcessorID of the peer being sought.
- * @param[in] SpacecraftID The SpacecraftI of the peer being sought.
+ * @param[in] SpacecraftID The SpacecraftID of the peer being sought.
  * @return The Peer interface pointer, or NULL if not found.
  */
 SBN_PeerInterface_t *
