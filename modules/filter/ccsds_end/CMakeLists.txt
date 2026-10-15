@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 2.6.4)
 project(SBN_F_CCSDS_ENDIAN C)
 
 if(NOT(IS_DIRECTORY ${SBN_APP_SOURCE_DIR}))

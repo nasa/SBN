@@ -1743,7 +1743,7 @@
 **       Must be defined as a numeric value that is greater than
 **       or equal to zero.
 */
-#define CFE_MISSION_REV 0
+#define CFE_MISSION_REV 0xFF
 
 /** \cfeescfg Poll timer for startup sync delay
 **

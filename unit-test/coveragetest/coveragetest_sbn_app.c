@@ -22,6 +22,7 @@
 #include "cfe_sb_eventids.h"
 #include "cfe_evs_msg.h"
 #include "sbn_pack.h"
+#include "sbn_error.h"
 
 /* #define STUB_TASKID 1073807361 */ /* TODO: should be replaced with a call to a stub util fn */
 CFE_SB_MsgId_t MsgID = { .Value = 0x1818 };
@@ -299,7 +300,7 @@ static void LoadConf_GetAddrErr(void)
 static SBN_Status_t
 ProtoInitErr_InitModule(int ProtocolVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
-    return 1;
+    return SBN_ERROR;
 } /* end ProtoInitErr_InitModule */
 
 static void OS_SymbolLookup_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
@@ -350,7 +351,7 @@ static void LoadConf_ProtoInitErr(void)
 
 static SBN_Status_t FilterInitErr_InitModule(int FilterVersion, CFE_EVS_EventID_t BaseEID)
 {
-    return 1;
+    return SBN_ERROR;
 } /* end FilterInitErr_InitModule */
 
 static void OS_FilterSymbolLookup_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
@@ -595,7 +596,7 @@ static void LoadConf_NetCntInc(void)
     START();
 
     UT_ResetState(0);
-    SBN.NetCnt = 0;
+    SBN_AppData.NetCnt = 0;
     UT_CheckEvent_Setup(SBN_TBL_EID, "increasing net count to");
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -653,7 +654,7 @@ static void AppMain_MutSemCrErr(void)
 
 static int32 NoNetsHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
-    SBN.NetCnt = 0;
+    SBN_AppData.NetCnt = 0;
     return CFE_SUCCESS;
 } /* end NoNetsHook() */
 
@@ -664,7 +665,7 @@ static void InitInt_NoNets(void)
      * - FilterCnt: 0 - No filter modules needed for this network validation test
      * - PeerCnt: 0 - No peers configured to ensure NetCnt remains 0, triggering the expected error
      *
-     * Additionally, SBN.NetCnt is explicitly set to 0 and maintained that way using NoNetsHook
+     * Additionally, SBN_AppData.NetCnt is explicitly set to 0 and maintained that way using NoNetsHook
      * to test the "no networks configured" error path in InitInterfaces */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 0;
@@ -674,7 +675,7 @@ static void InitInt_NoNets(void)
     START();
 
     UT_ResetState(0);
-    SBN.NetCnt = 0;
+    SBN_AppData.NetCnt = 0;
     UT_CheckEvent_Setup(SBN_PEER_EID, "no networks configured");
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -722,11 +723,11 @@ static SBN_IfOps_t MockIfOps = { .InitModule   = NULL,
 static int32 SetupNetConfErr_Hook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
     /* At this point LoadConf has completed, modify SBN to have an unconfigured network */
-    SBN.NetCnt = 1;
-    memset(&SBN.Nets[0], 0, sizeof(SBN.Nets[0]));
-    SBN.Nets[0].Configured = false;      /* This will trigger the error in InitInterfaces */
-    SBN.Nets[0].IfOps      = &MockIfOps; /* Prevent segfault in UnloadNets */
-    SBN.Nets[0].PeerCnt    = 0;          /* No peers */
+    SBN_AppData.NetCnt = 1;
+    memset(&SBN_AppData.Nets[0], 0, sizeof(SBN_AppData.Nets[0]));
+    SBN_AppData.Nets[0].Configured = false;      /* This will trigger the error in InitInterfaces */
+    SBN_AppData.Nets[0].IfOps      = &MockIfOps; /* Prevent segfault in UnloadNets */
+    SBN_AppData.Nets[0].PeerCnt    = 0;          /* No peers */
 
     return StubRetcode;
 }
@@ -1066,7 +1067,7 @@ static void W4W_NoMsg(void)
 
 static int32 PeerConnHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
-    SBN.Nets[0].Peers[1].Connected = true;
+    SBN_AppData.Nets[0].Peers[1].Connected = true;
     return ProcessorID;
 } /* end PeerConnHook() */
 
@@ -1474,12 +1475,12 @@ static void PeerPoll_RecvNetTask_Nominal(void)
 
     /* Configuration Setup Rationale:
      * Runtime Configuration:
-     * - SBN.NetCnt: 0 - Reset to ensure clean state for network counting
-     * - SBN.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
+     * - SBN_AppData.NetCnt: 0 - Reset to ensure clean state for network counting
+     * - SBN_AppData.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
      * - PeerPtr->Connected: 1 - Peer must be connected for task creation to be considered
      * - NominalTblPtr->Peers[0].TaskFlags: SBN_TASK_RECV - Enable network receive task creation */
-    SBN.NetCnt          = 0;
-    SBN.Nets[0].PeerCnt = 0;
+    SBN_AppData.NetCnt          = 0;
+    SBN_AppData.Nets[0].PeerCnt = 0;
 
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_RECV;
@@ -1647,14 +1648,14 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
 
     /* Configuration Setup Rationale:
      * Runtime Configuration:
-     * - SBN.NetCnt: 0 - Reset to ensure clean state for network counting
-     * - SBN.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
+     * - SBN_AppData.NetCnt: 0 - Reset to ensure clean state for network counting
+     * - SBN_AppData.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
      * - PeerPtr->Connected: 1 - Peer must be connected for task creation to be considered
      * - NominalTblPtr->Peers[1].TaskFlags: SBN_TASK_RECV - Enable peer-level receive task creation
      * - IfOpsPtr->RecvFromPeer: RecvFromPeer_Nominal - Must be set to trigger peer task creation
      * - IfOpsPtr->RecvFromNet: NULL - Disables network-level receive task creation */
-    SBN.NetCnt          = 0;
-    SBN.Nets[0].PeerCnt = 0;
+    SBN_AppData.NetCnt          = 0;
+    SBN_AppData.Nets[0].PeerCnt = 0;
 
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_RECV;
@@ -2103,7 +2104,7 @@ static void Disconnected_ConnErr(void)
      * Peer Setup:
      * - PeerPtr->Connected: 0 (default) - Peer starts disconnected to trigger the error condition
      * - PeerPtr->ProcessorID: ProcessorID - Set for error message identification */
-    SBN_PeerInterface_t *PeerPtr = &SBN.Nets[0].Peers[0];
+    SBN_PeerInterface_t *PeerPtr = &SBN_AppData.Nets[0].Peers[0];
 
     PeerPtr->ProcessorID = ProcessorID;
 
@@ -2122,7 +2123,7 @@ static void Disconnected_Nominal(void)
      * Peer Setup:
      * - PeerPtr->ProcessorID: ProcessorID - Set for event message identification
      * - PeerPtr->Connected: 1 - Pre-set peer as connected to allow valid disconnection */
-    SBN_PeerInterface_t *PeerPtr = &SBN.Nets[0].Peers[0];
+    SBN_PeerInterface_t *PeerPtr = &SBN_AppData.Nets[0].Peers[0];
 
     PeerPtr->ProcessorID = ProcessorID;
     PeerPtr->Connected   = 1;
@@ -2176,14 +2177,14 @@ static void ReloadConfTbl_ProtoUnloadErr(void)
 
     /* Configuration Setup Rationale:
      * Module Setup:
-     * - SBN.ProtocolModules[0]: OS_ObjectIdFromInteger(1) - Set to valid module ID to trigger unload attempt
+     * - SBN_AppData.ProtocolModules[0]: OS_ObjectIdFromInteger(1) - Set to valid module ID to trigger unload attempt
      * - OS_ModuleUnload: Set to fail (-1) - Simulates protocol module unload failure
      *
      * Peer Setup:
      * - PeerPtr->Connected: 1 - Pre-set peer as connected to ensure cleanup phase is reached */
     PeerPtr->Connected = 1;
 
-    SBN.ProtocolModules[0] = OS_ObjectIdFromInteger(1);
+    SBN_AppData.ProtocolModules[0] = OS_ObjectIdFromInteger(1);
 
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
 
@@ -2202,9 +2203,9 @@ static void ReloadConfTbl_FiltUnloadErr(void)
     /*
      * Configuration Setup Rationale:
      * Module Setup:
-     * - SBN.FilterModules[0]: OS_ObjectIdFromInteger(1) - Set to valid module ID to trigger unload attempt
+     * - SBN_AppData.FilterModules[0]: OS_ObjectIdFromInteger(1) - Set to valid module ID to trigger unload attempt
      * - OS_ModuleUnload: Set to fail (-1) - Simulates filter module unload failure */
-    SBN.FilterModules[0] = OS_ObjectIdFromInteger(1);
+    SBN_AppData.FilterModules[0] = OS_ObjectIdFromInteger(1);
 
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
 
@@ -2296,7 +2297,7 @@ static void ReloadConfTbl_Nominal(void)
     /* Set up mutex operations */
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, OS_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, OS_SUCCESS);
-    SBN.ConfMutex = OS_ObjectIdFromInteger(1); /* Valid non-zero value */
+    SBN_AppData.ConfMutex = 1; /* Valid non-zero value */
 
     /* Set up for Cleanup */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_DeletePipe), 1, CFE_SUCCESS);
@@ -2759,7 +2760,7 @@ static int32 TaskDelayConn(void *UserObj, int32 StubRetcode, uint32 CallCount, c
 
     if (c++ > 0)
     {
-        SBN.Nets[0].Peers[0].Connected = true;
+        SBN_AppData.Nets[0].Peers[0].Connected = true;
     } /* end if */
 
     return CFE_SUCCESS;

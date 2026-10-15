@@ -28,13 +28,7 @@
  * sbn_platform_cfg.h instead.
  */
 
-typedef enum
-{
-    SBN_SUCCESS = 0,
-    SBN_ERROR,
-    SBN_IF_EMPTY,
-    SBN_NOT_IMPLEMENTED
-} SBN_Status_t;
+typedef int32 SBN_Status_t;
 
 typedef enum
 {
@@ -95,7 +89,7 @@ typedef struct
 
 /* most/all scalars should be typedef'd for readability and type checking */
 typedef uint32            SBN_MsgSz_t;
-typedef uint8             SBN_MsgType_t;
+typedef SBN_MsgTypeEnum_t SBN_MsgType_t;
 typedef uint8             SBN_ModuleIdx_t;
 typedef uint8             SBN_NetIdx_t;
 typedef uint16            SBN_PeerIdx_t;
