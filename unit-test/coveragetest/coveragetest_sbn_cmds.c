@@ -209,6 +209,110 @@ static void HKPeer_Nominal(void)
     EVENT_CNT(1);
 } /* end HKPeer_Nominal() */
 
+/* Index == count is out of range, index == count - 1 is the last valid slot */
+static void HKNet_NetIdxEqCnt(void)
+{
+    START();
+    UT_ResetState(0);
+
+    UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid NetIdx (");
+
+    memset(Buffer, 0, sizeof(Buffer));
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
+    *Ptr       = SBN_AppData.NetCnt;
+
+    MsgSz   = SBN_CMD_NET_LEN;
+    FcnCode = SBN_HK_NET_CC;
+    MSGINIT();
+
+    SBN_HandleCommand(CmdPktPtr);
+
+    EVENT_CNT(1);
+} /* end HKNet_NetIdxEqCnt() */
+
+static void HKNet_NetIdxLast(void)
+{
+    START();
+    UT_ResetState(0);
+
+    UT_CheckEvent_Setup(SBN_CMD_EID, "hk command, net=");
+
+    memset(Buffer, 0, sizeof(Buffer));
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
+    *Ptr       = SBN_AppData.NetCnt - 1;
+
+    MsgSz   = SBN_CMD_NET_LEN;
+    FcnCode = SBN_HK_NET_CC;
+    MSGINIT();
+
+    SBN_HandleCommand(CmdPktPtr);
+
+    EVENT_CNT(1);
+} /* end HKNet_NetIdxLast() */
+
+static void HKPeer_NetIdxEqCnt(void)
+{
+    START();
+    UT_ResetState(0);
+
+    UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid NetIdx (");
+
+    memset(Buffer, 0, sizeof(Buffer));
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
+    *Ptr++     = SBN_AppData.NetCnt;
+    *Ptr       = 0;
+
+    MsgSz   = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
+
+    SBN_HandleCommand(CmdPktPtr);
+
+    EVENT_CNT(1);
+} /* end HKPeer_NetIdxEqCnt() */
+
+static void HKPeer_PeerIdxEqCnt(void)
+{
+    START();
+    UT_ResetState(0);
+
+    UT_CheckEvent_Setup(SBN_CMD_EID, "Invalid PeerIdx (");
+
+    memset(Buffer, 0, sizeof(Buffer));
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
+    *Ptr++     = 0;
+    *Ptr       = NetPtr->PeerCnt;
+
+    MsgSz   = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
+
+    SBN_HandleCommand(CmdPktPtr);
+
+    EVENT_CNT(1);
+} /* end HKPeer_PeerIdxEqCnt() */
+
+static void HKPeer_PeerIdxLast(void)
+{
+    START();
+    UT_ResetState(0);
+
+    UT_CheckEvent_Setup(SBN_CMD_EID, "hk command, net=");
+
+    memset(Buffer, 0, sizeof(Buffer));
+    uint8 *Ptr = Buffer + sizeof(CFE_MSG_CommandHeader_t);
+    *Ptr++     = SBN_AppData.NetCnt - 1;
+    *Ptr       = NetPtr->PeerCnt - 1;
+
+    MsgSz   = SBN_CMD_PEER_LEN;
+    FcnCode = SBN_HK_PEER_CC;
+    MSGINIT();
+
+    SBN_HandleCommand(CmdPktPtr);
+
+    EVENT_CNT(1);
+} /* end HKPeer_PeerIdxLast() */
+
 static void HKPeerSubs_MsgLenErr(void)
 {
     START();
@@ -584,10 +688,15 @@ static void Test_SBN_Cmds(void)
     HKNet_MsgLenErr();
     HKNet_NetIdErr();
     HKNet_Nominal();
+    HKNet_NetIdxEqCnt();
+    HKNet_NetIdxLast();
     HKPeer_MsgLenErr();
     HKPeer_NetIdErr();
     HKPeer_PeerIdErr();
     HKPeer_Nominal();
+    HKPeer_NetIdxEqCnt();
+    HKPeer_PeerIdxEqCnt();
+    HKPeer_PeerIdxLast();
     HKPeerSubs_MsgLenErr();
     HKPeerSubs_NetIdErr();
     HKPeerSubs_PeerIdErr();
