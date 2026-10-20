@@ -22,7 +22,7 @@
 /* version updates when there's a change in the API's or other functional changes */
 #define SBN_MAJOR_VERSION 7
 #define SBN_MINOR_VERSION 0
-#define SBN_REVISION      1
+#define SBN_REVISION      2
 
 #define SBN_PROTOCOL_VERSION 6 /* Init() takes outlet */
 #define SBN_FILTER_VERSION   2 /* Init() returns SBN_Status_t */
