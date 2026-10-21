@@ -30,6 +30,8 @@
 #include "cfe_msgids.h"
 #include "cfe_version.h"
 #include "sbn_error.h"
+#include "sbn_tbl.h"
+#include "sbn_dispatch.h"
 
 /** \brief SBN global application data, indexed by AppID. */
 SBN_AppData_t SBN_AppData;
@@ -40,7 +42,7 @@ static SBN_Status_t UnloadModules(void)
 {
     SBN_ModuleIdx_t i = 0;
 
-    for (i = 0; i < SBN_MAX_MOD_CNT; i++)
+    for (i = 0; i < SBN_MISSION_MAX_MOD_COUNT; i++)
     {
         if (!OS_ObjectIdDefined(SBN_AppData.ProtocolModules[i]))
         {
@@ -54,7 +56,7 @@ static SBN_Status_t UnloadModules(void)
         } /* end if */
     } /* end for */
 
-    for (i = 0; i < SBN_MAX_MOD_CNT; i++)
+    for (i = 0; i < SBN_MISSION_MAX_MOD_COUNT; i++)
     {
         if (!OS_ObjectIdDefined(SBN_AppData.FilterModules[i]))
         {
@@ -86,17 +88,17 @@ static SBN_Status_t UnloadModules(void)
 void SBN_PackMsg(void             *SBNBuf,
                  SBN_MsgSz_t       MsgSz,
                  SBN_MsgType_t     MsgType,
-                 CFE_ProcessorID_t ProcessorID,
-                 CFE_ProcessorID_t SpacecraftID,
+                 SBN_ProcessorID_t ProcessorID,
+                 SBN_ProcessorID_t SpacecraftID,
                  void             *Msg)
 {
-    Pack_t Pack;
-    Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, false);
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, false);
 
-    Pack_UInt32(&Pack, MsgSz);
-    Pack_UInt8(&Pack, MsgType);
-    Pack_UInt32(&Pack, ProcessorID);
-    Pack_UInt32(&Pack, SpacecraftID);
+    SBN_Pack_UInt32(&Pack, MsgSz);
+    SBN_Pack_UInt8(&Pack, MsgType);
+    SBN_Pack_UInt32(&Pack, ProcessorID);
+    SBN_Pack_UInt32(&Pack, SpacecraftID);
 
     if (!Msg || !MsgSz)
     {
@@ -104,7 +106,7 @@ void SBN_PackMsg(void             *SBNBuf,
         return;
     } /* end if */
 
-    Pack_Data(&Pack, Msg, MsgSz);
+    SBN_Pack_Data(&Pack, Msg, MsgSz);
 } /* end SBN_PackMsg */
 
 /**
@@ -125,24 +127,24 @@ void SBN_PackMsg(void             *SBNBuf,
 bool SBN_UnpackMsg(void               *SBNBuf,
                    SBN_MsgSz_t        *MsgSzPtr,
                    SBN_MsgType_t      *MsgTypePtr,
-                   CFE_ProcessorID_t  *ProcessorIDPtr,
-                   CFE_SpacecraftID_t *SpacecraftIDPtr,
+                   SBN_ProcessorID_t  *ProcessorIDPtr,
+                   SBN_SpacecraftID_t *SpacecraftIDPtr,
                    void               *Msg)
 {
-    uint8  t;
-    Pack_t Pack;
+    uint8             t;
+    SBN_UnpackState_t Pack;
 
-    Pack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ, false);
+    SBN_Unpack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);
 
     *MsgSzPtr = 0;
-    Unpack_UInt32(&Pack, MsgSzPtr);
+    SBN_Unpack_UInt32(&Pack, MsgSzPtr);
 
     t = 0;
-    Unpack_UInt8(&Pack, &t);
+    SBN_Unpack_UInt8(&Pack, &t);
     *MsgTypePtr = t;
 
-    Unpack_UInt32(&Pack, ProcessorIDPtr);
-    Unpack_UInt32(&Pack, SpacecraftIDPtr);
+    SBN_Unpack_UInt32(&Pack, ProcessorIDPtr);
+    SBN_Unpack_UInt32(&Pack, SpacecraftIDPtr);
 
     if (!*MsgSzPtr)
     {
@@ -154,7 +156,7 @@ bool SBN_UnpackMsg(void               *SBNBuf,
         return false;
     } /* end if */
 
-    Unpack_Data(&Pack, Msg, *MsgSzPtr);
+    SBN_Unpack_Data(&Pack, Msg, *MsgSzPtr);
 
     return true;
 } /* end SBN_UnpackMsg */
@@ -188,7 +190,7 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 
     /* create a pipe name string similar to SBN_0_Pipe */
     snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%d_Pipe", (int)(Peer->ProcessorID), (int)(Peer->SpacecraftID));
-    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH, PipeName);
+    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PLATFORM_PEER_PIPE_DEPTH, PipeName);
 
     if (CFE_Status != CFE_SUCCESS)
     {
@@ -315,7 +317,8 @@ void SBN_RecvPeerTask(void)
     while (1)
     {
         D.Status =
-            D.Net->IfOps->RecvFromPeer(D.Net, D.Peer, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.Msg);
+            D.Net->IfOps
+                ->RecvFromPeer(D.Net, D.Peer, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.NetMsgBuf);
 
         if (D.Status == SBN_IF_EMPTY)
         {
@@ -326,7 +329,7 @@ void SBN_RecvPeerTask(void)
         {
             OS_GetLocalTime(&D.Peer->LastRecv);
 
-            D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.Msg);
+            D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.NetMsgBuf);
 
             if (D.Status != SBN_SUCCESS)
             {
@@ -375,7 +378,8 @@ void SBN_RecvNetTask(void)
     while (1)
     {
         EVSSendDbg(SBN_PEERTASK_EID, "Try to receive from net...");
-        D.Status = D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.Msg);
+        D.Status =
+            D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.NetMsgBuf);
 
         if (D.Status == SBN_IF_EMPTY)
         {
@@ -401,7 +405,7 @@ void SBN_RecvNetTask(void)
 
         OS_GetLocalTime(&D.Peer->LastRecv);
 
-        D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.Msg);
+        D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.NetMsgBuf);
 
         if (D.Status != SBN_SUCCESS)
         {
@@ -428,8 +432,8 @@ SBN_Status_t SBN_RecvNetMsgs(void)
     SBN_NetInterface_t  *Net;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     SBN_PeerIdx_t        PeerIdx;
 
     SBN_Status = SBN_ERROR;
@@ -627,7 +631,7 @@ void SBN_SendTask(void)
     {
         if (!D.Peer->Connected)
         {
-            OS_TaskDelay(SBN_MAIN_LOOP_DELAY);
+            OS_TaskDelay(SBN_PLATFORM_MAIN_LOOP_DELAY);
             continue;
         } /* end if */
 
@@ -713,10 +717,10 @@ static SBN_Status_t CheckPeerPipes(void)
 
     /**
      * \note This processes one message per peer, then start again until no
-     * peers have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
+     * peers have pending messages. At max only process SBN_PLATFORM_MAX_MSG_PER_WAKEUP
      * per peer per wakeup otherwise I will starve other processing.
      */
-    for (iter = 0; iter < SBN_MAX_MSG_PER_WAKEUP; iter++)
+    for (iter = 0; iter < SBN_PLATFORM_MAX_MSG_PER_WAKEUP; iter++)
     {
         ReceivedFlag = 0;
 
@@ -985,16 +989,15 @@ static SBN_Status_t InitInterfaces(void)
  */
 static SBN_Status_t WaitForWakeup(int32 iTimeOut)
 {
-    CFE_Status_t       CFE_Status;
-    SBN_Status_t       SBN_Status;
-    CFE_MSG_Message_t *MsgPtr;
+    CFE_Status_t           CFE_Status;
+    SBN_Status_t           SBN_Status;
+    const CFE_SB_Buffer_t *BufPtr;
 
-    CFE_Status = CFE_SUCCESS;
     SBN_Status = SBN_SUCCESS;
-    MsgPtr     = 0;
+    BufPtr     = NULL;
 
     /* Wait for WakeUp messages from scheduler */
-    CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN_AppData.CmdPipe, iTimeOut);
+    CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&BufPtr, SBN_AppData.CmdPipe, iTimeOut);
 
     switch (CFE_Status)
     {
@@ -1002,7 +1005,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
         case CFE_SB_TIME_OUT:
             break;
         case CFE_SUCCESS:
-            SBN_HandleCommand(MsgPtr);
+            SBN_HandleCommand(BufPtr);
             break;
         default:
             return SBN_ERROR;
@@ -1043,7 +1046,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
  *
  * Cleaned up by UnloadModules()
  */
-static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr)
+static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, SBN_ModuleID_t *ModuleIDPtr)
 {
     cpuaddr StructAddr;
 
@@ -1097,11 +1100,12 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t 
  * @param[out] Filters - The function pointers for the filters requested.
  * @return The number of entries in Filters.
  */
-static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
-                                        SBN_ModuleIdx_t               FilterModuleCnt,
-                                        SBN_FilterInterface_t *const *ConfFilters,
-                                        char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
-                                        SBN_FilterInterface_t **Filters)
+static SBN_ModuleIdx_t
+LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
+                 SBN_ModuleIdx_t               FilterModuleCnt,
+                 SBN_FilterInterface_t *const *ConfFilters,
+                 char                    ModuleNames[SBN_MISSION_MAX_FILTERS_PER_PEER][SBN_MISSION_MAX_MOD_NAME_LEN],
+                 SBN_FilterInterface_t **Filters)
 {
     int             i;
     SBN_ModuleIdx_t FilterCnt;
@@ -1111,7 +1115,7 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModu
 
     memset(FilterModules, 0, sizeof(*FilterModules) * FilterCnt);
 
-    for (i = 0; i < SBN_MAX_FILTERS_PER_PEER && *ModuleNames[i]; i++)
+    for (i = 0; i < SBN_MISSION_MAX_FILTERS_PER_PEER && *ModuleNames[i]; i++)
     {
         for (FilterIdx = 0; FilterIdx < FilterModuleCnt; FilterIdx++)
         {
@@ -1140,8 +1144,8 @@ static SBN_Status_t LoadConf(void)
 {
     SBN_ModuleIdx_t        ModuleIdx;
     SBN_PeerIdx_t          PeerIdx;
-    SBN_FilterInterface_t *Filters[SBN_MAX_MOD_CNT];
-    CFE_ES_ModuleID_t      ModuleID;
+    SBN_FilterInterface_t *Filters[SBN_MISSION_MAX_MOD_COUNT];
+    SBN_ModuleID_t         ModuleID;
     SBN_IfOps_t           *Ops;
     SBN_Peer_Entry_t      *PeerEntry;
     SBN_NetInterface_t    *Net;
@@ -1239,9 +1243,9 @@ static SBN_Status_t LoadConf(void)
             return SBN_ERROR;
         } /* end if */
 
-        if (PeerEntry->NetNum < 0 || PeerEntry->NetNum >= SBN_MAX_NETS)
+        if (PeerEntry->NetNum < 0 || PeerEntry->NetNum >= SBN_PLATFORM_MAX_NETS)
         {
-            EVSSendCrit(SBN_TBL_EID, "network index too large (%d>%d)", PeerEntry->NetNum, SBN_MAX_NETS);
+            EVSSendCrit(SBN_TBL_EID, "network index too large (%d>%d)", PeerEntry->NetNum, SBN_PLATFORM_MAX_NETS);
             return SBN_ERROR;
         } /* end if */
 
@@ -1437,9 +1441,10 @@ static uint32 LoadConfTbl(void)
         return Status;
     } /* end if */
 
-    if ((Status = CFE_TBL_Load(SBN_AppData.ConfTblHandle, CFE_TBL_SRC_FILE, SBN_CONF_TBL_FILENAME)) != CFE_SUCCESS)
+    if ((Status = CFE_TBL_Load(SBN_AppData.ConfTblHandle, CFE_TBL_SRC_FILE, SBN_PLATFORM_CONF_TBL_FILENAME))
+        != CFE_SUCCESS)
     {
-        EVSSendErr(SBN_TBL_EID, "unable to load conf tbl %s", SBN_CONF_TBL_FILENAME);
+        EVSSendErr(SBN_TBL_EID, "unable to load conf tbl %s", SBN_PLATFORM_CONF_TBL_FILENAME);
         CFE_TBL_Unregister(SBN_AppData.ConfTblHandle);
         return Status;
     } /* end if */
@@ -1482,7 +1487,7 @@ static SBN_Status_t SetupSubPipe(void)
     CFE_Status_t Status;
 
     /* Create pipe for subscribes and unsubscribes from SB */
-    Status = CFE_SB_CreatePipe(&SBN_AppData.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");
+    Status = CFE_SB_CreatePipe(&SBN_AppData.SubPipe, SBN_PLATFORM_SUB_PIPE_DEPTH, "SBNSubPipe");
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to create subscription pipe (Status=%d)", (int)Status);
@@ -1491,7 +1496,7 @@ static SBN_Status_t SetupSubPipe(void)
 
     Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID),
                                    SBN_AppData.SubPipe,
-                                   SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+                                   SBN_PLATFORM_MAX_ALLSUBS_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to allsubs (Status=%d)", (int)Status);
@@ -1500,7 +1505,7 @@ static SBN_Status_t SetupSubPipe(void)
 
     Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID),
                                    SBN_AppData.SubPipe,
-                                   SBN_MAX_ONESUB_PKTS_ON_PIPE);
+                                   SBN_PLATFORM_MAX_ONESUB_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to sub (Status=%d)", (int)Status);
@@ -1509,6 +1514,41 @@ static SBN_Status_t SetupSubPipe(void)
 
     return SBN_SUCCESS;
 }
+
+void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer)
+{
+    Peer->LastSend   = (OS_time_t) { 0 };
+    Peer->LastRecv   = (OS_time_t) { 0 };
+    Peer->SendCnt    = 0;
+    Peer->RecvCnt    = 0;
+    Peer->SendErrCnt = 0;
+    Peer->RecvErrCnt = 0;
+} /* end SBN_InitializePeerCounters() */
+
+/**
+ * @brief Initializes the housekeeping counters both at the app level
+ *        and for each peer.
+ */
+void SBN_InitializeCounters(void)
+{
+    SBN_NetInterface_t  *Net;
+    SBN_PeerInterface_t *Peer;
+    SBN_PeerIdx_t        PeerIdx;
+    SBN_NetIdx_t         NetIdx;
+
+    SBN_AppData.CmdCnt    = 0;
+    SBN_AppData.CmdErrCnt = 0;
+
+    for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
+    {
+        Net = &SBN_AppData.Nets[NetIdx];
+        for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
+        {
+            Peer = &Net->Peers[PeerIdx];
+            SBN_InitializePeerCounters(Peer);
+        } /* end for */
+    } /* end for */
+} /* end SBN_InitializeCounters */
 
 static SBN_Status_t Init(void)
 {
@@ -1694,7 +1734,7 @@ void SBN_AppMain(void)
             break;
         } /* end if */
 
-        WaitForWakeup(SBN_MAIN_LOOP_DELAY);
+        WaitForWakeup(SBN_PLATFORM_MAIN_LOOP_DELAY);
 
         if (OS_MutSemGive(SBN_AppData.ConfMutex) != OS_SUCCESS)
         {
@@ -1724,8 +1764,8 @@ void SBN_AppMain(void)
  */
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
-                               CFE_ProcessorID_t   ProcessorID,
-                               CFE_SpacecraftID_t  SpacecraftID,
+                               SBN_ProcessorID_t   ProcessorID,
+                               SBN_SpacecraftID_t  SpacecraftID,
                                SBN_MsgSz_t         MsgSz,
                                void               *Msg)
 {
@@ -1840,7 +1880,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
  * @return The Peer interface pointer, or NULL if not found.
  */
 SBN_PeerInterface_t *
-SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID)
+SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID)
 {
     SBN_PeerIdx_t PeerIdx;
 

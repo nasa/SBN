@@ -30,7 +30,7 @@
 const char SBN_F_REMAP_TABLE_NAME[] = "SBN_RemapTbl";
 
 bool             RemapInitialized = false;
-OS_MutexID_t     RemapMutex;
+SBN_MutexID_t    RemapMutex;
 CFE_TBL_Handle_t RemapTblHandle = 0;
 SBN_RemapTbl_t  *RemapTbl       = NULL;
 int              RemapTblCnt    = 0;

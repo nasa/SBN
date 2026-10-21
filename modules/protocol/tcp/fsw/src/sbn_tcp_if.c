@@ -410,8 +410,8 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
 static SBN_Status_t Recv(SBN_NetInterface_t *Net,
                          SBN_MsgType_t      *MsgTypePtr,
                          SBN_MsgSz_t        *MsgSzPtr,
-                         CFE_ProcessorID_t  *ProcessorIDPtr,
-                         CFE_SpacecraftID_t *SpacecraftIDPtr,
+                         SBN_ProcessorID_t  *ProcessorIDPtr,
+                         SBN_SpacecraftID_t *SpacecraftIDPtr,
                          void               *MsgBuf)
 {
     OS_FdSet           FdSet;
@@ -494,7 +494,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
                 if (Received <= 0)
                 {
-                    CFE_ProcessorID_t ProcessorID = -1;
+                    SBN_ProcessorID_t ProcessorID = -1;
                     if (Conn->PeerInterface != NULL)
                     {
                         ProcessorID = Conn->PeerInterface->ProcessorID;

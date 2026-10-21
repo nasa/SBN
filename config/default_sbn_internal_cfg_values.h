@@ -16,12 +16,23 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_perfids_h_
-#define _sbn_perfids_h_
+/**
+ * @file
+ *   SBN Application Private Config Definitions
+ *
+ * This provides default values for configurable items that are internal
+ * to this module and do NOT affect the interface(s) of this module.  Changes
+ * to items in this file only affect the local module and will be transparent
+ * to external entities that are using the public interface(s).
+ *
+ * @note This file may be overridden/superceded by mission-provided definitions
+ * either by overriding this header or by generating definitions from a command/data
+ * dictionary tool.
+ */
+#ifndef DEFAULT_SBN_INTERNAL_CFG_H
+#define DEFAULT_SBN_INTERNAL_CFG_H
 
-#define SBN_PERF_MIN_ID  1
-#define SBN_PERF_SEND_ID SBN_PERF_MIN_ID
-#define SBN_PERF_RECV_ID SBN_PERF_MIN_ID + 1
-#define SBN_PERF_MAX_ID  SBN_PERF_MIN_ID + 100
+/* Use the default configuration value for all */
+#define SBN_PLATFORM_CFGVAL(x) DEFAULT_SBN_PLATFORM_##x
 
-#endif /* _sbn_perfids_h_ */
+#endif
