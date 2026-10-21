@@ -16,53 +16,49 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_msg_h_
-#define _sbn_msg_h_
+/**
+ * @file
+ *   Specification for the SBN command and telemetry
+ *   message data types.
+ *
+ * This is a compatibility header for the "sbn_msg.h" file that has
+ * traditionally provided the message definitions for cFS apps.
+ *
+ * @note This file may be overridden/superceded by mission-provided definitions
+ * either by overriding this header or by generating definitions from a command/data
+ * dictionary tool.
+ */
+#ifndef DEFAULT_SBN_MSG_H
+#define DEFAULT_SBN_MSG_H
 
+#include "sbn_mission_cfg.h"
 #include "sbn_msgdefs.h"
-#include "sbn_platform_cfg.h"
-#include "sbn_types.h"
-#include "cfe.h"
+#include "sbn_msgstruct.h"
 
 #define SBN_CMD_NET_LEN sizeof(CFE_MSG_CommandHeader_t) + sizeof(SBN_NetIdx_t)
 
 #define SBN_CMD_PEER_LEN sizeof(CFE_MSG_CommandHeader_t) + sizeof(SBN_PeerIdx_t)
 
 /** @brief CC, CmdCnt, CmdErrCnt, SubCnt, NetCnt */
-#define SBN_HK_LEN (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + (sizeof(SBN_HKTlm_t) * 4))
+#define SBN_HK_LEN (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + (sizeof(SBN_HkCounter_t) * 4))
 
-/** @brief CC, SBN_SubCnt_t SubCnt, CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER] */
+/** @brief CC, SBN_SubCnt_t SubCnt, CFE_SB_MsgId_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER] */
 #define SBN_HKMYSUBS_LEN                                                      \
     (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_SubCnt_t) \
-     + SBN_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
+     + SBN_MISSION_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
 
-/** @brief CC, NetIdx, PeerIdx, SubCnt, Subs[SBN_MAX_SUBS_PER_PEER] */
+/** @brief CC, NetIdx, PeerIdx, SubCnt, Subs[SBN_MISSION_MAX_SUBS_PER_PEER] */
 #define SBN_HKPEERSUBS_LEN                                                                            \
     (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_NetIdx_t) + sizeof(SBN_PeerIdx_t) \
-     + sizeof(SBN_SubCnt_t) + SBN_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
+     + sizeof(SBN_SubCnt_t) + SBN_MISSION_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
 
 /** @brief CC, SubCnt, ProcessorID, LastSend, LastRecv, SendCnt, RecvCnt, SendErrCnt, RecvErrCnt */
 #define SBN_HKPEER_LEN                                                                                    \
-    (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_SubCnt_t) + sizeof(CFE_ProcessorID_t) \
-     + sizeof(OS_time_t) * 2 + sizeof(SBN_HKTlm_t) * 4)
+    (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_SubCnt_t) + sizeof(SBN_ProcessorID_t) \
+     + sizeof(SBN_Timestamp_t) * 2 + sizeof(SBN_HkCounter_t) * 4)
 
 /** @brief CC, ProtocolID, PeerCnt */
 #define SBN_HKNET_LEN \
     (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_ModuleIdx_t) + sizeof(SBN_PeerIdx_t))
 
-/**
- * @brief Module status response packet structure
- */
-typedef struct
-{
-    /**
-     * This is a struct that will be sent (as-is) in a response to a HK command.
-     */
-    CFE_MSG_TelemetryHeader_t TlmHeader;
-    /** @brief The Protocol ID being queried. */
-    SBN_ModuleIdx_t           ProtocolIdx;
-    /** @brief The module status as returned by the module. */
-    uint8                     ModuleStatus[SBN_MOD_STATUS_MSG_SZ];
-} SBN_ModuleStatusPacket_t;
-
-#endif /* _sbn_msg_h_ */
+#endif

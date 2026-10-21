@@ -32,14 +32,6 @@ typedef int32 SBN_Status_t;
 
 typedef enum
 {
-    SBN_TASK_POLL = 0x00, /**< @brief poll connections for this net/peer */
-    SBN_TASK_SEND = 0x01, /**< @brief create a task for each net/peer and blocks on the pipe */
-    SBN_TASK_RECV = 0x02, /**< @brief create a task for each net/peer and blocks on the net recv */
-    SBN_TASKS     = SBN_TASK_SEND | SBN_TASK_RECV, /**< @brief create two tasks per net/peer, tasks block on reads */
-} SBN_Task_Flag_t;
-
-typedef enum
-{
     SBN_UDP            = 1,
     SBN_TCP            = 2,
     SBN_SPACEWIRE_RMAP = 3,
@@ -49,19 +41,6 @@ typedef enum
     SBN_1553           = 7,
     SBN_DTN            = 8,
 } SBN_Protocol_t;
-
-/**
- * Message types definitions, reserve the high 128 values for module-specific
- * message types.
- */
-typedef enum
-{
-    SBN_NO_MSG    = 0x00, /**< @brief no payload */
-    SBN_SUB_MSG   = 0x01, /**< @brief payload is subs */
-    SBN_UNSUB_MSG = 0x02, /**< @brief payload is unsubs */
-    SBN_APP_MSG   = 0x03, /**< @brief payload is SB msg */
-    SBN_PROTO_MSG = 0x04, /**< @brief payload is SBN proto */
-} SBN_MsgTypeEnum_t;
 
 /**
  * Mask to identift module-specific message types
@@ -87,12 +66,16 @@ typedef struct
     CFE_SB_Qos_t   QoS;
 } SBN_Subs_t;
 
-/* most/all scalars should be typedef'd for readability and type checking */
-typedef uint32            SBN_MsgSz_t;
-typedef SBN_MsgTypeEnum_t SBN_MsgType_t;
-typedef uint8             SBN_ModuleIdx_t;
-typedef uint8             SBN_NetIdx_t;
-typedef uint16            SBN_PeerIdx_t;
+#ifndef SBN_OMIT_DEPRECATED
+/*
+ * SBN Should not be defining types that are not in the SBN namespace
+ * Every type that SBN uses for its own purpose should start with SBN_
+ *
+ * Many of these aliases really are not needed, if the original type is
+ * defined in a type-safe manner then SBN does not add any value by aliasing
+ * it with another typedef.  If the original is not type safe then it should
+ * be fixed in the module that owns it.
+ */
 typedef uint32            CFE_ProcessorID_t;
 typedef uint32            CFE_SpacecraftID_t;
 typedef osal_id_t         OS_MutexID_t;
@@ -106,8 +89,12 @@ typedef osal_id_t         CFE_ES_ObjectID_t;
 typedef CFE_ES_ObjectID_t CFE_ES_ModuleID_t;
 typedef CFE_ES_ObjectID_t CFE_ES_MutexID_t;
 typedef uint16            CFE_EVS_EventID_t;
-typedef int16             SBN_SubCnt_t;
-typedef uint16            SBN_HKTlm_t;
+
+#endif /* SBN_OMIT_DEPRECATED */
+
+/* Local aliases are OK so long as it is in the SBN_ namespace */
+typedef osal_id_t SBN_ModuleID_t;
+typedef osal_id_t SBN_MutexID_t;
 
 #define EVSSendInfo(E, ...) CFE_EVS_SendEvent((E), CFE_EVS_EventType_INFORMATION, __VA_ARGS__)
 #define EVSSendDbg(E, ...)  CFE_EVS_SendEvent((E), CFE_EVS_EventType_DEBUG, __VA_ARGS__)

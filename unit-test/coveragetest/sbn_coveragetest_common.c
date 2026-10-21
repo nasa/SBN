@@ -82,7 +82,7 @@ void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText)
     UT_SetVaHookFunction(UT_KEY(CFE_EVS_SendEvent), UT_CheckEvent_Hook, &EventTest);
 }
 
-SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
+SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, SBN_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
     return SBN_SUCCESS;
 } /* end ProtoInitModule_Nominal() */
@@ -106,8 +106,8 @@ SBN_Status_t InitPeer_Nominal(SBN_PeerInterface_t *Peer)
 SBN_Status_t RecvFromNet_Nominal(SBN_NetInterface_t *Net,
                                  SBN_MsgType_t      *MsgTypePtr,
                                  SBN_MsgSz_t        *MsgSzPtr,
-                                 CFE_ProcessorID_t  *ProcessorIDPtr,
-                                 CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                 SBN_ProcessorID_t  *ProcessorIDPtr,
+                                 SBN_SpacecraftID_t *SpacecraftIDPtr,
                                  void               *PayloadBuffer)
 {
     *ProcessorIDPtr = 1235;
@@ -159,7 +159,7 @@ SBN_IfOps_t IfOps = { .InitModule   = ProtoInitModule_Nominal,
 
 SBN_IfOps_t *IfOpsPtr = &IfOps;
 
-SBN_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID)
+SBN_Status_t FilterInitModule_Nominal(int FilterVersion, SBN_EventID_t BaseEID)
 {
     return SBN_SUCCESS;
 } /* end InitFilterModule() */
@@ -208,8 +208,8 @@ SBN_ConfTbl_t NominalTbl = {.ProtocolModules = {{.Name        = "UDP",
 SBN_ConfTbl_t *NominalTblPtr = &NominalTbl;
 
 /********************************** globals ************************************/
-CFE_ProcessorID_t    ProcessorID  = 1234;
-CFE_SpacecraftID_t   SpacecraftID = 5678;
+SBN_ProcessorID_t    ProcessorID  = 1234;
+SBN_SpacecraftID_t   SpacecraftID = 5678;
 SBN_NetInterface_t  *NetPtr       = NULL;
 SBN_PeerInterface_t *PeerPtr      = NULL;
 

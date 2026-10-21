@@ -273,8 +273,8 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
 static SBN_Status_t Recv(SBN_NetInterface_t *Net,
                          SBN_MsgType_t      *MsgTypePtr,
                          SBN_MsgSz_t        *MsgSzPtr,
-                         CFE_ProcessorID_t  *ProcessorIDPtr,
-                         CFE_SpacecraftID_t *SpacecraftIDPtr,
+                         SBN_ProcessorID_t  *ProcessorIDPtr,
+                         SBN_SpacecraftID_t *SpacecraftIDPtr,
                          void               *Payload)
 {
     uint8 RecvBuf[SBN_MAX_PACKED_MSG_SZ];
