@@ -17,6 +17,7 @@
  ************************************************************************/
 
 #include "sbn_pack.h"
+#include "cfe_sb.h"
 #include <string.h> /* memcpy */
 
 void SBN_Pack_InitBase(SBN_PackBase_t *PackPtr, uint8 *Buf, size_t BufSz)

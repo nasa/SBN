@@ -16,20 +16,17 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_msgdefs_h_
-#define _sbn_msgdefs_h_
+/**
+ * @file
+ *   SBN Application Topic IDs
+ */
+#ifndef DEFAULT_SBN_MSGID_VALUES_H
+#define DEFAULT_SBN_MSGID_VALUES_H
 
-#define SBN_NOOP_CC 0
+#include "cfe_core_api_base_msgids.h"
+#include "sbn_topicids.h"
 
-#define SBN_HK_CC            10
-#define SBN_HK_NET_CC        11
-#define SBN_HK_PEER_CC       12
-#define SBN_HK_PEERSUBS_CC   13
-#define SBN_HK_MYSUBS_CC     14
-#define SBN_HK_RESET_CC      15
-#define SBN_HK_RESET_PEER_CC 16
+#define SBN_CMD_PLATFORM_MIDVAL(x) CFE_PLATFORM_CMD_TOPICID_TO_MIDV(SBN_MISSION_##x##_TOPICID)
+#define SBN_TLM_PLATFORM_MIDVAL(x) CFE_PLATFORM_TLM_TOPICID_TO_MIDV(SBN_MISSION_##x##_TOPICID)
 
-#define SBN_SCH_WAKEUP_CC 100
-#define SBN_TBL_CC        110
-
-#endif /* _sbn_msgdefs_h_ */
+#endif

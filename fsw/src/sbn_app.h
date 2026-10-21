@@ -54,7 +54,7 @@ typedef struct
     SBN_NetIdx_t NetCnt;
 
     /** \brief Data only on host definitions. */
-    SBN_NetInterface_t Nets[SBN_MAX_NETS];
+    SBN_NetInterface_t Nets[SBN_PLATFORM_MAX_NETS];
 
     /** \brief The application ID provided by ES */
     CFE_ES_AppId_t AppID;
@@ -84,7 +84,7 @@ typedef struct
      * and they send me theirs. All messages on the local bus that are
      * subscribed to by the peer are sent over, and vice-versa.
      */
-    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
 
     /** \brief CFE scheduling pipe */
     CFE_SB_PipeId_t SchPipe;
@@ -93,23 +93,23 @@ typedef struct
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_IfOps_t *IfOps[SBN_MAX_MOD_CNT];
+    SBN_IfOps_t *IfOps[SBN_MISSION_MAX_MOD_COUNT];
 
     /** @brief Retain the module ID's for each interface in case we need to unload. */
-    CFE_ES_ModuleID_t ProtocolModules[SBN_MAX_MOD_CNT];
+    osal_id_t ProtocolModules[SBN_MISSION_MAX_MOD_COUNT];
 
     /** @brief Retain the module ID's for each interface in case we need to unload. */
-    CFE_ES_ModuleID_t FilterModules[SBN_MAX_MOD_CNT];
+    osal_id_t FilterModules[SBN_MISSION_MAX_MOD_COUNT];
 
     SBN_ConfTbl_t *ConfTbl;
 
     /** Global mutex for Send Tasks. */
-    CFE_ES_MutexID_t SendMutex;
+    osal_id_t SendMutex;
 
     /** Global mutex for reconfiguring. */
-    CFE_ES_MutexID_t ConfMutex;
+    osal_id_t ConfMutex;
 
-    SBN_HKTlm_t CmdCnt, CmdErrCnt;
+    SBN_HkCounter_t CmdCnt, CmdErrCnt;
 
     CFE_TBL_Handle_t ConfTblHandle;
 
@@ -138,7 +138,7 @@ typedef struct
     SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_RecvPeerTaskData_t;
 
 typedef struct
@@ -152,7 +152,7 @@ typedef struct
     SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_RecvNetTaskData_t;
 
 typedef struct
@@ -199,5 +199,18 @@ bool         SBN_UnpackMsg(void               *SBNBuf,
                            void               *Msg);
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 SBN_Status_t SBN_RecvNetMsgs(void);
+
+/**
+ * @brief Initializes the housekeeping counters for a peer.
+ *
+ * @param[in] Peer The peer interface for which to reset housekeeping.
+ */
+void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer);
+
+/**
+ * @brief Initializes the housekeeping counters both at the app level
+ *        and for each peer.
+ */
+void SBN_InitializeCounters(void);
 
 #endif /* _sbn_app_ */

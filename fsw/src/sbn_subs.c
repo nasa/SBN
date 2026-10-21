@@ -71,7 +71,8 @@ SBN_Status_t SBN_SendSubsRequests(void)
  * @param[in] QoS The CCSDS quality of service being (un)subscribed.
  * @param[in] Peer The Peer interface
  */
-static SBN_Status_t SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS, SBN_PeerInterface_t *Peer)
+static SBN_Status_t
+SBN_SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS, SBN_PeerInterface_t *Peer)
 {
     uint8           Buf[SBN_PACKED_SUB_SZ];
     SBN_PackState_t Pack;
@@ -217,12 +218,12 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
         return SBN_SUCCESS;
     } /* end if */
 
-    if (SBN_AppData.SubCnt >= SBN_MAX_SUBS_PER_PEER)
+    if (SBN_AppData.SubCnt >= SBN_MISSION_MAX_SUBS_PER_PEER)
     {
         EVSSendErr(SBN_SUB_EID,
                    "local subscription ignored for MsgID 0x%04X, max (%d) met",
                    CFE_SB_MsgIdToValue(MsgID),
-                   SBN_MAX_SUBS_PER_PEER);
+                   SBN_MISSION_MAX_SUBS_PER_PEER);
         return SBN_ERROR;
     } /* end if */
 
@@ -245,7 +246,7 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
                        CFE_SB_MsgIdToValue(MsgID),
                        Peer->SpacecraftID,
                        Peer->ProcessorID);
-            SBN_Status = SendLocalSubToPeer(SBN_SUB_MSG, MsgID, QoS, Peer);
+            SBN_Status = SBN_SendLocalSubToPeer(SBN_SUB_MSG, MsgID, QoS, Peer);
 
             if (SBN_Status != SBN_SUCCESS)
             {
@@ -307,8 +308,10 @@ static SBN_Status_t ProcessLocalUnsub(CFE_SB_MsgId_t MsgID)
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
 
             EVSSendInfo(SBN_PEER_EID, "process local unsub %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
-            SBN_Status =
-                SendLocalSubToPeer(SBN_UNSUB_MSG, SBN_AppData.Subs[PeerIdx].MsgID, SBN_AppData.Subs[PeerIdx].QoS, Peer);
+            SBN_Status = SBN_SendLocalSubToPeer(SBN_UNSUB_MSG,
+                                                SBN_AppData.Subs[PeerIdx].MsgID,
+                                                SBN_AppData.Subs[PeerIdx].QoS,
+                                                Peer);
 
             if (SBN_Status != SBN_SUCCESS)
             {
@@ -414,17 +417,17 @@ static SBN_Status_t AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_
         return SBN_SUCCESS;
     } /* end if */
 
-    if (Peer->SubCnt >= SBN_MAX_SUBS_PER_PEER)
+    if (Peer->SubCnt >= SBN_MISSION_MAX_SUBS_PER_PEER)
     {
         EVSSendErr(SBN_SUB_EID,
                    "cannot process subscription from ProcessorID %d, max (%d) met",
                    Peer->ProcessorID,
-                   SBN_MAX_SUBS_PER_PEER);
+                   SBN_MISSION_MAX_SUBS_PER_PEER);
         return SBN_ERROR;
     } /* end if */
 
     /* SubscribeLocal suppresses the subscription report */
-    CFE_Status = CFE_SB_SubscribeLocal(MsgID, Peer->Pipe, SBN_DEFAULT_MSG_LIM);
+    CFE_Status = CFE_SB_SubscribeLocal(MsgID, Peer->Pipe, SBN_PLATFORM_PEER_MSG_LIM);
     if (CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_SUB_EID, "unable to subscribe to MID 0x%04X", CFE_SB_MsgIdToValue(MsgID));
@@ -449,7 +452,7 @@ static SBN_Status_t AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_
  *
  * @return SBN_SUCCESS on successfully handling subscription from peer, otherwise SBN_ERROR
  */
-static SBN_Status_t ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
+SBN_Status_t SBN_ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 {
     SBN_ModuleIdx_t  FilterIdx;
     SBN_Filter_Ctx_t Filter_Context;
@@ -513,7 +516,7 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         CFE_SB_Qos_t QoS = { 0 };
         SBN_Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
-        SBN_Status = ProcessSubFromPeer(Peer, MsgID, QoS);
+        SBN_Status = SBN_ProcessSubFromPeer(Peer, MsgID, QoS);
 
         if (SBN_Status != SBN_SUCCESS)
         {
@@ -532,7 +535,7 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
  *
  * @return SBN_SUCCESS on successful unsubscription from peer, otherwise SBN_ERROR
  */
-static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID)
+SBN_Status_t SBN_ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID)
 {
     CFE_Status_t     CFE_Status;
     SBN_ModuleIdx_t  FilterIdx;
@@ -593,7 +596,7 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
     } /* end if */
 
     return SBN_SUCCESS;
-} /* end ProcessUnsubFromPeer */
+} /* end SBN_ProcessUnsubFromPeer */
 
 /**
  * \brief Process an unsubscription message from a peer.
@@ -629,7 +632,7 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
         CFE_SB_Qos_t QoS = { 0 };
         SBN_Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
-        ProcessUnsubFromPeer(Peer, MsgID); /* ignore return value, I want to unsub as much as I can */
+        SBN_ProcessUnsubFromPeer(Peer, MsgID); /* ignore return value, I want to unsub as much as I can */
     } /* end for */
 
     return SBN_SUCCESS;
