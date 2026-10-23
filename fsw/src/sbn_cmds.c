@@ -47,11 +47,11 @@ void SBN_InitializeCounters(void)
     SBN_AppData.CmdCnt    = 0;
     SBN_AppData.CmdErrCnt = 0;
 
-    int NetIdx = 0;
+    int NetIdx;
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
-        SBN_NetInterface_t *Net     = &SBN_AppData.Nets[NetIdx];
-        int                 PeerIdx = 0;
+        SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
+        int                 PeerIdx;
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
