@@ -1951,7 +1951,7 @@ static void ProcessNetMsg_SubMsg_Nominal(void)
     UT_ResetState(0);
     uint8           Buf[SBN_PACKED_SUB_SZ];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, false);
+    SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -1973,7 +1973,7 @@ static void ProcessNetMsg_UnSubMsg_Nominal(void)
     UT_ResetState(0);
     uint8           Buf[SBN_PACKED_SUB_SZ];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, sizeof(Buf), false);
+    SBN_Pack_Init(&Pack, &Buf, sizeof(Buf), 0);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
 
@@ -2364,7 +2364,7 @@ static void SBN_Unpack_Empty(void)
     UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
     UtAssert_INT32_EQ(ProcID, ProcessorID);
     UtAssert_INT32_EQ(SpaceID, SpacecraftID);
-}
+} /* end SBN_Unpack_Empty() */
 
 static void SBN_Unpack_Err(void)
 {
@@ -2379,14 +2379,14 @@ static void SBN_Unpack_Err(void)
     SBN_SpacecraftID_t SpaceID;
 
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, Buf, SBN_MAX_PACKED_MSG_SZ + SBN_PACKED_HDR_SZ, false);
+    SBN_Pack_Init(&Pack, Buf, SBN_MAX_PACKED_MSG_SZ + SBN_PACKED_HDR_SZ, 0);
     SBN_Pack_Int16(&Pack, -1); /* invalid msg size */
     SBN_Pack_UInt8(&Pack, SBN_APP_MSG);
     SBN_Pack_UInt32(&Pack, ProcessorID);
     SBN_Pack_UInt32(&Pack, SpacecraftID);
 
     UtAssert_True(!SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, &SpaceID, Payload), "unpack of invalid pack");
-}
+} /* end SBN_Unpack_Err() */
 
 static void SBN_Unpack_Nominal(void)
 {
@@ -2410,14 +2410,14 @@ static void SBN_Unpack_Nominal(void)
     UtAssert_INT32_EQ(ProcID, ProcessorID);
     UtAssert_INT32_EQ(SpaceID, SpacecraftID);
     UtAssert_INT32_EQ((int32)TestData, (int32)Payload[0]);
-}
+} /* end SBN_Unpack_Nominal() */
 
 static void Test_SBN_PackUnpack(void)
 {
     SBN_Unpack_Empty();
     SBN_Unpack_Err();
     SBN_Unpack_Nominal();
-}
+} /* end Test_SBN_PackUnpack() */
 
 void RecvNetMsgs_TaskRecv(void)
 {

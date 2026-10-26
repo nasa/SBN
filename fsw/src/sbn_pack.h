@@ -47,10 +47,6 @@
 
 #include <stdlib.h> /* size_t */
 
-#include "common_types.h"
-#include "cfe_endian.h"
-#include "sbn_types.h"
-
 /*
  * About the pack structs:
  * There is just one basic pack state, which works on both packing and unpacking
@@ -218,7 +214,7 @@ bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_Time(SBN_PackState_t *PackPtr, SBN_Timestamp_t Data);
+bool SBN_Pack_Time(SBN_PackState_t *PackPtr, OS_time_t Data);
 
 /**
  * Pack a CFE Software Bus message identifier into the buffer.
@@ -311,7 +307,7 @@ bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, SBN_Timestamp_t *DataBuf);
+bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, OS_time_t *DataBuf);
 
 /**
  * Unpack a CFE software bus message identifier from the pack buffer.
