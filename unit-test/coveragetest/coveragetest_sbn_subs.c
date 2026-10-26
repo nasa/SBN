@@ -414,7 +414,7 @@ static void PSFP_PFP_FiltErr(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -435,7 +435,7 @@ static void PSFP_PFP_AlreadySub(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -457,7 +457,7 @@ static void PSFP_PFP_SubErr(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -483,7 +483,7 @@ static void PSFP_PFP_MaxSubsErr(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -507,7 +507,7 @@ static void PSFP_IdentErr(void)
     char  tmpident[SBN_IDENT_LEN];
     memset(tmpident, 0, sizeof(tmpident));
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)tmpident, sizeof(tmpident));
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -527,7 +527,7 @@ static void PSFP_Nominal(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -565,7 +565,7 @@ static void PUSFP_PUFP_FiltErr(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -586,7 +586,7 @@ static void PUSFP_PUFP_NotSub(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -611,7 +611,7 @@ static void PUSFP_PUFP_UnsubErr(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -640,7 +640,7 @@ static void PUSFP_IdentWarn(void)
     char  tmpident[SBN_IDENT_LEN];
     memset(tmpident, 0, sizeof(tmpident));
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)tmpident, sizeof(tmpident));
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);
@@ -663,7 +663,7 @@ static void PUSFP_Nominal(void)
 
     uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t Pack;
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, 0);
+    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
     SBN_Pack_MsgID(&Pack, MsgID);

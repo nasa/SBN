@@ -86,8 +86,7 @@ void Test_Unpack(void)
     UtAssert_True(!SBN_Unpack_Time(&Pack, &T), "unpack time");
 
     UtAssert_UINT32_EQ(SBN_Unpack_GetPosition(&Pack), sizeof(Buf));
-
-} /* end Test_Pack() */
+}
 
 void UT_Setup(void)
 {

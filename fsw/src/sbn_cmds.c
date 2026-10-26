@@ -286,7 +286,10 @@ static void HKCmd(CFE_MSG_Message_t *MsgPtr)
 
     CFE_MSG_Init(HKMsg, HK_TLM_MID, SBN_HK_LEN);
 
-    SBN_Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
+    SBN_Pack_Init(&Pack,
+                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
+                  SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
+                  true);
 
     SBN_Pack_UInt8(&Pack, SBN_HK_CC);
     SBN_Pack_UInt16(&Pack, SBN_AppData.CmdCnt);
@@ -346,7 +349,7 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
     SBN_Pack_Init(&Pack,
                   HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
                   SBN_HKNET_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  1);
+                  true);
 
     SBN_Pack_UInt8(&Pack, SBN_HK_NET_CC);
     SBN_Pack_UInt8(&Pack, SBN_AppData.Nets[NetIdx].ProtocolIdx);
@@ -417,7 +420,7 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
     SBN_Pack_Init(&Pack,
                   HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
                   SBN_HKPEER_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  1);
+                  true);
 
     SBN_Pack_UInt8(&Pack, SBN_HK_PEER_CC);
     SBN_Pack_UInt32(&Pack, Peer->ProcessorID);
@@ -471,7 +474,7 @@ static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
     SBN_Pack_Init(&Pack,
                   HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
                   SBN_HKMYSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  1);
+                  true);
 
     SBN_Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
     SBN_Pack_UInt16(&Pack, SBN_AppData.SubCnt);
@@ -570,7 +573,7 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
     SBN_Pack_Init(&Pack,
                   HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
                   SBN_HKPEERSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  1);
+                  true);
 
     SBN_Pack_UInt8(&Pack, SBN_HK_PEERSUBS_CC);
     SBN_Pack_UInt16(&Pack, NetIdx);

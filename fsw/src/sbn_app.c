@@ -105,7 +105,7 @@ void SBN_PackMsg(void             *SBNBuf,
     } /* end if */
 
     SBN_Pack_Data(&Pack, Msg, MsgSz);
-} /* end SBN_PackMsg */
+}
 
 /**
  * Unpacks a CCSDS message with an SBN message header.
@@ -157,7 +157,7 @@ bool SBN_UnpackMsg(void               *SBNBuf,
     SBN_Unpack_Data(&Pack, Msg, *MsgSzPtr);
 
     return true;
-} /* end SBN_UnpackMsg */
+}
 
 /**
  * Called by a protocol module to signal that a peer has been connected.
