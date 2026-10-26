@@ -275,7 +275,7 @@ static void HKCmd(CFE_MSG_Message_t *MsgPtr)
 
     uint8                 HKBuf[SBN_HK_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    Pack_t                Pack;
+    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HK_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -286,13 +286,13 @@ static void HKCmd(CFE_MSG_Message_t *MsgPtr)
 
     CFE_MSG_Init(HKMsg, HK_TLM_MID, SBN_HK_LEN);
 
-    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
+    SBN_Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
 
-    Pack_UInt8(&Pack, SBN_HK_CC);
-    Pack_UInt16(&Pack, SBN_AppData.CmdCnt);
-    Pack_UInt16(&Pack, SBN_AppData.CmdErrCnt);
-    Pack_UInt16(&Pack, SBN_AppData.SubCnt);
-    Pack_UInt16(&Pack, SBN_AppData.NetCnt);
+    SBN_Pack_UInt8(&Pack, SBN_HK_CC);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.CmdCnt);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.CmdErrCnt);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.SubCnt);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.NetCnt);
 
     /*
     ** Timestamp and send packet
@@ -332,7 +332,7 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
 
     uint8                 HKBuf[SBN_HKNET_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    Pack_t                Pack;
+    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKNET_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -343,11 +343,14 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
 
     CFE_MSG_Init(HKMsg, HKNET_TLM_MID, SBN_HKNET_LEN);
 
-    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKNET_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
+    SBN_Pack_Init(&Pack,
+                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
+                  SBN_HKNET_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
+                  1);
 
-    Pack_UInt8(&Pack, SBN_HK_NET_CC);
-    Pack_UInt8(&Pack, SBN_AppData.Nets[NetIdx].ProtocolIdx);
-    Pack_UInt16(&Pack, SBN_AppData.Nets[NetIdx].PeerCnt);
+    SBN_Pack_UInt8(&Pack, SBN_HK_NET_CC);
+    SBN_Pack_UInt8(&Pack, SBN_AppData.Nets[NetIdx].ProtocolIdx);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.Nets[NetIdx].PeerCnt);
 
     /*
     ** Timestamp and send packet
@@ -400,7 +403,7 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
 
     uint8                 HKBuf[SBN_HKPEER_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    Pack_t                Pack;
+    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKPEER_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -411,17 +414,20 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
 
     CFE_MSG_Init(HKMsg, HKPEER_TLM_MID, SBN_HKPEER_LEN);
 
-    Pack_Init(&Pack, HKBuf + sizeof(CFE_MSG_TelemetryHeader_t), SBN_HKPEER_LEN - sizeof(CFE_MSG_TelemetryHeader_t), 1);
+    SBN_Pack_Init(&Pack,
+                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
+                  SBN_HKPEER_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
+                  1);
 
-    Pack_UInt8(&Pack, SBN_HK_PEER_CC);
-    Pack_UInt32(&Pack, Peer->ProcessorID);
-    Pack_Time(&Pack, Peer->LastSend);
-    Pack_Time(&Pack, Peer->LastRecv);
-    Pack_UInt16(&Pack, Peer->SendCnt);
-    Pack_UInt16(&Pack, Peer->RecvCnt);
-    Pack_UInt16(&Pack, Peer->SendErrCnt);
-    Pack_UInt16(&Pack, Peer->RecvErrCnt);
-    Pack_UInt16(&Pack, Peer->SubCnt);
+    SBN_Pack_UInt8(&Pack, SBN_HK_PEER_CC);
+    SBN_Pack_UInt32(&Pack, Peer->ProcessorID);
+    SBN_Pack_Time(&Pack, Peer->LastSend);
+    SBN_Pack_Time(&Pack, Peer->LastRecv);
+    SBN_Pack_UInt16(&Pack, Peer->SendCnt);
+    SBN_Pack_UInt16(&Pack, Peer->RecvCnt);
+    SBN_Pack_UInt16(&Pack, Peer->SendErrCnt);
+    SBN_Pack_UInt16(&Pack, Peer->RecvErrCnt);
+    SBN_Pack_UInt16(&Pack, Peer->SubCnt);
 
     /*
     ** Timestamp and send packet
@@ -451,7 +457,7 @@ static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
 
     uint8                 HKBuf[SBN_HKMYSUBS_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    Pack_t                Pack;
+    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKMYSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -462,17 +468,17 @@ static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
 
     CFE_MSG_Init(HKMsg, HKMYSUBS_TLM_MID, SBN_HKMYSUBS_LEN);
 
-    Pack_Init(&Pack,
-              HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-              SBN_HKMYSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-              1);
+    SBN_Pack_Init(&Pack,
+                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
+                  SBN_HKMYSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
+                  1);
 
-    Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
-    Pack_UInt16(&Pack, SBN_AppData.SubCnt);
+    SBN_Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.SubCnt);
     int i;
     for (i = 0; i < SBN_AppData.SubCnt; i++)
     {
-        Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
+        SBN_Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
     }
 
     /*
@@ -550,7 +556,7 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
 
     uint8                 HKBuf[SBN_HKPEERSUBS_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    Pack_t                Pack;
+    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKPEERSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -561,20 +567,20 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
 
     CFE_MSG_Init(HKMsg, HKPEERSUBS_TLM_MID, SBN_HKPEERSUBS_LEN);
 
-    Pack_Init(&Pack,
-              HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-              SBN_HKPEERSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-              1);
+    SBN_Pack_Init(&Pack,
+                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
+                  SBN_HKPEERSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
+                  1);
 
-    Pack_UInt8(&Pack, SBN_HK_PEERSUBS_CC);
-    Pack_UInt16(&Pack, NetIdx);
-    Pack_UInt16(&Pack, PeerIdx);
-    Pack_UInt16(&Pack, Peer->SubCnt);
+    SBN_Pack_UInt8(&Pack, SBN_HK_PEERSUBS_CC);
+    SBN_Pack_UInt16(&Pack, NetIdx);
+    SBN_Pack_UInt16(&Pack, PeerIdx);
+    SBN_Pack_UInt16(&Pack, Peer->SubCnt);
 
     int i;
     for (i = 0; i < Peer->SubCnt; i++)
     {
-        Pack_MsgID(&Pack, Peer->Subs[i].MsgID);
+        SBN_Pack_MsgID(&Pack, Peer->Subs[i].MsgID);
     }
 
     /*

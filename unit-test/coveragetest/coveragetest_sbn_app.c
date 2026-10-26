@@ -1935,14 +1935,14 @@ static void ProcessNetMsg_SubMsg_Nominal(void)
     START();
 
     UT_ResetState(0);
-    uint8  Buf[SBN_PACKED_SUB_SZ];
-    Pack_t Pack;
-    Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
-    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    Pack_UInt16(&Pack, 1);
-    Pack_MsgID(&Pack, MsgID);
+    uint8           Buf[SBN_PACKED_SUB_SZ];
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
+    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
+    SBN_Pack_UInt16(&Pack, 1);
+    SBN_Pack_MsgID(&Pack, MsgID);
     CFE_SB_Qos_t QoS = { 0 };
-    Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
+    SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
@@ -1957,15 +1957,15 @@ static void ProcessNetMsg_UnSubMsg_Nominal(void)
     START();
 
     UT_ResetState(0);
-    uint8  Buf[SBN_PACKED_SUB_SZ];
-    Pack_t Pack;
-    Pack_Init(&Pack, &Buf, sizeof(Buf), 0);
-    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    Pack_UInt16(&Pack, 1);
+    uint8           Buf[SBN_PACKED_SUB_SZ];
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, &Buf, sizeof(Buf), 0);
+    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
+    SBN_Pack_UInt16(&Pack, 1);
 
-    Pack_MsgID(&Pack, MsgID);
+    SBN_Pack_MsgID(&Pack, MsgID);
     CFE_SB_Qos_t QoS;
-    Pack_Data(&Pack, &QoS, sizeof(QoS));
+    SBN_Pack_Data(&Pack, &QoS, sizeof(QoS));
 
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
@@ -2331,7 +2331,7 @@ static void Test_SBN_ReloadConfTbl(void)
     ReloadConfTbl_Nominal();
 } /* end Test_SBN_ReloadConfTbl() */
 
-static void Unpack_Empty(void)
+static void SBN_Unpack_Empty(void)
 {
     START();
 
@@ -2349,9 +2349,9 @@ static void Unpack_Empty(void)
     UtAssert_INT32_EQ(MsgType, SBN_APP_MSG);
     UtAssert_INT32_EQ(ProcID, ProcessorID);
     UtAssert_INT32_EQ(SpaceID, SpacecraftID);
-} /* end Unpack_Empty() */
+} /* end SBN_Unpack_Empty() */
 
-static void Unpack_Err(void)
+static void SBN_Unpack_Err(void)
 {
     START();
 
@@ -2363,17 +2363,17 @@ static void Unpack_Err(void)
     CFE_ProcessorID_t  ProcID;
     CFE_SpacecraftID_t SpaceID;
 
-    Pack_t Pack;
-    Pack_Init(&Pack, Buf, SBN_MAX_PACKED_MSG_SZ + SBN_PACKED_HDR_SZ, 0);
-    Pack_Int16(&Pack, -1); /* invalid msg size */
-    Pack_UInt8(&Pack, SBN_APP_MSG);
-    Pack_UInt32(&Pack, ProcessorID);
-    Pack_UInt32(&Pack, SpacecraftID);
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, Buf, SBN_MAX_PACKED_MSG_SZ + SBN_PACKED_HDR_SZ, 0);
+    SBN_Pack_Int16(&Pack, -1); /* invalid msg size */
+    SBN_Pack_UInt8(&Pack, SBN_APP_MSG);
+    SBN_Pack_UInt32(&Pack, ProcessorID);
+    SBN_Pack_UInt32(&Pack, SpacecraftID);
 
     UtAssert_True(!SBN_UnpackMsg(Buf, &MsgSz, &MsgType, &ProcID, &SpaceID, Payload), "unpack of invalid pack");
-} /* end Unpack_Err() */
+} /* end SBN_Unpack_Err() */
 
-static void Unpack_Nominal(void)
+static void SBN_Unpack_Nominal(void)
 {
     START();
 
@@ -2395,13 +2395,13 @@ static void Unpack_Nominal(void)
     UtAssert_INT32_EQ(ProcID, ProcessorID);
     UtAssert_INT32_EQ(SpaceID, SpacecraftID);
     UtAssert_INT32_EQ((int32)TestData, (int32)Payload[0]);
-} /* end Unpack_Nominal() */
+} /* end SBN_Unpack_Nominal() */
 
 static void Test_SBN_PackUnpack(void)
 {
-    Unpack_Empty();
-    Unpack_Err();
-    Unpack_Nominal();
+    SBN_Unpack_Empty();
+    SBN_Unpack_Err();
+    SBN_Unpack_Nominal();
 } /* end Test_SBN_PackUnpack() */
 
 void RecvNetMsgs_TaskRecv(void)
