@@ -86,8 +86,8 @@ static SBN_Status_t UnloadModules(void)
 void SBN_PackMsg(void             *SBNBuf,
                  SBN_MsgSz_t       MsgSz,
                  SBN_MsgType_t     MsgType,
-                 CFE_ProcessorID_t ProcessorID,
-                 CFE_ProcessorID_t SpacecraftID,
+                 SBN_ProcessorID_t ProcessorID,
+                 SBN_ProcessorID_t SpacecraftID,
                  void             *Msg)
 {
     SBN_PackState_t Pack;
@@ -125,8 +125,8 @@ void SBN_PackMsg(void             *SBNBuf,
 bool SBN_UnpackMsg(void               *SBNBuf,
                    SBN_MsgSz_t        *MsgSzPtr,
                    SBN_MsgType_t      *MsgTypePtr,
-                   CFE_ProcessorID_t  *ProcessorIDPtr,
-                   CFE_SpacecraftID_t *SpacecraftIDPtr,
+                   SBN_ProcessorID_t  *ProcessorIDPtr,
+                   SBN_SpacecraftID_t *SpacecraftIDPtr,
                    void               *Msg)
 {
     uint8             t;
@@ -425,8 +425,8 @@ SBN_Status_t SBN_RecvNetMsgs(void)
     SBN_NetInterface_t  *Net;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     SBN_PeerIdx_t        PeerIdx;
 
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
@@ -1708,8 +1708,8 @@ void SBN_AppMain(void)
  */
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
-                               CFE_ProcessorID_t   ProcessorID,
-                               CFE_SpacecraftID_t  SpacecraftID,
+                               SBN_ProcessorID_t   ProcessorID,
+                               SBN_SpacecraftID_t  SpacecraftID,
                                SBN_MsgSz_t         MsgSz,
                                void               *Msg)
 {
@@ -1822,7 +1822,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
  * @return The Peer interface pointer, or NULL if not found.
  */
 SBN_PeerInterface_t *
-SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID)
+SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID)
 {
     SBN_PeerIdx_t PeerIdx;
 

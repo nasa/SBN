@@ -43,16 +43,16 @@ typedef struct
      */
     char LibSymbol[OS_MAX_API_NAME];
 
-    CFE_EVS_EventID_t BaseEID;
+    SBN_EventID_t BaseEID;
 } SBN_Module_Entry_t;
 
 typedef struct
 {
     /** @brief Needs to match the ProcessorID of the peer. */
-    CFE_ProcessorID_t ProcessorID;
+    SBN_ProcessorID_t ProcessorID;
 
     /** @brief Needs to match the SpacecraftID of the peer. */
-    CFE_SpacecraftID_t SpacecraftID;
+    SBN_SpacecraftID_t SpacecraftID;
 
     /** @brief Network number indicating peers that inter-communicate using a common protocol. */
     SBN_NetIdx_t NetNum;

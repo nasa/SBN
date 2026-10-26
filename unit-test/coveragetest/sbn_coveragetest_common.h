@@ -93,15 +93,15 @@ extern UT_CheckEvent_t EventTest;
  */
 void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText);
 
-SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet);
+SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, SBN_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet);
 SBN_Status_t InitNet_Nominal(SBN_NetInterface_t *Net);
 SBN_Status_t LoadNet_Nominal(SBN_NetInterface_t *Net, const char *Address);
 SBN_Status_t InitPeer_Nominal(SBN_PeerInterface_t *Peer);
 SBN_Status_t RecvFromNet_Nominal(SBN_NetInterface_t *Net,
                                  SBN_MsgType_t      *MsgTypePtr,
                                  SBN_MsgSz_t        *MsgSzPtr,
-                                 CFE_ProcessorID_t  *ProcessorIDPtr,
-                                 CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                 SBN_ProcessorID_t  *ProcessorIDPtr,
+                                 SBN_SpacecraftID_t *SpacecraftIDPtr,
                                  void               *PayloadBuffer);
 SBN_Status_t LoadPeer_Nominal(SBN_PeerInterface_t *Peer, const char *Address);
 SBN_Status_t UnloadNet_Nominal(SBN_NetInterface_t *Net);
@@ -109,13 +109,13 @@ SBN_Status_t UnloadPeer_Nominal(SBN_PeerInterface_t *Net);
 SBN_Status_t PollPeer_Nominal(SBN_PeerInterface_t *Peer);
 SBN_Status_t Send_Nominal(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
 SBN_Status_t Send_Err(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload);
-SBN_Status_t FilterInitModule_Nominal(int FilterVersion, CFE_EVS_EventID_t BaseEID);
+SBN_Status_t FilterInitModule_Nominal(int FilterVersion, SBN_EventID_t BaseEID);
 
 extern SBN_IfOps_t           *IfOpsPtr;
 extern SBN_FilterInterface_t *FilterInterfacePtr;
 extern SBN_ConfTbl_t         *NominalTblPtr;
-extern CFE_ProcessorID_t      ProcessorID;
-extern CFE_SpacecraftID_t     SpacecraftID;
+extern SBN_ProcessorID_t      ProcessorID;
+extern SBN_SpacecraftID_t     SpacecraftID;
 extern SBN_NetInterface_t    *NetPtr;
 extern SBN_PeerInterface_t   *PeerPtr;
 

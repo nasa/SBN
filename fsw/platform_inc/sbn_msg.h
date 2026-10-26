@@ -43,7 +43,7 @@
 
 /** @brief CC, SubCnt, ProcessorID, LastSend, LastRecv, SendCnt, RecvCnt, SendErrCnt, RecvErrCnt */
 #define SBN_HKPEER_LEN                                                                                    \
-    (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_SubCnt_t) + sizeof(CFE_ProcessorID_t) \
+    (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_SubCnt_t) + sizeof(SBN_ProcessorID_t) \
      + sizeof(OS_time_t) * 2 + sizeof(SBN_HKTlm_t) * 4)
 
 /** @brief CC, ProtocolID, PeerCnt */

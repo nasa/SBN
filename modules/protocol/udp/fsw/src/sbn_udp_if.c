@@ -26,13 +26,13 @@
 #include "sbn_interfaces.h"
 #include "cfe.h"
 
-CFE_EVS_EventID_t SBN_UDP_FIRST_EID;
+SBN_EventID_t SBN_UDP_FIRST_EID;
 
 #define EXP_VERSION 6
 
 static SBN_ProtocolOutlet_t UDP_ProtocolOutlet;
 
-static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
+static SBN_Status_t Init(int Version, SBN_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
 {
     SBN_UDP_FIRST_EID = BaseEID;
 
@@ -273,8 +273,8 @@ static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_M
 static SBN_Status_t Recv(SBN_NetInterface_t *Net,
                          SBN_MsgType_t      *MsgTypePtr,
                          SBN_MsgSz_t        *MsgSzPtr,
-                         CFE_ProcessorID_t  *ProcessorIDPtr,
-                         CFE_SpacecraftID_t *SpacecraftIDPtr,
+                         SBN_ProcessorID_t  *ProcessorIDPtr,
+                         SBN_SpacecraftID_t *SpacecraftIDPtr,
                          void               *Payload)
 {
     uint8 RecvBuf[SBN_MAX_PACKED_MSG_SZ];

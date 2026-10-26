@@ -134,8 +134,8 @@ typedef struct
     SBN_NetIdx_t         NetIdx;
     SBN_PeerInterface_t *Peer;
     SBN_NetInterface_t  *Net;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
     uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
@@ -148,8 +148,8 @@ typedef struct
     SBN_PeerInterface_t *Peer;
     SBN_Status_t         Status;
     CFE_ES_TaskId_t      RecvTaskID;
-    CFE_ProcessorID_t    ProcessorID;
-    CFE_SpacecraftID_t   SpacecraftID;
+    SBN_ProcessorID_t    ProcessorID;
+    SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
     uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
@@ -173,12 +173,12 @@ typedef struct
 void         SBN_AppMain(void);
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
-                               CFE_ProcessorID_t   ProcessorID,
-                               CFE_SpacecraftID_t  SpacecraftID,
+                               SBN_ProcessorID_t   ProcessorID,
+                               SBN_SpacecraftID_t  SpacecraftID,
                                SBN_MsgSz_t         MsgSz,
                                void               *Msg);
 SBN_PeerInterface_t              *
-SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID);
+SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
 SBN_Status_t SBN_ReloadConfTbl(void);
 void         SBN_RecvNetTask(void);
 void         SBN_RecvPeerTask(void);
@@ -188,14 +188,14 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
 void         SBN_PackMsg(void              *SBNBuf,
                          SBN_MsgSz_t        MsgSz,
                          SBN_MsgType_t      MsgType,
-                         CFE_ProcessorID_t  ProcessorID,
-                         CFE_SpacecraftID_t SpacecraftID,
+                         SBN_ProcessorID_t  ProcessorID,
+                         SBN_SpacecraftID_t SpacecraftID,
                          void              *Msg);
 bool         SBN_UnpackMsg(void               *SBNBuf,
                            SBN_MsgSz_t        *MsgSzPtr,
                            SBN_MsgType_t      *MsgTypePtr,
-                           CFE_ProcessorID_t  *ProcessorIDPtr,
-                           CFE_SpacecraftID_t *SpacecraftIDPtr,
+                           SBN_ProcessorID_t  *ProcessorIDPtr,
+                           SBN_SpacecraftID_t *SpacecraftIDPtr,
                            void               *Msg);
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 SBN_Status_t SBN_RecvNetMsgs(void);

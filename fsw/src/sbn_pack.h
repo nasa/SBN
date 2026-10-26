@@ -16,8 +16,8 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_pack_h_
-#define _sbn_pack_h_
+#ifndef SBN_PACK_H
+#define SBN_PACK_H
 
 /**
  * SBN messages are transmitted over the wire with SBN-specific headers which are
@@ -46,8 +46,10 @@
  */
 
 #include <stdlib.h> /* size_t */
-#include "cfe.h"
+
+#include "common_types.h"
 #include "cfe_endian.h"
+#include "sbn_types.h"
 
 /*
  * About the pack structs:
@@ -216,7 +218,7 @@ bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_Time(SBN_PackState_t *PackPtr, OS_time_t Data);
+bool SBN_Pack_Time(SBN_PackState_t *PackPtr, SBN_Timestamp_t Data);
 
 /**
  * Pack a CFE Software Bus message identifier into the buffer.
@@ -309,7 +311,7 @@ bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, OS_time_t *DataBuf);
+bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, SBN_Timestamp_t *DataBuf);
 
 /**
  * Unpack a CFE software bus message identifier from the pack buffer.
