@@ -110,8 +110,8 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 
     char AddrHost[OS_MAX_API_NAME];
 
-    char *Colon = strchr(Address, ':');
-    int   ColonLen;
+    char  *Colon = strchr(Address, ':');
+    size_t ColonLen;
 
     if (!Colon || (ColonLen = Colon - Address) >= OS_MAX_API_NAME)
     {
