@@ -38,7 +38,7 @@ static SBN_Status_t UnloadNets(void);
 
 static SBN_Status_t UnloadModules(void)
 {
-    SBN_ModuleIdx_t i = 0;
+    SBN_ModuleIdx_t i;
 
     for (i = 0; i < SBN_MAX_MOD_CNT; i++)
     {
@@ -172,9 +172,6 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
     CFE_Status_t      CFE_Status;
     char              PipeName[OS_MAX_API_NAME];
     uint8             ProtocolVer;
-
-    SBN_Status = SBN_SUCCESS;
-    CFE_Status = CFE_SUCCESS;
 
     if (Peer->Connected != 0)
     {
@@ -432,8 +429,6 @@ SBN_Status_t SBN_RecvNetMsgs(void)
     CFE_SpacecraftID_t   SpacecraftID;
     SBN_PeerIdx_t        PeerIdx;
 
-    SBN_Status = SBN_ERROR;
-
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
         Net = &SBN_AppData.Nets[NetIdx];
@@ -540,8 +535,7 @@ SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg,
     SBN_NetInterface_t *Net;
     SBN_Status_t        SBN_Status;
 
-    Net        = Peer->Net;
-    SBN_Status = SBN_SUCCESS;
+    Net = Peer->Net;
 
     if (CFE_RESOURCEID_TEST_DEFINED(Peer->SendTaskID))
     {
@@ -591,7 +585,6 @@ void SBN_SendTask(void)
     SBN_ModuleIdx_t    FilterIdx;
 
     MsgSz                         = 0;
-    SBN_MsgSz                     = 0;
     Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
 
@@ -704,10 +697,8 @@ static SBN_Status_t CheckPeerPipes(void)
     SBN_PeerInterface_t *Peer;
     char                 SendTaskName[32];
 
-    iter                          = 0;
     MsgPtr                        = NULL;
     MsgSz                         = 0;
-    SBN_MsgSz                     = 0;
     Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
     Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
 
@@ -720,12 +711,10 @@ static SBN_Status_t CheckPeerPipes(void)
     {
         ReceivedFlag = 0;
 
-        NetIdx = 0;
         for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
         {
             Net = &SBN_AppData.Nets[NetIdx];
 
-            PeerIdx = 0;
             for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
             {
                 Peer = &Net->Peers[PeerIdx];
@@ -989,9 +978,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
     SBN_Status_t       SBN_Status;
     CFE_MSG_Message_t *MsgPtr;
 
-    CFE_Status = CFE_SUCCESS;
-    SBN_Status = SBN_SUCCESS;
-    MsgPtr     = 0;
+    MsgPtr = 0;
 
     /* Wait for WakeUp messages from scheduler */
     CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN_AppData.CmdPipe, iTimeOut);
@@ -1424,8 +1411,6 @@ static uint32 LoadConfTbl(void)
 {
     int32 Status;
 
-    Status = CFE_SUCCESS;
-
     if ((Status = CFE_TBL_Register(&SBN_AppData.ConfTblHandle,
                                    "SBN_ConfTbl",
                                    sizeof(SBN_ConfTbl_t),
@@ -1607,7 +1592,6 @@ void SBN_AppMain(void)
     CFE_ES_AppId_t    AppID;
     CFE_ES_TaskId_t   TskId;
 
-    Status    = CFE_SUCCESS;
     RunStatus = CFE_ES_RunStatus_APP_RUN;
     AppID     = CFE_ES_APPID_UNDEFINED;
 
@@ -1737,9 +1721,7 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
     SBN_ModuleIdx_t      FilterIdx;
     SBN_Filter_Ctx_t     Filter_Context;
 
-    SBN_Status = SBN_SUCCESS;
-    CFE_Status = CFE_SUCCESS;
-    Peer       = SBN_GetPeer(Net, ProcessorID, SpacecraftID);
+    Peer = SBN_GetPeer(Net, ProcessorID, SpacecraftID);
 
     if (!Peer)
     {

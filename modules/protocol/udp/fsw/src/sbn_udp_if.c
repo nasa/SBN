@@ -106,14 +106,14 @@ static SBN_Status_t InitPeer(SBN_PeerInterface_t *Peer)
 
 static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 {
-    SBN_Status_t Status = SBN_SUCCESS;
+    SBN_Status_t Status;
 
     char AddrHost[OS_MAX_API_NAME];
 
-    char *Colon    = strchr(Address, ':');
-    int   ColonLen = 0;
+    char  *Colon    = strchr(Address, ':');
+    size_t ColonLen = Colon - Address;
 
-    if (!Colon || (ColonLen = Colon - Address) >= OS_MAX_API_NAME)
+    if (!Colon || ColonLen >= OS_MAX_API_NAME)
     {
         EVSSendErr(SBN_UDP_CONFIG_EID, "invalid address (Address=%s)", Address);
         return SBN_ERROR;
@@ -233,8 +233,8 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
 
 static SBN_Status_t Send(SBN_PeerInterface_t *Peer, SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Payload)
 {
-    size_t BufSz  = MsgSz + SBN_PACKED_HDR_SZ;
-    int32  SentSz = 0;
+    size_t BufSz = MsgSz + SBN_PACKED_HDR_SZ;
+    int32  SentSz;
     uint8  Buf[BufSz];
 
     SBN_UDP_Peer_t     *PeerData = (SBN_UDP_Peer_t *)Peer->ModulePvt;
@@ -350,7 +350,7 @@ static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
 {
     SBN_Status_t Status = SBN_SUCCESS;
 
-    SBN_PeerIdx_t PeerIdx = 0;
+    SBN_PeerIdx_t PeerIdx;
     for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
     {
         if (UnloadPeer(&Net->Peers[PeerIdx]) != SBN_SUCCESS)
