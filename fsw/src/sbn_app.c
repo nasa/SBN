@@ -1322,7 +1322,6 @@ static uint32 SBN_UnloadConf(void)
 static SBN_Status_t SBN_UnloadPeer(SBN_PeerInterface_t *Peer)
 {
     SBN_RemoveAllSubsFromPeer(Peer);
-
     SBN_Disconnected(Peer);
 
     if (Peer->TaskFlags & SBN_TASK_SEND)
@@ -1353,6 +1352,8 @@ static SBN_Status_t SBN_UnloadPeer(SBN_PeerInterface_t *Peer)
             }
         }
     }
+
+    Peer->Net->IfOps->UnloadPeer(Peer);
 
     // Reset peer description
     Peer->ProcessorID  = 0;
