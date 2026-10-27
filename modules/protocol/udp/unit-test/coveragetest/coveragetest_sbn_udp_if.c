@@ -553,7 +553,7 @@ static void Recv_UnpackErr(void)
 
     SBN_UDP_Ops.InitModule(SBN_PROTOCOL_VERSION, 0, &Outlet);
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.RecvFromNet(NetPtr, NULL, NULL, NULL, NULL, NULL), SBN_ERROR);
-} /* end Recv_UnpackErr() */
+}
 
 static void Recv_GetPeerErr(void)
 {

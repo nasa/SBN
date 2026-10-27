@@ -73,17 +73,17 @@ SBN_Status_t SBN_SendSubsRequests(void)
  */
 static SBN_Status_t SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS, SBN_PeerInterface_t *Peer)
 {
-    uint8  Buf[SBN_PACKED_SUB_SZ];
-    Pack_t Pack;
-    Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
-    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    Pack_UInt16(&Pack, 1);
+    uint8           Buf[SBN_PACKED_SUB_SZ];
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
+    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
+    SBN_Pack_UInt16(&Pack, 1);
 
-    Pack_MsgID(&Pack, MsgID);
-    Pack_Data(&Pack, &QoS, sizeof(QoS)); /* 2 uint8's */
+    SBN_Pack_MsgID(&Pack, MsgID);
+    SBN_Pack_Data(&Pack, &QoS, sizeof(QoS)); /* 2 uint8's */
 
     EVSSendDbg(SBN_PEER_EID, "send local sub to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
-    return SBN_SendNetMsg(SubType, Pack.BufUsed, Buf, Peer);
+    return SBN_SendNetMsg(SubType, SBN_Pack_GetPosition(&Pack), Buf, Peer);
 } /* end SendLocalSubToPeer */
 
 /**
@@ -93,22 +93,22 @@ static SBN_Status_t SendLocalSubToPeer(int SubType, CFE_SB_MsgId_t MsgID, CFE_SB
  */
 SBN_Status_t SBN_SendLocalSubsToPeer(SBN_PeerInterface_t *Peer)
 {
-    uint8  Buf[SBN_PACKED_SUB_SZ];
-    Pack_t Pack;
-    Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
-    Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    Pack_UInt16(&Pack, SBN_AppData.SubCnt);
+    uint8           Buf[SBN_PACKED_SUB_SZ];
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, 0);
+    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
+    SBN_Pack_UInt16(&Pack, SBN_AppData.SubCnt);
 
     int i;
     for (i = 0; i < SBN_AppData.SubCnt; i++)
     {
-        Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
+        SBN_Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
         /* 2 uint8's */
-        Pack_Data(&Pack, &SBN_AppData.Subs[i].QoS, sizeof(SBN_AppData.Subs[i].QoS));
+        SBN_Pack_Data(&Pack, &SBN_AppData.Subs[i].QoS, sizeof(SBN_AppData.Subs[i].QoS));
     } /* end for */
 
     EVSSendDbg(SBN_PEER_EID, "send local subs to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
-    return SBN_SendNetMsg(SBN_SUB_MSG, Pack.BufUsed, Buf, Peer);
+    return SBN_SendNetMsg(SBN_SUB_MSG, SBN_Pack_GetPosition(&Pack), Buf, Peer);
 } /* end SBN_SendLocalSubsToPeer */
 
 /**
@@ -488,13 +488,13 @@ static SBN_Status_t ProcessSubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t
  */
 SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    SBN_Status_t SBN_Status;
-    Pack_t       Pack;
-    char         VersionHash[SBN_IDENT_LEN];
+    SBN_Status_t      SBN_Status;
+    SBN_UnpackState_t Pack;
+    char              VersionHash[SBN_IDENT_LEN];
 
-    Pack_Init(&Pack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
+    SBN_Unpack_Init(&Pack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE);
 
-    Unpack_Data(&Pack, VersionHash, SBN_IDENT_LEN);
+    SBN_Unpack_Data(&Pack, VersionHash, SBN_IDENT_LEN);
 
     if (strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
@@ -503,15 +503,15 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     }
 
     uint16 SubCnt = 0;
-    Unpack_UInt16(&Pack, &SubCnt);
+    SBN_Unpack_UInt16(&Pack, &SubCnt);
 
     int SubIdx;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID = CFE_SB_INVALID_MSG_ID;
-        Unpack_MsgID(&Pack, &MsgID);
+        SBN_Unpack_MsgID(&Pack, &MsgID);
         CFE_SB_Qos_t QoS = { 0 };
-        Unpack_Data(&Pack, &QoS, sizeof(QoS));
+        SBN_Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
         SBN_Status = ProcessSubFromPeer(Peer, MsgID, QoS);
 
@@ -605,13 +605,13 @@ static SBN_Status_t ProcessUnsubFromPeer(SBN_PeerInterface_t *Peer, CFE_SB_MsgId
  */
 SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
 {
-    Pack_t Pack;
+    SBN_UnpackState_t Pack;
 
-    Pack_Init(&Pack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
+    SBN_Unpack_Init(&Pack, Msg, CFE_MISSION_SB_MAX_SB_MSG_SIZE);
 
     char VersionHash[SBN_IDENT_LEN];
 
-    Unpack_Data(&Pack, VersionHash, SBN_IDENT_LEN);
+    SBN_Unpack_Data(&Pack, VersionHash, SBN_IDENT_LEN);
 
     if (strncmp(VersionHash, SBN_IDENT, SBN_IDENT_LEN))
     {
@@ -619,15 +619,15 @@ SBN_Status_t SBN_ProcessUnsubsFromPeer(SBN_PeerInterface_t *Peer, void *Msg)
     }
 
     uint16 SubCnt = 0;
-    Unpack_UInt16(&Pack, &SubCnt);
+    SBN_Unpack_UInt16(&Pack, &SubCnt);
 
     int SubIdx;
     for (SubIdx = 0; SubIdx < SubCnt; SubIdx++)
     {
         CFE_SB_MsgId_t MsgID = CFE_SB_INVALID_MSG_ID;
-        Unpack_MsgID(&Pack, &MsgID);
+        SBN_Unpack_MsgID(&Pack, &MsgID);
         CFE_SB_Qos_t QoS = { 0 };
-        Unpack_Data(&Pack, &QoS, sizeof(QoS));
+        SBN_Unpack_Data(&Pack, &QoS, sizeof(QoS));
 
         ProcessUnsubFromPeer(Peer, MsgID); /* ignore return value, I want to unsub as much as I can */
     } /* end for */

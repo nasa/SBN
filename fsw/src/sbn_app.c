@@ -90,13 +90,13 @@ void SBN_PackMsg(void             *SBNBuf,
                  CFE_ProcessorID_t SpacecraftID,
                  void             *Msg)
 {
-    Pack_t Pack;
-    Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, false);
+    SBN_PackState_t Pack;
+    SBN_Pack_Init(&Pack, SBNBuf, MsgSz + SBN_PACKED_HDR_SZ, false);
 
-    Pack_UInt32(&Pack, MsgSz);
-    Pack_UInt8(&Pack, MsgType);
-    Pack_UInt32(&Pack, ProcessorID);
-    Pack_UInt32(&Pack, SpacecraftID);
+    SBN_Pack_UInt32(&Pack, MsgSz);
+    SBN_Pack_UInt8(&Pack, MsgType);
+    SBN_Pack_UInt32(&Pack, ProcessorID);
+    SBN_Pack_UInt32(&Pack, SpacecraftID);
 
     if (!Msg || !MsgSz)
     {
@@ -104,8 +104,8 @@ void SBN_PackMsg(void             *SBNBuf,
         return;
     } /* end if */
 
-    Pack_Data(&Pack, Msg, MsgSz);
-} /* end SBN_PackMsg */
+    SBN_Pack_Data(&Pack, Msg, MsgSz);
+}
 
 /**
  * Unpacks a CCSDS message with an SBN message header.
@@ -129,20 +129,20 @@ bool SBN_UnpackMsg(void               *SBNBuf,
                    CFE_SpacecraftID_t *SpacecraftIDPtr,
                    void               *Msg)
 {
-    uint8  t;
-    Pack_t Pack;
+    uint8             t;
+    SBN_UnpackState_t Pack;
 
-    Pack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ, false);
+    SBN_Unpack_Init(&Pack, SBNBuf, SBN_MAX_PACKED_MSG_SZ);
 
     *MsgSzPtr = 0;
-    Unpack_UInt32(&Pack, MsgSzPtr);
+    SBN_Unpack_UInt32(&Pack, MsgSzPtr);
 
     t = 0;
-    Unpack_UInt8(&Pack, &t);
+    SBN_Unpack_UInt8(&Pack, &t);
     *MsgTypePtr = t;
 
-    Unpack_UInt32(&Pack, ProcessorIDPtr);
-    Unpack_UInt32(&Pack, SpacecraftIDPtr);
+    SBN_Unpack_UInt32(&Pack, ProcessorIDPtr);
+    SBN_Unpack_UInt32(&Pack, SpacecraftIDPtr);
 
     if (!*MsgSzPtr)
     {
@@ -154,10 +154,10 @@ bool SBN_UnpackMsg(void               *SBNBuf,
         return false;
     } /* end if */
 
-    Unpack_Data(&Pack, Msg, *MsgSzPtr);
+    SBN_Unpack_Data(&Pack, Msg, *MsgSzPtr);
 
     return true;
-} /* end SBN_UnpackMsg */
+}
 
 /**
  * Called by a protocol module to signal that a peer has been connected.

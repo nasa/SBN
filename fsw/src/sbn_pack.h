@@ -27,19 +27,20 @@
  * General pattern is:
  *
  * ```
- * Pack_t Pack;
  * uint8 Buffer[BUFSZ];
  * void packfn()
  * {
- *    Pack_Init(&Pack, Buffer, sizeof(Buffer), true);
- *    Pack_UInt32(&Pack, 0x1234);
+ *    SBN_PackState_t Pack;
+ *    SBN_Pack_Init(&Pack, Buffer, sizeof(Buffer), true);
+ *    SBN_Pack_UInt32(&Pack, 0x1234);
  * }
  *
  * void unpackfn()
  * {
+ *    SBN_UnpackState_t Pack;
  *    uint32 f;
- *    Pack_Init(&Pack, Buffer, sizeof(Buffer), false);
- *    Unpack_UInt32(&Pack, &f);
+ *    SBN_Unpack_Init(&Pack, Buffer, sizeof(Buffer));
+ *    SBN_Unpack_UInt32(&Pack, &f);
  * }
  * ```
  */
@@ -48,11 +49,49 @@
 #include "cfe.h"
 #include "cfe_endian.h"
 
+/*
+ * About the pack structs:
+ * There is just one basic pack state, which works on both packing and unpacking
+ * However this makes it difficult to track the intent when reviewing code, specifically
+ * which buffer is supposed to be input and which is supposed to be output.  One could also
+ * call both Pack and Unpack on the same buffer which wouldn't make much sense and probably
+ * would not yield the intended result.
+ *
+ * To make this clearer, we will intentionally break this into two state structs, depending
+ * on the intent.  The "unpack" APIs should also have the input as const.
+ */
+
+/**
+ * The base structure for both packing and unpacking.
+ *
+ * This should not be used directly.
+ */
 typedef struct
 {
-    void  *Buf;
-    size_t BufSz, BufUsed;
-} Pack_t;
+    uint8 *Buf;
+    size_t BufSz;
+    size_t BufUsed;
+} SBN_PackBase_t;
+
+/**
+ * The state structure for packing
+ *
+ * This should be instantiated whenever it is needed to pack bits
+ */
+typedef struct
+{
+    SBN_PackBase_t Base;
+} SBN_PackState_t;
+
+/**
+ * The state structure for unpacking
+ *
+ * This should be instantiated whenever it is needed to unpack bits
+ */
+typedef struct
+{
+    SBN_PackBase_t Base;
+} SBN_UnpackState_t;
 
 /**
  * Initialize the packing management structure.
@@ -64,10 +103,40 @@ typedef struct
  *
  * @return true if the initialization succeeded.
  *
- * @sa #Pack_Data, #Pack_UInt8, #Pack_Int16, #Pack_UInt16, #Pack_UInt32, #Pack_Time, #Pack_MsgID
- * @sa #Unpack_Data, #Unpack_UInt8, #Unpack_Int16, #Unpack_UInt16, #Unpack_UInt32, #Unpack_Time, #Unpack_MsgID
+ * @sa #SBN_Pack_Data, #SBN_Pack_UInt8, #SBN_Pack_Int16, #SBN_Pack_UInt16, #SBN_Pack_UInt32, #SBN_Pack_Time,
+ * #SBN_Pack_MsgID
  */
-bool Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag);
+bool SBN_Pack_Init(SBN_PackState_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag);
+
+/**
+ * Initialize the unpacking management structure.
+ *
+ * @param[in,out] PackPtr The pointer to the management structure to initialize.
+ * @param[in] Buf The buffer for reading packed data.
+ * @param[in] BufSz The size of the buffer.
+ *
+ * @return true if the initialization succeeded.
+ *
+ * @sa #SBN_Unpack_Data, #SBN_Unpack_UInt8, #SBN_Unpack_Int16, #SBN_Unpack_UInt16, #SBN_Unpack_UInt32, #SBN_Unpack_Time,
+ * #SBN_Unpack_MsgID
+ */
+bool SBN_Unpack_Init(SBN_UnpackState_t *PackPtr, const void *Buf, size_t BufSz);
+
+/**
+ * Get the current position of the packed data
+ *
+ * @param[in,out] PackPtr The pointer to the management structure.
+ * @returns current packed position within the packing buffer
+ */
+uint32 SBN_Pack_GetPosition(SBN_PackState_t *PackPtr);
+
+/**
+ * Get the current position within the packed data
+ *
+ * @param[in,out] PackPtr The pointer to the management structure.
+ * @returns current packed position within the unpacking buffer
+ */
+uint32 SBN_Unpack_GetPosition(SBN_UnpackState_t *PackPtr);
 
 /**
  * Pack data into the buffer. This does the grunt-work of managing the buffer,
@@ -80,9 +149,9 @@ bool Pack_Init(Pack_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Init, #Unpack_Data
+ * @sa #SBN_Pack_Init, #SBN_Unpack_Data
  */
-bool Pack_Data(Pack_t *PackPtr, void *DataBuf, size_t DataBufSz);
+bool SBN_Pack_Data(SBN_PackState_t *PackPtr, const void *DataBuf, size_t DataBufSz);
 
 /**
  * Pack an unsigned 8-bit integer into the buffer.
@@ -93,9 +162,9 @@ bool Pack_Data(Pack_t *PackPtr, void *DataBuf, size_t DataBufSz);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Data
+ * @sa #SBN_Pack_Data
  */
-bool Pack_UInt8(Pack_t *PackPtr, uint8 Data);
+bool SBN_Pack_UInt8(SBN_PackState_t *PackPtr, uint8 Data);
 
 /**
  * Pack an unsigned 16-bit integer into the buffer.
@@ -106,9 +175,9 @@ bool Pack_UInt8(Pack_t *PackPtr, uint8 Data);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Data
+ * @sa #SBN_Pack_Data
  */
-bool Pack_UInt16(Pack_t *PackPtr, uint16 Data);
+bool SBN_Pack_UInt16(SBN_PackState_t *PackPtr, uint16 Data);
 
 /**
  * Pack a signed 16-bit integer into the buffer.
@@ -119,9 +188,9 @@ bool Pack_UInt16(Pack_t *PackPtr, uint16 Data);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Data
+ * @sa #SBN_Pack_Data
  */
-bool Pack_Int16(Pack_t *PackPtr, int16 Data);
+bool SBN_Pack_Int16(SBN_PackState_t *PackPtr, int16 Data);
 
 /**
  * Pack an unsigned 32-bit integer into the buffer.
@@ -132,9 +201,9 @@ bool Pack_Int16(Pack_t *PackPtr, int16 Data);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Data
+ * @sa #SBN_Pack_Data
  */
-bool Pack_UInt32(Pack_t *PackPtr, uint32 Data);
+bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data);
 
 /**
  * Pack a time datum into the buffer.
@@ -145,9 +214,9 @@ bool Pack_UInt32(Pack_t *PackPtr, uint32 Data);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Data
+ * @sa #SBN_Pack_Data
  */
-bool Pack_Time(Pack_t *PackPtr, OS_time_t Data);
+bool SBN_Pack_Time(SBN_PackState_t *PackPtr, OS_time_t Data);
 
 /**
  * Pack a CFE Software Bus message identifier into the buffer.
@@ -158,9 +227,9 @@ bool Pack_Time(Pack_t *PackPtr, OS_time_t Data);
  * @return true if the data was successfully packed into the buffer, false if
  *         it failed (likely due to running out of available space in the buffer.)
  *
- * @sa #Pack_Data
+ * @sa #SBN_Pack_Data
  */
-bool Pack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t Data);
+bool SBN_Pack_MsgID(SBN_PackState_t *PackPtr, CFE_SB_MsgId_t Data);
 
 /**
  * Unpacks data from the existing packed buffer. This does the grunt-work of managing the buffer,
@@ -173,9 +242,9 @@ bool Pack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t Data);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Pack_Init, #Pack_Data
+ * @sa #SBN_Pack_Init, #SBN_Pack_Data
  */
-bool Unpack_Data(Pack_t *PackPtr, void *DataBuf, size_t Sz);
+bool SBN_Unpack_Data(SBN_UnpackState_t *PackPtr, void *DataBuf, size_t Sz);
 
 /**
  * Unpack an unsigned 8-bit integer from the pack buffer.
@@ -186,9 +255,9 @@ bool Unpack_Data(Pack_t *PackPtr, void *DataBuf, size_t Sz);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Unpack_Data
+ * @sa #SBN_Unpack_Data
  */
-bool Unpack_UInt8(Pack_t *PackPtr, uint8 *DataBuf);
+bool SBN_Unpack_UInt8(SBN_UnpackState_t *PackPtr, uint8 *DataBuf);
 
 /**
  * Unpack an unsigned 16-bit integer from the pack buffer.
@@ -199,9 +268,9 @@ bool Unpack_UInt8(Pack_t *PackPtr, uint8 *DataBuf);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Unpack_Data
+ * @sa #SBN_Unpack_Data
  */
-bool Unpack_UInt16(Pack_t *PackPtr, uint16 *DataBuf);
+bool SBN_Unpack_UInt16(SBN_UnpackState_t *PackPtr, uint16 *DataBuf);
 
 /**
  * Unpack a signed 16-bit integer from the pack buffer.
@@ -212,9 +281,9 @@ bool Unpack_UInt16(Pack_t *PackPtr, uint16 *DataBuf);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Unpack_Data
+ * @sa #SBN_Unpack_Data
  */
-bool Unpack_Int16(Pack_t *PackPtr, int16 *DataBuf);
+bool SBN_Unpack_Int16(SBN_UnpackState_t *PackPtr, int16 *DataBuf);
 
 /**
  * Unpack an unsigned 32-bit integer from the pack buffer.
@@ -225,9 +294,9 @@ bool Unpack_Int16(Pack_t *PackPtr, int16 *DataBuf);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Unpack_Data
+ * @sa #SBN_Unpack_Data
  */
-bool Unpack_UInt32(Pack_t *PackPtr, uint32 *DataBuf);
+bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf);
 
 /**
  * Unpack a time datum from the buffer.
@@ -238,9 +307,9 @@ bool Unpack_UInt32(Pack_t *PackPtr, uint32 *DataBuf);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Unpack_Data
+ * @sa #SBN_Unpack_Data
  */
-bool Unpack_Time(Pack_t *PackPtr, OS_time_t *DataBuf);
+bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, OS_time_t *DataBuf);
 
 /**
  * Unpack a CFE software bus message identifier from the pack buffer.
@@ -251,8 +320,8 @@ bool Unpack_Time(Pack_t *PackPtr, OS_time_t *DataBuf);
  * @return true if the data was successfully read from the buffer, false if
  *         it failed (likely due to no more data in the buffer.)
  *
- * @sa #Unpack_Data
+ * @sa #SBN_Unpack_Data
  */
-bool Unpack_MsgID(Pack_t *PackPtr, CFE_SB_MsgId_t *DataBuf);
+bool SBN_Unpack_MsgID(SBN_UnpackState_t *PackPtr, CFE_SB_MsgId_t *DataBuf);
 
 #endif /* _sbn_pack_h_ */

@@ -31,7 +31,7 @@
 void SBN_PackMsg(void *SBNMsgBuf, SBN_MsgSz_t MsgSz, SBN_MsgType_t MsgType, CFE_ProcessorID_t ProcessorID, void *Msg)
 {
     UT_DEFAULT_IMPL(SBN_PackMsg);
-} /* end SBN_PackMsg() */
+}
 
 bool SBN_UnpackMsg(void              *SBNBuf,
                    SBN_MsgSz_t       *MsgSzPtr,
@@ -64,7 +64,7 @@ bool SBN_UnpackMsg(void              *SBNBuf,
         memcpy(Msg, p.MsgBuf, p.MsgSz);
 
     return true;
-} /* end SBN_UnpackMsg() */
+}
 
 SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 {
