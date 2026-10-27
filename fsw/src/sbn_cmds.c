@@ -322,7 +322,7 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
     uint8 *Ptr    = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx = *Ptr;
 
-    if (NetIdx > SBN_AppData.NetCnt)
+    if (NetIdx >= SBN_AppData.NetCnt)
     {
         EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
         return;
@@ -378,13 +378,13 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
-    if (NetIdx > SBN_AppData.NetCnt)
+    if (NetIdx >= SBN_AppData.NetCnt)
     {
         EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
         return;
     } /* end if */
 
-    if (PeerIdx > SBN_AppData.Nets[NetIdx].PeerCnt)
+    if (PeerIdx >= SBN_AppData.Nets[NetIdx].PeerCnt)
     {
         EVSSendErr(SBN_CMD_EID,
                    "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
