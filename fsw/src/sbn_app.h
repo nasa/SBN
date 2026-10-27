@@ -170,6 +170,7 @@ typedef struct
 /*
 ** Prototypes
 */
+SBN_Status_t UnloadNets(void);
 void         SBN_AppMain(void);
 SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                SBN_MsgType_t       MsgType,
@@ -177,27 +178,47 @@ SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
                                CFE_SpacecraftID_t  SpacecraftID,
                                SBN_MsgSz_t         MsgSz,
                                void               *Msg);
-SBN_PeerInterface_t              *
+SBN_PeerInterface_t                 *
 SBN_GetPeer(SBN_NetInterface_t *Net, CFE_ProcessorID_t ProcessorID, CFE_SpacecraftID_t SpacecraftID);
-SBN_Status_t SBN_ReloadConfTbl(void);
-void         SBN_RecvNetTask(void);
-void         SBN_RecvPeerTask(void);
-void         SBN_SendTask(void);
-SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer);
-SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
-void         SBN_PackMsg(void              *SBNBuf,
-                         SBN_MsgSz_t        MsgSz,
-                         SBN_MsgType_t      MsgType,
-                         CFE_ProcessorID_t  ProcessorID,
-                         CFE_SpacecraftID_t SpacecraftID,
-                         void              *Msg);
-bool         SBN_UnpackMsg(void               *SBNBuf,
-                           SBN_MsgSz_t        *MsgSzPtr,
-                           SBN_MsgType_t      *MsgTypePtr,
-                           CFE_ProcessorID_t  *ProcessorIDPtr,
-                           CFE_SpacecraftID_t *SpacecraftIDPtr,
-                           void               *Msg);
-SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
-SBN_Status_t SBN_RecvNetMsgs(void);
+SBN_Status_t    SBN_ReloadConfTbl(void);
+void            SBN_RecvNetTask(void);
+void            SBN_RecvPeerTask(void);
+void            SBN_SendTask(void);
+SBN_Status_t    SBN_Connected(SBN_PeerInterface_t *Peer);
+SBN_Status_t    SBN_Disconnected(SBN_PeerInterface_t *Peer);
+void            SBN_PackMsg(void              *SBNBuf,
+                            SBN_MsgSz_t        MsgSz,
+                            SBN_MsgType_t      MsgType,
+                            CFE_ProcessorID_t  ProcessorID,
+                            CFE_SpacecraftID_t SpacecraftID,
+                            void              *Msg);
+bool            SBN_UnpackMsg(void               *SBNBuf,
+                              SBN_MsgSz_t        *MsgSzPtr,
+                              SBN_MsgType_t      *MsgTypePtr,
+                              CFE_ProcessorID_t  *ProcessorIDPtr,
+                              CFE_SpacecraftID_t *SpacecraftIDPtr,
+                              void               *Msg);
+SBN_Status_t    SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
+SBN_Status_t    SBN_RecvNetMsgs(void);
+SBN_Status_t    UnloadModules(void);
+SBN_Status_t    CheckPeerPipes(void);
+SBN_Status_t    PeerPoll(void);
+SBN_Status_t    InitInterfaces(void);
+SBN_Status_t    WaitForWakeup(int32 iTimeOut);
+cpuaddr         LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr);
+SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
+                                 SBN_ModuleIdx_t               FilterModuleCnt,
+                                 SBN_FilterInterface_t *const *ConfFilters,
+                                 char                    ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
+                                 SBN_FilterInterface_t **Filters);
+SBN_Status_t    LoadConf(void);
+uint32          UnloadConf(void);
+SBN_Status_t    UnloadNets(void);
+SBN_Status_t    UnloadModules(void);
+uint32          LoadConfTbl(void);
+SBN_Status_t    TeardownSubPipe(void);
+SBN_Status_t    SetupSubPipe(void);
+SBN_Status_t    Init(void);
+SBN_Status_t    Cleanup(void);
 
 #endif /* _sbn_app_ */
