@@ -110,10 +110,10 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
 
     char AddrHost[OS_MAX_API_NAME];
 
-    char  *Colon = strchr(Address, ':');
-    size_t ColonLen;
+    char  *Colon    = strchr(Address, ':');
+    size_t ColonLen = Colon - Address;
 
-    if (!Colon || (ColonLen = Colon - Address) >= OS_MAX_API_NAME)
+    if (!Colon || ColonLen >= OS_MAX_API_NAME)
     {
         EVSSendErr(SBN_UDP_CONFIG_EID, "invalid address (Address=%s)", Address);
         return SBN_ERROR;
