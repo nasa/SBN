@@ -34,9 +34,9 @@
 /** \brief SBN global application data, indexed by AppID. */
 SBN_AppData_t SBN_AppData;
 
-static SBN_Status_t UnloadNets(void);
+static SBN_Status_t SBN_UnloadNets(void);
 
-static SBN_Status_t UnloadModules(void)
+static SBN_Status_t SBN_UnloadModules(void)
 {
     SBN_ModuleIdx_t i;
 
@@ -69,7 +69,7 @@ static SBN_Status_t UnloadModules(void)
     } /* end for */
 
     return SBN_SUCCESS;
-} /* end UnloadModules() */
+} /* end SBN_UnloadModules() */
 
 /**
  * Packs a CCSDS message with an SBN message header.
@@ -271,7 +271,7 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 
 /**
  * \brief Receive task created for each direct peer-based connection.
- * Spanwed from PeerPoll()
+ * Spanwed from SBN_PeerPoll()
  */
 void SBN_RecvPeerTask(void)
 {
@@ -343,7 +343,7 @@ void SBN_RecvPeerTask(void)
 
 /**
  * \brief Receive task created for each net-based connection.
- * Spanwed from PeerPoll()
+ * Spanwed from SBN_PeerPoll()
  */
 void SBN_RecvNetTask(void)
 {
@@ -680,7 +680,7 @@ void SBN_SendTask(void)
  * Iterate through all peers, examining the pipe to see if there are messages
  * I need to send to that peer.
  */
-static SBN_Status_t CheckPeerPipes(void)
+static SBN_Status_t SBN_CheckPeerPipes(void)
 {
     SBN_Status_t         SBN_Status;
     CFE_Status_t         CFE_Status;
@@ -823,12 +823,12 @@ static SBN_Status_t CheckPeerPipes(void)
         } /* end if */
     } /* end for */
     return SBN_SUCCESS;
-} /* end CheckPeerPipes */
+} /* end SBN_CheckPeerPipes */
 
 /**
  * Iterate through all nets and create receive tasks if they do not yet exist.
  */
-static SBN_Status_t PeerPoll(void)
+static SBN_Status_t SBN_PeerPoll(void)
 {
     CFE_Status_t         CFE_Status;
     SBN_NetIdx_t         NetIdx;
@@ -903,7 +903,7 @@ static SBN_Status_t PeerPoll(void)
     } /* end for */
 
     return SBN_SUCCESS;
-} /* end PeerPoll */
+} /* end SBN_PeerPoll */
 
 /**
  * Loops through all hosts and peers, initializing all.
@@ -911,7 +911,7 @@ static SBN_Status_t PeerPoll(void)
  * @return SBN_SUCCESS if interface is initialized successfully
  *         SBN_ERROR otherwise
  */
-static SBN_Status_t InitInterfaces(void)
+static SBN_Status_t SBN_InitInterfaces(void)
 {
     SBN_NetIdx_t         NetIdx;
     SBN_NetInterface_t  *Net;
@@ -963,7 +963,7 @@ static SBN_Status_t InitInterfaces(void)
     } /* end for */
 
     return SBN_SUCCESS;
-} /* end InitInterfaces */
+} /* end SBN_InitInterfaces */
 
 /**
  * This function waits for the scheduler (SCH) to wake this code up, so that
@@ -972,7 +972,7 @@ static SBN_Status_t InitInterfaces(void)
  * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
  * @return CFE_SUCCESS on success, otherwise an error value.
  */
-static SBN_Status_t WaitForWakeup(int32 iTimeOut)
+static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
 {
     CFE_Status_t       CFE_Status;
     SBN_Status_t       SBN_Status;
@@ -996,7 +996,7 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
     } /* end switch */
 
     /* For sbn, we still want to perform cyclic processing
-    ** if the WaitForWakeup time out
+    ** if the SBN_WaitForWakeup time out
     ** cyclic processing at timeout rate
     */
     CFE_ES_PerfLogEntry(SBN_PERF_RECV_ID);
@@ -1016,21 +1016,21 @@ static SBN_Status_t WaitForWakeup(int32 iTimeOut)
             break;
     };
 
-    CheckPeerPipes();
+    SBN_CheckPeerPipes();
 
-    PeerPoll();
+    SBN_PeerPoll();
 
     CFE_ES_PerfLogExit(SBN_PERF_RECV_ID);
 
     return SBN_SUCCESS;
-} /* end WaitForWakeup */
+} /* end SBN_WaitForWakeup */
 
 /**
  * Load Protocol or Filter Module from the table
  *
- * Cleaned up by UnloadModules()
+ * Cleaned up by SBN_UnloadModules()
  */
-static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr)
+static cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr)
 {
     cpuaddr StructAddr;
 
@@ -1071,11 +1071,11 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t 
     } /* end if */
 
     return StructAddr;
-} /* end LoadConf_Module */
+} /* end SBN_LoadConf_Module */
 
 /**
  * Load the filters from the table.
- * Cleaned up by UnloadModules()
+ * Cleaned up by SBN_UnloadModules()
  *
  * @param[in]  FilterModules - The filter module entries in the table.
  * @param[in]  FilterModuleCnt - The number of entries in FilterModules.
@@ -1084,11 +1084,11 @@ static cpuaddr LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t 
  * @param[out] Filters - The function pointers for the filters requested.
  * @return The number of entries in Filters.
  */
-static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
-                                        SBN_ModuleIdx_t               FilterModuleCnt,
-                                        SBN_FilterInterface_t *const *ConfFilters,
-                                        char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
-                                        SBN_FilterInterface_t **Filters)
+static SBN_ModuleIdx_t SBN_LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
+                                            SBN_ModuleIdx_t               FilterModuleCnt,
+                                            SBN_FilterInterface_t *const *ConfFilters,
+                                            char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
+                                            SBN_FilterInterface_t **Filters)
 {
     int             i;
     SBN_ModuleIdx_t FilterCnt;
@@ -1121,9 +1121,9 @@ static SBN_ModuleIdx_t LoadConf_Filters(SBN_Module_Entry_t           *FilterModu
     } /* end for */
 
     return FilterCnt;
-} /* end LoadConf_Filters() */
+} /* end SBN_LoadConf_Filters() */
 
-static SBN_Status_t LoadConf(void)
+static SBN_Status_t SBN_LoadConf(void)
 {
     SBN_ModuleIdx_t        ModuleIdx;
     SBN_PeerIdx_t          PeerIdx;
@@ -1154,11 +1154,11 @@ static SBN_Status_t LoadConf(void)
     for (ModuleIdx = 0; ModuleIdx < SBN_AppData.ConfTbl->ProtocolCnt; ModuleIdx++)
     {
         ModuleID = OS_OBJECT_ID_UNDEFINED;
-        Ops      = (SBN_IfOps_t *)LoadConf_Module(&SBN_AppData.ConfTbl->ProtocolModules[ModuleIdx], &ModuleID);
+        Ops      = (SBN_IfOps_t *)SBN_LoadConf_Module(&SBN_AppData.ConfTbl->ProtocolModules[ModuleIdx], &ModuleID);
 
         if (Ops == NULL)
         {
-            /* LoadConf_Module already generated an event */
+            /* SBN_LoadConf_Module already generated an event */
             return SBN_ERROR;
         } /* end if */
 
@@ -1182,11 +1182,11 @@ static SBN_Status_t LoadConf(void)
         ModuleID = OS_OBJECT_ID_UNDEFINED;
 
         Filters[ModuleIdx] =
-            (SBN_FilterInterface_t *)LoadConf_Module(&SBN_AppData.ConfTbl->FilterModules[ModuleIdx], &ModuleID);
+            (SBN_FilterInterface_t *)SBN_LoadConf_Module(&SBN_AppData.ConfTbl->FilterModules[ModuleIdx], &ModuleID);
 
         if (Filters[ModuleIdx] == NULL)
         {
-            /* LoadConf_Module already generated an event */
+            /* SBN_LoadConf_Module already generated an event */
             return SBN_ERROR;
         } /* end if */
 
@@ -1251,11 +1251,11 @@ static SBN_Status_t LoadConf(void)
             Net->IfOps       = SBN_AppData.IfOps[ModuleIdx];
             Net->IfOps->LoadNet(Net, (const char *)PeerEntry->Address);
 
-            Net->FilterCnt = LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules,
-                                              SBN_AppData.ConfTbl->FilterCnt,
-                                              Filters,
-                                              PeerEntry->Filters,
-                                              Net->Filters);
+            Net->FilterCnt = SBN_LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules,
+                                                  SBN_AppData.ConfTbl->FilterCnt,
+                                                  Filters,
+                                                  PeerEntry->Filters,
+                                                  Net->Filters);
 
             Net->TaskFlags = PeerEntry->TaskFlags;
         }
@@ -1268,11 +1268,11 @@ static SBN_Status_t LoadConf(void)
             Peer->ProcessorID  = PeerEntry->ProcessorID;
             Peer->SpacecraftID = PeerEntry->SpacecraftID;
 
-            Peer->FilterCnt = LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules,
-                                               SBN_AppData.ConfTbl->FilterCnt,
-                                               Filters,
-                                               PeerEntry->Filters,
-                                               Peer->Filters);
+            Peer->FilterCnt = SBN_LoadConf_Filters(SBN_AppData.ConfTbl->FilterModules,
+                                                   SBN_AppData.ConfTbl->FilterCnt,
+                                                   Filters,
+                                                   PeerEntry->Filters,
+                                                   Peer->Filters);
 
             SBN_AppData.IfOps[ModuleIdx]->LoadPeer(Peer, (const char *)PeerEntry->Address);
 
@@ -1289,30 +1289,30 @@ static SBN_Status_t LoadConf(void)
 
     /* ...but we keep the handle so we can be notified of updates */
     return SBN_SUCCESS;
-} /* end LoadConf() */
+} /* end SBN_LoadConf() */
 
-static uint32 UnloadConf(void)
+static uint32 SBN_UnloadConf(void)
 {
     uint32 Status;
 
     EVSSendInfo(SBN_TBL_EID, "unloading configuration");
 
-    if ((Status = UnloadNets()) != SBN_SUCCESS)
+    if ((Status = SBN_UnloadNets()) != SBN_SUCCESS)
     {
         EVSSendCrit(SBN_TBL_EID, "unable to unload nets");
         return Status;
     }
 
-    if ((Status = UnloadModules()) != SBN_SUCCESS)
+    if ((Status = SBN_UnloadModules()) != SBN_SUCCESS)
     {
         EVSSendCrit(SBN_TBL_EID, "unable to unload modules");
         return Status;
     }
 
     return SBN_SUCCESS;
-} /* end UnloadConf() */
+} /* end SBN_UnloadConf() */
 
-static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
+static SBN_Status_t SBN_UnloadPeer(SBN_PeerInterface_t *Peer)
 {
     SBN_RemoveAllSubsFromPeer(Peer);
 
@@ -1358,7 +1358,7 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t UnloadNets(void)
+static SBN_Status_t SBN_UnloadNets(void)
 {
     uint32               Status;
     int                  NetIdx;
@@ -1395,7 +1395,7 @@ static SBN_Status_t UnloadNets(void)
         for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
         {
             Peer = &Net->Peers[PeerIdx];
-            UnloadPeer(Peer);
+            SBN_UnloadPeer(Peer);
         }
 
         // Peers were cleared, reset the count
@@ -1407,7 +1407,7 @@ static SBN_Status_t UnloadNets(void)
     return SBN_SUCCESS;
 }
 
-static uint32 LoadConfTbl(void)
+static uint32 SBN_LoadConfTbl(void)
 {
     int32 Status;
 
@@ -1445,9 +1445,9 @@ static uint32 LoadConfTbl(void)
     } /* end if */
 
     return SBN_SUCCESS;
-} /* end LoadConfTbl() */
+} /* end SBN_LoadConfTbl() */
 
-static SBN_Status_t TeardownSubPipe(void)
+static SBN_Status_t SBN_TeardownSubPipe(void)
 {
     CFE_Status_t Status;
 
@@ -1462,7 +1462,7 @@ static SBN_Status_t TeardownSubPipe(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t SetupSubPipe(void)
+static SBN_Status_t SBN_SetupSubPipe(void)
 {
     CFE_Status_t Status;
 
@@ -1495,23 +1495,23 @@ static SBN_Status_t SetupSubPipe(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t Init(void)
+static SBN_Status_t SBN_Init(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not initialize SBN:";
 
     /* Load the configuration from the table */
-    if (LoadConf() != SBN_SUCCESS)
+    if (SBN_LoadConf() != SBN_SUCCESS)
     {
         return SBN_ERROR;
     }
 
-    if (InitInterfaces() == SBN_ERROR)
+    if (SBN_InitInterfaces() == SBN_ERROR)
     {
         EVSSendErr(SBN_INIT_EID, "%s unable to initialize interfaces", FAIL_PREFIX);
         return SBN_ERROR;
     } /* end if */
 
-    if (SetupSubPipe() != SBN_SUCCESS)
+    if (SBN_SetupSubPipe() != SBN_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "%s unable to set up subscription pipe", FAIL_PREFIX);
         return SBN_ERROR;
@@ -1552,17 +1552,17 @@ static SBN_Status_t Init(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t Cleanup(void)
+static SBN_Status_t SBN_Cleanup(void)
 {
     SBN_Status_t Status;
 
-    if ((Status = TeardownSubPipe()) != SBN_SUCCESS)
+    if ((Status = SBN_TeardownSubPipe()) != SBN_SUCCESS)
     {
         EVSSendErr(SBN_PEER_EID, "unable to tear down sub pipe");
         return Status;
     }
 
-    if ((Status = UnloadConf()) != SBN_SUCCESS)
+    if ((Status = SBN_UnloadConf()) != SBN_SUCCESS)
     {
         EVSSendErr(SBN_PEER_EID, "unable to unload configuration");
         return Status;
@@ -1657,14 +1657,14 @@ void SBN_AppMain(void)
     CFE_ES_WaitForStartupSync(10000);
 
     /* Load the table */
-    if (LoadConfTbl() != SBN_SUCCESS)
+    if (SBN_LoadConfTbl() != SBN_SUCCESS)
     {
-        /* the LoadConfTbl() functions will generate events */
+        /* the SBN_LoadConfTbl() functions will generate events */
         EVSSendErr(SBN_INIT_EID, "%s failed to load configuration table", FAIL_PREFIX);
         return;
     } /* end if */
 
-    if (Init() != SBN_SUCCESS)
+    if (SBN_Init() != SBN_SUCCESS)
     {
         RunStatus = CFE_ES_RunStatus_APP_ERROR;
     }
@@ -1678,7 +1678,7 @@ void SBN_AppMain(void)
             break;
         } /* end if */
 
-        WaitForWakeup(SBN_MAIN_LOOP_DELAY);
+        SBN_WaitForWakeup(SBN_MAIN_LOOP_DELAY);
 
         if (OS_MutSemGive(SBN_AppData.ConfMutex) != OS_SUCCESS)
         {
@@ -1687,7 +1687,7 @@ void SBN_AppMain(void)
         }
     } /* end while */
 
-    if (Cleanup() != SBN_SUCCESS)
+    if (SBN_Cleanup() != SBN_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "ERROR: could not clean up SBN");
     }
@@ -1854,7 +1854,7 @@ SBN_Status_t SBN_ReloadConfTbl(void)
         return SBN_ERROR;
     } /* end if */
 
-    Status = Cleanup();
+    Status = SBN_Cleanup();
 
     if (Status != SBN_SUCCESS)
     {
@@ -1862,7 +1862,7 @@ SBN_Status_t SBN_ReloadConfTbl(void)
     }
     else
     {
-        Status = Init();
+        Status = SBN_Init();
 
         EVSSendInfo(SBN_TBL_EID, "SBN re-initialized.");
     }

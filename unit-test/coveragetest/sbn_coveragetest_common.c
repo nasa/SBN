@@ -223,7 +223,7 @@ int32 SymLookHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_S
     static char LastSeen[32] = { 0 };
     char       *SymbolName   = (char *)Context->ArgPtr[1];
 
-    /* this forces the LoadConf_Module() function to call ModuleLoad */
+    /* this forces the SBN_LoadConf_Module() function to call ModuleLoad */
 
     /* we've seen this symbol already, time to load */
     if (!strcmp(SymbolName, LastSeen))
