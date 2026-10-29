@@ -49,9 +49,12 @@ static SBN_Status_t SBN_UnloadModules(void)
 
         if (OS_ModuleUnload(SBN_AppData.ProtocolModules[i]) != OS_SUCCESS)
         {
+            /* report but keep going - just because this couldn't be cleaned up
+             * does not mean we shouldn't try to clean the rest up */
             EVSSendCrit(SBN_TBL_EID, "unable to unload protocol module ID %d", i);
-            return SBN_ERROR;
         } /* end if */
+
+        SBN_AppData.ProtocolModules[i] = OS_OBJECT_ID_UNDEFINED;
     } /* end for */
 
     for (i = 0; i < SBN_MAX_MOD_CNT; i++)
@@ -63,9 +66,12 @@ static SBN_Status_t SBN_UnloadModules(void)
 
         if (OS_ModuleUnload(SBN_AppData.FilterModules[i]) != OS_SUCCESS)
         {
+            /* report but keep going - just because this couldn't be cleaned up
+             * does not mean we shouldn't try to clean the rest up */
             EVSSendCrit(SBN_TBL_EID, "unable to unload filter module ID %d", i);
-            return SBN_ERROR;
         } /* end if */
+
+        SBN_AppData.FilterModules[i] = OS_OBJECT_ID_UNDEFINED;
     } /* end for */
 
     return SBN_SUCCESS;
@@ -1368,7 +1374,13 @@ static SBN_Status_t SBN_UnloadNets(void)
 
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
-        Net             = &SBN_AppData.Nets[NetIdx];
+        Net = &SBN_AppData.Nets[NetIdx];
+        if (!Net->Configured)
+        {
+            /* if it was not configured in the first place, do not try to unconfigure it */
+            continue;
+        }
+
         Net->Configured = false;
 
         if (CFE_RESOURCEID_TEST_DEFINED(Net->RecvTaskID))
@@ -1451,13 +1463,18 @@ static SBN_Status_t SBN_TeardownSubPipe(void)
 {
     CFE_Status_t Status;
 
-    /* Delete pipe for subscribes and unsubscribes from SB */
-    Status = CFE_SB_DeletePipe(SBN_AppData.SubPipe);
-    if (Status != CFE_SUCCESS)
+    if (CFE_RESOURCEID_TEST_DEFINED(SBN_AppData.SubPipe))
     {
-        EVSSendErr(SBN_INIT_EID, "failed to delete subscription pipe (Status=%d)", (int)Status);
-        return SBN_ERROR;
-    } /* end if */
+        /* Delete pipe for subscribes and unsubscribes from SB */
+        Status = CFE_SB_DeletePipe(SBN_AppData.SubPipe);
+        if (Status != CFE_SUCCESS)
+        {
+            EVSSendErr(SBN_INIT_EID, "failed to delete subscription pipe (Status=%d)", (int)Status);
+            return SBN_ERROR;
+        }
+
+        SBN_AppData.SubPipe = CFE_SB_INVALID_PIPE;
+    }
 
     return SBN_SUCCESS;
 }
@@ -1471,6 +1488,7 @@ static SBN_Status_t SBN_SetupSubPipe(void)
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to create subscription pipe (Status=%d)", (int)Status);
+        SBN_AppData.SubPipe = CFE_SB_INVALID_PIPE;
         return SBN_ERROR;
     } /* end if */
 
@@ -1556,28 +1574,31 @@ static SBN_Status_t SBN_Cleanup(void)
 {
     SBN_Status_t Status;
 
-    if ((Status = SBN_TeardownSubPipe()) != SBN_SUCCESS)
+    Status = SBN_TeardownSubPipe();
+    if (Status != SBN_SUCCESS)
     {
+        /* A failure here does not mean we should everything else uncleaned */
         EVSSendErr(SBN_PEER_EID, "unable to tear down sub pipe");
-        return Status;
     }
 
-    if ((Status = SBN_UnloadConf()) != SBN_SUCCESS)
+    Status = SBN_UnloadConf();
+    if (Status != SBN_SUCCESS)
     {
+        /* A failure here does not mean we should everything else uncleaned */
         EVSSendErr(SBN_PEER_EID, "unable to unload configuration");
-        return Status;
-    } /* end if */
+    }
 
     // cleanup subs
     memset(SBN_AppData.Subs, 0, sizeof(SBN_AppData.Subs));
 
     SBN_AppData.SubCnt = 0;
 
-    if (CFE_TBL_Update(SBN_AppData.ConfTblHandle) != CFE_SUCCESS)
+    if (CFE_TBL_HANDLE_IS_VALID(SBN_AppData.ConfTblHandle))
     {
-        EVSSendErr(SBN_PEER_EID, "unable to update table");
-        return SBN_ERROR;
-    } /* end if */
+        /* "best effort" cleanup -- if this fails, nothing else to do */
+        CFE_TBL_Unregister(SBN_AppData.ConfTblHandle);
+        SBN_AppData.ConfTblHandle = CFE_TBL_BAD_TABLE_HANDLE;
+    }
 
     return SBN_SUCCESS;
 }
