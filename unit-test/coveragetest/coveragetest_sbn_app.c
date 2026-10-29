@@ -312,6 +312,19 @@ static void OS_SymbolLookup_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_
     }
 }
 
+static void CFE_SB_CreatePipe_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
+{
+    CFE_SB_PipeId_t *PipeIdPtr = UT_Hook_GetArgValueByName(Context, "PipeIdPtr", CFE_SB_PipeId_t *);
+    int32            Status;
+
+    UT_Stub_GetInt32StatusCode(Context, &Status);
+
+    if (PipeIdPtr != NULL && Status >= 0)
+    {
+        *PipeIdPtr = CFE_SB_PIPEID_C(CFE_ResourceId_FromInteger(UT_GetStubCount(FuncKey)));
+    }
+}
+
 static void LoadConf_ProtoInitErr(void)
 {
     /* Configuration Setup Rationale:
@@ -484,6 +497,7 @@ static void LoadConf_FiltNameErr(void)
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
     UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
     UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
+    UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
     // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
 
     SBN_AppMain();
@@ -604,6 +618,7 @@ static void LoadConf_NetCntInc(void)
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
     UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
     UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
+    UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
 
     SBN_AppMain();
 
@@ -1020,7 +1035,7 @@ static void SBStart_DelPipeErr(void)
     /* ...GetMsgId() -> event msg */
     mid = CFE_SB_ValueToMsgId(CFE_EVS_LONG_EVENT_MSG_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
-
+    UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_DeletePipe), 1, CFE_SB_BAD_ARGUMENT);
 
     SBN_AppMain();
@@ -2299,6 +2314,7 @@ static void ReloadConfTbl_Nominal(void)
     SBN_AppData.ConfMutex = 1; /* Valid non-zero value */
 
     /* Set up for SBN_Cleanup */
+    UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_DeletePipe), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, OS_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 2, OS_SUCCESS);
