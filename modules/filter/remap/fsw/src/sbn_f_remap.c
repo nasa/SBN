@@ -27,20 +27,25 @@
 #include "sbn_f_remap_events.h"
 #include "sbn_error.h"
 
-const char SBN_F_REMAP_TABLE_NAME[] = "SBN_RemapTbl";
+static const char SBN_F_REMAP_TABLE_NAME[] = "RemapTbl";
 
-bool             RemapInitialized = false;
-OS_MutexID_t     RemapMutex;
-CFE_TBL_Handle_t RemapTblHandle = 0;
-SBN_RemapTbl_t  *RemapTbl       = NULL;
-int              RemapTblCnt    = 0;
+typedef struct SBN_Remap_Global
+{
+    bool             Initialized;
+    bool             EnablePassThru;
+    osal_id_t        Mutex;
+    CFE_TBL_Handle_t TblHandle;
+    SBN_RemapTbl_t  *TblPtr;
+    uint32           TblCnt;
+} SBN_Remap_Global_t;
+
+SBN_Remap_Global_t SBN_Remap_Global;
 
 SBN_EventID_t SBN_F_REMAP_FIRST_EID;
 
-static int RemapTblVal(void *TblPtr)
+static int SBN_Remap_TblValidate(void *TblPtr)
 {
     SBN_RemapTbl_t *r = (SBN_RemapTbl_t *)TblPtr;
-    int             i;
 
     switch (r->RemapDefaultFlag)
     {
@@ -53,23 +58,10 @@ static int RemapTblVal(void *TblPtr)
             return -1;
     } /* end switch */
 
-    /* Find the first "empty" entry (with a 0x0000 "from") to determine table
-     * size.
-     */
-    for (i = 0; i < SBN_REMAP_TABLE_SIZE; i++)
-    {
-        if (CFE_SB_MsgId_Equal(r->Entries[i].FromMID, CFE_SB_ValueToMsgId(0x0000)))
-        {
-            break;
-        } /* end if */
-    } /* end for */
-
-    RemapTblCnt = i;
-
     return 0;
-} /* end RemapTblVal() */
+}
 
-static int RemapTblCompar(const void *a, const void *b)
+static int SBN_Remap_CompareEntry(const void *a, const void *b)
 {
     SBN_RemapTblEntry_t *aEntry = (SBN_RemapTblEntry_t *)a;
     SBN_RemapTblEntry_t *bEntry = (SBN_RemapTblEntry_t *)b;
@@ -83,39 +75,67 @@ static int RemapTblCompar(const void *a, const void *b)
         return aEntry->ProcessorID - bEntry->ProcessorID;
     }
     return CFE_SB_MsgIdToValue(aEntry->FromMID) - CFE_SB_MsgIdToValue(bEntry->FromMID);
-} /* end RemapTblCompar() */
+}
 
-static SBN_Status_t LoadRemapTbl(void)
+static SBN_Status_t SBN_Remap_RegisterTable(void)
 {
-    SBN_RemapTbl_t *TblPtr = NULL;
-    CFE_Status_t    CFE_Status;
+    CFE_Status_t CFE_Status;
 
-    if (CFE_TBL_Register(&RemapTblHandle,
-                         SBN_F_REMAP_TABLE_NAME,
-                         sizeof(SBN_RemapTbl_t),
-                         CFE_TBL_OPT_DEFAULT,
-                         &RemapTblVal)
-        != CFE_SUCCESS)
+    CFE_Status = CFE_TBL_Register(&SBN_Remap_Global.TblHandle,
+                                  SBN_F_REMAP_TABLE_NAME,
+                                  sizeof(SBN_RemapTbl_t),
+                                  CFE_TBL_OPT_DEFAULT,
+                                  SBN_Remap_TblValidate);
+
+    if (CFE_Status < CFE_SUCCESS)
     {
         EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to register remap tbl handle");
         return SBN_ERROR;
     } /* end if */
 
-    if (CFE_TBL_Load(RemapTblHandle, CFE_TBL_SRC_FILE, SBN_REMAP_TBL_FILENAME) != CFE_SUCCESS)
+    CFE_Status = CFE_TBL_Load(SBN_Remap_Global.TblHandle, CFE_TBL_SRC_FILE, SBN_REMAP_TBL_FILENAME);
+    if (CFE_Status < CFE_SUCCESS)
     {
         EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
-        CFE_TBL_Unregister(RemapTblHandle);
+        /* Do not unregister - it can be loaded later */
         return SBN_ERROR;
     } /* end if */
 
     EVSSendDbg(SBN_F_REMAP_TBL_EID, "remap table loaded");
 
-    if ((CFE_Status = CFE_TBL_GetAddress((void **)&TblPtr, RemapTblHandle)) != CFE_TBL_INFO_UPDATED)
+    return SBN_SUCCESS;
+}
+
+static SBN_Status_t SBN_Remap_ReadTable(void)
+{
+    CFE_Status_t CFE_Status;
+    void        *TblPtr = NULL;
+
+    SBN_Remap_Global.TblCnt = 0;
+
+    CFE_Status = CFE_TBL_GetAddress(&TblPtr, SBN_Remap_Global.TblHandle);
+    if (CFE_Status < CFE_SUCCESS)
     {
+        /* Enables passthru mode or else this will just block all traffic */
         EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to get conf table address");
-        CFE_TBL_Unregister(RemapTblHandle);
+        SBN_Remap_Global.TblPtr = NULL;
         return SBN_ERROR;
     } /* end if */
+
+    SBN_Remap_Global.TblPtr = TblPtr;
+
+    /* Find the first "empty" entry to determine table size. */
+    while (SBN_Remap_Global.TblCnt < SBN_REMAP_TABLE_SIZE)
+    {
+        if (!CFE_SB_IsValidMsgId(SBN_Remap_Global.TblPtr->Entries[SBN_Remap_Global.TblCnt].FromMID))
+        {
+            break;
+        }
+
+        ++SBN_Remap_Global.TblCnt;
+    }
+
+    SBN_Remap_Global.EnablePassThru = (SBN_Remap_Global.TblPtr->RemapDefaultFlag == SBN_REMAP_DEFAULT_SEND);
 
     EVSSendDbg(SBN_F_REMAP_TBL_EID, "remap table address retrieved");
     /* sort the entries on <ProcessorID> and <from MID> */
@@ -124,34 +144,46 @@ static SBN_Status_t LoadRemapTbl(void)
      * consider using a non-recursive (insertion, bubble, etc) sort algorithm.
      */
 
-    qsort(TblPtr->Entries, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
+    qsort(SBN_Remap_Global.TblPtr->Entries,
+          SBN_Remap_Global.TblCnt,
+          sizeof(SBN_RemapTblEntry_t),
+          SBN_Remap_CompareEntry);
     EVSSendDbg(SBN_F_REMAP_TBL_EID, "remap table sorted");
 
-    CFE_TBL_Modified(RemapTblHandle);
-
-    RemapTbl = TblPtr;
+    CFE_TBL_Modified(SBN_Remap_Global.TblHandle);
 
     return SBN_SUCCESS;
-} /* end LoadRemapTbl() */
+}
 
 /* finds the entry or the one that would immediately follow it */
-static int BinarySearch(void  *Entries,
-                        void  *SearchEntry,
-                        size_t EntryCnt,
-                        size_t EntrySz,
-                        int (*EntryCompare)(const void *, const void *))
+static void *SBN_Remap_BinarySearch(void  *Entries,
+                                    void  *SearchEntry,
+                                    size_t EntryCnt,
+                                    size_t EntrySz,
+                                    int (*EntryCompare)(const void *, const void *))
 {
-    int start, end, midpoint, found;
+    int32 start;
+    int32 end;
+    int32 midpoint;
+    int32 c;
+    void *EntryPtr;
 
-    for (start = 0, end = EntryCnt - 1, found = 0; found == 0 && start <= end;)
+    EntryPtr = NULL;
+    start    = 0;
+    end      = (int)EntryCnt - 1;
+
+    while (start <= end)
     {
         midpoint = (end + start) / 2;
-        int c    = EntryCompare(SearchEntry, (uint8 *)Entries + EntrySz * midpoint);
+        EntryPtr = (uint8 *)Entries + (EntrySz * midpoint);
+        c        = EntryCompare(SearchEntry, EntryPtr);
         if (c == 0)
         {
-            return midpoint;
+            break;
         }
-        else if (c > 0)
+
+        EntryPtr = NULL;
+        if (c > 0)
         {
             start = midpoint + 1;
         }
@@ -161,24 +193,36 @@ static int BinarySearch(void  *Entries,
         } /* end if */
     } /* end while */
 
-    if (found == 0)
+    return EntryPtr;
+}
+
+static SBN_RemapTblEntry_t *SBN_Remap_TblSearch(uint32 ProcessorID, uint32 SpacecraftID, CFE_SB_MsgId_t MID)
+{
+    SBN_RemapTblEntry_t *Result;
+    SBN_RemapTblEntry_t  Entry = { ProcessorID, SpacecraftID, MID, { 0 } };
+
+    if (SBN_Remap_Global.TblPtr != NULL)
     {
-        return EntryCnt;
-    } /* end if */
+        Result = SBN_Remap_BinarySearch(SBN_Remap_Global.TblPtr->Entries,
+                                        &Entry,
+                                        SBN_Remap_Global.TblCnt,
+                                        sizeof(SBN_RemapTblEntry_t),
+                                        SBN_Remap_CompareEntry);
+    }
+    else
+    {
+        Result = NULL;
+    }
 
-    return midpoint;
-} /* end BinarySearch() */
+    return Result;
+}
 
-static int RemapTblSearch(uint32 ProcessorID, uint32 SpacecraftID, CFE_SB_MsgId_t MID)
+static SBN_Status_t SBN_Remap_ProcessMsg(void *msg, SBN_Filter_Ctx_t *Context)
 {
-    SBN_RemapTblEntry_t Entry = { ProcessorID, SpacecraftID, MID, { 0 } };
-    return BinarySearch(RemapTbl->Entries, &Entry, RemapTblCnt, sizeof(SBN_RemapTblEntry_t), RemapTblCompar);
-} /* end RemapTblSearch() */
-
-static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
-{
-    CFE_SB_MsgId_t     FromMID = CFE_SB_ValueToMsgId(0x0000), ToMID = CFE_SB_ValueToMsgId(0x0000);
-    CFE_MSG_Message_t *CFE_MsgPtr = msg;
+    CFE_SB_MsgId_t       FromMID = CFE_SB_INVALID_MSG_ID;
+    CFE_SB_MsgId_t       ToMID   = CFE_SB_INVALID_MSG_ID;
+    SBN_RemapTblEntry_t *RemapEntry;
+    CFE_MSG_Message_t   *CFE_MsgPtr = msg;
 
     if (CFE_MSG_GetMsgId(CFE_MsgPtr, &FromMID) != CFE_SUCCESS)
     {
@@ -186,35 +230,29 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
         return SBN_ERROR;
     } /* end if */
 
-    if (OS_MutSemTake(RemapMutex) != OS_SUCCESS)
+    if (OS_MutSemTake(SBN_Remap_Global.Mutex) != OS_SUCCESS)
     {
         EVSSendErr(SBN_F_REMAP_EID, "unable to take mutex");
         return SBN_ERROR;
     } /* end if */
 
-    int i = RemapTblSearch(Context->PeerProcessorID, Context->PeerSpacecraftID, FromMID);
-
-    if (i < RemapTblCnt && RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID
-        && RemapTbl->Entries[i].SpacecraftID == Context->PeerSpacecraftID
-        && CFE_SB_MsgId_Equal(RemapTbl->Entries[i].FromMID, FromMID))
+    RemapEntry = SBN_Remap_TblSearch(Context->PeerProcessorID, Context->PeerSpacecraftID, FromMID);
+    if (RemapEntry != NULL)
     {
-        ToMID = RemapTbl->Entries[i].ToMID;
+        ToMID = RemapEntry->ToMID;
     }
-    else
+    else if (SBN_Remap_Global.EnablePassThru)
     {
-        if (RemapTbl->RemapDefaultFlag == SBN_REMAP_DEFAULT_SEND)
-        {
-            ToMID = FromMID;
-        } /* end if */
-    } /* end if */
+        ToMID = FromMID;
+    }
 
-    if (OS_MutSemGive(RemapMutex) != OS_SUCCESS)
+    if (OS_MutSemGive(SBN_Remap_Global.Mutex) != OS_SUCCESS)
     {
         EVSSendErr(SBN_F_REMAP_EID, "unable to give mutex");
         return SBN_ERROR;
     } /* end if */
 
-    if (CFE_SB_MsgId_Equal(ToMID, CFE_SB_ValueToMsgId(0x0000)))
+    if (!CFE_SB_IsValidMsgId(ToMID))
     {
         return SBN_IF_EMPTY; /* signal to the core app that this filter recommends not sending this message */
     } /* end if */
@@ -226,39 +264,36 @@ static SBN_Status_t Remap(void *msg, SBN_Filter_Ctx_t *Context)
     } /* end if */
 
     return SBN_SUCCESS;
-} /* end Remap() */
+}
 
-static SBN_Status_t Remap_MID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *Context)
+static SBN_Status_t SBN_Remap_ProcessMID(CFE_SB_MsgId_t *InOutMsgIdPtr, SBN_Filter_Ctx_t *Context)
 {
-    int i;
+    SBN_RemapTblEntry_t *RemapEntry;
 
     EVSSendDbg(SBN_F_REMAP_TBL_EID, "Remap check 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
-    for (i = 0; i < RemapTblCnt; i++)
+
+    RemapEntry = SBN_Remap_TblSearch(Context->PeerProcessorID, Context->PeerSpacecraftID, *InOutMsgIdPtr);
+    if (RemapEntry != NULL)
     {
-        if (RemapTbl->Entries[i].ProcessorID == Context->PeerProcessorID
-            && RemapTbl->Entries[i].SpacecraftID == Context->PeerSpacecraftID
-            && CFE_SB_MsgId_Equal(RemapTbl->Entries[i].ToMID, *InOutMsgIdPtr))
-        {
-            *InOutMsgIdPtr = RemapTbl->Entries[i].FromMID;
-            EVSSendDbg(SBN_F_REMAP_TBL_EID, " --> 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
-            return SBN_SUCCESS;
-        } /* end if */
-    } /* end for */
+        *InOutMsgIdPtr = RemapEntry->FromMID;
+        EVSSendDbg(SBN_F_REMAP_TBL_EID, " --> 0x%04X", CFE_SB_MsgIdToValue(*InOutMsgIdPtr));
+    }
 
     return SBN_SUCCESS;
-} /* end Remap_MID() */
+}
 
-static SBN_Status_t UnloadRemapTbl(void)
+static SBN_Status_t SBN_Remap_UnloadTbl(void)
 {
     //  Check the handle to a previously-registered table
-    if (CFE_TBL_GetStatus(RemapTblHandle) == CFE_SUCCESS)
+    if (CFE_TBL_GetStatus(SBN_Remap_Global.TblHandle) == CFE_SUCCESS)
     {
         // Unregister and free resources used by table
-        if (CFE_TBL_Unregister(RemapTblHandle) != CFE_SUCCESS)
+        if (CFE_TBL_Unregister(SBN_Remap_Global.TblHandle) != CFE_SUCCESS)
         {
             EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to unregister table");
         }
-        RemapTbl = NULL;
+        SBN_Remap_Global.TblHandle = CFE_TBL_BAD_TABLE_HANDLE;
+        SBN_Remap_Global.TblPtr    = NULL;
     }
     else
     {
@@ -269,48 +304,48 @@ static SBN_Status_t UnloadRemapTbl(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t Deinit(SBN_EventID_t BaseEID)
+static SBN_Status_t SBN_Remap_Deinit(SBN_EventID_t BaseEID)
 {
-    if (OS_MutSemTake(RemapMutex) != OS_SUCCESS)
+    if (OS_MutSemTake(SBN_Remap_Global.Mutex) != OS_SUCCESS)
     {
         EVSSendErr(BaseEID, "unable to take mutex");
         return SBN_ERROR;
     } /* end if */
 
-    if (UnloadRemapTbl() != SBN_SUCCESS)
+    if (SBN_Remap_UnloadTbl() != SBN_SUCCESS)
     {
         EVSSendErr(BaseEID, "unable to unload table");
         return SBN_ERROR;
     }
 
-    if (OS_MutSemGive(RemapMutex) != OS_SUCCESS)
+    if (OS_MutSemGive(SBN_Remap_Global.Mutex) != OS_SUCCESS)
     {
         EVSSendErr(BaseEID, "unable to give mutex");
         return SBN_ERROR;
     } /* end if */
 
-    if (OS_ObjectIdDefined(RemapMutex))
+    if (OS_ObjectIdDefined(SBN_Remap_Global.Mutex))
     {
-        if (OS_MutSemDelete(RemapMutex) != OS_SUCCESS)
+        if (OS_MutSemDelete(SBN_Remap_Global.Mutex) != OS_SUCCESS)
         {
             EVSSendErr(BaseEID, "unable to delete mutex");
             return SBN_ERROR;
         }
-        RemapMutex = OS_OBJECT_ID_UNDEFINED;
+        SBN_Remap_Global.Mutex = OS_OBJECT_ID_UNDEFINED;
     }
 
-    RemapInitialized = false;
+    SBN_Remap_Global.Initialized = false;
 
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t Init(int Version, SBN_EventID_t BaseEID)
+static SBN_Status_t SBN_Remap_Init(int Version, SBN_EventID_t BaseEID)
 {
     CFE_ES_TaskInfo_t TaskInfo;
     OS_Status_t       OS_Status;
     CFE_Status_t      CFE_Status;
 
-    RemapMutex = OS_OBJECT_ID_UNDEFINED;
+    SBN_Remap_Global.Mutex = OS_OBJECT_ID_UNDEFINED;
 
     SBN_F_REMAP_FIRST_EID = BaseEID;
 
@@ -329,31 +364,40 @@ static SBN_Status_t Init(int Version, SBN_EventID_t BaseEID)
         return SBN_ERROR;
     } /* end if */
 
-    if (RemapInitialized)
+    if (SBN_Remap_Global.Initialized)
     {
         EVSSendErr(BaseEID, "already initialized.");
-        if (Deinit(BaseEID) != SBN_SUCCESS)
+        if (SBN_Remap_Deinit(BaseEID) != SBN_SUCCESS)
         {
             EVSSendErr(BaseEID, "unable to deinitialize SBN_F_Remap");
         }
     }
 
-    OS_Status = OS_MutSemCreate(&RemapMutex, "SBN_F_Remap", 0);
+    OS_Status = OS_MutSemCreate(&SBN_Remap_Global.Mutex, "SBN_F_Remap", 0);
     if (OS_Status != OS_SUCCESS)
     {
         return SBN_ERROR;
     } /* end if */
 
-    if (LoadRemapTbl() != SBN_SUCCESS)
+    if (SBN_Remap_RegisterTable() != SBN_SUCCESS)
     {
-        EVSSendErr(BaseEID, "unable to load remap table");
+        EVSSendErr(BaseEID, "unable to register remap table");
+        SBN_Remap_Global.EnablePassThru = true; /* TBD */
+    }
+    else if (SBN_Remap_ReadTable() != SBN_SUCCESS)
+    {
+        EVSSendErr(BaseEID, "unable to read remap table");
+        SBN_Remap_Global.EnablePassThru = true; /* TBD */
     }
 
-    RemapInitialized = true;
+    SBN_Remap_Global.Initialized = true;
 
     EVSSendInfo(BaseEID, "SBN_F_Remap Lib Initialized.");
 
     return SBN_SUCCESS;
 } /* end Init() */
 
-SBN_FilterInterface_t SBN_F_Remap = { Init, Remap, Remap, Remap_MID };
+SBN_FilterInterface_t SBN_F_Remap = { SBN_Remap_Init,
+                                      SBN_Remap_ProcessMsg,
+                                      SBN_Remap_ProcessMsg,
+                                      SBN_Remap_ProcessMID };

@@ -19,12 +19,15 @@
 #include "sbn_remap_tbl.h"
 #include "cfe_tbl_filedef.h"
 
-SBN_RemapTbl_t SBN_RemapTbl = {
+/* clang-format off */
+SBN_RemapTbl_t SBN_RemapTbl =
+{
     .RemapDefaultFlag = SBN_REMAP_DEFAULT_SEND,
-    .Entries          = { { .ProcessorID = 3, .SpacecraftID = 0x42, .FromMID = { 0x0882 }, .ToMID = { 0x0883 } },
 
-                         /** ProcessorID "0" signals the end of the table. */
-                          { .ProcessorID = 0, .SpacecraftID = 0, .FromMID = { 0x0000 }, .ToMID = { 0x0000 } } }
+    .Entries =
+    {
+        { .ProcessorID = 3, .SpacecraftID = 0x42, .FromMID = CFE_SB_MSGID_WRAP_VALUE(0x0882), .ToMID = CFE_SB_MSGID_WRAP_VALUE(0x0883) }
+    }
 }; /* end SBN_RemapTbl */
 
-CFE_TBL_FILEDEF(SBN_RemapTbl, SBN.SBN_RemapTbl, SBN Remap Table, sbn_remap_tbl.tbl)
+CFE_TBL_FILEDEF(SBN_RemapTbl, SBN.RemapTbl, SBN Remap Table, sbn_remap_tbl.tbl)
