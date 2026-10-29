@@ -38,7 +38,7 @@ typedef struct SBN_PeerInterface_s SBN_PeerInterface_t;
  * SBN subscription messages are MsgID + QoS
  */
 #define SBN_PACKED_HDR_SZ \
-    (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(CFE_ProcessorID_t) + sizeof(CFE_SpacecraftID_t))
+    (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(SBN_ProcessorID_t) + sizeof(SBN_SpacecraftID_t))
 #define SBN_PACKED_SUB_SZ \
     (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
 #define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
@@ -51,11 +51,11 @@ typedef struct SBN_PeerInterface_s SBN_PeerInterface_t;
  */
 typedef struct
 {
-    CFE_ProcessorID_t  MyProcessorID;
-    CFE_SpacecraftID_t MySpacecraftID;
+    SBN_ProcessorID_t  MyProcessorID;
+    SBN_SpacecraftID_t MySpacecraftID;
 
-    CFE_ProcessorID_t  PeerProcessorID;
-    CFE_SpacecraftID_t PeerSpacecraftID;
+    SBN_ProcessorID_t  PeerProcessorID;
+    SBN_SpacecraftID_t PeerSpacecraftID;
 } SBN_Filter_Ctx_t;
 
 typedef struct
@@ -68,7 +68,7 @@ typedef struct
      *
      * @return CFE_SUCCESS on successful initialization, otherwise error specific to failure.
      */
-    SBN_Status_t (*InitModule)(int FilterVersion, CFE_EVS_EventID_t BaseEID);
+    SBN_Status_t (*InitModule)(int FilterVersion, SBN_EventID_t BaseEID);
 
     /**
      * Interface is called to apply a filter algorithm on an SB (CCSDS) message
@@ -117,10 +117,10 @@ typedef struct
 struct SBN_PeerInterface_s
 {
     /** @brief The processor ID of this peer (MUST match the ProcessorID.) */
-    CFE_ProcessorID_t ProcessorID;
+    SBN_ProcessorID_t ProcessorID;
 
     /** @brief The Spacecraft ID of this peer (MUST match the SpacecraftID.) */
-    CFE_SpacecraftID_t SpacecraftID;
+    SBN_SpacecraftID_t SpacecraftID;
 
     /** @brief A convenience pointer to the net that this peer belongs to. */
     SBN_NetInterface_t *Net;
@@ -228,8 +228,8 @@ typedef struct
     void (*PackMsg)(void              *SBNMsgBuf,
                     SBN_MsgSz_t        MsgSz,
                     SBN_MsgType_t      MsgType,
-                    CFE_ProcessorID_t  ProcessorID,
-                    CFE_SpacecraftID_t SpacecraftID,
+                    SBN_ProcessorID_t  ProcessorID,
+                    SBN_SpacecraftID_t SpacecraftID,
                     void              *Msg);
 
     /**
@@ -249,8 +249,8 @@ typedef struct
     bool (*UnpackMsg)(void               *SBNBuf,
                       SBN_MsgSz_t        *MsgSzPtr,
                       SBN_MsgType_t      *MsgTypePtr,
-                      CFE_ProcessorID_t  *ProcessorIDPtr,
-                      CFE_SpacecraftID_t *SpacecraftIDPtr,
+                      SBN_ProcessorID_t  *ProcessorIDPtr,
+                      SBN_SpacecraftID_t *SpacecraftIDPtr,
                       void               *Msg);
 
     /**
@@ -295,8 +295,8 @@ typedef struct
      * @return A pointer to the peer interface structure.
      */
     SBN_PeerInterface_t *(*GetPeer)(SBN_NetInterface_t *Net,
-                                    CFE_ProcessorID_t   ProcessorID,
-                                    CFE_SpacecraftID_t  SpacecraftID);
+                                    SBN_ProcessorID_t   ProcessorID,
+                                    SBN_SpacecraftID_t  SpacecraftID);
 } SBN_ProtocolOutlet_t;
 
 /**
@@ -315,7 +315,7 @@ struct SBN_IfOps_s
      *
      * @return SBN_SUCCESS on successful initialization, otherwise SBN_ERROR.
      */
-    SBN_Status_t (*InitModule)(int ProtocolVersion, CFE_EVS_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet);
+    SBN_Status_t (*InitModule)(int ProtocolVersion, SBN_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet);
 
     /**
      * Initializes the host interface.
@@ -404,8 +404,8 @@ struct SBN_IfOps_s
                                  SBN_PeerInterface_t *Peer,
                                  SBN_MsgType_t       *MsgTypePtr,
                                  SBN_MsgSz_t         *MsgSzPtr,
-                                 CFE_ProcessorID_t   *ProcessorIDPtr,
-                                 CFE_SpacecraftID_t  *SpacecraftIDPtr,
+                                 SBN_ProcessorID_t   *ProcessorIDPtr,
+                                 SBN_SpacecraftID_t  *SpacecraftIDPtr,
                                  void                *PayloadBuffer);
 
     /**
@@ -424,8 +424,8 @@ struct SBN_IfOps_s
     SBN_Status_t (*RecvFromNet)(SBN_NetInterface_t *Net,
                                 SBN_MsgType_t      *MsgTypePtr,
                                 SBN_MsgSz_t        *MsgSzPtr,
-                                CFE_ProcessorID_t  *ProcessorIDPtr,
-                                CFE_SpacecraftID_t *SpacecraftIDPtr,
+                                SBN_ProcessorID_t  *ProcessorIDPtr,
+                                SBN_SpacecraftID_t *SpacecraftIDPtr,
                                 void               *PayloadBuffer);
 
     /**

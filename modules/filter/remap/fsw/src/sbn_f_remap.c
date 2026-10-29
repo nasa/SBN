@@ -35,7 +35,7 @@ CFE_TBL_Handle_t RemapTblHandle = 0;
 SBN_RemapTbl_t  *RemapTbl       = NULL;
 int              RemapTblCnt    = 0;
 
-CFE_EVS_EventID_t SBN_F_REMAP_FIRST_EID;
+SBN_EventID_t SBN_F_REMAP_FIRST_EID;
 
 static int RemapTblVal(void *TblPtr)
 {
@@ -269,7 +269,7 @@ static SBN_Status_t UnloadRemapTbl(void)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t Deinit(CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t Deinit(SBN_EventID_t BaseEID)
 {
     if (OS_MutSemTake(RemapMutex) != OS_SUCCESS)
     {
@@ -304,7 +304,7 @@ static SBN_Status_t Deinit(CFE_EVS_EventID_t BaseEID)
     return SBN_SUCCESS;
 }
 
-static SBN_Status_t Init(int Version, CFE_EVS_EventID_t BaseEID)
+static SBN_Status_t Init(int Version, SBN_EventID_t BaseEID)
 {
     CFE_ES_TaskInfo_t TaskInfo;
     OS_Status_t       OS_Status;

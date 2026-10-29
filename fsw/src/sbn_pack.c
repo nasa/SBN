@@ -95,7 +95,7 @@ bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data)
     return SBN_Pack_Data(PackPtr, &D, sizeof(D));
 }
 
-bool SBN_Pack_Time(SBN_PackState_t *PackPtr, OS_time_t Data)
+bool SBN_Pack_Time(SBN_PackState_t *PackPtr, SBN_Timestamp_t Data)
 {
     return SBN_Pack_Data(PackPtr, &Data, sizeof(Data));
 }
@@ -164,9 +164,9 @@ bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf)
     return true;
 }
 
-bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, OS_time_t *DataBuf)
+bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, SBN_Timestamp_t *DataBuf)
 {
-    OS_time_t D;
+    SBN_Timestamp_t D;
     if (!SBN_Unpack_Data(PackPtr, &D, sizeof(D)))
     {
         return false;

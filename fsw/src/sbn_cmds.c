@@ -380,9 +380,10 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
         return;
     } /* end if */
 
-    uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
-    uint8  NetIdx  = *Ptr++;
-    uint8  PeerIdx = *Ptr;
+    uint8          *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
+    uint8           NetIdx  = *Ptr++;
+    uint8           PeerIdx = *Ptr;
+    SBN_Timestamp_t TimeTemp;
 
     if (NetIdx > SBN_AppData.NetCnt)
     {
@@ -424,8 +425,10 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
 
     SBN_Pack_UInt8(&Pack, SBN_HK_PEER_CC);
     SBN_Pack_UInt32(&Pack, Peer->ProcessorID);
-    SBN_Pack_Time(&Pack, Peer->LastSend);
-    SBN_Pack_Time(&Pack, Peer->LastRecv);
+    TimeTemp = 100 * OS_TimeGetTotalMicroseconds(Peer->LastSend);
+    SBN_Pack_Time(&Pack, TimeTemp);
+    TimeTemp = 100 * OS_TimeGetTotalMicroseconds(Peer->LastRecv);
+    SBN_Pack_Time(&Pack, TimeTemp);
     SBN_Pack_UInt16(&Pack, Peer->SendCnt);
     SBN_Pack_UInt16(&Pack, Peer->RecvCnt);
     SBN_Pack_UInt16(&Pack, Peer->SendErrCnt);

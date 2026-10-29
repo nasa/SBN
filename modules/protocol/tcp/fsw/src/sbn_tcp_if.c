@@ -70,13 +70,13 @@ typedef struct
     SBN_TCP_Conn_t Conns[SBN_MAX_PEER_CNT];
 } SBN_TCP_Net_t;
 
-CFE_EVS_EventID_t SBN_TCP_FIRST_EID = 0;
+SBN_EventID_t SBN_TCP_FIRST_EID = 0;
 
 #define EXP_VERSION 6
 
 static SBN_ProtocolOutlet_t TCP_ProtocolOutlet;
 
-static SBN_Status_t Init(int Version, CFE_EVS_EventID_t EID, SBN_ProtocolOutlet_t *Outlet)
+static SBN_Status_t Init(int Version, SBN_EventID_t EID, SBN_ProtocolOutlet_t *Outlet)
 {
     SBN_TCP_FIRST_EID = EID;
     if (Version != EXP_VERSION) /* TODO: define */
@@ -410,8 +410,8 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
 static SBN_Status_t Recv(SBN_NetInterface_t *Net,
                          SBN_MsgType_t      *MsgTypePtr,
                          SBN_MsgSz_t        *MsgSzPtr,
-                         CFE_ProcessorID_t  *ProcessorIDPtr,
-                         CFE_SpacecraftID_t *SpacecraftIDPtr,
+                         SBN_ProcessorID_t  *ProcessorIDPtr,
+                         SBN_SpacecraftID_t *SpacecraftIDPtr,
                          void               *MsgBuf)
 {
     OS_FdSet           FdSet;
@@ -494,7 +494,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
                 if (Received <= 0)
                 {
-                    CFE_ProcessorID_t ProcessorID = -1;
+                    SBN_ProcessorID_t ProcessorID = -1;
                     if (Conn->PeerInterface != NULL)
                     {
                         ProcessorID = Conn->PeerInterface->ProcessorID;
