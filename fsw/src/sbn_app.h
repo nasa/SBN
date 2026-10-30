@@ -54,7 +54,7 @@ typedef struct
     SBN_NetIdx_t NetCnt;
 
     /** \brief Data only on host definitions. */
-    SBN_NetInterface_t Nets[SBN_MAX_NETS];
+    SBN_NetInterface_t Nets[SBN_PLATFORM_MAX_NETS];
 
     /** \brief The application ID provided by ES */
     CFE_ES_AppId_t AppID;
@@ -84,7 +84,7 @@ typedef struct
      * and they send me theirs. All messages on the local bus that are
      * subscribed to by the peer are sent over, and vice-versa.
      */
-    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
 
     /** \brief CFE scheduling pipe */
     CFE_SB_PipeId_t SchPipe;
@@ -93,13 +93,13 @@ typedef struct
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_IfOps_t *IfOps[SBN_MAX_MOD_CNT];
+    SBN_IfOps_t *IfOps[SBN_MISSION_MAX_MOD_CNT];
 
     /** @brief Retain the module ID's for each interface in case we need to unload. */
-    CFE_ES_ModuleID_t ProtocolModules[SBN_MAX_MOD_CNT];
+    osal_id_t ProtocolModules[SBN_MISSION_MAX_MOD_CNT];
 
     /** @brief Retain the module ID's for each interface in case we need to unload. */
-    CFE_ES_ModuleID_t FilterModules[SBN_MAX_MOD_CNT];
+    osal_id_t FilterModules[SBN_MISSION_MAX_MOD_CNT];
 
     SBN_ConfTbl_t *ConfTbl;
 

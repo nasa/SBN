@@ -39,8 +39,9 @@ typedef struct SBN_PeerInterface_s SBN_PeerInterface_t;
  */
 #define SBN_PACKED_HDR_SZ \
     (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(SBN_ProcessorID_t) + sizeof(SBN_SpacecraftID_t))
-#define SBN_PACKED_SUB_SZ \
-    (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
+#define SBN_PACKED_SUB_SZ                     \
+    (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) \
+     + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MISSION_MAX_SUBS_PER_PEER)
 #define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
 
 /**
@@ -146,13 +147,13 @@ struct SBN_PeerInterface_s
      * @brief A local table of subscriptions the peer has requested.
      * Includes one extra entry for a null termination.
      */
-    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
      *        receiving from the peer.
      */
-    SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
+    SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
     SBN_ModuleIdx_t        FilterCnt;
 
     OS_time_t   LastSend, LastRecv;
@@ -189,13 +190,13 @@ struct SBN_NetInterface_s
 
     SBN_PeerIdx_t PeerCnt;
 
-    SBN_PeerInterface_t Peers[SBN_MAX_PEER_CNT];
+    SBN_PeerInterface_t Peers[SBN_MISSION_MAX_PEER_CNT];
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
      *        receiving from the peer.
      */
-    SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
+    SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
     SBN_ModuleIdx_t        FilterCnt;
 
     /** @brief generic blob of bytes, module-specific */

@@ -34,12 +34,12 @@
 /** @brief CC, SBN_SubCnt_t SubCnt, CFE_SB_MsgId_t Subs[SBN_MAX_SUBS_PER_PEER] */
 #define SBN_HKMYSUBS_LEN                                                      \
     (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_SubCnt_t) \
-     + SBN_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
+     + SBN_MISSION_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
 
 /** @brief CC, NetIdx, PeerIdx, SubCnt, Subs[SBN_MAX_SUBS_PER_PEER] */
 #define SBN_HKPEERSUBS_LEN                                                                            \
     (sizeof(CFE_MSG_TelemetryHeader_t) + sizeof(uint8) + sizeof(SBN_NetIdx_t) + sizeof(SBN_PeerIdx_t) \
-     + sizeof(SBN_SubCnt_t) + SBN_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
+     + sizeof(SBN_SubCnt_t) + SBN_MISSION_MAX_SUBS_PER_PEER * sizeof(CFE_SB_MsgId_t))
 
 /** @brief CC, SubCnt, ProcessorID, LastSend, LastRecv, SendCnt, RecvCnt, SendErrCnt, RecvErrCnt */
 #define SBN_HKPEER_LEN                                                                                    \
@@ -62,7 +62,7 @@ typedef struct
     /** @brief The Protocol ID being queried. */
     SBN_ModuleIdx_t           ProtocolIdx;
     /** @brief The module status as returned by the module. */
-    uint8                     ModuleStatus[SBN_MOD_STATUS_MSG_SZ];
+    uint8                     ModuleStatus[SBN_MISSION_MOD_STATUS_MSG_SZ];
 } SBN_ModuleStatusPacket_t;
 
 #endif /* _sbn_msg_h_ */
