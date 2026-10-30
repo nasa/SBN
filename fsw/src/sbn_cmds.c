@@ -23,122 +23,6 @@
 #include "sbn_app.h"
 #include "sbn_pack.h"
 
-/**
- * @brief Initializes the housekeeping counters for a peer.
- *
- * @param[in] Peer The peer interface for which to reset housekeeping.
- */
-static void InitializePeerCounters(SBN_PeerInterface_t *Peer)
-{
-    Peer->LastSend   = (OS_time_t) { 0 };
-    Peer->LastRecv   = (OS_time_t) { 0 };
-    Peer->SendCnt    = 0;
-    Peer->RecvCnt    = 0;
-    Peer->SendErrCnt = 0;
-    Peer->RecvErrCnt = 0;
-} /* end InitializePeerCounters() */
-
-/**
- * @brief Initializes the housekeeping counters both at the app level
- *        and for each peer.
- */
-void SBN_InitializeCounters(void)
-{
-    SBN_AppData.CmdCnt    = 0;
-    SBN_AppData.CmdErrCnt = 0;
-
-    int NetIdx;
-    for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
-    {
-        SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
-        int                 PeerIdx;
-        for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
-        {
-            SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-            InitializePeerCounters(Peer);
-        } /* end for */
-    } /* end for */
-} /* end SBN_InitializeCounters */
-
-/************************************************************************/
-/** \brief Verify message length.
-**
-**  \par Description
-**       Checks if the actual length of a software bus message matches
-**       the expected length and sends an error event if a mismatch
-**       occurs.
-**
-**  \par Assumptions, External Events, and Notes:
-**       None
-**
-**  \param [in]   MsgPtr        A #CFE_MSG_Message_t pointer that
-**                              references the software bus message
-**
-**  \param [in]   ExpectedLen   The expected length of the message
-**                              based upon the command code.
-**
-**  @param [in]   MsgName       Text name of the message expected.
-**
-**  \retval true The length is as expected.
-**  \retval false The length is not as expected.
-**
-*************************************************************************/
-static bool VerifyMsgLen(CFE_MSG_Message_t *MsgPtr, uint16 ExpectedLen, const char *MsgName)
-{
-    CFE_MSG_Size_t    ActualLen = 0;
-    CFE_MSG_FcnCode_t FcnCode   = 0;
-
-    if (CFE_MSG_GetSize(MsgPtr, &ActualLen) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_CMD_EID, "invalid hk message (Name=%s)", MsgName);
-        return false;
-    }
-
-    if (ExpectedLen != ActualLen)
-    {
-        if (CFE_MSG_GetFcnCode(MsgPtr, &FcnCode) != CFE_SUCCESS)
-        {
-            EVSSendErr(SBN_CMD_EID, "unable to get FcnCode (Name=%s)", MsgName);
-            return false;
-        }
-
-        if (FcnCode == SBN_HK_CC)
-        {
-            /*
-            ** For a bad HK request, just send the event.  We only increment
-            ** the error counter for ground commands and not internal messages.
-            */
-            EVSSendErr(SBN_CMD_EID,
-                       "invalid hk message length (Name=%s ID=0x%04X "
-                       "CC=%d Len=%d Expected=%d)",
-                       MsgName,
-                       FcnCode,
-                       (int)FcnCode,
-                       (int)ActualLen,
-                       (int)ExpectedLen);
-        }
-        else
-        {
-            /*
-            ** All other cases, increment error counter
-            */
-            EVSSendErr(SBN_CMD_EID,
-                       "invalid message length (Name=%s ID=0x%04X CC=%d Len=%d Expected=%d)",
-                       MsgName,
-                       FcnCode,
-                       (int)FcnCode,
-                       (int)ActualLen,
-                       (int)ExpectedLen);
-
-            SBN_AppData.CmdErrCnt++;
-        } /* end if */
-
-        return false;
-    } /* end if */
-
-    return true;
-} /* end VerifyMsgLen */
-
 /************************************************************************/
 /** \brief Noop command
 **
@@ -154,17 +38,13 @@ static bool VerifyMsgLen(CFE_MSG_Message_t *MsgPtr, uint16 ExpectedLen, const ch
 **  \sa #SBN_NOOP_CC
 **
 *************************************************************************/
-static void NoopCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_NoopCmd(const SBN_NoopCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "noop"))
-    {
-        EVSSendErr(SBN_CMD_EID, "invalid no-op command");
-        return;
-    } /* end if */
-
     EVSSendInfo(SBN_CMD_EID, "no-op command");
 
     SBN_AppData.CmdCnt++;
+
+    return CFE_SUCCESS;
 } /* end NoopCmd */
 
 /************************************************************************/
@@ -189,19 +69,16 @@ static void NoopCmd(CFE_MSG_Message_t *MsgPtr)
 **  \sa #SBN_HK_RESET_CC
 **
 *************************************************************************/
-static void HKResetCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_ResetCmd(const SBN_ResetCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "reset counters"))
-    {
-        return;
-    } /* end if */
-
     EVSSendInfo(SBN_CMD_EID, "reset command");
 
     /*
     ** Don't increment counter because we're resetting anyway
     */
     SBN_InitializeCounters();
+
+    return CFE_SUCCESS;
 } /* end HKResetCmd */
 
 /************************************************************************/
@@ -219,29 +96,24 @@ static void HKResetCmd(CFE_MSG_Message_t *MsgPtr)
 **  \sa #SBN_HK_RESET_PEER_CC
 **
 *************************************************************************/
-static void HKResetPeerCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_ResetPeerCmd(const SBN_ResetPeerCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "reset peer"))
-    {
-        return;
-    } /* end if */
-
     uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
 
     if (NetIdx < 0 || NetIdx >= SBN_AppData.NetCnt)
     {
-        EVSSendErr(SBN_CMD_EID, "invalid net idx %d (max=%d)", NetIdx, SBN_AppData.NetCnt);
-        return;
+        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx %d (max=%d)", NetIdx, SBN_AppData.NetCnt);
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
 
     if (PeerIdx < 0 || PeerIdx >= Net->PeerCnt)
     {
-        EVSSendErr(SBN_CMD_EID, "invalid peer idx %d (max=%d)", PeerIdx, Net->PeerCnt);
-        return;
+        EVSSendErr(SBN_CMD_EID, "Invalid PeerIdx %d (max=%d)", PeerIdx, Net->PeerCnt);
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
@@ -249,7 +121,9 @@ static void HKResetPeerCmd(CFE_MSG_Message_t *MsgPtr)
     EVSSendInfo(SBN_CMD_EID, "hk reset peer command (NetIdx=%d, PeerIdx=%d)", NetIdx, PeerIdx);
     SBN_AppData.CmdCnt++;
 
-    InitializePeerCounters(Peer);
+    SBN_InitializePeerCounters(Peer);
+
+    return CFE_SUCCESS;
 } /* end HKResetPeerCmd */
 
 /** \brief Housekeeping request command
@@ -264,13 +138,8 @@ static void HKResetPeerCmd(CFE_MSG_Message_t *MsgPtr)
  *                       references the software bus message
  *
  */
-static void HKCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_SendHkCmd(const SBN_SendHkCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "hk"))
-    {
-        return;
-    } /* end if */
-
     EVSSendDbg(SBN_CMD_EID, "hk command");
 
     uint8                 HKBuf[SBN_HK_LEN];
@@ -302,6 +171,8 @@ static void HKCmd(CFE_MSG_Message_t *MsgPtr)
     */
     CFE_SB_TimeStampMsg(HKMsg);
     CFE_SB_TransmitMsg(HKMsg, true);
+
+    return CFE_SUCCESS;
 } /* end HKCmd */
 
 /** \brief Request for housekeeping for one network.
@@ -315,20 +186,15 @@ static void HKCmd(CFE_MSG_Message_t *MsgPtr)
  *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  */
-static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_SendHkNetCmd(const SBN_SendHkNetCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, SBN_CMD_NET_LEN, "hk net"))
-    {
-        return;
-    } /* end if */
-
     uint8 *Ptr    = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx = *Ptr;
 
     if (NetIdx > SBN_AppData.NetCnt)
     {
         EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
-        return;
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     EVSSendInfo(SBN_CMD_EID, "hk command, net=%d", NetIdx);
@@ -360,6 +226,8 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
     */
     CFE_SB_TimeStampMsg(HKMsg);
     CFE_SB_TransmitMsg(HKMsg, true);
+
+    return CFE_SUCCESS;
 } /* end HKNetCmd */
 
 /** \brief Request for housekeeping for one peer.
@@ -373,13 +241,8 @@ static void HKNetCmd(CFE_MSG_Message_t *MsgPtr)
  *  \param [in]   MsgPtr A #CFE_MSG_Message_t pointer that
  *                       references the software bus message
  */
-static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "hk peer"))
-    {
-        return;
-    } /* end if */
-
     uint8          *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8           NetIdx  = *Ptr++;
     uint8           PeerIdx = *Ptr;
@@ -388,7 +251,7 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
     if (NetIdx > SBN_AppData.NetCnt)
     {
         EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
-        return;
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     if (PeerIdx > SBN_AppData.Nets[NetIdx].PeerCnt)
@@ -398,12 +261,12 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
                    NetIdx,
                    PeerIdx,
                    SBN_AppData.Nets[NetIdx].PeerCnt - 1);
-        return;
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     SBN_PeerInterface_t *Peer = &SBN_AppData.Nets[NetIdx].Peers[PeerIdx];
 
-    EVSSendInfo(SBN_CMD_EID, "hk command, net=%d, peer=%d", NetIdx, PeerIdx);
+    EVSSendInfo(SBN_CMD_EID, "hk peer command, net=%d, peer=%d", NetIdx, PeerIdx);
 
     uint8                 HKBuf[SBN_HKPEER_LEN];
     CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
@@ -440,6 +303,8 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
     */
     CFE_SB_TimeStampMsg(HKMsg);
     CFE_SB_TransmitMsg(HKMsg, true);
+
+    return CFE_SUCCESS;
 } /* end HKPeerCmd */
 
 /** \brief Send My Subscriptions
@@ -452,13 +317,8 @@ static void HKPeerCmd(CFE_MSG_Message_t *MsgPtr)
  *
  *  \sa #SBN_HK_MYSUBS_CC
  */
-static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_SendHkMySubsCmd(const SBN_SendHkMySubsCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "my subs"))
-    {
-        return;
-    } /* end if */
-
     EVSSendInfo(SBN_CMD_EID, "hk subs command");
 
     uint8                 HKBuf[SBN_HKMYSUBS_LEN];
@@ -492,6 +352,8 @@ static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
     */
     CFE_SB_TimeStampMsg(HKMsg);
     CFE_SB_TransmitMsg(HKMsg, true);
+
+    return CFE_SUCCESS;
 } /* end MySubsCmd */
 
 /** \brief Reloads the config table.
@@ -501,20 +363,12 @@ static void MySubsCmd(CFE_MSG_Message_t *MsgPtr)
  *
  *  \sa #SBN_TBL_CC
  */
-static void ReloadTblCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_ReloadTblCmd(const SBN_ReloadTblCmd_t *MsgPtr)
 {
-    if (VerifyMsgLen(MsgPtr, sizeof(CFE_MSG_CommandHeader_t), "reloadtbl"))
-    {
-        EVSSendInfo(SBN_CMD_EID, "reload tbl command");
-        SBN_ReloadConfTbl();
-    }
-    else
-    {
-        EVSSendErr(SBN_CMD_EID,
-                   "Recevied tbl reload command, but message was wrong size. This command should only be "
-                   "triggered from the TBL service, itself, and not called directly.");
-    }
-    return;
+    EVSSendInfo(SBN_CMD_EID, "reload tbl command");
+    SBN_ReloadConfTbl();
+
+    return CFE_SUCCESS;
 }
 
 /************************************************************************/
@@ -529,13 +383,8 @@ static void ReloadTblCmd(CFE_MSG_Message_t *MsgPtr)
 **  \sa #SBN_HK_MYSUBS_CC
 **
 *************************************************************************/
-static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_SendHkPeerSubsCmd(const SBN_SendHkPeerSubsCmd_t *MsgPtr)
 {
-    if (!VerifyMsgLen(MsgPtr, SBN_CMD_PEER_LEN, "peer subs"))
-    {
-        return;
-    } /* end if */
-
     uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
     uint8  NetIdx  = *Ptr++;
     uint8  PeerIdx = *Ptr;
@@ -543,7 +392,7 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
     if (NetIdx >= SBN_AppData.NetCnt)
     {
         EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
-        return;
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     if (PeerIdx >= SBN_AppData.Nets[NetIdx].PeerCnt)
@@ -553,7 +402,7 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
                    NetIdx,
                    PeerIdx,
                    SBN_AppData.Nets[NetIdx].PeerCnt - 1);
-        return;
+        return CFE_SUCCESS; /* Return value should still be success */
     } /* end if */
 
     EVSSendInfo(SBN_CMD_EID, "hk subs command, net=%d peer=%d", NetIdx, PeerIdx);
@@ -594,83 +443,12 @@ static void PeerSubsCmd(CFE_MSG_Message_t *MsgPtr)
     */
     CFE_SB_TimeStampMsg(HKMsg);
     CFE_SB_TransmitMsg(HKMsg, true);
+
+    return CFE_SUCCESS;
 } /* end PeerSubsCmd */
 
-/*******************************************************************/
-/*                                                                 */
-/* Process a command pipe message                                  */
-/*                                                                 */
-/*******************************************************************/
-void SBN_HandleCommand(CFE_MSG_Message_t *MsgPtr)
+CFE_Status_t SBN_WakeupCmd(const SBN_WakeupCmd_t *MsgPtr)
 {
-    CFE_SB_MsgId_t        MsgId;
-    CFE_MSG_FcnCode_t     FcnCode = 0;
-    static CFE_SB_MsgId_t CMD_MID = CFE_SB_MSGID_RESERVED;
-
-    /* cache the local MID Values here, this avoids repeat lookups */
-    if (!CFE_SB_IsValidMsgId(CMD_MID))
-    {
-        CMD_MID = CFE_SB_ValueToMsgId(SBN_CMD_MID);
-    }
-
-    if (CFE_MSG_GetMsgId(MsgPtr, &MsgId) != CFE_SUCCESS)
-    {
-        SBN_AppData.CmdErrCnt++;
-        EVSSendErr(SBN_CMD_EID, "invalid FcnCode");
-        return;
-    }
-
-    if (!CFE_SB_MsgId_Equal(MsgId, CMD_MID))
-    {
-        SBN_AppData.CmdErrCnt++;
-        EVSSendErr(SBN_CMD_EID, "invalid command pipe MsgId");
-        return;
-    } /* end if */
-
-    if (CFE_MSG_GetFcnCode(MsgPtr, &FcnCode) != CFE_SUCCESS)
-    {
-        SBN_AppData.CmdErrCnt++;
-        EVSSendErr(SBN_CMD_EID, "invalid FcnCode (FcnCode=0x%04X)", FcnCode);
-        return;
-    }
-
-    switch (FcnCode)
-    {
-        case SBN_NOOP_CC:
-            NoopCmd(MsgPtr);
-            break;
-
-        case SBN_HK_CC:
-            HKCmd(MsgPtr);
-            break;
-        case SBN_HK_NET_CC:
-            HKNetCmd(MsgPtr);
-            break;
-        case SBN_HK_PEER_CC:
-            HKPeerCmd(MsgPtr);
-            break;
-        case SBN_HK_PEERSUBS_CC:
-            PeerSubsCmd(MsgPtr);
-            break;
-        case SBN_HK_MYSUBS_CC:
-            MySubsCmd(MsgPtr);
-            break;
-        case SBN_HK_RESET_CC:
-            HKResetCmd(MsgPtr);
-            break;
-        case SBN_HK_RESET_PEER_CC:
-            HKResetPeerCmd(MsgPtr);
-            break;
-
-        case SBN_SCH_WAKEUP_CC:
-            EVSSendDbg(SBN_CMD_EID, "wakeup");
-            break;
-        case SBN_TBL_CC:
-            ReloadTblCmd(MsgPtr);
-            break;
-        default:
-            SBN_AppData.CmdErrCnt++;
-            EVSSendErr(SBN_CMD_EID, "invalid command code (ID=0x%04X, CC=%d)", FcnCode, FcnCode);
-            break;
-    } /* end switch */
-} /* end SBN_HandleCommand */
+    EVSSendDbg(SBN_CMD_EID, "wakeup");
+    return CFE_SUCCESS;
+}

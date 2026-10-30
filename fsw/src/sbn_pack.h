@@ -49,7 +49,8 @@
 
 #include "common_types.h"
 #include "cfe_endian.h"
-#include "sbn_types.h"
+#include "cfe_sb_extern_typedefs.h"
+#include "sbn_extern_typedefs.h"
 
 /*
  * About the pack structs:

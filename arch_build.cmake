@@ -10,7 +10,11 @@
 
 # The list of header files that control the app configuration
 set(SBN_PLATFORM_CONFIG_FILE_LIST
-   sbn_msgids.h
+  sbn_internal_cfg_values.h
+  sbn_platform_cfg.h
+  sbn_perfids.h
+  sbn_msgids.h
+  sbn_msgid_values.h
 )
 
 generate_configfile_set(${SBN_PLATFORM_CONFIG_FILE_LIST})

@@ -22,6 +22,8 @@
 #include "cfe.h"
 #include "sbn_types.h"
 #include "sbn_msg.h"
+#include "sbn_platform_cfg.h"
+#include "sbn_extern_typedefs.h"
 
 typedef struct SBN_IfOps_s         SBN_IfOps_t;
 typedef struct SBN_NetInterface_s  SBN_NetInterface_t;
@@ -39,8 +41,9 @@ typedef struct SBN_PeerInterface_s SBN_PeerInterface_t;
  */
 #define SBN_PACKED_HDR_SZ \
     (sizeof(SBN_MsgSz_t) + sizeof(SBN_MsgType_t) + sizeof(SBN_ProcessorID_t) + sizeof(SBN_SpacecraftID_t))
-#define SBN_PACKED_SUB_SZ \
-    (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MAX_SUBS_PER_PEER)
+#define SBN_PACKED_SUB_SZ                     \
+    (SBN_PACKED_HDR_SZ + sizeof(SBN_SubCnt_t) \
+     + (sizeof(CFE_SB_MsgId_t) + sizeof(CFE_SB_Qos_t)) * SBN_MISSION_MAX_SUBS_PER_PEER)
 #define SBN_MAX_PACKED_MSG_SZ (SBN_PACKED_HDR_SZ + CFE_MISSION_SB_MAX_SB_MSG_SIZE)
 
 /**
@@ -146,17 +149,17 @@ struct SBN_PeerInterface_s
      * @brief A local table of subscriptions the peer has requested.
      * Includes one extra entry for a null termination.
      */
-    SBN_Subs_t Subs[SBN_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
      *        receiving from the peer.
      */
-    SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
+    SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
     SBN_ModuleIdx_t        FilterCnt;
 
-    OS_time_t   LastSend, LastRecv;
-    SBN_HKTlm_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
+    OS_time_t       LastSend, LastRecv;
+    SBN_HkCounter_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
 
     bool Connected;
 
@@ -181,7 +184,7 @@ struct SBN_NetInterface_s
      * are 0 if there is no task.
      */
     CFE_ES_TaskId_t SendTaskID;
-    OS_MutexID_t    SendMutex;
+    osal_id_t       SendMutex;
 
     CFE_ES_TaskId_t RecvTaskID;
 
@@ -189,13 +192,13 @@ struct SBN_NetInterface_s
 
     SBN_PeerIdx_t PeerCnt;
 
-    SBN_PeerInterface_t Peers[SBN_MAX_PEER_CNT];
+    SBN_PeerInterface_t Peers[SBN_MISSION_MAX_PEER_COUNT];
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
      *        receiving from the peer.
      */
-    SBN_FilterInterface_t *Filters[SBN_MAX_FILTERS];
+    SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
     SBN_ModuleIdx_t        FilterCnt;
 
     /** @brief generic blob of bytes, module-specific */

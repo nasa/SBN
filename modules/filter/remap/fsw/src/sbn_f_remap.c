@@ -93,10 +93,10 @@ static SBN_Status_t SBN_Remap_RegisterTable(void)
         return SBN_ERROR;
     } /* end if */
 
-    CFE_Status = CFE_TBL_Load(SBN_Remap_Global.TblHandle, CFE_TBL_SRC_FILE, SBN_REMAP_TBL_FILENAME);
+    CFE_Status = CFE_TBL_Load(SBN_Remap_Global.TblHandle, CFE_TBL_SRC_FILE, SBN_PLATFORM_REMAP_TBL_FILENAME);
     if (CFE_Status < CFE_SUCCESS)
     {
-        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to load remap tbl %s", SBN_REMAP_TBL_FILENAME);
+        EVSSendErr(SBN_F_REMAP_TBL_EID, "unable to load remap tbl %s", SBN_PLATFORM_REMAP_TBL_FILENAME);
         /* Do not unregister - it can be loaded later */
         return SBN_ERROR;
     } /* end if */

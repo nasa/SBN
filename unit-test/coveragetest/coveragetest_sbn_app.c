@@ -511,7 +511,7 @@ static void LoadConf_TooManyNets(void)
      * - ProtocolCnt: 2 - Need at least one valid protocol module for peer reference
      * - FilterCnt: 0 - Skip filter processing, focus on network validation
      * - PeerCnt: 1 - Need one peer with NetNum that exceeds maximum allowed
-     * Expected Error: "network index too large" when peer NetNum > SBN_MAX_NETS */
+     * Expected Error: "network index too large" when peer NetNum > SBN_PLATFORM_MAX_NETS */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
     TestConfTbl.ProtocolCnt = 2;
     TestConfTbl.FilterCnt   = 0;
@@ -524,7 +524,7 @@ static void LoadConf_TooManyNets(void)
             sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
     TestConfTbl.Peers[0].SpacecraftID = 1234;
     TestConfTbl.Peers[0].ProcessorID  = 5678;
-    TestConfTbl.Peers[0].NetNum       = SBN_MAX_NETS + 1;
+    TestConfTbl.Peers[0].NetNum       = SBN_PLATFORM_MAX_NETS + 1;
     strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
 
     START();
