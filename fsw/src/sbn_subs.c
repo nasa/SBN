@@ -217,12 +217,12 @@ static SBN_Status_t ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
         return SBN_SUCCESS;
     } /* end if */
 
-    if (SBN_AppData.SubCnt >= SBN_MAX_SUBS_PER_PEER)
+    if (SBN_AppData.SubCnt >= SBN_MISSION_MAX_SUBS_PER_PEER)
     {
         EVSSendErr(SBN_SUB_EID,
                    "local subscription ignored for MsgID 0x%04X, max (%d) met",
                    CFE_SB_MsgIdToValue(MsgID),
-                   SBN_MAX_SUBS_PER_PEER);
+                   SBN_MISSION_MAX_SUBS_PER_PEER);
         return SBN_ERROR;
     } /* end if */
 
@@ -414,17 +414,17 @@ static SBN_Status_t AddSub(SBN_PeerInterface_t *Peer, CFE_SB_MsgId_t MsgID, CFE_
         return SBN_SUCCESS;
     } /* end if */
 
-    if (Peer->SubCnt >= SBN_MAX_SUBS_PER_PEER)
+    if (Peer->SubCnt >= SBN_MISSION_MAX_SUBS_PER_PEER)
     {
         EVSSendErr(SBN_SUB_EID,
                    "cannot process subscription from ProcessorID %d, max (%d) met",
                    Peer->ProcessorID,
-                   SBN_MAX_SUBS_PER_PEER);
+                   SBN_MISSION_MAX_SUBS_PER_PEER);
         return SBN_ERROR;
     } /* end if */
 
     /* SubscribeLocal suppresses the subscription report */
-    CFE_Status = CFE_SB_SubscribeLocal(MsgID, Peer->Pipe, SBN_DEFAULT_MSG_LIM);
+    CFE_Status = CFE_SB_SubscribeLocal(MsgID, Peer->Pipe, SBN_PLATFORM_PEER_MSG_LIM);
     if (CFE_Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_SUB_EID, "unable to subscribe to MID 0x%04X", CFE_SB_MsgIdToValue(MsgID));

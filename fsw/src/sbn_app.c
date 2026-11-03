@@ -40,7 +40,7 @@ static SBN_Status_t SBN_UnloadModules(void)
 {
     SBN_ModuleIdx_t i;
 
-    for (i = 0; i < SBN_MAX_MOD_CNT; i++)
+    for (i = 0; i < SBN_MISSION_MAX_MOD_CNT; i++)
     {
         if (!OS_ObjectIdDefined(SBN_AppData.ProtocolModules[i]))
         {
@@ -57,7 +57,7 @@ static SBN_Status_t SBN_UnloadModules(void)
         SBN_AppData.ProtocolModules[i] = OS_OBJECT_ID_UNDEFINED;
     } /* end for */
 
-    for (i = 0; i < SBN_MAX_MOD_CNT; i++)
+    for (i = 0; i < SBN_MISSION_MAX_MOD_CNT; i++)
     {
         if (!OS_ObjectIdDefined(SBN_AppData.FilterModules[i]))
         {
@@ -191,7 +191,7 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 
     /* create a pipe name string similar to SBN_0_Pipe */
     snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%d_Pipe", (int)(Peer->ProcessorID), (int)(Peer->SpacecraftID));
-    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PEER_PIPE_DEPTH, PipeName);
+    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PLATFORM_PEER_PIPE_DEPTH, PipeName);
 
     if (CFE_Status != CFE_SUCCESS)
     {
@@ -626,7 +626,7 @@ void SBN_SendTask(void)
     {
         if (!D.Peer->Connected)
         {
-            OS_TaskDelay(SBN_MAIN_LOOP_DELAY);
+            OS_TaskDelay(SBN_PLATFORM_MAIN_LOOP_DELAY);
             continue;
         } /* end if */
 
@@ -710,10 +710,10 @@ static SBN_Status_t SBN_CheckPeerPipes(void)
 
     /**
      * \note This processes one message per peer, then start again until no
-     * peers have pending messages. At max only process SBN_MAX_MSG_PER_WAKEUP
+     * peers have pending messages. At max only process SBN_PLATFORM_MAX_MSG_PER_WAKEUP
      * per peer per wakeup otherwise I will starve other processing.
      */
-    for (iter = 0; iter < SBN_MAX_MSG_PER_WAKEUP; iter++)
+    for (iter = 0; iter < SBN_PLATFORM_MAX_MSG_PER_WAKEUP; iter++)
     {
         ReceivedFlag = 0;
 
@@ -1090,11 +1090,12 @@ static cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleI
  * @param[out] Filters - The function pointers for the filters requested.
  * @return The number of entries in Filters.
  */
-static SBN_ModuleIdx_t SBN_LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
-                                            SBN_ModuleIdx_t               FilterModuleCnt,
-                                            SBN_FilterInterface_t *const *ConfFilters,
-                                            char ModuleNames[SBN_MAX_FILTERS_PER_PEER][SBN_MAX_MOD_NAME_LEN],
-                                            SBN_FilterInterface_t **Filters)
+static SBN_ModuleIdx_t
+SBN_LoadConf_Filters(SBN_Module_Entry_t           *FilterModules,
+                     SBN_ModuleIdx_t               FilterModuleCnt,
+                     SBN_FilterInterface_t *const *ConfFilters,
+                     char ModuleNames[SBN_MISSION_MAX_FILTERS_PER_PEER][SBN_MISSION_MAX_MOD_NAME_LEN],
+                     SBN_FilterInterface_t **Filters)
 {
     int             i;
     SBN_ModuleIdx_t FilterCnt;
@@ -1104,7 +1105,7 @@ static SBN_ModuleIdx_t SBN_LoadConf_Filters(SBN_Module_Entry_t           *Filter
 
     memset(FilterModules, 0, sizeof(*FilterModules) * FilterCnt);
 
-    for (i = 0; i < SBN_MAX_FILTERS_PER_PEER && *ModuleNames[i]; i++)
+    for (i = 0; i < SBN_MISSION_MAX_FILTERS_PER_PEER && *ModuleNames[i]; i++)
     {
         for (FilterIdx = 0; FilterIdx < FilterModuleCnt; FilterIdx++)
         {
@@ -1133,8 +1134,8 @@ static SBN_Status_t SBN_LoadConf(void)
 {
     SBN_ModuleIdx_t        ModuleIdx;
     SBN_PeerIdx_t          PeerIdx;
-    SBN_FilterInterface_t *Filters[SBN_MAX_MOD_CNT];
-    CFE_ES_ModuleID_t      ModuleID;
+    SBN_FilterInterface_t *Filters[SBN_MISSION_MAX_MOD_CNT];
+    osal_id_t              ModuleID;
     SBN_IfOps_t           *Ops;
     SBN_Peer_Entry_t      *PeerEntry;
     SBN_NetInterface_t    *Net;
@@ -1232,9 +1233,9 @@ static SBN_Status_t SBN_LoadConf(void)
             return SBN_ERROR;
         } /* end if */
 
-        if (PeerEntry->NetNum < 0 || PeerEntry->NetNum >= SBN_MAX_NETS)
+        if (PeerEntry->NetNum < 0 || PeerEntry->NetNum >= SBN_PLATFORM_MAX_NETS)
         {
-            EVSSendCrit(SBN_TBL_EID, "network index too large (%d>%d)", PeerEntry->NetNum, SBN_MAX_NETS);
+            EVSSendCrit(SBN_TBL_EID, "network index too large (%d>%d)", PeerEntry->NetNum, SBN_PLATFORM_MAX_NETS);
             return SBN_ERROR;
         } /* end if */
 
@@ -1434,9 +1435,10 @@ static uint32 SBN_LoadConfTbl(void)
         return Status;
     } /* end if */
 
-    if ((Status = CFE_TBL_Load(SBN_AppData.ConfTblHandle, CFE_TBL_SRC_FILE, SBN_CONF_TBL_FILENAME)) != CFE_SUCCESS)
+    if ((Status = CFE_TBL_Load(SBN_AppData.ConfTblHandle, CFE_TBL_SRC_FILE, SBN_PLATFORM_CONF_TBL_FILENAME))
+        != CFE_SUCCESS)
     {
-        EVSSendErr(SBN_TBL_EID, "unable to load conf tbl %s", SBN_CONF_TBL_FILENAME);
+        EVSSendErr(SBN_TBL_EID, "unable to load conf tbl %s", SBN_PLATFORM_CONF_TBL_FILENAME);
         CFE_TBL_Unregister(SBN_AppData.ConfTblHandle);
         return Status;
     } /* end if */
@@ -1484,7 +1486,7 @@ static SBN_Status_t SBN_SetupSubPipe(void)
     CFE_Status_t Status;
 
     /* Create pipe for subscribes and unsubscribes from SB */
-    Status = CFE_SB_CreatePipe(&SBN_AppData.SubPipe, SBN_SUB_PIPE_DEPTH, "SBNSubPipe");
+    Status = CFE_SB_CreatePipe(&SBN_AppData.SubPipe, SBN_PLATFORM_SUB_PIPE_DEPTH, "SBNSubPipe");
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to create subscription pipe (Status=%d)", (int)Status);
@@ -1494,7 +1496,7 @@ static SBN_Status_t SBN_SetupSubPipe(void)
 
     Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID),
                                    SBN_AppData.SubPipe,
-                                   SBN_MAX_ALLSUBS_PKTS_ON_PIPE);
+                                   SBN_PLATFORM_MAX_ALLSUBS_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to allsubs (Status=%d)", (int)Status);
@@ -1503,7 +1505,7 @@ static SBN_Status_t SBN_SetupSubPipe(void)
 
     Status = CFE_SB_SubscribeLocal(CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID),
                                    SBN_AppData.SubPipe,
-                                   SBN_MAX_ONESUB_PKTS_ON_PIPE);
+                                   SBN_PLATFORM_MAX_ONESUB_PKTS_ON_PIPE);
     if (Status != CFE_SUCCESS)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to sub (Status=%d)", (int)Status);
@@ -1699,7 +1701,7 @@ void SBN_AppMain(void)
             break;
         } /* end if */
 
-        SBN_WaitForWakeup(SBN_MAIN_LOOP_DELAY);
+        SBN_WaitForWakeup(SBN_PLATFORM_MAIN_LOOP_DELAY);
 
         if (OS_MutSemGive(SBN_AppData.ConfMutex) != OS_SUCCESS)
         {
