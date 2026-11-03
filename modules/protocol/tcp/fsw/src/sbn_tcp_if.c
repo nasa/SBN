@@ -67,7 +67,7 @@ typedef struct
     OS_SockAddr_t  Addr;
     uint8          BufNum; /* outgoing buffer */
     osal_id_t      Socket; /* server socket */
-    SBN_TCP_Conn_t Conns[SBN_MAX_PEER_CNT];
+    SBN_TCP_Conn_t Conns[SBN_MISSION_MAX_PEER_CNT];
 } SBN_TCP_Net_t;
 
 SBN_EventID_t SBN_TCP_FIRST_EID = 0;
@@ -142,7 +142,7 @@ static SBN_Status_t ConfAddr(OS_SockAddr_t *Addr, const char *Address)
     return SBN_SUCCESS;
 } /* end ConfAddr() */
 
-static uint8 SendBufs[SBN_MAX_NETS][SBN_MAX_PACKED_MSG_SZ];
+static uint8 SendBufs[SBN_PLATFORM_MAX_NETS][SBN_MAX_PACKED_MSG_SZ];
 static int   SendBufCnt = 0;
 
 static SBN_TCP_Conn_t *NewConn(SBN_TCP_Net_t *NetData, osal_id_t Socket)
@@ -152,10 +152,10 @@ static SBN_TCP_Conn_t *NewConn(SBN_TCP_Net_t *NetData, osal_id_t Socket)
 
     int ConnID = 0;
 
-    for (ConnID = 0; ConnID < SBN_MAX_PEER_CNT && NetData->Conns[ConnID].InUse; ConnID++)
+    for (ConnID = 0; ConnID < SBN_MISSION_MAX_PEER_CNT && NetData->Conns[ConnID].InUse; ConnID++)
         ;
 
-    if (ConnID == SBN_MAX_PEER_CNT)
+    if (ConnID == SBN_MISSION_MAX_PEER_CNT)
     {
         return NULL;
     } /* end if */
@@ -205,7 +205,7 @@ static SBN_Status_t LoadNet(SBN_NetInterface_t *Net, const char *Address)
     return Status;
 } /* end LoadNet() */
 
-static uint8 RecvBufs[SBN_MAX_PEER_CNT][SBN_MAX_PACKED_MSG_SZ];
+static uint8 RecvBufs[SBN_MISSION_MAX_PEER_CNT][SBN_MAX_PACKED_MSG_SZ];
 static uint8 RecvBufCnt = 0;
 
 static SBN_Status_t LoadPeer(SBN_PeerInterface_t *Peer, const char *Address)
@@ -427,7 +427,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
 
     OS_SelectFdZero(&FdSet);
 
-    for (ConnID = 0; ConnID < SBN_MAX_PEER_CNT; ConnID++)
+    for (ConnID = 0; ConnID < SBN_MISSION_MAX_PEER_CNT; ConnID++)
     {
         if (NetData->Conns[ConnID].InUse)
         {
@@ -440,7 +440,7 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
         return SBN_IF_EMPTY;
     } /* end if */
 
-    for (ConnID = 0; ConnID < SBN_MAX_PEER_CNT; ConnID++)
+    for (ConnID = 0; ConnID < SBN_MISSION_MAX_PEER_CNT; ConnID++)
     {
         SBN_TCP_Conn_t *Conn = &NetData->Conns[ConnID];
 

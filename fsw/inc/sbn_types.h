@@ -18,8 +18,8 @@
 
 #include "cfe.h"
 
-#ifndef _sbn_types_h_
-#define _sbn_types_h_
+#ifndef SBN_TYPES_H
+#define SBN_TYPES_H
 
 /**
  * Below are types that the user shouldn't have to change, but are useful

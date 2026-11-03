@@ -32,6 +32,7 @@
 #define DEFAULT_SBN_MSG_H
 
 #include "sbn_mission_cfg.h"
+#include "sbn_extern_typedefs.h"
 #include "sbn_msgdefs.h"
 #include "sbn_msgstruct.h"
 

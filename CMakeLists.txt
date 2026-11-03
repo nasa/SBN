@@ -5,13 +5,22 @@ set(APP_SRC_FILES
   fsw/src/sbn_app.c
   fsw/src/sbn_cmds.c
   fsw/src/sbn_subs.c
-)
-
-# These files are for non-eds I/O
-list(APPEND APP_SRC_FILES
-  fsw/src/sbn_dispatch.c
   fsw/src/sbn_pack.c
 )
+
+if (CFE_EDS_ENABLED)
+# These files are for EDS-based I/O
+  list(APPEND APP_SRC_FILES
+    fsw/src/sbn_eds_dispatch.c
+    fsw/src/sbn_eds_encoder.c
+  )
+else()
+# These files are for non-eds I/O
+  list(APPEND APP_SRC_FILES
+    fsw/src/sbn_dispatch.c
+    fsw/src/sbn_fixedpack_encoder.c
+  )
+endif()
 
 # Create the app module
 add_cfe_app(sbn ${APP_SRC_FILES})
