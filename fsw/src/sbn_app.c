@@ -30,6 +30,8 @@
 #include "cfe_msgids.h"
 #include "cfe_version.h"
 #include "sbn_error.h"
+#include "sbn_tbl.h"
+#include "sbn_dispatch.h"
 
 /** \brief SBN global application data, indexed by AppID. */
 SBN_AppData_t SBN_AppData;
@@ -318,7 +320,8 @@ void SBN_RecvPeerTask(void)
     while (1)
     {
         D.Status =
-            D.Net->IfOps->RecvFromPeer(D.Net, D.Peer, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.Msg);
+            D.Net->IfOps
+                ->RecvFromPeer(D.Net, D.Peer, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.NetMsgBuf);
 
         if (D.Status == SBN_IF_EMPTY)
         {
@@ -329,7 +332,7 @@ void SBN_RecvPeerTask(void)
         {
             OS_GetLocalTime(&D.Peer->LastRecv);
 
-            D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.Msg);
+            D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.NetMsgBuf);
 
             if (D.Status != SBN_SUCCESS)
             {
@@ -378,7 +381,8 @@ void SBN_RecvNetTask(void)
     while (1)
     {
         EVSSendDbg(SBN_PEERTASK_EID, "Try to receive from net...");
-        D.Status = D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.Msg);
+        D.Status =
+            D.Net->IfOps->RecvFromNet(D.Net, &D.MsgType, &D.MsgSz, &D.ProcessorID, &D.SpacecraftID, &D.NetMsgBuf);
 
         if (D.Status == SBN_IF_EMPTY)
         {
@@ -404,7 +408,7 @@ void SBN_RecvNetTask(void)
 
         OS_GetLocalTime(&D.Peer->LastRecv);
 
-        D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.Msg);
+        D.Status = SBN_ProcessNetMsg(D.Net, D.MsgType, D.ProcessorID, D.SpacecraftID, D.MsgSz, &D.NetMsgBuf);
 
         if (D.Status != SBN_SUCCESS)
         {
@@ -980,14 +984,12 @@ static SBN_Status_t SBN_InitInterfaces(void)
  */
 static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
 {
-    CFE_Status_t       CFE_Status;
-    SBN_Status_t       SBN_Status;
-    CFE_MSG_Message_t *MsgPtr;
-
-    MsgPtr = 0;
+    CFE_Status_t           CFE_Status;
+    SBN_Status_t           SBN_Status;
+    const CFE_SB_Buffer_t *BufPtr;
 
     /* Wait for WakeUp messages from scheduler */
-    CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, SBN_AppData.CmdPipe, iTimeOut);
+    CFE_Status = CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&BufPtr, SBN_AppData.CmdPipe, iTimeOut);
 
     switch (CFE_Status)
     {
@@ -995,7 +997,7 @@ static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
         case CFE_SB_TIME_OUT:
             break;
         case CFE_SUCCESS:
-            SBN_HandleCommand(MsgPtr);
+            SBN_HandleCommand(BufPtr);
             break;
         default:
             return SBN_ERROR;
@@ -1036,7 +1038,7 @@ static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
  *
  * Cleaned up by SBN_UnloadModules()
  */
-static cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, CFE_ES_ModuleID_t *ModuleIDPtr)
+static cpuaddr SBN_LoadConf_Module(SBN_Module_Entry_t *PeerEntry, osal_id_t *ModuleIDPtr)
 {
     cpuaddr StructAddr;
 
@@ -1510,9 +1512,49 @@ static SBN_Status_t SBN_SetupSubPipe(void)
     {
         EVSSendErr(SBN_INIT_EID, "failed to subscribe to sub (Status=%d)", (int)Status);
         return SBN_ERROR;
-    } /* end if */
+    }
 
     return SBN_SUCCESS;
+}
+
+/**
+ * @brief Initializes the housekeeping counters for a peer.
+ *
+ * @param[in] Peer The peer interface for which to reset housekeeping.
+ */
+void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer)
+{
+    Peer->LastSend   = (OS_time_t) { 0 };
+    Peer->LastRecv   = (OS_time_t) { 0 };
+    Peer->SendCnt    = 0;
+    Peer->RecvCnt    = 0;
+    Peer->SendErrCnt = 0;
+    Peer->RecvErrCnt = 0;
+}
+
+/**
+ * @brief Initializes the housekeeping counters both at the app level
+ *        and for each peer.
+ */
+void SBN_InitializeCounters(void)
+{
+    SBN_NetInterface_t  *Net;
+    SBN_PeerInterface_t *Peer;
+    SBN_PeerIdx_t        PeerIdx;
+    SBN_NetIdx_t         NetIdx;
+
+    SBN_AppData.CmdCnt    = 0;
+    SBN_AppData.CmdErrCnt = 0;
+
+    for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
+    {
+        Net = &SBN_AppData.Nets[NetIdx];
+        for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
+        {
+            Peer = &Net->Peers[PeerIdx];
+            SBN_InitializePeerCounters(Peer);
+        }
+    }
 }
 
 static SBN_Status_t SBN_Init(void)

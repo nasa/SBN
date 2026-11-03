@@ -16,12 +16,38 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_perfids_h_
-#define _sbn_perfids_h_
+/**
+ * @file
+ *
+ * Main header file for the SAMPLE application
+ */
 
-#define SBN_PERF_MIN_ID  1
-#define SBN_PERF_SEND_ID SBN_PERF_MIN_ID
-#define SBN_PERF_RECV_ID SBN_PERF_MIN_ID + 1
-#define SBN_PERF_MAX_ID  SBN_PERF_MIN_ID + 100
+#ifndef SBN_DISPATCH_H
+#define SBN_DISPATCH_H
 
-#endif /* _sbn_perfids_h_ */
+/*
+** Required header files.
+*/
+#include "cfe.h"
+#include "sbn_msg.h"
+
+/************************************************************************/
+/** \brief Process a command pipe message
+**
+**  \par Description
+**       Processes a single software bus command pipe message.  Checks
+**       the message and command IDs and calls the appropriate routine
+**       to handle the message.
+**
+**  \par Assumptions, External Events, and Notes:
+**       None
+**
+**  \param [in]   SBBufPtr   A #CFE_SB_Buffer_t pointer that
+**                         references the software bus message
+**
+**  \sa #CFE_SB_ReceiveBuffer
+**
+*************************************************************************/
+void SBN_HandleCommand(const CFE_SB_Buffer_t *SBBufPtr);
+
+#endif /* SBN_DISPATCH_H */

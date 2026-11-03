@@ -104,12 +104,12 @@ typedef struct
     SBN_ConfTbl_t *ConfTbl;
 
     /** Global mutex for Send Tasks. */
-    CFE_ES_MutexID_t SendMutex;
+    osal_id_t SendMutex;
 
     /** Global mutex for reconfiguring. */
-    CFE_ES_MutexID_t ConfMutex;
+    osal_id_t ConfMutex;
 
-    SBN_HKTlm_t CmdCnt, CmdErrCnt;
+    SBN_HkCounter_t CmdCnt, CmdErrCnt;
 
     CFE_TBL_Handle_t ConfTblHandle;
 
@@ -138,7 +138,7 @@ typedef struct
     SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_RecvPeerTaskData_t;
 
 typedef struct
@@ -152,7 +152,7 @@ typedef struct
     SBN_SpacecraftID_t   SpacecraftID;
     SBN_MsgType_t        MsgType;
     SBN_MsgSz_t          MsgSz;
-    uint8                Msg[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_RecvNetTaskData_t;
 
 typedef struct
@@ -199,5 +199,18 @@ bool         SBN_UnpackMsg(void               *SBNBuf,
                            void               *Msg);
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 SBN_Status_t SBN_RecvNetMsgs(void);
+
+/**
+ * @brief Initializes the housekeeping counters for a peer.
+ *
+ * @param[in] Peer The peer interface for which to reset housekeeping.
+ */
+void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer);
+
+/**
+ * @brief Initializes the housekeeping counters both at the app level
+ *        and for each peer.
+ */
+void SBN_InitializeCounters(void);
 
 #endif /* _sbn_app_ */

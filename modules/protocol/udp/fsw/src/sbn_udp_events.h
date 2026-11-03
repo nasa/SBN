@@ -19,7 +19,7 @@
 #ifndef _sbn_udp_events_h
 #define _sbn_udp_events_h
 
-#include "sbn_types.h"
+#include "sbn_extern_typedefs.h"
 
 extern SBN_EventID_t SBN_UDP_FIRST_EID; /* defined at module init time */
 

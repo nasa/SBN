@@ -4,12 +4,11 @@ if(NOT(IS_DIRECTORY ${SBN_APP_SOURCE_DIR}))
     message(FATAL_ERROR "SBN_APP_SOURCE_DIR not defined, is sbn in the target list before this module?")
 endif()
 
-include_directories(${SBN_APP_SOURCE_DIR}/fsw/platform_inc)
-
 aux_source_directory(fsw/src LIB_SRC_FILES)
 
 # Create the app module
 add_cfe_app(sbn_udp ${LIB_SRC_FILES})
+add_cfe_app_dependency(sbn_udp sbn)
 
 if (ENABLE_UNIT_TESTS)
   add_subdirectory(unit-test)
