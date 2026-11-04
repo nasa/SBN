@@ -101,7 +101,6 @@ typedef struct
 /**
  * Initialize the packing management structure.
  *
- * @param[in,out] PackPtr The pointer to the management structure to initialize.
  * @param[in] Buf The buffer for storing packed data.
  * @param[in] BufSz The size of the buffer.
  * @param[in] ClearFlag If true, zero the buffer.
@@ -111,12 +110,11 @@ typedef struct
  * @sa #SBN_Pack_Data, #SBN_Pack_UInt8, #SBN_Pack_Int16, #SBN_Pack_UInt16, #SBN_Pack_UInt32, #SBN_Pack_Time,
  * #SBN_Pack_MsgID
  */
-bool SBN_Pack_Init(SBN_PackState_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag);
+bool SBN_Pack_Init(void *Buf, size_t BufSz, bool ClearFlag);
 
 /**
  * Initialize the unpacking management structure.
  *
- * @param[in,out] PackPtr The pointer to the management structure to initialize.
  * @param[in] Buf The buffer for reading packed data.
  * @param[in] BufSz The size of the buffer.
  *
@@ -130,10 +128,9 @@ bool SBN_Unpack_Init(SBN_UnpackState_t *PackPtr, const void *Buf, size_t BufSz);
 /**
  * Get the current position of the packed data
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @returns current packed position within the packing buffer
  */
-uint32 SBN_Pack_GetPosition(SBN_PackState_t *PackPtr);
+uint32 SBN_Pack_GetPosition();
 
 /**
  * Get the current position within the packed data
@@ -147,7 +144,6 @@ uint32 SBN_Unpack_GetPosition(SBN_UnpackState_t *PackPtr);
  * Pack data into the buffer. This does the grunt-work of managing the buffer,
  * and has no idea what the data contains.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] DataBuf The buffer to pack into the buffer.
  * @param[in] DataBufSz The size of the data buffer.
  *
@@ -156,12 +152,11 @@ uint32 SBN_Unpack_GetPosition(SBN_UnpackState_t *PackPtr);
  *
  * @sa #SBN_Pack_Init, #SBN_Unpack_Data
  */
-bool SBN_Pack_Data(SBN_PackState_t *PackPtr, const void *DataBuf, size_t DataBufSz);
+bool SBN_Pack_Data(const void *DataBuf, size_t DataBufSz);
 
 /**
  * Pack an unsigned 8-bit integer into the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] Data The value to pack.
  *
  * @return true if the data was successfully packed into the buffer, false if
@@ -169,12 +164,11 @@ bool SBN_Pack_Data(SBN_PackState_t *PackPtr, const void *DataBuf, size_t DataBuf
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_UInt8(SBN_PackState_t *PackPtr, uint8 Data);
+bool SBN_Pack_UInt8(uint8 Data);
 
 /**
  * Pack an unsigned 16-bit integer into the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] Data The value to pack.
  *
  * @return true if the data was successfully packed into the buffer, false if
@@ -182,12 +176,11 @@ bool SBN_Pack_UInt8(SBN_PackState_t *PackPtr, uint8 Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_UInt16(SBN_PackState_t *PackPtr, uint16 Data);
+bool SBN_Pack_UInt16(uint16 Data);
 
 /**
  * Pack a signed 16-bit integer into the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] Data The value to pack.
  *
  * @return true if the data was successfully packed into the buffer, false if
@@ -195,12 +188,11 @@ bool SBN_Pack_UInt16(SBN_PackState_t *PackPtr, uint16 Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_Int16(SBN_PackState_t *PackPtr, int16 Data);
+bool SBN_Pack_Int16(int16 Data);
 
 /**
  * Pack an unsigned 32-bit integer into the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] Data The value to pack.
  *
  * @return true if the data was successfully packed into the buffer, false if
@@ -208,12 +200,11 @@ bool SBN_Pack_Int16(SBN_PackState_t *PackPtr, int16 Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data);
+bool SBN_Pack_UInt32(uint32 Data);
 
 /**
  * Pack a time datum into the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] Data The value to pack.
  *
  * @return true if the data was successfully packed into the buffer, false if
@@ -221,12 +212,11 @@ bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_Time(SBN_PackState_t *PackPtr, OS_time_t Data);
+bool SBN_Pack_Time(OS_time_t Data);
 
 /**
  * Pack a CFE Software Bus message identifier into the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[in] Data The value to pack.
  *
  * @return true if the data was successfully packed into the buffer, false if
@@ -234,7 +224,7 @@ bool SBN_Pack_Time(SBN_PackState_t *PackPtr, OS_time_t Data);
  *
  * @sa #SBN_Pack_Data
  */
-bool SBN_Pack_MsgID(SBN_PackState_t *PackPtr, CFE_SB_MsgId_t Data);
+bool SBN_Pack_MsgID(CFE_SB_MsgId_t Data);
 
 /**
  * Unpacks data from the existing packed buffer. This does the grunt-work of managing the buffer,
