@@ -111,7 +111,7 @@ void SBN_PackMsg(void             *SBNBuf,
     } /* end if */
 
     SBN_Pack_Data(&Pack, Msg, MsgSz);
-}
+} /* end SBN_PackMsg */
 
 /**
  * Unpacks a CCSDS message with an SBN message header.

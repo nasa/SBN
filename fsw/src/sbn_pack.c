@@ -16,19 +16,36 @@
  * limitations under the License.
  ************************************************************************/
 
-#include "sbn_pack.h"
+/* ======== */
+/* Includes */
+/* ======== */
+
+#include "cfe.h"
 #include <string.h> /* memcpy */
+
+#include "sbn_pack.h"
+
+/* ================ */
+/* Global Variables */
+/* ================ */
+
+SBN_PackState_t   PackBuffer;
+SBN_UnpackState_t UnpackBuffer;
+
+/* ==================== */
+/* Function Definitions */
+/* ==================== */
 
 void SBN_Pack_InitBase(SBN_PackBase_t *PackPtr, uint8 *Buf, size_t BufSz)
 {
     PackPtr->Buf     = Buf;
     PackPtr->BufSz   = BufSz;
     PackPtr->BufUsed = 0;
-}
+} /* end SBN_Pack_Init() */
 
-bool SBN_Pack_Init(SBN_PackState_t *PackPtr, void *Buf, size_t BufSz, bool ClearFlag)
+bool SBN_Pack_Init(void *Buf, size_t BufSz, bool ClearFlag)
 {
-    SBN_Pack_InitBase(&PackPtr->Base, (uint8 *)Buf, BufSz);
+    SBN_Pack_InitBase(&(PackBuffer.Base) , (uint8 *)Buf, BufSz);
     if (ClearFlag)
     {
         memset(Buf, 0, BufSz);
@@ -36,152 +53,148 @@ bool SBN_Pack_Init(SBN_PackState_t *PackPtr, void *Buf, size_t BufSz, bool Clear
     return true;
 }
 
-bool SBN_Unpack_Init(SBN_UnpackState_t *PackPtr, const void *Buf, size_t BufSz)
+bool SBN_Unpack_Init(const void *Buf, size_t BufSz)
 {
     /* Note, the unpack APIs will not write to the buffer, it is just stored internally as uint8* */
-    SBN_Pack_InitBase(&PackPtr->Base, (uint8 *)Buf, BufSz);
+    SBN_Pack_InitBase(&(UnpackBuffer.Base), (uint8 *)Buf, BufSz);
     return true;
 }
 
-uint32 SBN_Pack_GetPosition(SBN_PackState_t *PackPtr)
+uint32 SBN_Pack_GetPosition(void)
 {
-    return PackPtr->Base.BufUsed;
+    return PackBuffer.Base.BufUsed;
 }
 
-uint32 SBN_Unpack_GetPosition(SBN_UnpackState_t *PackPtr)
+uint32 SBN_Unpack_GetPosition(void)
 {
-    return PackPtr->Base.BufUsed;
+    return UnpackBuffer.Base.BufUsed;
 }
 
-bool SBN_Pack_Impl(SBN_PackBase_t *PackPtr, const void *DataBuf, size_t DataBufSz)
+bool SBN_Pack_Impl(const void *DataBuf, size_t DataBufSz)
 {
-    if (PackPtr->BufUsed + DataBufSz > PackPtr->BufSz)
+    if (PackBuffer.Base.BufUsed + DataBufSz > PackBuffer.Base.BufSz)
     {
         /* print an error? */
         return false;
     }
 
-    memcpy(PackPtr->Buf + PackPtr->BufUsed, DataBuf, DataBufSz);
-    PackPtr->BufUsed += DataBufSz;
+    memcpy(PackBuffer.Base.Buf + PackBuffer.Base.BufUsed, DataBuf, DataBufSz);
+    PackBuffer.Base.BufUsed += DataBufSz;
 
     return true;
-}
+} /* end SBN_Pack_Data() */
 
-bool SBN_Pack_Data(SBN_PackState_t *PackPtr, const void *DataBuf, size_t DataBufSz)
+bool SBN_Pack_Data(const void *DataBuf, size_t DataBufSz)
 {
-    return SBN_Pack_Impl(&PackPtr->Base, DataBuf, DataBufSz);
+    return SBN_Pack_Impl(DataBuf, DataBufSz);
 }
 
-bool SBN_Pack_UInt8(SBN_PackState_t *PackPtr, uint8 Data)
+bool SBN_Pack_UInt8(uint8 Data)
 {
-    return SBN_Pack_Data(PackPtr, &Data, sizeof(Data));
-}
+    return SBN_Pack_Data(&Data, sizeof(Data));
+} /* end SBN_Pack_UInt8() */
 
-bool SBN_Pack_UInt16(SBN_PackState_t *PackPtr, uint16 Data)
+bool SBN_Pack_UInt16(uint16 Data)
 {
     uint16 D = CFE_MAKE_BIG16(Data);
-    return SBN_Pack_Data(PackPtr, &D, sizeof(D));
-}
+    return SBN_Pack_Data(&D, sizeof(D));
+} /* end SBN_Pack_UInt16() */
 
-bool SBN_Pack_Int16(SBN_PackState_t *PackPtr, int16 Data)
+bool SBN_Pack_Int16(int16 Data)
 {
     int16 D = CFE_MAKE_BIG16(Data);
-    return SBN_Pack_Data(PackPtr, &D, sizeof(D));
-}
+    return SBN_Pack_Data(&D, sizeof(D));
+} /* end SBN_Pack_Int16() */
 
-bool SBN_Pack_UInt32(SBN_PackState_t *PackPtr, uint32 Data)
+bool SBN_Pack_UInt32(uint32 Data)
 {
     uint32 D = CFE_MAKE_BIG32(Data);
-    return SBN_Pack_Data(PackPtr, &D, sizeof(D));
-}
+    return SBN_Pack_Data(&D, sizeof(D));
+} /* end SBN_Pack_UInt32() */
 
-bool SBN_Pack_Time(SBN_PackState_t *PackPtr, SBN_Timestamp_t Data)
+bool SBN_Pack_Time(OS_time_t Data)
 {
-    return SBN_Pack_Data(PackPtr, &Data, sizeof(Data));
-}
+    return SBN_Pack_Data(&Data, sizeof(Data));
+} /* end SBN_Pack_Time() */
 
-bool SBN_Pack_MsgID(SBN_PackState_t *PackPtr, CFE_SB_MsgId_t Data)
+bool SBN_Pack_MsgID(CFE_SB_MsgId_t Data)
 {
     uint32 D;
     D = CFE_MAKE_BIG32(CFE_SB_MsgIdToValue(Data));
-    return SBN_Pack_Data(PackPtr, &D, sizeof(D));
-}
+    return SBN_Pack_Data(&D, sizeof(D));
+} /* end SBN_Pack_MsgID() */
 
-bool SBN_Unpack_Impl(SBN_PackBase_t *PackPtr, void *DataBuf, size_t Sz)
+bool SBN_Unpack_Impl(void *DataBuf, size_t Sz)
 {
-    if (PackPtr->BufUsed + Sz > PackPtr->BufSz)
+    if (UnpackBuffer.Base.BufUsed + Sz > UnpackBuffer.Base.BufSz)
     {
         return false;
     }
 
-    memcpy(DataBuf, PackPtr->Buf + PackPtr->BufUsed, Sz);
+    memcpy(DataBuf, UnpackBuffer.Base.Buf + UnpackBuffer.Base.BufUsed, Sz);
 
-    PackPtr->BufUsed += Sz;
+    UnpackBuffer.Base.BufUsed += Sz;
 
     return true;
-}
+} /* end SBN_Unpack_Data() */
 
-bool SBN_Unpack_Data(SBN_UnpackState_t *PackPtr, void *DataBuf, size_t Sz)
+bool SBN_Unpack_Data(void *DataBuf, size_t Sz)
 {
-    return SBN_Unpack_Impl(&PackPtr->Base, DataBuf, Sz);
+    return SBN_Unpack_Impl(DataBuf, Sz);
 }
 
-bool SBN_Unpack_UInt8(SBN_UnpackState_t *PackPtr, uint8 *DataBuf)
+bool SBN_Unpack_UInt8(uint8 *DataBuf)
 {
-    return SBN_Unpack_Data(PackPtr, DataBuf, sizeof(*DataBuf));
-}
+    return SBN_Unpack_Data(DataBuf, sizeof(*DataBuf));
+} /* end SBN_Unpack_UInt8() */
 
-bool SBN_Unpack_UInt16(SBN_UnpackState_t *PackPtr, uint16 *DataBuf)
+bool SBN_Unpack_UInt16(uint16 *DataBuf)
 {
     uint16 D;
-    if (!SBN_Unpack_Data(PackPtr, &D, sizeof(D)))
+    if (!SBN_Unpack_Data(&D, sizeof(D)))
     {
         return false;
     }
     *DataBuf = CFE_MAKE_BIG16(D);
     return true;
-}
+} /* end SBN_Unpack_UInt16() */
 
-bool SBN_Unpack_Int16(SBN_UnpackState_t *PackPtr, int16 *DataBuf)
+bool SBN_Unpack_Int16(int16 *DataBuf)
 {
     int16 D;
-    if (!SBN_Unpack_Data(PackPtr, &D, sizeof(D)))
+    if (!SBN_Unpack_Data(&D, sizeof(D)))
     {
         return false;
     }
     *DataBuf = CFE_MAKE_BIG16(D);
     return true;
-}
+} /* end SBN_Unpack_Int16() */
 
-bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf)
+bool SBN_Unpack_UInt32(uint32 *DataBuf)
 {
     uint32 D;
-    if (!SBN_Unpack_Data(PackPtr, &D, sizeof(D)))
+    if (!SBN_Unpack_Data(&D, sizeof(D)))
     {
         return false;
     }
     *DataBuf = CFE_MAKE_BIG32(D);
     return true;
-}
+} /* end SBN_Unpack_UInt32() */
 
-bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, SBN_Timestamp_t *DataBuf)
+bool SBN_Unpack_Time(OS_time_t *DataBuf)
 {
-    SBN_Timestamp_t D;
-    if (!SBN_Unpack_Data(PackPtr, &D, sizeof(D)))
+    OS_time_t D;
+    if (!SBN_Unpack_Data(&D, sizeof(D)))
     {
         return false;
     }
     *DataBuf = D;
     return true;
-}
+} /* end SBN_Unpack_Time() */
 
-bool SBN_Unpack_MsgID(SBN_UnpackState_t *PackPtr, CFE_SB_MsgId_t *DataBuf)
+bool SBN_Unpack_MsgID(CFE_SB_MsgId_t *DataBuf)
 {
-    uint32 D;
-    if (!SBN_Unpack_Data(PackPtr, &D, sizeof(D)))
-    {
         return false;
-    }
     *DataBuf = CFE_SB_ValueToMsgId(CFE_MAKE_BIG32(D));
     return true;
-}
+} /* end SBN_Unpack_MsgID() */
