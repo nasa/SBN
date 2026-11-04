@@ -123,22 +123,21 @@ bool SBN_Pack_Init(void *Buf, size_t BufSz, bool ClearFlag);
  * @sa #SBN_Unpack_Data, #SBN_Unpack_UInt8, #SBN_Unpack_Int16, #SBN_Unpack_UInt16, #SBN_Unpack_UInt32, #SBN_Unpack_Time,
  * #SBN_Unpack_MsgID
  */
-bool SBN_Unpack_Init(SBN_UnpackState_t *PackPtr, const void *Buf, size_t BufSz);
+bool SBN_Unpack_Init(const void *Buf, size_t BufSz);
 
 /**
  * Get the current position of the packed data
  *
  * @returns current packed position within the packing buffer
  */
-uint32 SBN_Pack_GetPosition();
+uint32 SBN_Pack_GetPosition(void);
 
 /**
  * Get the current position within the packed data
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @returns current packed position within the unpacking buffer
  */
-uint32 SBN_Unpack_GetPosition(SBN_UnpackState_t *PackPtr);
+uint32 SBN_Unpack_GetPosition(void);
 
 /**
  * Pack data into the buffer. This does the grunt-work of managing the buffer,
@@ -230,7 +229,6 @@ bool SBN_Pack_MsgID(CFE_SB_MsgId_t Data);
  * Unpacks data from the existing packed buffer. This does the grunt-work of managing the buffer,
  * and has no idea what the data contains.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The buffer to pack from the buffer.
  * @param[in] Sz The number of bytes to read from the buffer into DataBuf.
  *
@@ -239,12 +237,11 @@ bool SBN_Pack_MsgID(CFE_SB_MsgId_t Data);
  *
  * @sa #SBN_Pack_Init, #SBN_Pack_Data
  */
-bool SBN_Unpack_Data(SBN_UnpackState_t *PackPtr, void *DataBuf, size_t Sz);
+bool SBN_Unpack_Data(void *DataBuf, size_t Sz);
 
 /**
  * Unpack an unsigned 8-bit integer from the pack buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The pointer to where the data should be stored.
  *
  * @return true if the data was successfully read from the buffer, false if
@@ -252,12 +249,11 @@ bool SBN_Unpack_Data(SBN_UnpackState_t *PackPtr, void *DataBuf, size_t Sz);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_UInt8(SBN_UnpackState_t *PackPtr, uint8 *DataBuf);
+bool SBN_Unpack_UInt8(uint8 *DataBuf);
 
 /**
  * Unpack an unsigned 16-bit integer from the pack buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The pointer to where the data should be stored.
  *
  * @return true if the data was successfully read from the buffer, false if
@@ -265,12 +261,11 @@ bool SBN_Unpack_UInt8(SBN_UnpackState_t *PackPtr, uint8 *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_UInt16(SBN_UnpackState_t *PackPtr, uint16 *DataBuf);
+bool SBN_Unpack_UInt16(uint16 *DataBuf);
 
 /**
  * Unpack a signed 16-bit integer from the pack buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The pointer to where the data should be stored.
  *
  * @return true if the data was successfully read from the buffer, false if
@@ -278,12 +273,11 @@ bool SBN_Unpack_UInt16(SBN_UnpackState_t *PackPtr, uint16 *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_Int16(SBN_UnpackState_t *PackPtr, int16 *DataBuf);
+bool SBN_Unpack_Int16(int16 *DataBuf);
 
 /**
  * Unpack an unsigned 32-bit integer from the pack buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The pointer to where the data should be stored.
  *
  * @return true if the data was successfully read from the buffer, false if
@@ -291,12 +285,11 @@ bool SBN_Unpack_Int16(SBN_UnpackState_t *PackPtr, int16 *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf);
+bool SBN_Unpack_UInt32(uint32 *DataBuf);
 
 /**
  * Unpack a time datum from the buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The pointer to where the data should be stored.
  *
  * @return true if the data was successfully read from the buffer, false if
@@ -304,12 +297,11 @@ bool SBN_Unpack_UInt32(SBN_UnpackState_t *PackPtr, uint32 *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, OS_time_t *DataBuf);
+bool SBN_Unpack_Time(OS_time_t *DataBuf);
 
 /**
  * Unpack a CFE software bus message identifier from the pack buffer.
  *
- * @param[in,out] PackPtr The pointer to the management structure.
  * @param[out] DataBuf The pointer to where the data should be stored.
  *
  * @return true if the data was successfully read from the buffer, false if
@@ -317,6 +309,6 @@ bool SBN_Unpack_Time(SBN_UnpackState_t *PackPtr, OS_time_t *DataBuf);
  *
  * @sa #SBN_Unpack_Data
  */
-bool SBN_Unpack_MsgID(SBN_UnpackState_t *PackPtr, CFE_SB_MsgId_t *DataBuf);
+bool SBN_Unpack_MsgID(CFE_SB_MsgId_t *DataBuf);
 
 #endif /* _sbn_pack_h_ */
