@@ -47,6 +47,13 @@
 
 #include <stdlib.h> /* size_t */
 
+/* ==================*/
+/* Global Variables */
+/* ==================*/
+
+extern SBN_PackState_t   PackBuffer;
+extern SBN_UnpackState_t UnpackBuffer;
+
 /*
  * About the pack structs:
  * There is just one basic pack state, which works on both packing and unpacking

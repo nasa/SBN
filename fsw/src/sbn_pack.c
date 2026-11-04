@@ -16,8 +16,25 @@
  * limitations under the License.
  ************************************************************************/
 
-#include "sbn_pack.h"
+/* ======== */
+/* Includes */
+/* ======== */
+
+#include "cfe.h"
 #include <string.h> /* memcpy */
+
+#include "sbn_pack.h"
+
+/* ================ */
+/* Global Variables */
+/* ================ */
+
+SBN_PackState_t   PackBuffer;
+SBN_UnpackState_t UnpackBuffer;
+
+/* ==================== */
+/* Function Definitions */
+/* ==================== */
 
 void SBN_Pack_InitBase(SBN_PackBase_t *PackPtr, uint8 *Buf, size_t BufSz)
 {
