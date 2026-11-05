@@ -7,8 +7,7 @@ endif()
 aux_source_directory(fsw/src LIB_SRC_FILES)
 
 # Create the app module
-add_cfe_app(sbn_udp ${LIB_SRC_FILES})
-add_cfe_app_dependency(sbn_udp sbn)
+add_sbn_module(sbn_udp "SBN_UDP_Ops" ${LIB_SRC_FILES})
 
 if (ENABLE_UNIT_TESTS)
   add_subdirectory(unit-test)

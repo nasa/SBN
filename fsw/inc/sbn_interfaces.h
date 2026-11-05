@@ -155,8 +155,8 @@ struct SBN_PeerInterface_s
      * @brief Filters alter message headers/bodies before sending to a peer or after
      *        receiving from the peer.
      */
-    SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
-    SBN_ModuleIdx_t        FilterCnt;
+    const SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
+    SBN_ModuleIdx_t              FilterCnt;
 
     OS_time_t       LastSend, LastRecv;
     SBN_HkCounter_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
@@ -175,7 +175,7 @@ struct SBN_NetInterface_s
 {
     bool Configured;
 
-    SBN_ModuleIdx_t ProtocolIdx;
+    SBN_ModuleIdx_t ProtocolIdx; /* This is only reported in TLM */
 
     SBN_Task_Flag_t TaskFlags;
 
@@ -188,7 +188,7 @@ struct SBN_NetInterface_s
 
     CFE_ES_TaskId_t RecvTaskID;
 
-    SBN_IfOps_t *IfOps; /* convenience */
+    const SBN_IfOps_t *IfOps; /* convenience */
 
     SBN_PeerIdx_t PeerCnt;
 
@@ -198,8 +198,8 @@ struct SBN_NetInterface_s
      * @brief Filters alter message headers/bodies before sending to a peer or after
      *        receiving from the peer.
      */
-    SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
-    SBN_ModuleIdx_t        FilterCnt;
+    const SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
+    SBN_ModuleIdx_t              FilterCnt;
 
     /** @brief generic blob of bytes, module-specific */
     union
