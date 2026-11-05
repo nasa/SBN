@@ -21,7 +21,7 @@
 
 #include "cfe.h"
 #include "sbn_platform_cfg.h"
-#include "sbn_types.h"
+#include "sbn_extern_typedefs.h"
 
 /****
  * @brief The RemapTbl defines, for a peer, which MID's should be remapped

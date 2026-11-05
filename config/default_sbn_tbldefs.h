@@ -16,12 +16,18 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_tbl_h_
-#define _sbn_tbl_h_
+/**
+ * @file
+ *   Specification for the SBN table related
+ *   constant definitions.
+ */
+#ifndef DEFAULT_SBN_TBLDEFS_H
+#define DEFAULT_SBN_TBLDEFS_H
 
-#include "cfe.h"
-#include "sbn_platform_cfg.h"
-#include "sbn_types.h"
+#include "common_types.h"
+#include "cfe_mission_cfg.h"
+#include "sbn_mission_cfg.h"
+#include "sbn_extern_typedefs.h"
 
 /****
  * @brief The config table contains entries for peers (other CPU's),
@@ -72,14 +78,4 @@ typedef struct
     SBN_Task_Flag_t TaskFlags;
 } SBN_Peer_Entry_t;
 
-typedef struct
-{
-    SBN_Module_Entry_t ProtocolModules[SBN_MISSION_MAX_MOD_CNT];
-    SBN_ModuleIdx_t    ProtocolCnt;
-    SBN_Module_Entry_t FilterModules[SBN_MISSION_MAX_MOD_CNT];
-    SBN_ModuleIdx_t    FilterCnt;
-    SBN_Peer_Entry_t   Peers[SBN_MISSION_MAX_PEER_CNT];
-    SBN_PeerIdx_t      PeerCnt;
-} SBN_ConfTbl_t;
-
-#endif /* _sbn_tbl_h_ */
+#endif /* DEFAULT_SBN_TBLDEFS_H */

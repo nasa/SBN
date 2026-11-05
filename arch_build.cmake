@@ -12,6 +12,7 @@
 set(SBN_PLATFORM_CONFIG_FILE_LIST
    sbn_internal_cfg_values.h
    sbn_msgids.h
+   sbn_msgid_values.h
    sbn_platform_cfg.h
 )
 

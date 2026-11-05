@@ -26,7 +26,6 @@ set(UT_NAME sbn_udp)
 # Use the UT assert public API, and allow direct
 # inclusion of source files that are normally private
 include_directories(${osal_MISSION_DIR}/ut_assert/inc)
-include_directories(${sbn_MISSION_DIR}/fsw/platform_inc)
 include_directories(${sbn_MISSION_DIR}/fsw/src)
 include_directories(${PROJECT_SOURCE_DIR}/fsw/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
@@ -54,6 +53,8 @@ foreach(SRCFILE sbn_udp_if.c)
     # Apply the UT_COVERAGE_COMPILE_FLAGS to the units under test
     # This should enable coverage analysis on platforms that support this
     target_compile_options(ut_${TESTNAME}_object PRIVATE ${UT_COVERAGE_COMPILE_FLAGS})
+    target_include_directories(ut_${TESTNAME}_object PUBLIC $<TARGET_PROPERTY:sbn,INTERFACE_INCLUDE_DIRECTORIES>)
+
 
     # Compile a test runner application, which contains the
     # actual coverage test code (test cases) and the unit under test

@@ -22,6 +22,8 @@
 #include "cfe.h"
 #include "sbn_types.h"
 #include "sbn_msg.h"
+#include "sbn_platform_cfg.h"
+#include "sbn_extern_typedefs.h"
 
 typedef struct SBN_IfOps_s         SBN_IfOps_t;
 typedef struct SBN_NetInterface_s  SBN_NetInterface_t;
@@ -156,8 +158,8 @@ struct SBN_PeerInterface_s
     SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
     SBN_ModuleIdx_t        FilterCnt;
 
-    OS_time_t   LastSend, LastRecv;
-    SBN_HKTlm_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
+    OS_time_t       LastSend, LastRecv;
+    SBN_HkCounter_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
 
     bool Connected;
 
@@ -182,7 +184,7 @@ struct SBN_NetInterface_s
      * are 0 if there is no task.
      */
     CFE_ES_TaskId_t SendTaskID;
-    OS_MutexID_t    SendMutex;
+    osal_id_t       SendMutex;
 
     CFE_ES_TaskId_t RecvTaskID;
 
