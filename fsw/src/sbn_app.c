@@ -1426,11 +1426,8 @@ static uint32 SBN_LoadConfTbl(void)
 {
     int32 Status;
 
-    if ((Status = CFE_TBL_Register(&SBN_AppData.ConfTblHandle,
-                                   "SBN_ConfTbl",
-                                   sizeof(SBN_ConfTbl_t),
-                                   CFE_TBL_OPT_DEFAULT,
-                                   NULL))
+    if ((Status =
+             CFE_TBL_Register(&SBN_AppData.ConfTblHandle, "ConfTbl", sizeof(SBN_ConfTbl_t), CFE_TBL_OPT_DEFAULT, NULL))
         != CFE_SUCCESS)
     {
         EVSSendErr(SBN_TBL_EID, "unable to register conf tbl handle");

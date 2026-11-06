@@ -21,7 +21,56 @@
 #include <stdbool.h>
 
 #include "sbn_app.h"
-#include "sbn_pack.h"
+#include "sbn_encode.h"
+
+static SBN_NetInterface_t *SBN_GetNetIfFromIdx(SBN_NetIdx_t Idx)
+{
+    if (Idx >= SBN_AppData.NetCnt)
+    {
+        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx %d (max=%d)", Idx, SBN_AppData.NetCnt);
+        return NULL;
+    }
+
+    return &SBN_AppData.Nets[Idx];
+}
+
+static SBN_PeerInterface_t *SBN_GetPeerFromIdx(SBN_NetInterface_t *NetIf, SBN_PeerIdx_t Idx)
+{
+    /* Note that the netif + peer lookup is often combined, so its easier to pass thru a prior error */
+    if (NetIf == NULL)
+    {
+        return NULL;
+    }
+
+    if (Idx >= NetIf->PeerCnt)
+    {
+        EVSSendErr(SBN_CMD_EID, "Invalid PeerIdx %d (max=%d)", Idx, NetIf->PeerCnt);
+        return NULL;
+    }
+
+    return &NetIf->Peers[Idx];
+}
+
+static void SBN_TransmitBuffer(SBN_TlmBase_t *TlmBuf)
+{
+    CFE_SB_Buffer_t *SbBufPtr;
+    CFE_Status_t     Status;
+
+    SbBufPtr = SBN_Codec_PackTlm(TlmBuf);
+    if (SbBufPtr != NULL)
+    {
+        Status = CFE_SB_TransmitBuffer(SbBufPtr, true);
+    }
+    else
+    {
+        Status = CFE_STATUS_EXTERNAL_RESOURCE_FAIL;
+    }
+
+    if (Status != CFE_SUCCESS)
+    {
+        SBN_Codec_ReleaseTlmBuffer(TlmBuf);
+    }
+}
 
 /************************************************************************/
 /** \brief Noop command
@@ -98,30 +147,21 @@ CFE_Status_t SBN_ResetCmd(const SBN_ResetCmd_t *MsgPtr)
 *************************************************************************/
 CFE_Status_t SBN_ResetPeerCmd(const SBN_ResetPeerCmd_t *MsgPtr)
 {
-    uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
-    uint8  NetIdx  = *Ptr++;
-    uint8  PeerIdx = *Ptr;
+    const SBN_PeerCmd_Payload_t *CmdPtr = &MsgPtr->Payload;
+    SBN_PeerInterface_t         *Peer;
 
-    if (NetIdx < 0 || NetIdx >= SBN_AppData.NetCnt)
+    Peer = SBN_GetPeerFromIdx(SBN_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
+    if (Peer != NULL)
     {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx %d (max=%d)", NetIdx, SBN_AppData.NetCnt);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
+        EVSSendInfo(SBN_CMD_EID, "hk reset peer command (NetIdx=%d, PeerIdx=%d)", CmdPtr->NetIdx, CmdPtr->PeerIdx);
+        ++SBN_AppData.CmdCnt;
 
-    SBN_NetInterface_t *Net = &SBN_AppData.Nets[NetIdx];
-
-    if (PeerIdx < 0 || PeerIdx >= Net->PeerCnt)
+        SBN_InitializePeerCounters(Peer);
+    }
+    else
     {
-        EVSSendErr(SBN_CMD_EID, "Invalid PeerIdx %d (max=%d)", PeerIdx, Net->PeerCnt);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
-
-    SBN_PeerInterface_t *Peer = &Net->Peers[PeerIdx];
-
-    EVSSendInfo(SBN_CMD_EID, "hk reset peer command (NetIdx=%d, PeerIdx=%d)", NetIdx, PeerIdx);
-    SBN_AppData.CmdCnt++;
-
-    SBN_InitializePeerCounters(Peer);
+        ++SBN_AppData.CmdErrCnt;
+    }
 
     return CFE_SUCCESS;
 } /* end HKResetPeerCmd */
@@ -140,12 +180,12 @@ CFE_Status_t SBN_ResetPeerCmd(const SBN_ResetPeerCmd_t *MsgPtr)
  */
 CFE_Status_t SBN_SendHkCmd(const SBN_SendHkCmd_t *MsgPtr)
 {
-    EVSSendDbg(SBN_CMD_EID, "hk command");
+    SBN_TlmBase_t *TlmBuf;
+    SBN_HkTlm_t   *OutMsg;
 
-    uint8                 HKBuf[SBN_HK_LEN];
-    CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HK_TLM_MID = CFE_SB_MSGID_RESERVED;
+
+    EVSSendDbg(SBN_CMD_EID, "hk command");
 
     /* cache the local MID Values here, this avoids repeat lookups */
     if (!CFE_SB_IsValidMsgId(HK_TLM_MID))
@@ -153,24 +193,23 @@ CFE_Status_t SBN_SendHkCmd(const SBN_SendHkCmd_t *MsgPtr)
         HK_TLM_MID = CFE_SB_ValueToMsgId(SBN_HK_TLM_MID);
     }
 
-    CFE_MSG_Init(HKMsg, HK_TLM_MID, SBN_HK_LEN);
+    TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
+    if (TlmBuf != NULL)
+    {
+        CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HK_TLM_MID, sizeof(*OutMsg));
+        OutMsg = (SBN_HkTlm_t *)TlmBuf;
 
-    SBN_Pack_Init(&Pack,
-                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-                  SBN_HK_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  true);
+        OutMsg->TlmBase.TlmId     = SBN_HK_CC;
+        OutMsg->Payload.CmdCnt    = SBN_AppData.CmdCnt;
+        OutMsg->Payload.CmdErrCnt = SBN_AppData.CmdErrCnt;
+        OutMsg->Payload.SubCnt    = SBN_AppData.SubCnt;
+        OutMsg->Payload.NetCnt    = SBN_AppData.NetCnt;
 
-    SBN_Pack_UInt8(&Pack, SBN_HK_CC);
-    SBN_Pack_UInt16(&Pack, SBN_AppData.CmdCnt);
-    SBN_Pack_UInt16(&Pack, SBN_AppData.CmdErrCnt);
-    SBN_Pack_UInt16(&Pack, SBN_AppData.SubCnt);
-    SBN_Pack_UInt16(&Pack, SBN_AppData.NetCnt);
-
-    /*
-    ** Timestamp and send packet
-    */
-    CFE_SB_TimeStampMsg(HKMsg);
-    CFE_SB_TransmitMsg(HKMsg, true);
+        /*
+        ** Timestamp and send packet
+        */
+        SBN_TransmitBuffer(TlmBuf);
+    }
 
     return CFE_SUCCESS;
 } /* end HKCmd */
@@ -188,20 +227,11 @@ CFE_Status_t SBN_SendHkCmd(const SBN_SendHkCmd_t *MsgPtr)
  */
 CFE_Status_t SBN_SendHkNetCmd(const SBN_SendHkNetCmd_t *MsgPtr)
 {
-    uint8 *Ptr    = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
-    uint8  NetIdx = *Ptr;
+    const SBN_NetCmd_Payload_t *CmdPtr = &MsgPtr->Payload;
+    SBN_NetInterface_t         *NetIf;
+    SBN_TlmBase_t              *TlmBuf;
+    SBN_HkNetTlm_t             *OutMsg;
 
-    if (NetIdx > SBN_AppData.NetCnt)
-    {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
-
-    EVSSendInfo(SBN_CMD_EID, "hk command, net=%d", NetIdx);
-
-    uint8                 HKBuf[SBN_HKNET_LEN];
-    CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKNET_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -210,22 +240,33 @@ CFE_Status_t SBN_SendHkNetCmd(const SBN_SendHkNetCmd_t *MsgPtr)
         HKNET_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKNET_TLM_MID);
     }
 
-    CFE_MSG_Init(HKMsg, HKNET_TLM_MID, SBN_HKNET_LEN);
+    NetIf = SBN_GetNetIfFromIdx(CmdPtr->NetIdx);
+    if (NetIf != NULL)
+    {
+        TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
+    }
+    else
+    {
+        TlmBuf = NULL;
+    }
 
-    SBN_Pack_Init(&Pack,
-                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-                  SBN_HKNET_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  true);
+    if (TlmBuf != NULL)
+    {
+        EVSSendInfo(SBN_CMD_EID, "hk command, net=%d", CmdPtr->NetIdx);
 
-    SBN_Pack_UInt8(&Pack, SBN_HK_NET_CC);
-    SBN_Pack_UInt8(&Pack, SBN_AppData.Nets[NetIdx].ProtocolIdx);
-    SBN_Pack_UInt16(&Pack, SBN_AppData.Nets[NetIdx].PeerCnt);
+        CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HKNET_TLM_MID, sizeof(*OutMsg));
+        OutMsg = (SBN_HkNetTlm_t *)TlmBuf;
 
-    /*
-    ** Timestamp and send packet
-    */
-    CFE_SB_TimeStampMsg(HKMsg);
-    CFE_SB_TransmitMsg(HKMsg, true);
+        OutMsg->TlmBase.TlmId = SBN_HK_NET_CC;
+
+        OutMsg->Payload.ProtocolIdx = NetIf->ProtocolIdx;
+        OutMsg->Payload.PeerCnt     = NetIf->PeerCnt;
+
+        /*
+        ** Timestamp and send packet
+        */
+        SBN_TransmitBuffer(TlmBuf);
+    }
 
     return CFE_SUCCESS;
 } /* end HKNetCmd */
@@ -243,34 +284,11 @@ CFE_Status_t SBN_SendHkNetCmd(const SBN_SendHkNetCmd_t *MsgPtr)
  */
 CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
 {
-    uint8          *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
-    uint8           NetIdx  = *Ptr++;
-    uint8           PeerIdx = *Ptr;
-    SBN_Timestamp_t TimeTemp;
+    const SBN_PeerCmd_Payload_t *CmdPtr = &MsgPtr->Payload;
+    SBN_PeerInterface_t         *Peer;
+    SBN_TlmBase_t               *TlmBuf;
+    SBN_HkPeerTlm_t             *OutMsg;
 
-    if (NetIdx > SBN_AppData.NetCnt)
-    {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
-
-    if (PeerIdx > SBN_AppData.Nets[NetIdx].PeerCnt)
-    {
-        EVSSendErr(SBN_CMD_EID,
-                   "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
-                   NetIdx,
-                   PeerIdx,
-                   SBN_AppData.Nets[NetIdx].PeerCnt - 1);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
-
-    SBN_PeerInterface_t *Peer = &SBN_AppData.Nets[NetIdx].Peers[PeerIdx];
-
-    EVSSendInfo(SBN_CMD_EID, "hk peer command, net=%d, peer=%d", NetIdx, PeerIdx);
-
-    uint8                 HKBuf[SBN_HKPEER_LEN];
-    CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKPEER_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -279,30 +297,39 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
         HKPEER_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKPEER_TLM_MID);
     }
 
-    CFE_MSG_Init(HKMsg, HKPEER_TLM_MID, SBN_HKPEER_LEN);
+    Peer = SBN_GetPeerFromIdx(SBN_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
+    if (Peer != NULL)
+    {
+        TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
+    }
+    else
+    {
+        TlmBuf = NULL;
+    }
 
-    SBN_Pack_Init(&Pack,
-                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-                  SBN_HKPEER_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  true);
+    if (TlmBuf != NULL)
+    {
+        EVSSendInfo(SBN_CMD_EID, "hk peer command, net=%d, peer=%d", CmdPtr->NetIdx, CmdPtr->PeerIdx);
 
-    SBN_Pack_UInt8(&Pack, SBN_HK_PEER_CC);
-    SBN_Pack_UInt32(&Pack, Peer->ProcessorID);
-    TimeTemp = 100 * OS_TimeGetTotalMicroseconds(Peer->LastSend);
-    SBN_Pack_Time(&Pack, TimeTemp);
-    TimeTemp = 100 * OS_TimeGetTotalMicroseconds(Peer->LastRecv);
-    SBN_Pack_Time(&Pack, TimeTemp);
-    SBN_Pack_UInt16(&Pack, Peer->SendCnt);
-    SBN_Pack_UInt16(&Pack, Peer->RecvCnt);
-    SBN_Pack_UInt16(&Pack, Peer->SendErrCnt);
-    SBN_Pack_UInt16(&Pack, Peer->RecvErrCnt);
-    SBN_Pack_UInt16(&Pack, Peer->SubCnt);
+        CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HKPEER_TLM_MID, sizeof(*OutMsg));
+        OutMsg = (SBN_HkPeerTlm_t *)TlmBuf;
 
-    /*
-    ** Timestamp and send packet
-    */
-    CFE_SB_TimeStampMsg(HKMsg);
-    CFE_SB_TransmitMsg(HKMsg, true);
+        OutMsg->TlmBase.TlmId = SBN_HK_PEER_CC;
+
+        OutMsg->Payload.ProcessorId = Peer->ProcessorID;
+        OutMsg->Payload.LastSend    = OS_TimeGetTotalMicroseconds(Peer->LastSend);
+        OutMsg->Payload.LastRecv    = OS_TimeGetTotalMicroseconds(Peer->LastRecv);
+        OutMsg->Payload.SendCnt     = Peer->SendCnt;
+        OutMsg->Payload.RecvCnt     = Peer->RecvCnt;
+        OutMsg->Payload.SendErrCnt  = Peer->SendErrCnt;
+        OutMsg->Payload.RecvErrCnt  = Peer->RecvErrCnt;
+        OutMsg->Payload.SubCnt      = Peer->SubCnt;
+
+        /*
+        ** Timestamp and send packet
+        */
+        SBN_TransmitBuffer(TlmBuf);
+    }
 
     return CFE_SUCCESS;
 } /* end HKPeerCmd */
@@ -319,11 +346,10 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
  */
 CFE_Status_t SBN_SendHkMySubsCmd(const SBN_SendHkMySubsCmd_t *MsgPtr)
 {
-    EVSSendInfo(SBN_CMD_EID, "hk subs command");
+    SBN_TlmBase_t     *TlmBuf;
+    SBN_HkMySubsTlm_t *OutMsg;
+    SBN_SubCnt_t       i;
 
-    uint8                 HKBuf[SBN_HKMYSUBS_LEN];
-    CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKMYSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -332,26 +358,28 @@ CFE_Status_t SBN_SendHkMySubsCmd(const SBN_SendHkMySubsCmd_t *MsgPtr)
         HKMYSUBS_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKMYSUBS_TLM_MID);
     }
 
-    CFE_MSG_Init(HKMsg, HKMYSUBS_TLM_MID, SBN_HKMYSUBS_LEN);
-
-    SBN_Pack_Init(&Pack,
-                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-                  SBN_HKMYSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  true);
-
-    SBN_Pack_UInt8(&Pack, SBN_HK_MYSUBS_CC);
-    SBN_Pack_UInt16(&Pack, SBN_AppData.SubCnt);
-    int i;
-    for (i = 0; i < SBN_AppData.SubCnt; i++)
+    TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
+    if (TlmBuf != NULL)
     {
-        SBN_Pack_MsgID(&Pack, SBN_AppData.Subs[i].MsgID);
-    }
+        EVSSendInfo(SBN_CMD_EID, "hk subs command");
 
-    /*
-    ** Timestamp and send packet
-    */
-    CFE_SB_TimeStampMsg(HKMsg);
-    CFE_SB_TransmitMsg(HKMsg, true);
+        CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HKMYSUBS_TLM_MID, sizeof(*OutMsg));
+
+        OutMsg = (SBN_HkMySubsTlm_t *)TlmBuf;
+
+        OutMsg->TlmBase.TlmId = SBN_HK_MYSUBS_CC;
+
+        OutMsg->Payload.SubCnt = SBN_AppData.SubCnt;
+        for (i = 0; i < SBN_AppData.SubCnt; i++)
+        {
+            OutMsg->Payload.Subs[i] = SBN_AppData.Subs[i].MsgID;
+        }
+
+        /*
+        ** Timestamp and send packet
+        */
+        SBN_TransmitBuffer(TlmBuf);
+    }
 
     return CFE_SUCCESS;
 } /* end MySubsCmd */
@@ -385,33 +413,12 @@ CFE_Status_t SBN_ReloadTblCmd(const SBN_ReloadTblCmd_t *MsgPtr)
 *************************************************************************/
 CFE_Status_t SBN_SendHkPeerSubsCmd(const SBN_SendHkPeerSubsCmd_t *MsgPtr)
 {
-    uint8 *Ptr     = (uint8 *)MsgPtr + sizeof(CFE_MSG_CommandHeader_t);
-    uint8  NetIdx  = *Ptr++;
-    uint8  PeerIdx = *Ptr;
+    const SBN_PeerCmd_Payload_t *CmdPtr = &MsgPtr->Payload;
+    SBN_PeerInterface_t         *Peer;
+    SBN_TlmBase_t               *TlmBuf;
+    SBN_HkPeerSubsTlm_t         *OutMsg;
+    SBN_SubCnt_t                 i;
 
-    if (NetIdx >= SBN_AppData.NetCnt)
-    {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx (%d, max is %d)", NetIdx, SBN_AppData.NetCnt - 1);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
-
-    if (PeerIdx >= SBN_AppData.Nets[NetIdx].PeerCnt)
-    {
-        EVSSendErr(SBN_CMD_EID,
-                   "Invalid PeerIdx (NetIdx=%d PeerIdx=%d, max is %d)",
-                   NetIdx,
-                   PeerIdx,
-                   SBN_AppData.Nets[NetIdx].PeerCnt - 1);
-        return CFE_SUCCESS; /* Return value should still be success */
-    } /* end if */
-
-    EVSSendInfo(SBN_CMD_EID, "hk subs command, net=%d peer=%d", NetIdx, PeerIdx);
-
-    SBN_PeerInterface_t *Peer = &SBN_AppData.Nets[NetIdx].Peers[PeerIdx];
-
-    uint8                 HKBuf[SBN_HKPEERSUBS_LEN];
-    CFE_MSG_Message_t    *HKMsg = (CFE_MSG_Message_t *)HKBuf;
-    SBN_PackState_t       Pack;
     static CFE_SB_MsgId_t HKPEERSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
     /* cache the local MID Values here, this avoids repeat lookups */
@@ -420,29 +427,39 @@ CFE_Status_t SBN_SendHkPeerSubsCmd(const SBN_SendHkPeerSubsCmd_t *MsgPtr)
         HKPEERSUBS_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKPEERSUBS_TLM_MID);
     }
 
-    CFE_MSG_Init(HKMsg, HKPEERSUBS_TLM_MID, SBN_HKPEERSUBS_LEN);
-
-    SBN_Pack_Init(&Pack,
-                  HKBuf + sizeof(CFE_MSG_TelemetryHeader_t),
-                  SBN_HKPEERSUBS_LEN - sizeof(CFE_MSG_TelemetryHeader_t),
-                  true);
-
-    SBN_Pack_UInt8(&Pack, SBN_HK_PEERSUBS_CC);
-    SBN_Pack_UInt16(&Pack, NetIdx);
-    SBN_Pack_UInt16(&Pack, PeerIdx);
-    SBN_Pack_UInt16(&Pack, Peer->SubCnt);
-
-    int i;
-    for (i = 0; i < Peer->SubCnt; i++)
+    Peer = SBN_GetPeerFromIdx(SBN_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
+    if (Peer != NULL)
     {
-        SBN_Pack_MsgID(&Pack, Peer->Subs[i].MsgID);
+        TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
+    }
+    else
+    {
+        TlmBuf = NULL;
     }
 
-    /*
-    ** Timestamp and send packet
-    */
-    CFE_SB_TimeStampMsg(HKMsg);
-    CFE_SB_TransmitMsg(HKMsg, true);
+    if (TlmBuf != NULL)
+    {
+        EVSSendInfo(SBN_CMD_EID, "hk subs command, net=%d peer=%d", CmdPtr->NetIdx, CmdPtr->PeerIdx);
+
+        CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HKPEERSUBS_TLM_MID, sizeof(*OutMsg));
+
+        OutMsg = (SBN_HkPeerSubsTlm_t *)TlmBuf;
+
+        OutMsg->TlmBase.TlmId   = SBN_HK_PEERSUBS_CC;
+        OutMsg->Payload.NetIdx  = CmdPtr->NetIdx;
+        OutMsg->Payload.PeerIdx = CmdPtr->PeerIdx;
+        OutMsg->Payload.SubCnt  = Peer->SubCnt;
+
+        for (i = 0; i < Peer->SubCnt; i++)
+        {
+            OutMsg->Payload.Subs[i] = Peer->Subs[i].MsgID;
+        }
+
+        /*
+        ** Timestamp and send packet
+        */
+        SBN_TransmitBuffer(TlmBuf);
+    }
 
     return CFE_SUCCESS;
 } /* end PeerSubsCmd */

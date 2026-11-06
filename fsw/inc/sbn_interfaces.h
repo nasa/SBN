@@ -16,8 +16,8 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_interfaces_h_
-#define _sbn_interfaces_h_
+#ifndef SBN_INTERFACES_H
+#define SBN_INTERFACES_H
 
 #include "cfe.h"
 #include "sbn_types.h"
