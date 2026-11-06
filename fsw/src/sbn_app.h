@@ -46,6 +46,18 @@
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+typedef struct
+{
+    char               ProtocolName[CFE_MISSION_MAX_API_LEN];
+    const SBN_IfOps_t *Intf;
+} SBN_ProtocolModInfo_t;
+
+typedef struct
+{
+    char                         FilterName[CFE_MISSION_MAX_API_LEN];
+    const SBN_FilterInterface_t *Intf;
+} SBN_FilterModInfo_t;
+
 /**
  * \brief SBN global data structure definition
  */
@@ -93,21 +105,11 @@ typedef struct
      * Each SBN back-end module provides a number of functions to
      * implement the protocols to connect peers.
      */
-    SBN_IfOps_t *IfOps[SBN_MISSION_MAX_MOD_CNT];
-
-    /** @brief Retain the module ID's for each interface in case we need to unload. */
-    osal_id_t ProtocolModules[SBN_MISSION_MAX_MOD_CNT];
-
-    /** @brief Retain the module ID's for each interface in case we need to unload. */
-    osal_id_t FilterModules[SBN_MISSION_MAX_MOD_CNT];
-
-    SBN_ConfTbl_t *ConfTbl;
+    SBN_ProtocolModInfo_t ProtocolModInfo[SBN_MISSION_MAX_MOD_CNT];
+    SBN_FilterModInfo_t   FilterModInfo[SBN_MISSION_MAX_MOD_CNT];
 
     /** Global mutex for Send Tasks. */
     osal_id_t SendMutex;
-
-    /** Global mutex for reconfiguring. */
-    osal_id_t ConfMutex;
 
     SBN_HkCounter_t CmdCnt, CmdErrCnt;
 
@@ -212,5 +214,17 @@ void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer);
  *        and for each peer.
  */
 void SBN_InitializeCounters(void);
+
+/**
+ * @brief Table validation function
+ *
+ * Sanity-checks the pending config table data before the table gets activated
+ *
+ * This is compatible with the Table Services validation API
+ *
+ * @param[in] TableData The table data being loaded
+ * @retval SBN_SUCCESS (0) if table OK
+ */
+SBN_Status_t SBN_ValidateConfTbl(void *TableData);
 
 #endif /* _sbn_app_ */

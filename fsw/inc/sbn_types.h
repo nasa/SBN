@@ -42,6 +42,13 @@ typedef enum
     SBN_DTN            = 8,
 } SBN_Protocol_t;
 
+typedef enum
+{
+    SBN_ModuleType_NONE     = 0,
+    SBN_ModuleType_FILTER   = 1,
+    SBN_ModuleType_PROTOCOL = 2
+} SBN_ModuleType_t;
+
 /**
  * Mask to identift module-specific message types
  */

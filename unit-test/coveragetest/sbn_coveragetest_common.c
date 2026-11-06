@@ -19,6 +19,12 @@
 #include "sbn_coveragetest_common.h"
 #include "sbn_error.h"
 
+SBN_ModuleBindingEntry_t UT_SBN_MODULE_BINDINGS[SBN_MISSION_MAX_MOD_CNT] = {
+    { NULL, NULL, NULL }
+};
+
+const SBN_ModuleBindingEntry_t *SBN_MODULE_BINDINGS = UT_SBN_MODULE_BINDINGS;
+
 int32 UT_CheckEvent_Hook(void                   *UserObj,
                          int32                   StubRetcode,
                          uint32                  CallCount,
@@ -80,6 +86,87 @@ void UT_CheckEvent_Setup(uint16 ExpectedEvent, const char *ExpectedText)
     EventTest.ExpectedEvent = ExpectedEvent;
     EventTest.ExpectedText  = ExpectedText;
     UT_SetVaHookFunction(UT_KEY(CFE_EVS_SendEvent), UT_CheckEvent_Hook, &EventTest);
+}
+
+void UT_SBN_AddProtoConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, const char *Proto)
+{
+    SBN_Module_Entry_t *ModEnt = &Tbl->ProtocolModules[Pos];
+
+    strncpy(ModEnt->Name, Proto, sizeof(ModEnt->Name));
+    snprintf(ModEnt->LibSymbol, sizeof(ModEnt->LibSymbol), "SBN_%s_Ops", Proto);
+    snprintf(ModEnt->LibFileName, sizeof(ModEnt->LibFileName), "sbn_%s.so", Proto);
+    ModEnt->BaseEID = 2000 + (100 + Pos);
+
+    if (Tbl->ProtocolCnt <= Pos)
+    {
+        Tbl->ProtocolCnt = 1 + Pos;
+    }
+}
+
+void UT_SBN_AddFilterConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, const char *Filt)
+{
+    SBN_Module_Entry_t *FiltEnt = &Tbl->FilterModules[Pos];
+
+    strncpy(FiltEnt->Name, Filt, sizeof(FiltEnt->Name));
+    snprintf(FiltEnt->LibSymbol, sizeof(FiltEnt->LibSymbol), "SBN_%s_Ops", Filt);
+    snprintf(FiltEnt->LibFileName, sizeof(FiltEnt->LibFileName), "sbn_%s.so", Filt);
+    FiltEnt->BaseEID = 1000 + (100 * Pos);
+
+    if (Tbl->FilterCnt <= Pos)
+    {
+        Tbl->FilterCnt = 1 + Pos;
+    }
+}
+
+void UT_SBN_AddPeerConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, uint8 Net, const char *Proto, const char *Filt)
+{
+    SBN_Peer_Entry_t *PeerEnt = &Tbl->Peers[Pos];
+
+    PeerEnt->ProcessorID  = 1 + Pos;
+    PeerEnt->SpacecraftID = 41;
+    PeerEnt->NetNum       = Net;
+    if (Proto != NULL)
+    {
+        strncpy(PeerEnt->ProtocolName, Proto, sizeof(PeerEnt->ProtocolName));
+    }
+    if (Filt != NULL)
+    {
+        strncpy(PeerEnt->Filters[0], Filt, sizeof(PeerEnt->Filters[0]));
+    }
+    snprintf((char *)PeerEnt->Address, sizeof(PeerEnt->Address), "127.0.0.1:%04u", (unsigned int)Pos + 3000);
+    PeerEnt->TaskFlags = 0;
+
+    if (Tbl->PeerCnt <= Pos)
+    {
+        Tbl->PeerCnt = 1 + Pos;
+    }
+}
+
+void UT_SBN_SetupModuleBinding(const char *Name, void *IfOps)
+{
+    SBN_ModuleBindingEntry_t *BindingEnt = UT_SBN_MODULE_BINDINGS;
+    SBN_ModuleIdx_t           i;
+    static char               ModNameBuf[SBN_MISSION_MAX_MOD_CNT][CFE_MISSION_MAX_API_LEN];
+    static char               SymNameBuf[SBN_MISSION_MAX_MOD_CNT][CFE_MISSION_MAX_API_LEN];
+
+    i = SBN_MISSION_MAX_MOD_CNT;
+    while (i > 0)
+    {
+        --i;
+        if (BindingEnt->ModName == NULL)
+        {
+            strncpy(ModNameBuf[i], Name, sizeof(ModNameBuf[i]));
+            BindingEnt->ModName = ModNameBuf[i];
+
+            snprintf(SymNameBuf[i], sizeof(SymNameBuf[i]), "SBN_%s_Ops", Name);
+            BindingEnt->SymName = SymNameBuf[i];
+
+            BindingEnt->Intf = IfOps;
+
+            break;
+        }
+        ++BindingEnt;
+    }
 }
 
 SBN_Status_t ProtoInitModule_Nominal(int ProtoVersion, SBN_EventID_t BaseEID, SBN_ProtocolOutlet_t *Outlet)
@@ -273,4 +360,7 @@ void START_fn(const char *func, int line)
     UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), ProcessorID);
 
     UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), SpacecraftID);
+
+    memset(UT_SBN_MODULE_BINDINGS, 0, sizeof(UT_SBN_MODULE_BINDINGS));
+
 } /* end START_fn() */
