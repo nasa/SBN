@@ -39,6 +39,7 @@
 #include "sbn_app.h"
 #include "sbn_types.h"
 #include "sbn_interfaces.h"
+#include "sbn_module_bindings.h"
 
 /*
  * Macro to call a function and check its int32 return code
@@ -73,6 +74,13 @@ typedef struct
     int         MatchCount;
     const char *ExpectedText;
 } UT_CheckEvent_t;
+
+extern SBN_ModuleBindingEntry_t UT_SBN_MODULE_BINDINGS[SBN_MISSION_MAX_MOD_CNT];
+
+void UT_SBN_AddProtoConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, const char *Proto);
+void UT_SBN_AddFilterConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, const char *Filt);
+void UT_SBN_AddPeerConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, uint8 Net, const char *Proto, const char *Filt);
+void UT_SBN_SetupModuleBinding(const char *Name, void *IfOps);
 
 /*
  * A hook function to check for a specific event. If the passed event ID and text (if ExpectedText

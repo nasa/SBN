@@ -92,18 +92,6 @@ static void LoadConfTbl_LoadErr(void)
     EVENT_CNT(1);
 } /* end LoadConfTbl_LoadErr() */
 
-static void LoadConfTbl_ManageErr(void)
-{
-    START();
-
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to manage conf tbl");
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, -1);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end LoadConfTbl_ManageErr() */
-
 static void LoadConfTbl_NotifyErr(void)
 {
     START();
@@ -120,7 +108,6 @@ static void Test_AppMain_LoadConfTbl(void)
 {
     LoadConfTbl_RegisterErr();
     LoadConfTbl_LoadErr();
-    LoadConfTbl_ManageErr();
     LoadConfTbl_NotifyErr();
 } /* end Test_AppMain_LoadConfTbl() */
 
@@ -134,153 +121,6 @@ static void CFE_TBL_GetAddress_Hook(void *UserObj, UT_EntryKey_t FuncKey, const 
     }
 }
 
-static void LoadConf_Module_ProtoLibFNNull(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 1 - Need exactly one protocol module to test the empty LibFileName error
-     * - FilterCnt: 0 - Skip filter processing, focus only on protocol module loading
-     * - PeerCnt: 0 - No peers needed for this module loading test
-     * Expected Error: "invalid module" when protocol LibFileName is empty/null */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName, "\0", sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module (Name=UDP)");
-
-    char tmpFNFirst                                  = NominalTblPtr->ProtocolModules[0].LibFileName[0];
-    NominalTblPtr->ProtocolModules[0].LibFileName[0] = '\0';
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-
-    SBN_AppMain();
-
-    NominalTblPtr->ProtocolModules[0].LibFileName[0] = tmpFNFirst;
-
-    EVENT_CNT(1);
-} /* end LoadConf_Module_ProtoLibFNNull() */
-
-static void LoadConf_Module_FiltLibFNNull(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 0 - Skip protocol processing entirely
-     * - FilterCnt: 1 - Need exactly one filter module to test the empty LibFileName error
-     * - PeerCnt: 0 - No peers needed for this module loading test
-     * Expected Error: "invalid module" when filter LibFileName is empty/null */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0;
-    TestConfTbl.FilterCnt   = 1;
-    strncpy(TestConfTbl.FilterModules[0].Name, "CCSDS Endian", sizeof(TestConfTbl.FilterModules[0].Name));
-    strncpy(TestConfTbl.FilterModules[0].LibSymbol, "CCSDS_Ops", sizeof(TestConfTbl.FilterModules[0].LibSymbol));
-    TestConfTbl.FilterModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.FilterModules[0].LibFileName, "\0", sizeof(TestConfTbl.FilterModules[0].LibFileName));
-
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module (Name=CCSDS Endian)");
-
-    char tmpFNFirst                                = NominalTblPtr->FilterModules[0].LibFileName[0];
-    NominalTblPtr->FilterModules[0].LibFileName[0] = '\0';
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-
-    SBN_AppMain();
-
-    NominalTblPtr->FilterModules[0].LibFileName[0] = tmpFNFirst;
-
-    EVENT_CNT(1);
-} /* end LoadConf_Module_FiltLibFNNull() */
-
-static void LoadConf_Module_ModLdErr(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 1 - Need one protocol module to test OS_ModuleLoad failure
-     * - FilterCnt: 0 - Skip filter processing, focus only on protocol module loading
-     * - PeerCnt: 0 - No peers needed for this module loading test
-     * Expected Error: "invalid module file" when OS_ModuleLoad fails */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module file (Name=UDP LibFileName=/cf/sbn_udp.so)");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 1);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end LoadConf_Module_ModLdErr() */
-
-static int32 AlwaysErrHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
-{
-    return 1;
-}
-
-static void LoadConf_Module_SymLookErr(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 1 - Need one protocol module to test OS_SymbolLookup failure
-     * - FilterCnt: 0 - Skip filter processing, focus only on protocol module loading
-     * - PeerCnt: 0 - No peers needed for this module loading test
-     * Expected Error: "invalid symbol" when OS_SymbolLookup fails after successful module load */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "invalid symbol (Name=UDP LibSymbol=SBN_UDP_Ops)");
-
-    UT_SetHookFunction(UT_KEY(OS_SymbolLookup), AlwaysErrHook, NULL);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end LoadConf_Module_SymLookErr() */
-
-static void Test_LoadConf_Module(void)
-{
-    LoadConf_Module_ProtoLibFNNull();
-    LoadConf_Module_FiltLibFNNull();
-    LoadConf_Module_ModLdErr();
-    LoadConf_Module_SymLookErr();
-} /* end Test_LoadConf_Module() */
-
 static void LoadConf_GetAddrErr(void)
 {
     START();
@@ -290,7 +130,7 @@ static void LoadConf_GetAddrErr(void)
 
     /* make sure it does not return INFO_UPDATED */
     UT_ResetState(UT_KEY(CFE_TBL_GetAddress));
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED - 1);
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_BAD_TABLE_HANDLE);
 
     SBN_AppMain();
 
@@ -301,16 +141,6 @@ static SBN_Status_t ProtoInitErr_InitModule(int ProtocolVersion, SBN_EventID_t B
 {
     return SBN_ERROR;
 } /* end ProtoInitErr_InitModule */
-
-static void OS_SymbolLookup_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
-{
-    void **PtrOut = (void **)UT_Hook_GetArgValueByName(Context, "symbol_address", void **);
-
-    if (PtrOut != NULL)
-    {
-        *PtrOut = IfOpsPtr;
-    }
-}
 
 static void CFE_SB_CreatePipe_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
 {
@@ -333,26 +163,20 @@ static void LoadConf_ProtoInitErr(void)
      * - PeerCnt: 0 - No peers needed for this module initialization test
      * Expected Error: "error in protocol init" when protocol InitModule returns error */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
+
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
 
     START();
 
     UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in protocol init");
 
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
+
     IfOpsPtr->InitModule = ProtoInitErr_InitModule;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
 
     SBN_AppMain();
 
@@ -366,16 +190,6 @@ static SBN_Status_t FilterInitErr_InitModule(int FilterVersion, SBN_EventID_t Ba
     return SBN_ERROR;
 } /* end FilterInitErr_InitModule */
 
-static void OS_FilterSymbolLookup_Hook(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
-{
-    void **PtrOut = (void **)UT_Hook_GetArgValueByName(Context, "symbol_address", void **);
-
-    if (PtrOut != NULL)
-    {
-        *PtrOut = FilterInterfacePtr;
-    }
-}
-
 static void LoadConf_FilterInitErr(void)
 {
     /* Configuration Setup Rationale:
@@ -384,24 +198,19 @@ static void LoadConf_FilterInitErr(void)
      * - PeerCnt: 0 - No peers needed for this module initialization test
      * Expected Error: "error in filter init" when filter InitModule returns error */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0;
-    TestConfTbl.FilterCnt   = 1;
-    strncpy(TestConfTbl.FilterModules[0].Name, "CCSDS Endian", sizeof(TestConfTbl.FilterModules[0].Name));
-    strncpy(TestConfTbl.FilterModules[0].LibSymbol, "CCSDS_Ops", sizeof(TestConfTbl.FilterModules[0].LibSymbol));
-    TestConfTbl.FilterModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.FilterModules[0].LibFileName, "\0", sizeof(TestConfTbl.FilterModules[0].LibFileName));
+    UT_SBN_AddFilterConfEntry(&TestConfTbl, 0, "Endian");
 
     START();
 
     UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in filter init");
 
+    UT_SBN_SetupModuleBinding("Endian", FilterInterfacePtr);
+
     FilterInterfacePtr->InitModule = FilterInitErr_InitModule;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_FilterSymbolLookup_Hook, NULL);
 
     SBN_AppMain();
 
@@ -418,34 +227,22 @@ static void LoadConf_ProtoNameErr(void)
      * - PeerCnt: 1 - Need one peer that references an invalid protocol name
      * Expected Error: "invalid module name XDP" when peer references non-existent protocol */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 1;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.Peers[0].SpacecraftID = 1234;
-    TestConfTbl.Peers[0].ProcessorID  = 5678;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "XDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
+
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "XDP", NULL);
 
     START();
 
     UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "invalid module name XDP");
+    UT_CheckEvent_Setup(SBN_TBL_EID, "protocol XDP is not available");
+
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
 
     char o                                  = NominalTblPtr->Peers[0].ProtocolName[0];
     NominalTblPtr->Peers[0].ProtocolName[0] = 'X'; /* temporary make it "XDP" */
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-    // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
 
     SBN_AppMain();
 
@@ -457,92 +254,31 @@ static void LoadConf_ProtoNameErr(void)
 static void LoadConf_FiltNameErr(void)
 {
     /* Configuration Setup Rationale:
-     * - ProtocolCnt: 2 - Need at least one valid protocol module for peer reference
+     * - ProtocolCnt: 1 - Need at least one valid protocol module for peer reference
      * - FilterCnt: 1 - Need one valid filter module ("CCSDS_Endian")
      * - PeerCnt: 1 - Need one peer that references an invalid filter name
      * Expected Error: "Invalid filter name" when peer references non-existent filter */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 2;
-    TestConfTbl.FilterCnt   = 1;
-    TestConfTbl.PeerCnt     = 1;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    strncpy(TestConfTbl.FilterModules[0].Name, "CCSDS_Endian", sizeof(TestConfTbl.FilterModules[0].Name));
-    strncpy(TestConfTbl.FilterModules[0].LibSymbol, "SBN_CCSDS_Ops", sizeof(TestConfTbl.FilterModules[0].LibSymbol));
-    strncpy(TestConfTbl.FilterModules[0].LibFileName,
-            "/cf/sbn_ccsds.so",
-            sizeof(TestConfTbl.FilterModules[0].LibFileName));
-    TestConfTbl.FilterModules[0].BaseEID = 2000;
-    TestConfTbl.Peers[0].SpacecraftID    = 1234;
-    TestConfTbl.Peers[0].ProcessorID     = 5678;
-    TestConfTbl.Peers[0].NetNum          = 0;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
-    strncpy((char *)TestConfTbl.Peers[0].Address, "127.0.0.1:1234", sizeof(TestConfTbl.Peers[0].Address));
-    strncpy(TestConfTbl.Peers[0].Filters[0], "INVALID_FILTER", sizeof(TestConfTbl.Peers[0].Filters[0]));
+
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
+    UT_SBN_AddFilterConfEntry(&TestConfTbl, 0, "Endian");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", "INVALID");
 
     START();
 
     UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "Invalid filter name");
+    UT_CheckEvent_Setup(SBN_TBL_EID, "cannot map filter INVALID");
 
-    NominalTblPtr->Peers[0].Filters[0][0] = 'X';
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
+    UT_SBN_SetupModuleBinding("Endian", FilterInterfacePtr);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-    UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
-    // UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
 
     SBN_AppMain();
 
     EVENT_CNT(1);
 } /* end LoadConf_FiltNameErr() */
-
-static void LoadConf_TooManyNets(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 2 - Need at least one valid protocol module for peer reference
-     * - FilterCnt: 0 - Skip filter processing, focus on network validation
-     * - PeerCnt: 1 - Need one peer with NetNum that exceeds maximum allowed
-     * Expected Error: "network index too large" when peer NetNum > SBN_PLATFORM_MAX_NETS */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 2;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 1;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.Peers[0].SpacecraftID = 1234;
-    TestConfTbl.Peers[0].ProcessorID  = 5678;
-    TestConfTbl.Peers[0].NetNum       = SBN_PLATFORM_MAX_NETS + 1;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
-
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "network index too large");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end LoadConf_TooManyNets() */
 
 static void LoadConf_ReleaseAddrErr(void)
 {
@@ -552,19 +288,9 @@ static void LoadConf_ReleaseAddrErr(void)
      * - PeerCnt: 1 - Need at least one peer to get past peer processing to table release
      * Expected Error: "unable to release address of conf tbl" when CFE_TBL_ReleaseAddress fails */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 2;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 1;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.Peers[0].SpacecraftID = 1234;
-    TestConfTbl.Peers[0].ProcessorID  = 5678;
-    TestConfTbl.Peers[0].NetNum       = 0;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
+
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
 
     START();
 
@@ -573,57 +299,12 @@ static void LoadConf_ReleaseAddrErr(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, -1);
 
     SBN_AppMain();
 
     EVENT_CNT(1);
 } /* end LoadConf_ReleaseAddrErr() */
-
-static void LoadConf_NetCntInc(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 2 - Need at least one valid protocol for peer reference
-     * - FilterCnt: 0 - Skip filter processing, focus on network count increase
-     * - PeerCnt: 1 - Need one peer to trigger network creation and count increase
-     * Expected Info Event: "increasing net count to" when NetCnt is increased */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 2;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 1;
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.Peers[0].SpacecraftID = 1234;
-    TestConfTbl.Peers[0].ProcessorID  = 5678;
-    TestConfTbl.Peers[0].NetNum       = 0;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
-
-    START();
-
-    UT_ResetState(0);
-    SBN_AppData.NetCnt = 0;
-    UT_CheckEvent_Setup(SBN_TBL_EID, "increasing net count to");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-    UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end LoadConf_NetCntInc() */
 
 static void LoadConf_Nominal(void)
 {
@@ -646,9 +327,7 @@ static void Test_LoadConf(void)
     LoadConf_FilterInitErr();
     LoadConf_ProtoNameErr();
     LoadConf_FiltNameErr();
-    LoadConf_TooManyNets();
     LoadConf_ReleaseAddrErr();
-    LoadConf_NetCntInc();
     LoadConf_Nominal();
 } /* end Test_LoadConf() */
 
@@ -665,45 +344,6 @@ static void AppMain_MutSemCrErr(void)
 
     EVENT_CNT(1);
 } /* end AppMain_MutSemCrErr() */
-
-static int32 NoNetsHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
-{
-    SBN_AppData.NetCnt = 0;
-    return CFE_SUCCESS;
-} /* end NoNetsHook() */
-
-static void InitInt_NoNets(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 0 - No protocol modules needed since we're testing the "no networks" error condition
-     * - FilterCnt: 0 - No filter modules needed for this network validation test
-     * - PeerCnt: 0 - No peers configured to ensure NetCnt remains 0, triggering the expected error
-     *
-     * Additionally, SBN_AppData.NetCnt is explicitly set to 0 and maintained that way using NoNetsHook
-     * to test the "no networks configured" error path in SBN_InitInterfaces */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 0;
-
-    START();
-
-    UT_ResetState(0);
-    SBN_AppData.NetCnt = 0;
-    UT_CheckEvent_Setup(SBN_PEER_EID, "no networks configured");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-    UT_SetHookFunction(UT_KEY(OS_MutSemCreate), NoNetsHook, NULL);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end InitInt_NoNets() */
 
 /* Mock IfOps structure for testing */
 static SBN_Status_t Mock_UnloadNet(SBN_NetInterface_t *Net)
@@ -751,22 +391,21 @@ static void InitInt_NetConfErr(void)
     START();
 
     /* Configuration Setup Rationale:
-     * - ProtocolCnt: 0 - No protocol modules needed since we're artificially creating the error condition
-     * - FilterCnt: 0 - No filter modules needed for this network configuration validation test
-     * - PeerCnt: 0 - No peers needed since SetupNetConfErr_Hook will artificially create an unconfigured network
-     *
-     * The hook function SetupNetConfErr_Hook modifies SBN after SBN_LoadConf completes to create
-     * a network with Configured=false, simulating a network that failed to initialize properly.
-     * This tests SBN_InitInterfaces' ability to detect and report unconfigured networks. */
+     * - ProtocolCnt: 1 - Need at least one valid protocol for peer reference
+     * - FilterCnt: 0 - Skip filter processing, focus on network count increase
+     * - PeerCnt: 1 - Need one peer to trigger network creation and count increase
+     * Expected Info Event: "increasing net count to" when NetCnt is increased */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
-    TestConfTbl.FilterCnt   = 0; /* No filters needed */
-    TestConfTbl.PeerCnt     = 0; /* No peers needed */
+
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 2, "UDP", NULL);
 
     UT_ResetState(0);
 
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
+
     /* Set up event checking for the expected error */
-    UT_CheckEvent_Setup(SBN_PEER_EID, "network #0 not configured");
+    UT_CheckEvent_Setup(SBN_INIT_EID, "network #0 not configured");
 
     /* Set up CFE_TBL_GetAddress to return our test table */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -810,7 +449,6 @@ static SBN_Status_t RecvFromPeer_Nominal(SBN_NetInterface_t  *Net,
 
 static void Test_InitInt(void)
 {
-    InitInt_NoNets();
     InitInt_NetConfErr();
 } /* end Test_InitInt() */
 
@@ -824,9 +462,6 @@ static void AppMain_SubPipeCrErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach SBN_SetupSubPipe where error occurs
      * This allows SBN_LoadConf and SBN_InitInterfaces to succeed, then tests subscription pipe creation failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
-    TestConfTbl.FilterCnt   = 0; /* No filters needed */
-    TestConfTbl.PeerCnt     = 0; /* No peers needed */
 
     UT_ResetState(0);
 
@@ -862,9 +497,6 @@ static void AppMain_SubPipeAllSubErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach CFE_SB_SubscribeLocal failure
      * This allows pipe creation to succeed, then tests the first subscription (allsubs) failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
-    TestConfTbl.FilterCnt   = 0; /* No filters needed */
-    TestConfTbl.PeerCnt     = 0; /* No peers needed */
 
     UT_ResetState(0);
 
@@ -901,9 +533,6 @@ static void AppMain_SubPipeOneSubErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach second CFE_SB_SubscribeLocal failure
      * This allows pipe creation and first subscription to succeed, then tests second subscription failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
-    TestConfTbl.FilterCnt   = 0; /* No filters needed */
-    TestConfTbl.PeerCnt     = 0; /* No peers needed */
 
     UT_ResetState(0);
 
@@ -941,9 +570,6 @@ static void AppMain_CmdPipeCrErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach command pipe creation
      * This allows SBN_LoadConf to succeed, then tests the very first CFE_SB_CreatePipe failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
-    TestConfTbl.FilterCnt   = 0; /* No filters needed */
-    TestConfTbl.PeerCnt     = 0; /* No peers needed */
 
     UT_ResetState(0);
 
@@ -976,9 +602,6 @@ static void AppMain_CmdPipeSubErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach command pipe subscription
      * This allows command pipe creation to succeed, then tests CFE_SB_Subscribe failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 0; /* No protocols needed */
-    TestConfTbl.FilterCnt   = 0; /* No filters needed */
-    TestConfTbl.PeerCnt     = 0; /* No peers needed */
 
     UT_ResetState(0);
 
@@ -1376,29 +999,17 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
      * - TaskFlags: SBN_TASK_RECV - Enables network-level receive task creation
      * - IfOpsPtr->RecvFromNet: RecvFromNet_Nominal - Must be set to trigger task creation */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 1;
 
-    /* Set up protocol module */
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
 
-    /* Set up peer that will be this processor (creates network) */
-    TestConfTbl.Peers[0].SpacecraftID = 41; /* Same as local */
-    TestConfTbl.Peers[0].ProcessorID  = 1;  /* Same as local */
-    TestConfTbl.Peers[0].NetNum       = 0;
-    TestConfTbl.Peers[0].TaskFlags    = SBN_TASK_RECV; /* Enable receive task */
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
-    snprintf((char *)TestConfTbl.Peers[0].Address, sizeof(TestConfTbl.Peers[0].Address), "127.0.0.1:1234");
+    TestConfTbl.Peers[0].TaskFlags = SBN_TASK_RECV; /* Enable receive task */
 
     START();
 
     UT_ResetState(0);
+
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
 
     /* Set up event checking for the expected error */
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for net");
@@ -1412,10 +1023,6 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     /* Set up CFE_TBL_GetAddress to return our test table */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-
-    /* Set up OS_SymbolLookup to succeed for module loading */
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
 
     /* Set up CFE_TBL_ReleaseAddress to succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
@@ -1536,37 +1143,20 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
      * - IfOpsPtr->RecvFromPeer: RecvFromPeer_Nominal - Must be set to trigger task creation
      * - IfOpsPtr->RecvFromNet: NULL - Disables network-level receive task creation */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 2;
 
     /* Set up protocol module */
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
 
     /* Set up local peer (creates network) */
-    TestConfTbl.Peers[0].SpacecraftID = 41;
-    TestConfTbl.Peers[0].ProcessorID  = 1;
-    TestConfTbl.Peers[0].NetNum       = 0;
-    TestConfTbl.Peers[0].TaskFlags    = 0;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
-    snprintf((char *)TestConfTbl.Peers[0].Address, sizeof(TestConfTbl.Peers[0].Address), "127.0.0.1:1234");
-
-    /* Set up remote peer with receive task flag */
-    TestConfTbl.Peers[1].SpacecraftID = 42;
-    TestConfTbl.Peers[1].ProcessorID  = 2;
-    TestConfTbl.Peers[1].NetNum       = 0;
-    TestConfTbl.Peers[1].TaskFlags    = SBN_TASK_RECV;
-    strncpy(TestConfTbl.Peers[1].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[1].ProtocolName));
-    snprintf((char *)TestConfTbl.Peers[1].Address, sizeof(TestConfTbl.Peers[1].Address), "127.0.0.1:5678");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 1, 0, "UDP", NULL);
+    TestConfTbl.Peers[1].TaskFlags = SBN_TASK_RECV;
 
     START();
 
     UT_ResetState(0);
+
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
 
     /* Set up event checking for the expected error */
     UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for");
@@ -1583,10 +1173,6 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     /* Set up CFE_TBL_GetAddress to return our test table */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-
-    /* Set up OS_SymbolLookup to succeed for module loading */
-    UT_SetDeferredRetcode(UT_KEY(OS_SymbolLookup), 1, 0);
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
 
     /* Set up CFE_TBL_ReleaseAddress to succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
@@ -1771,8 +1357,6 @@ static void Test_SBN_AppMain(void)
     AppMain_TaskInfoErr();
 
     Test_AppMain_LoadConfTbl();
-
-    Test_LoadConf_Module();
 
     Test_LoadConf();
 
@@ -2153,7 +1737,7 @@ static void Test_SBN_Disconnected(void)
     Disconnected_Nominal();
 } /* end Test_SBN_Disconnected() */
 
-static SBN_Status_t UnloadNet_Err(SBN_NetInterface_t *Net)
+static SBN_Status_t NetIf_Err(SBN_NetInterface_t *Net)
 {
     return SBN_ERROR;
 } /* end UnloadNet_Nominal() */
@@ -2167,11 +1751,11 @@ static void ReloadConfTbl_UnloadNetErr(void)
 
     /* Configuration Setup Rationale:
      * Interface Setup:
-     * - IfOpsPtr->UnloadNet: UnloadNet_Err - Set to return error when unloading network
+     * - IfOpsPtr->UnloadNet: NetIf_Err - Set to return error when unloading network
      *
      * Peer Setup:
      * - PeerPtr->Connected: 1 - Pre-set peer as connected to ensure UnloadNet is called */
-    IfOpsPtr->UnloadNet = UnloadNet_Err;
+    IfOpsPtr->UnloadNet = NetIf_Err;
 
     PeerPtr->Connected = 1;
 
@@ -2182,68 +1766,19 @@ static void ReloadConfTbl_UnloadNetErr(void)
     IfOpsPtr->UnloadNet = UnloadNet_Nominal;
 } /* end ReloadConfTbl_UnloadNetErr() */
 
-static void ReloadConfTbl_ProtoUnloadErr(void)
+static void ReloadConfTbl_InitErr(void)
 {
     START();
 
     UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload protocol module ID ");
 
-    /* Configuration Setup Rationale:
-     * Module Setup:
-     * - SBN_AppData.ProtocolModules[0]: OS_ObjectIdFromInteger(1) - Set to valid module ID to trigger unload attempt
-     * - OS_ModuleUnload: Set to fail (-1) - Simulates protocol module unload failure
-     *
-     * Peer Setup:
-     * - PeerPtr->Connected: 1 - Pre-set peer as connected to ensure cleanup phase is reached */
-    PeerPtr->Connected = 1;
-
-    SBN_AppData.ProtocolModules[0] = OS_ObjectIdFromInteger(1);
-
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
+    UT_CheckEvent_Setup(SBN_PEER_EID, "ERROR: could not reload SBN configuration");
+    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_BAD_TABLE_HANDLE);
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
 
     EVENT_CNT(1);
-} /* end ReloadConfTbl_ProtoUnloadErr() */
-
-static void ReloadConfTbl_FiltUnloadErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload filter module ID ");
-
-    /*
-     * Configuration Setup Rationale:
-     * Module Setup:
-     * - SBN_AppData.FilterModules[0]: OS_ObjectIdFromInteger(1) - Set to valid module ID to trigger unload attempt
-     * - OS_ModuleUnload: Set to fail (-1) - Simulates filter module unload failure */
-    SBN_AppData.FilterModules[0] = OS_ObjectIdFromInteger(1);
-
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleUnload), 1, -1);
-
-    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
-
-    EVENT_CNT(1);
-} /* end ReloadConfTbl_FiltUnloadErr() */
-
-static void ReloadConfTbl_TblUpdErr(void)
-{
-    START();
-
-    /*
-     * Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: 1 - Pre-set peer as connected to ensure cleanup phase is reached
-     * - CFE_TBL_Update: Set to fail (-1) - Simulates table update failure at the end of reload process */
-    UT_ResetState(0);
-    PeerPtr->Connected = 1;
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Update), 1, -1);
-
-    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
-} /* end ReloadConfTbl_TblUpdErr() */
+}
 
 static void ReloadConfTbl_Nominal(void)
 {
@@ -2262,25 +1797,13 @@ static void ReloadConfTbl_Nominal(void)
      * - ProcessorID: 1 (same as local) - Confirms this is the local processor's network
      * - TaskFlags: 0 - No special task handling needed for reload test */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-    TestConfTbl.ProtocolCnt = 1;
-    TestConfTbl.FilterCnt   = 0;
-    TestConfTbl.PeerCnt     = 1;
 
     /* Set up protocol module */
-    strncpy(TestConfTbl.ProtocolModules[0].Name, "UDP", sizeof(TestConfTbl.ProtocolModules[0].Name));
-    strncpy(TestConfTbl.ProtocolModules[0].LibSymbol, "SBN_UDP_Ops", sizeof(TestConfTbl.ProtocolModules[0].LibSymbol));
-    strncpy(TestConfTbl.ProtocolModules[0].LibFileName,
-            "/cf/sbn_udp.so",
-            sizeof(TestConfTbl.ProtocolModules[0].LibFileName));
-    TestConfTbl.ProtocolModules[0].BaseEID = 1234;
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
 
     /* Set up peer that will be this processor (creates network) */
-    TestConfTbl.Peers[0].SpacecraftID = 41; /* Same as local */
-    TestConfTbl.Peers[0].ProcessorID  = 1;  /* Same as local */
-    TestConfTbl.Peers[0].NetNum       = 0;
-    TestConfTbl.Peers[0].TaskFlags    = 0;
-    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
-    snprintf((char *)TestConfTbl.Peers[0].Address, sizeof(TestConfTbl.Peers[0].Address), "127.0.0.1:1234");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
+    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
 
     /* Set up interface operations */
     IfOpsPtr->InitModule = ProtoInitModule_Nominal;
@@ -2294,12 +1817,6 @@ static void ReloadConfTbl_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 2, CFE_TBL_INFO_UPDATED);
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
-    /* Set up OS_SymbolLookup to succeed */
-    UT_SetHandlerFunction(UT_KEY(OS_SymbolLookup), OS_SymbolLookup_Hook, NULL);
-
-    /* Set up OS_ModuleLoad to succeed */
-    UT_SetDeferredRetcode(UT_KEY(OS_ModuleLoad), 1, OS_SUCCESS);
-
     /* Set up processor/spacecraft IDs to match this "peer" entry */
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 41);
@@ -2307,11 +1824,6 @@ static void ReloadConfTbl_Nominal(void)
     /* Set up CFE_TBL_ReleaseAddress to succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 2, CFE_SUCCESS);
-
-    /* Set up mutex operations */
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, OS_SUCCESS);
-    SBN_AppData.ConfMutex = 1; /* Valid non-zero value */
 
     /* Set up for SBN_Cleanup */
     UT_SetHandlerFunction(UT_KEY(CFE_SB_CreatePipe), CFE_SB_CreatePipe_Hook, NULL);
@@ -2340,11 +1852,56 @@ static void ReloadConfTbl_Nominal(void)
 static void Test_SBN_ReloadConfTbl(void)
 {
     ReloadConfTbl_UnloadNetErr();
-    ReloadConfTbl_ProtoUnloadErr();
-    ReloadConfTbl_FiltUnloadErr();
-    ReloadConfTbl_TblUpdErr();
+    ReloadConfTbl_InitErr();
     ReloadConfTbl_Nominal();
 } /* end Test_SBN_ReloadConfTbl() */
+
+static void Test_SBN_ValidateConfTbl(void)
+{
+    /* Test cases for: SBN_Status_t SBN_ValidateConfTbl(void *TableData) */
+
+    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
+
+    /* Set up a nominal/good config */
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
+    UT_SBN_AddFilterConfEntry(&TestConfTbl, 0, "Remap");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
+
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_SUCCESS);
+
+    /* Exercise various error cases */
+    TestConfTbl.ProtocolCnt = SBN_MISSION_MAX_MOD_CNT + 1;
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_ERROR);
+    TestConfTbl.ProtocolCnt = 1;
+
+    TestConfTbl.FilterCnt = SBN_MISSION_MAX_MOD_CNT + 1;
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_ERROR);
+    TestConfTbl.FilterCnt = 1;
+
+    TestConfTbl.PeerCnt = SBN_MISSION_MAX_PEER_CNT + 1;
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_ERROR);
+    TestConfTbl.PeerCnt = 1;
+
+    strncpy(TestConfTbl.Peers[0].ProtocolName, "BAD", sizeof(TestConfTbl.Peers[0].ProtocolName));
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_ERROR);
+    strncpy(TestConfTbl.Peers[0].ProtocolName, "UDP", sizeof(TestConfTbl.Peers[0].ProtocolName));
+
+    TestConfTbl.Peers[0].NetNum = SBN_PLATFORM_MAX_NETS + 1;
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_ERROR);
+    TestConfTbl.Peers[0].NetNum = 0;
+
+    /* Add another protocol and 2 more peers to confirm checking */
+    UT_SBN_AddProtoConfEntry(&TestConfTbl, 1, "TCP");
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 1, 1, "TCP", NULL);
+    UT_SBN_AddPeerConfEntry(&TestConfTbl, 2, 0, "UDP", NULL);
+
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_SUCCESS);
+
+    /* This should fail due to protocol mismatch */
+    TestConfTbl.Peers[1].NetNum = 0;
+    UtAssert_INT32_EQ(SBN_ValidateConfTbl(&TestConfTbl), SBN_ERROR);
+    TestConfTbl.Peers[1].NetNum = 1;
+}
 
 static void SBN_Unpack_Empty(void)
 {
@@ -3083,6 +2640,7 @@ void UtTest_Setup(void)
     ADD_TEST(SBN_Connected);
     ADD_TEST(SBN_Disconnected);
     ADD_TEST(SBN_ReloadConfTbl);
+    ADD_TEST(SBN_ValidateConfTbl);
     ADD_TEST(SBN_PackUnpack);
     ADD_TEST(SBN_RecvNetMsgs);
     ADD_TEST(SBN_RecvPeerTask);
