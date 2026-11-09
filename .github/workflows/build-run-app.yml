@@ -12,10 +12,147 @@ on:
       - synchronize
   workflow_dispatch:
   schedule:
-    # 9:35 PM UTC every Sunday
-    - cron:  '35 21 * * 0'
+    - cron: '35 21 * * 0'
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  build-run:
-    name: Build and run with startup msg verification
-    uses: nasa/cFS/.github/workflows/build-run-app-reusable.yml@dev
+  build-app:
+    name: Build CFE with app
+    runs-on: ubuntu-latest
+    container: ghcr.io/core-flight-system/cfsbuildenv-linux:latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Set up app source
+        uses: nasa/cFS/actions/setup-app@dev
+        with:
+          app-name: SBN
+
+      - name: Add SBN runtime modules
+        run: |
+          ln -s "$GITHUB_WORKSPACE/apps/sbn/modules/protocol/udp" "$GITHUB_WORKSPACE/apps/sbn_udp"
+          ln -s "$GITHUB_WORKSPACE/apps/sbn/modules/filter/remap" "$GITHUB_WORKSPACE/apps/sbn_f_remap"
+          echo "LIST(APPEND MISSION_GLOBAL_APPLIST sbn_udp sbn_f_remap)" >> "$GITHUB_WORKSPACE/sample_defs/targets.cmake"
+
+      - name: Create startup script
+        run: |
+          cat > generate_startup_script.cmake << 'EOF'
+          include ("$ENV{CONFIG_NAME}_defs/targets.cmake")
+          foreach(APP ${MISSION_GLOBAL_APPLIST})
+            if (IS_DIRECTORY "./apps/${APP}" AND NOT "${APP}" STREQUAL "sbn" AND
+                NOT "${APP}" STREQUAL "sbn_udp" AND NOT "${APP}" STREQUAL "sbn_f_remap")
+              string (TOUPPER ${APP} APP_UPPER)
+              message("CFE_APP, ${APP}, ${APP_UPPER}_AppMain, ${APP_UPPER}, 80, 16384, 0x0, 0;")
+            endif()
+          endforeach(APP)
+          EOF
+          truncate -s 0 "$GITHUB_WORKSPACE/generated_cfe_es_startup.scr"
+          cmake -P generate_startup_script.cmake 2>&1 | tee -a "$GITHUB_WORKSPACE/generated_cfe_es_startup.scr"
+          echo "CFE_APP, sbn, SBN_AppMain, SBN, 80, 16384, 0x0, 0;" >> "$GITHUB_WORKSPACE/generated_cfe_es_startup.scr"
+          cat "$GITHUB_WORKSPACE/generated_cfe_es_startup.scr"
+
+      - name: Build and upload artifacts
+        uses: nasa/cFS/actions/build-app@dev
+        with:
+          app-name: SBN
+          startup-script: generated_cfe_es_startup.scr
+
+  run-app:
+    needs: build-app
+    name: Run CFE with app, check for startup messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: SBN-bin
+          path: SBN-bin
+
+      - name: Unpack artifacts
+        run: |
+          for i in cpu1 host lib
+          do
+            tarball="$GITHUB_WORKSPACE/SBN-bin/$i-bin.tar.xz"
+            if [ -e "$tarball" ]; then
+              mkdir -p "std/$i"
+              tar Jxv -C "std/$i" -f "$tarball"
+            fi
+          done
+
+      - name: Verify runtime modules are packaged
+        run: |
+          test -f std/cpu1/cf/sbn_udp.so
+          test -f std/cpu1/cf/sbn_f_remap.so
+          test -f std/cpu1/cf/sbn_remap_tbl.tbl
+
+      - name: Start CPU1 container
+        id: start-cpu1
+        uses: nasa/cFS/actions/start-cfs-container@dev
+        with:
+          binary-dir: ${{ github.workspace }}/std/cpu1
+          exec-image: ghcr.io/core-flight-system/cfsexec-linux:latest
+
+      - name: Check CPU1 container
+        id: check-cpu1
+        uses: nasa/cFS/actions/healthcheck-logs@dev
+        with:
+          container-id: ${{ steps.start-cpu1.outputs.container-id }}
+          healthcheck-regex: 'CFE_ES_Main entering OPERATIONAL state$'
+
+      - name: Allow SBN module initialization to complete
+        run: sleep 2
+
+      - name: Get host IP address
+        id: query-local-ip-addr
+        run: |
+          cont_ip=${{ steps.check-cpu1.outputs.ip-addr }}
+          for ip in $(hostname -I)
+          do
+            first_ip=${first_ip:-${ip}}
+            if [ "${ip%.*}" = "${cont_ip%.*}" ]; then
+              local_ip=${ip}
+            fi
+          done
+          echo "addr=${local_ip:-${first_ip}}" >> "$GITHUB_OUTPUT"
+
+      - name: Shut down CFE
+        if: ${{ steps.check-cpu1.outputs.ip-addr != '' }}
+        working-directory: std/host
+        run: |
+          ./cmd_send -v --host=${{ steps.check-cpu1.outputs.ip-addr }} --endian=LE --pktid=0x1806 --cmdcode=2 --half=0x0002
+          sleep 2
+
+      - name: Capture logs
+        if: ${{ always() && steps.start-cpu1.outputs.container-id != '' }}
+        run: docker logs ${{ steps.start-cpu1.outputs.container-id }} > std/cFS_startup_cpu1.txt
+
+      - name: Stop CPU1 container
+        if: ${{ always() && steps.start-cpu1.outputs.container-id != '' }}
+        uses: nasa/cFS/actions/stop-cfs-container@dev
+        with:
+          container-id: ${{ steps.start-cpu1.outputs.container-id }}
+
+      - name: Archive results
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cFS_startup_log
+          path: std/cFS_startup_cpu1.txt
+
+      - name: Confirm SBN startup
+        run: |
+          grep -q "SBN subscribed to command pipe" std/cFS_startup_cpu1.txt
+          grep -q "SBN_UDP Lib Initialized." std/cFS_startup_cpu1.txt
+          grep -q "protocol module initialized" std/cFS_startup_cpu1.txt
+          grep -q "filter module initialized" std/cFS_startup_cpu1.txt
+
+      - name: Check for cFS warnings
+        run: |
+          if grep -i "warn\|err\|fail" std/cFS_startup_cpu1.txt; then
+            exit 1
+          fi
