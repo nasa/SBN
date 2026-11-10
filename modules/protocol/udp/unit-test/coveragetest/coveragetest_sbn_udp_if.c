@@ -84,13 +84,25 @@ static void PackMsgCallback(void              *buf,
 
 static void START_fn(const char *fn, int ln)
 {
+    SBN_NetRecord_t  *NetRec;
+    SBN_PeerRecord_t *PeerRec;
+
     UT_ResetState(0);
     printf("Start item %s (%d)\n", fn, ln);
     memset(&SBN_AppData, 0, sizeof(SBN_AppData));
-    SBN_AppData.NetCnt    = 1;
-    NetPtr                = &SBN_AppData.Nets[0];
-    PeerPtr               = &NetPtr->Peers[0];
+
+    NetRec        = &SBN_AppData.NetRecords[1];
+    NetRec->NetId = SBN_NETID_C(CFE_ResourceId_FromInteger(1));
+
+    PeerRec         = &SBN_AppData.PeerRecords[1];
+    PeerRec->PeerId = SBN_PEERID_C(CFE_ResourceId_FromInteger(1));
+    PeerRec->NetId  = NetRec->NetId;
+
+    NetPtr  = SBN_Net_GetIntfData(NetRec);
+    PeerPtr = SBN_Peer_GetIntfData(PeerRec);
+
     NetPtr->PeerCnt       = 1;
+    NetPtr->PeerIds[0]    = PeerRec->PeerId;
     PeerPtr->Net          = NetPtr;
     PeerPtr->ProcessorID  = 1;
     PeerPtr->SpacecraftID = 42;
@@ -345,7 +357,7 @@ static void PollPeer_ConnTimeout(void)
 {
     START();
     memset(&SBN_AppData, 0, sizeof(SBN_AppData));
-    SBN_AppData.NetCnt = 1;
+
     SBN_ProtocolOutlet_t Outlet;
     Outlet.Disconnected = DisconnectCallback;
     Outlet.SendNetMsg   = SendNetMsgCallback;
@@ -933,14 +945,12 @@ static void UnloadNet_Nominal(void)
 
     SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)&(NetPtr->ModulePvt);
 
-    PeerPtr->Connected = true;
-
     OS_OpenCreate(&(NetData->Socket), NULL, 0, 0);
 
     UT_TEST_FUNCTION_RC(SBN_UDP_Ops.UnloadNet(NetPtr), SBN_SUCCESS);
 
-    /* TODO: check what was called? */
-    UtAssert_True(PeerPtr->Connected == false, "Peer still connected (%s)", __func__);
+    UtAssert_STUB_COUNT(OS_close, 1);
+
 } /* end UnloadNet_Nominal() */
 
 void Test_SBN_UDP_UnloadNet(void)

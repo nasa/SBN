@@ -40,6 +40,8 @@
 
 #include "cfe_platform_cfg.h"
 
+#include "sbn_resource.h"
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
 /* SBN application data structures                                 */
@@ -63,10 +65,11 @@ typedef struct
  */
 typedef struct
 {
-    SBN_NetIdx_t NetCnt;
+    SBN_PeerRecord_t PeerRecords[SBN_MISSION_MAX_PEER_CNT];
+    SBN_NetRecord_t  NetRecords[SBN_PLATFORM_MAX_NETS];
 
-    /** \brief Data only on host definitions. */
-    SBN_NetInterface_t Nets[SBN_PLATFORM_MAX_NETS];
+    SBN_NetId_t  NetIds[SBN_PLATFORM_MAX_NETS];
+    SBN_NetIdx_t NetCnt;
 
     /** \brief The application ID provided by ES */
     CFE_ES_AppId_t AppID;
@@ -115,6 +118,9 @@ typedef struct
 
     CFE_TBL_Handle_t ConfTblHandle;
 
+    CFE_ResourceId_t LastPeerId;
+    CFE_ResourceId_t LastNetId;
+
     /* Buffer for receiving messages, allocated here to avoid stack smashing */
     uint8 MsgBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_AppData_t;
@@ -132,36 +138,30 @@ typedef struct
 {
     SBN_Status_t         Status;
     CFE_ES_TaskId_t      RecvTaskID;
-    SBN_PeerIdx_t        PeerIdx;
-    SBN_NetIdx_t         NetIdx;
+    SBN_PeerId_t         PeerId;
+    SBN_NetId_t          NetId;
     SBN_PeerInterface_t *Peer;
     SBN_NetInterface_t  *Net;
-    SBN_ProcessorID_t    ProcessorID;
-    SBN_SpacecraftID_t   SpacecraftID;
-    SBN_MsgType_t        MsgType;
-    SBN_MsgSz_t          MsgSz;
+    SBN_BufferDesc_t     BufD;
     uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_RecvPeerTaskData_t;
 
 typedef struct
 {
-    SBN_NetIdx_t         NetIdx;
+    SBN_NetId_t          NetId;
     SBN_NetInterface_t  *Net;
     SBN_PeerInterface_t *Peer;
     SBN_Status_t         Status;
     CFE_ES_TaskId_t      RecvTaskID;
-    SBN_ProcessorID_t    ProcessorID;
-    SBN_SpacecraftID_t   SpacecraftID;
-    SBN_MsgType_t        MsgType;
-    SBN_MsgSz_t          MsgSz;
+    SBN_BufferDesc_t     BufD;
     uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_RecvNetTaskData_t;
 
 typedef struct
 {
     SBN_Status_t         Status;
-    SBN_NetIdx_t         NetIdx;
-    SBN_PeerIdx_t        PeerIdx;
+    SBN_NetId_t          NetId;
+    SBN_PeerId_t         PeerId;
     CFE_ES_TaskId_t      SendTaskID;
     CFE_MSG_Message_t   *MsgPtr;
     CFE_SB_MsgId_t       MsgID;
@@ -172,34 +172,15 @@ typedef struct
 /*
 ** Prototypes
 */
+
 void         SBN_AppMain(void);
-SBN_Status_t SBN_ProcessNetMsg(SBN_NetInterface_t *Net,
-                               SBN_MsgType_t       MsgType,
-                               SBN_ProcessorID_t   ProcessorID,
-                               SBN_SpacecraftID_t  SpacecraftID,
-                               SBN_MsgSz_t         MsgSz,
-                               void               *Msg);
-SBN_PeerInterface_t              *
-SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
+SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *D);
+SBN_PeerRecord_t              *
+SBN_GetPeerRecord(SBN_NetRecord_t *NetRec, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
 SBN_Status_t SBN_ReloadConfTbl(void);
 void         SBN_RecvNetTask(void);
 void         SBN_RecvPeerTask(void);
 void         SBN_SendTask(void);
-SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer);
-SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
-void         SBN_PackMsg(void              *SBNBuf,
-                         SBN_MsgSz_t        MsgSz,
-                         SBN_MsgType_t      MsgType,
-                         SBN_ProcessorID_t  ProcessorID,
-                         SBN_SpacecraftID_t SpacecraftID,
-                         void              *Msg);
-bool         SBN_UnpackMsg(void               *SBNBuf,
-                           SBN_MsgSz_t        *MsgSzPtr,
-                           SBN_MsgType_t      *MsgTypePtr,
-                           SBN_ProcessorID_t  *ProcessorIDPtr,
-                           SBN_SpacecraftID_t *SpacecraftIDPtr,
-                           void               *Msg);
-SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 SBN_Status_t SBN_RecvNetMsgs(void);
 
 /**
@@ -207,7 +188,7 @@ SBN_Status_t SBN_RecvNetMsgs(void);
  *
  * @param[in] Peer The peer interface for which to reset housekeeping.
  */
-void SBN_InitializePeerCounters(SBN_PeerInterface_t *Peer);
+void SBN_InitializePeerCounters(SBN_PeerRecord_t *PeerRec);
 
 /**
  * @brief Initializes the housekeeping counters both at the app level
@@ -226,5 +207,102 @@ void SBN_InitializeCounters(void);
  * @retval SBN_SUCCESS (0) if table OK
  */
 SBN_Status_t SBN_ValidateConfTbl(void *TableData);
+
+/**
+ * @brief Compatibility routine for Peer interfaces
+ *
+ * Get the private data record associated with the interface object for a peer
+ * To simplify error checking around transitional use cases, NULL is passed through
+ */
+static inline SBN_PeerRecord_t *SBN_Peer_GetPrivateData(SBN_PeerInterface_t *PeerIf)
+{
+    if (PeerIf != NULL)
+    {
+        return (void *)(((char *)PeerIf) - offsetof(SBN_PeerRecord_t, Intf));
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
+/**
+ * @brief Compatibility routine for Peer interfaces
+ *
+ * Get the public (module) interface struct from the full (private) record
+ * To simplify error checking around transitional use cases, NULL is passed through
+ */
+static inline SBN_PeerInterface_t *SBN_Peer_GetIntfData(SBN_PeerRecord_t *PeerRec)
+{
+    if (PeerRec != NULL)
+    {
+        return &PeerRec->Intf;
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
+/**
+ * @brief Compatibility routine for Net interfaces
+ *
+ * Get the private data record associated with the interface object for a net
+ * To simplify error checking around transitional use cases, NULL is passed through
+ */
+static inline SBN_NetRecord_t *SBN_Net_GetPrivateData(SBN_NetInterface_t *NetIf)
+{
+    if (NetIf != NULL)
+    {
+        return (void *)(((char *)NetIf) - offsetof(SBN_NetRecord_t, Intf));
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
+/**
+ * @brief Compatibility routine for Net interfaces
+ *
+ * Get the public (module) interface struct from the full (private) record
+ * To simplify error checking around transitional use cases, NULL is passed through
+ */
+static inline SBN_NetInterface_t *SBN_Net_GetIntfData(SBN_NetRecord_t *NetRec)
+{
+    if (NetRec != NULL)
+    {
+        return &NetRec->Intf;
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
+/*
+ * ~~~~~~~~~~~~ MODULE INTERFACE METHODS ~~~~~~~~~~~~~~~
+ *
+ * The declarations within this section are part of the module <-> SBN app interface
+ * They cannot be changed without affecting module compatibility.
+ * All I/O should be in the form of "Interface" structs where applicable.
+ */
+SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer);
+SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
+SBN_PeerInterface_t              *
+SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
+void         SBN_PackMsg(void              *SBNBuf,
+                         SBN_MsgSz_t        MsgSz,
+                         SBN_MsgType_t      MsgType,
+                         SBN_ProcessorID_t  ProcessorID,
+                         SBN_SpacecraftID_t SpacecraftID,
+                         void              *Msg);
+bool         SBN_UnpackMsg(void               *SBNBuf,
+                           SBN_MsgSz_t        *MsgSzPtr,
+                           SBN_MsgType_t      *MsgTypePtr,
+                           SBN_ProcessorID_t  *ProcessorIDPtr,
+                           SBN_SpacecraftID_t *SpacecraftIDPtr,
+                           void               *Msg);
+SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 
 #endif /* _sbn_app_ */

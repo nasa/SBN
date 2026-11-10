@@ -60,11 +60,11 @@ static void SLS2P_SendNetMsgErr(void)
     SBN_AppData.SubCnt        = 1;
     SBN_AppData.Subs[0].MsgID = MsgID;
 
-    SBN_AppData.Nets[0].Peers[1].Net = NetPtr;
+    PeerPtr->Net = NetPtr;
 
     IfOpsPtr->Send = Send_Err;
 
-    UtAssert_INT32_EQ(SBN_SendLocalSubsToPeer(&SBN_AppData.Nets[0].Peers[1]), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_SendLocalSubsToPeer(PeerRec), SBN_ERROR);
 
     IfOpsPtr->Send = Send_Nominal;
 } /* end SLS2P_SendNetMsgErr() */
@@ -412,8 +412,11 @@ static void PSFP_PFP_FiltErr(void)
     PeerPtr->Filters[0] = &Filter1;
     PeerPtr->Filters[1] = &Filter2;
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -421,7 +424,11 @@ static void PSFP_PFP_FiltErr(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_ERROR);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 } /* end PSFP_PFP_FiltErr() */
@@ -433,8 +440,11 @@ static void PSFP_PFP_AlreadySub(void)
     PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -442,7 +452,11 @@ static void PSFP_PFP_AlreadySub(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
 
@@ -455,8 +469,11 @@ static void PSFP_PFP_SubErr(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "unable to subscribe to MID 0x");
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -466,7 +483,11 @@ static void PSFP_PFP_SubErr(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_ERROR);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
@@ -481,8 +502,11 @@ static void PSFP_PFP_MaxSubsErr(void)
 
     PeerPtr->SubCnt = SBN_MISSION_MAX_SUBS_PER_PEER;
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -490,7 +514,11 @@ static void PSFP_PFP_MaxSubsErr(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_ERROR);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, SBN_MISSION_MAX_SUBS_PER_PEER);
 
@@ -506,7 +534,10 @@ static void PSFP_IdentErr(void)
     uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     char  tmpident[SBN_IDENT_LEN];
     memset(tmpident, 0, sizeof(tmpident));
-    SBN_PackState_t Pack;
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)tmpident, sizeof(tmpident));
     SBN_Pack_UInt16(&Pack, 1);
@@ -514,7 +545,11 @@ static void PSFP_IdentErr(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_ERROR);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
@@ -525,8 +560,11 @@ static void PSFP_Nominal(void)
 {
     START();
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -534,7 +572,11 @@ static void PSFP_Nominal(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
 } /* end PSFP_Nominal() */
@@ -563,8 +605,11 @@ static void PUSFP_PUFP_FiltErr(void)
     PeerPtr->Filters[0] = &Filter1;
     PeerPtr->Filters[1] = &Filter2;
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -572,7 +617,11 @@ static void PUSFP_PUFP_FiltErr(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     /* ProcessUnsubsFromPeer() ignores any subs that the filter remap function returns an err */
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
@@ -584,8 +633,11 @@ static void PUSFP_PUFP_NotSub(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "cannot process unsubscription from ProcessorID ");
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -593,7 +645,11 @@ static void PUSFP_PUFP_NotSub(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
@@ -609,8 +665,11 @@ static void PUSFP_PUFP_UnsubErr(void)
     PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -620,7 +679,11 @@ static void PUSFP_PUFP_UnsubErr(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_UnsubscribeLocal), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
@@ -639,7 +702,10 @@ static void PUSFP_IdentWarn(void)
     uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     char  tmpident[SBN_IDENT_LEN];
     memset(tmpident, 0, sizeof(tmpident));
-    SBN_PackState_t Pack;
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)tmpident, sizeof(tmpident));
     SBN_Pack_UInt16(&Pack, 1);
@@ -647,7 +713,11 @@ static void PUSFP_IdentWarn(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 
@@ -661,8 +731,11 @@ static void PUSFP_Nominal(void)
     PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    uint8           Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t Pack;
+    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -670,7 +743,11 @@ static void PUSFP_Nominal(void)
     CFE_SB_Qos_t QoS = { 0 };
     SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerPtr, Buf), SBN_SUCCESS);
+    BufD.MaxDataSz    = sizeof(Buf);
+    BufD.DataPtr      = Buf;
+    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
+
+    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
 } /* end PUSFP_Nominal() */
@@ -696,7 +773,7 @@ static void RASFP_UnsubErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_UnsubscribeLocal), 1, -1);
 
     /* errors are generate events but still successful return */
-    UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerPtr), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerRec), SBN_SUCCESS);
 
     EVENT_CNT(1);
 } /* end RASFP_UnsubErr() */
@@ -710,7 +787,7 @@ static void RASFP_Nominal(void)
     PeerPtr->SubCnt        = 1;
     PeerPtr->Subs[0].MsgID = MsgID;
 
-    UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerPtr), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerRec), SBN_SUCCESS);
 
     EVENT_CNT(1);
 } /* end RASFP_Nominal() */
