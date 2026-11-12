@@ -19,6 +19,7 @@
 #include "sbn_coveragetest_common.h"
 #include "sbn_app.h"
 #include "cfe_msgids.h"
+#include "cfe_psp_endian.h"
 #include "cfe_sb_eventids.h"
 #include "cfe_evs_msg.h"
 #include "sbn_pack.h"
@@ -903,6 +904,33 @@ void Test_SBN_AppMain_SetupWorkerErr(void)
     EVENT_CNT(1);
 }
 
+static void SBN_UT_CheckInitEndian(bool BigEndian)
+{
+    START();
+
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_IsBigEndian), BigEndian);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
+    UT_CheckEvent_Setup(SBN_INIT_EID,
+                        BigEndian ? "initialized (ProcessorID=1 SpacecraftId=41 big-endian"
+                                  : "initialized (ProcessorID=1 SpacecraftId=41 little-endian");
+
+    SBN_AppMain();
+
+    EVENT_CNT(1);
+    UtAssert_STUB_COUNT(CFE_PSP_IsBigEndian, 1);
+}
+
+void Test_SBN_InitBigEndian(void)
+{
+    SBN_UT_CheckInitEndian(true);
+}
+
+void Test_SBN_InitLittleEndian(void)
+{
+    SBN_UT_CheckInitEndian(false);
+}
+
 void Test_SBN_AppMain_RunLoop(void)
 {
     START();
@@ -1269,6 +1297,8 @@ void UtTest_Setup(void)
     ADD_TEST(SBN_AppMain_CmdPipeSubErr);
     ADD_TEST(SBN_AppMain_DeletePipeErr);
     ADD_TEST(SBN_AppMain_SetupWorkerErr);
+    ADD_TEST(SBN_InitBigEndian);
+    ADD_TEST(SBN_InitLittleEndian);
     ADD_TEST(SBN_AppMain_RunLoop);
     ADD_TEST(SBN_AppMain_CleanupErr);
     ADD_TEST(SBN_GetPeerRecord);
