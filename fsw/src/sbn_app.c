@@ -24,6 +24,7 @@
 #include "sbn_pack.h"
 #include "sbn_app.h"
 #include "cfe_es.h" /* PerfLog */
+#include "cfe_psp_endian.h"
 #include "cfe_platform_cfg.h"
 #include "cfe_msgids.h"
 #include "sbn_error.h"
@@ -1670,12 +1671,7 @@ static SBN_Status_t SBN_Init(void)
         }
     }
 
-    const char *bit_order =
-#ifdef SOFTWARE_BIG_BIT_ORDER
-        "big-endian";
-#else  /* !SOFTWARE_BIG_BIT_ORDER */
-        "little-endian";
-#endif /* SOFTWARE_BIG_BIT_ORDER */
+    const char *bit_order = CFE_PSP_IsBigEndian() ? "big-endian" : "little-endian";
 
     EVSSendInfo(SBN_INIT_EID,
                 "initialized (ProcessorID=%d SpacecraftId=%d %s "
