@@ -19,6 +19,7 @@
 #include "sbn_coveragetest_common.h"
 #include "sbn_app.h"
 #include "cfe_msgids.h"
+#include "cfe_psp_endian.h"
 #include "cfe_sb_eventids.h"
 #include "cfe_evs_msg.h"
 #include "sbn_pack.h"
@@ -1309,11 +1310,17 @@ static void Test_WaitForWakeup(void)
     PeerPoll_RecvPeerTask_Nominal();
 } /* end Test_SBStart() */
 
-static void AppMain_Nominal(void)
+static void AppMain_Nominal(bool BigEndian)
 {
     START();
 
     UT_ResetState(0);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_IsBigEndian), BigEndian);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
+    UT_CheckEvent_Setup(SBN_INIT_EID,
+                        BigEndian ? "initialized (ProcessorID=1 SpacecraftId=41 big-endian"
+                                  : "initialized (ProcessorID=1 SpacecraftId=41 little-endian");
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
@@ -1347,8 +1354,20 @@ static void AppMain_Nominal(void)
 
     SBN_AppMain();
 
+    EVENT_CNT(1);
+    UtAssert_STUB_COUNT(CFE_PSP_IsBigEndian, 1);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
 } /* end AppMain_Nominal() */
+
+static void Test_SBN_InitBigEndian(void)
+{
+    AppMain_Nominal(true);
+}
+
+static void Test_SBN_InitLittleEndian(void)
+{
+    AppMain_Nominal(false);
+}
 
 static void Test_SBN_AppMain(void)
 {
@@ -1375,7 +1394,6 @@ static void Test_SBN_AppMain(void)
 
     Test_WaitForWakeup();
 
-    AppMain_Nominal();
 } /* end Test_SBN_AppMain() */
 
 static void ProcessNetMsg_PeerErr(void)
@@ -2636,6 +2654,8 @@ void UT_TearDown(void)
 void UtTest_Setup(void)
 {
     ADD_TEST(SBN_AppMain);
+    ADD_TEST(SBN_InitBigEndian);
+    ADD_TEST(SBN_InitLittleEndian);
     ADD_TEST(SBN_ProcessNetMsg);
     ADD_TEST(SBN_Connected);
     ADD_TEST(SBN_Disconnected);
