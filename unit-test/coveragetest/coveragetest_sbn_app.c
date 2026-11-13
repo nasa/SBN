@@ -345,44 +345,10 @@ static void AppMain_MutSemCrErr(void)
     EVENT_CNT(1);
 } /* end AppMain_MutSemCrErr() */
 
-/* Mock IfOps structure for testing */
-static SBN_Status_t Mock_UnloadNet(SBN_NetInterface_t *Net)
-{
-    return SBN_SUCCESS;
-}
-
-static SBN_Status_t Mock_InitNet(SBN_NetInterface_t *Net)
-{
-    return SBN_SUCCESS;
-}
-
-static SBN_Status_t Mock_InitPeer(SBN_PeerInterface_t *Peer)
-{
-    return SBN_SUCCESS;
-}
-
-static SBN_IfOps_t MockIfOps = { .InitModule   = NULL,
-                                 .InitNet      = Mock_InitNet,
-                                 .InitPeer     = Mock_InitPeer,
-                                 .LoadNet      = NULL,
-                                 .LoadPeer     = NULL,
-                                 .PollPeer     = NULL,
-                                 .Send         = NULL,
-                                 .RecvFromNet  = NULL,
-                                 .RecvFromPeer = NULL,
-                                 .UnloadNet    = Mock_UnloadNet,
-                                 .UnloadPeer   = NULL };
-
 /* Hook function to modify SBN after SBN_LoadConf completes but before SBN_InitInterfaces */
 static int32 SetupNetConfErr_Hook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
-    /* At this point SBN_LoadConf has completed, modify SBN to have an unconfigured network */
-    SBN_AppData.NetCnt = 1;
-    memset(&SBN_AppData.Nets[0], 0, sizeof(SBN_AppData.Nets[0]));
-    SBN_AppData.Nets[0].Configured = false;      /* This will trigger the error in SBN_InitInterfaces */
-    SBN_AppData.Nets[0].IfOps      = &MockIfOps; /* Prevent segfault in SBN_UnloadNets */
-    SBN_AppData.Nets[0].PeerCnt    = 0;          /* No peers */
-
+    memset(&SBN_AppData.NetRecords[0], 0, sizeof(SBN_AppData.NetRecords[0]));
     return StubRetcode;
 }
 
@@ -444,6 +410,10 @@ static SBN_Status_t RecvFromPeer_Nominal(SBN_NetInterface_t  *Net,
                                          SBN_SpacecraftID_t  *SpacecraftIDPtr,
                                          void                *PayloadBuffer)
 {
+    *MsgTypePtr      = SBN_NO_MSG;
+    *MsgSzPtr        = 0;
+    *ProcessorIDPtr  = 1 + CFE_PSP_GetProcessorId();
+    *SpacecraftIDPtr = CFE_PSP_GetSpacecraftId();
     return SBN_SUCCESS;
 } /* end RecvFromPeer_Nominal() */
 
@@ -704,7 +674,9 @@ static void W4W_NoMsg(void)
 
 static int32 PeerConnHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
 {
-    SBN_AppData.Nets[0].Peers[1].Connected = true;
+    SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(&SBN_AppData.PeerRecords[0]);
+
+    Peer->Connected = true;
     return ProcessorID;
 } /* end PeerConnHook() */
 
@@ -1028,8 +1000,8 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
 
     /* Set up processor/spacecraft IDs to match this "peer" entry */
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 41);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
 
     /* Set up mutex creation to succeed */
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, OS_SUCCESS);
@@ -1100,8 +1072,6 @@ static void PeerPoll_RecvNetTask_Nominal(void)
      * - SBN_AppData.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
      * - PeerPtr->Connected: 1 - Peer must be connected for task creation to be considered
      * - NominalTblPtr->Peers[0].TaskFlags: SBN_TASK_RECV - Enable network receive task creation */
-    SBN_AppData.NetCnt          = 0;
-    SBN_AppData.Nets[0].PeerCnt = 0;
 
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_RECV;
@@ -1178,8 +1148,8 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
 
     /* Set up processor/spacecraft IDs to match local peer */
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 41);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
 
     /* Set up mutex creation to succeed */
     UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, OS_SUCCESS);
@@ -1254,8 +1224,6 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
      * - NominalTblPtr->Peers[1].TaskFlags: SBN_TASK_RECV - Enable peer-level receive task creation
      * - IfOpsPtr->RecvFromPeer: RecvFromPeer_Nominal - Must be set to trigger peer task creation
      * - IfOpsPtr->RecvFromNet: NULL - Disables network-level receive task creation */
-    SBN_AppData.NetCnt          = 0;
-    SBN_AppData.Nets[0].PeerCnt = 0;
 
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_RECV;
@@ -1378,19 +1346,7 @@ static void Test_SBN_AppMain(void)
     AppMain_Nominal();
 } /* end Test_SBN_AppMain() */
 
-static void ProcessNetMsg_PeerErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEERTASK_EID, "ERROR: could not process peer message: unknown peer (ProcessorID=");
-
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID + 1, SpacecraftID, 0, NULL), SBN_ERROR);
-
-    EVENT_CNT(1);
-} /* ProcessNetMsg_PeerErr() */
-
-static void ProcessNetMsg_ProtoMsg_VerErr(void)
+static void ProcessPeerMsg_ProtoMsg_VerErr(void)
 {
     START();
 
@@ -1399,33 +1355,47 @@ static void ProcessNetMsg_ProtoMsg_VerErr(void)
 
     uint8 ver = SBN_PROTO_VER + 1;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID, SpacecraftID, sizeof(ver), &ver),
-                      SBN_SUCCESS);
+    SBN_BufferDesc_t BufD;
+    memset(&BufD, 0, sizeof(BufD));
+
+    BufD.MsgType      = SBN_PROTO_MSG;
+    BufD.ActualDataSz = sizeof(ver);
+    BufD.MaxDataSz    = BufD.ActualDataSz;
+    BufD.DataPtr      = &ver;
+
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
 
     EVENT_CNT(1);
-} /* end ProcessNetMsg_ProtoMsg_VerErr() */
+} /* end ProcessPeerMsg_ProtoMsg_VerErr() */
 
-static void ProcessNetMsg_ProtoMsg_Nominal(void)
+static void ProcessPeerMsg_ProtoMsg_Nominal(void)
 {
     START();
 
     UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version match with peer ");
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
 
     uint8 ver = SBN_PROTO_VER;
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_PROTO_MSG, ProcessorID, SpacecraftID, sizeof(ver), &ver),
-                      SBN_SUCCESS);
+    BufD.MsgType      = SBN_PROTO_MSG;
+    BufD.ActualDataSz = sizeof(ver);
+    BufD.MaxDataSz    = BufD.ActualDataSz;
+    BufD.DataPtr      = &ver;
+
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
 
     EVENT_CNT(1);
-} /* end ProcessNetMsg_ProtoMsg_Nominal() */
+} /* end ProcessPeerMsg_ProtoMsg_Nominal() */
 
 static SBN_Status_t RecvFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
 {
     return SBN_ERROR;
 } /* end RecvFilter_Err() */
 
-static void ProcessNetMsg_AppMsg_FiltErr(void)
+static void ProcessPeerMsg_AppMsg_FiltErr(void)
 {
     START();
 
@@ -1436,24 +1406,29 @@ static void ProcessNetMsg_AppMsg_FiltErr(void)
      * - ProcessorID/SpacecraftID: Set to match the message being processed to ensure peer lookup succeeds */
     UT_ResetState(0);
     SBN_FilterInterface_t Filter;
+    SBN_BufferDesc_t      BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     memset(&Filter, 0, sizeof(Filter));
     Filter.FilterRecv = RecvFilter_Err;
 
     PeerPtr->Filters[0] = &Filter;
     PeerPtr->FilterCnt  = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), ProcessorID);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), SpacecraftID);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, SpacecraftID, 0, NULL), SBN_ERROR);
-} /* end ProcessNetMsg_AppMsg_FiltErr() */
+    BufD.MsgType = SBN_APP_MSG;
+
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_ERROR);
+} /* end ProcessPeerMsg_AppMsg_FiltErr() */
 
 static SBN_Status_t RecvFilter_Out(void *Data, SBN_Filter_Ctx_t *CtxPtr)
 {
     return SBN_IF_EMPTY;
 } /* end RecvFilter_Out() */
 
-static void ProcessNetMsg_AppMsg_FiltOut(void)
+static void ProcessPeerMsg_AppMsg_FiltOut(void)
 {
     START();
 
@@ -1465,6 +1440,9 @@ static void ProcessNetMsg_AppMsg_FiltOut(void)
      * - ProcessorID/SpacecraftID: Set to match the message being processed */
     UT_ResetState(0);
     SBN_FilterInterface_t Filter;
+    SBN_BufferDesc_t      BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
     memset(&Filter, 0, sizeof(Filter));
     Filter.FilterRecv = RecvFilter_Out;
 
@@ -1473,20 +1451,25 @@ static void ProcessNetMsg_AppMsg_FiltOut(void)
     PeerPtr->Filters[0]   = &Filter;
     PeerPtr->FilterCnt    = 1;
 
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), ProcessorID);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), SpacecraftID);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, SpacecraftID, 0, NULL), SBN_IF_EMPTY);
-} /* end ProcessNetMsg_AppMsg_FiltOut() */
+    BufD.MsgType = SBN_APP_MSG;
+
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_IF_EMPTY);
+} /* end ProcessPeerMsg_AppMsg_FiltOut() */
 
 static SBN_Status_t RecvFilter_Nominal(void *Data, SBN_Filter_Ctx_t *CtxPtr)
 {
     return SBN_SUCCESS;
 } /* end RecvFilter_Nominal() */
 
-static void ProcessNetMsg_AppMsg_PassMsgErr(void)
+static void ProcessPeerMsg_AppMsg_PassMsgErr(void)
 {
     START();
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
 
     UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_SB_EID, "ERROR: could not process peer message: CFE_SB_PassMsg error (Status=");
@@ -1496,12 +1479,14 @@ static void ProcessNetMsg_AppMsg_PassMsgErr(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_TransmitMsg), 1, -1);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, SpacecraftID, 0, NULL), SBN_ERROR);
+    BufD.MsgType = SBN_APP_MSG;
+
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_ERROR);
 
     EVENT_CNT(1);
-} /* end ProcessNetMsg_AppMsg_PassMsgErr() */
+} /* end ProcessPeerMsg_AppMsg_PassMsgErr() */
 
-static void ProcessNetMsg_AppMsg_Nominal(void)
+static void ProcessPeerMsg_AppMsg_Nominal(void)
 {
     START();
 
@@ -1513,6 +1498,10 @@ static void ProcessNetMsg_AppMsg_Nominal(void)
      * - ProcessorID/SpacecraftID: Set to match the message being processed to ensure peer lookup succeeds */
     UT_ResetState(0);
     SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
+    SBN_BufferDesc_t      BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
+
     memset(&Filter_Empty, 0, sizeof(Filter_Empty));
     memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
     Filter_Nominal.FilterRecv = RecvFilter_Nominal;
@@ -1525,16 +1514,22 @@ static void ProcessNetMsg_AppMsg_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_APP_MSG, ProcessorID, SpacecraftID, 0, NULL), SBN_SUCCESS);
-} /* end ProcessNetMsg_AppMsg_Nominal() */
+    BufD.MsgType = SBN_APP_MSG;
 
-static void ProcessNetMsg_SubMsg_Nominal(void)
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
+} /* end ProcessPeerMsg_AppMsg_Nominal() */
+
+static void ProcessPeerMsg_SubMsg_Nominal(void)
 {
     START();
 
     UT_ResetState(0);
-    uint8           Buf[SBN_PACKED_SUB_SZ];
-    SBN_PackState_t Pack;
+    uint8            Buf[SBN_PACKED_SUB_SZ];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
+
     SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -1545,18 +1540,26 @@ static void ProcessNetMsg_SubMsg_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_SUB_MSG, ProcessorID, SpacecraftID, sizeof(Buf), &Buf),
-                      SBN_SUCCESS);
-    UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID.Value, MsgID.Value);
-} /* end ProcessNetMsg_SubMsg_Nominal() */
+    BufD.MsgType      = SBN_SUB_MSG;
+    BufD.ActualDataSz = sizeof(Buf);
+    BufD.MaxDataSz    = BufD.ActualDataSz;
+    BufD.DataPtr      = Buf;
 
-static void ProcessNetMsg_UnSubMsg_Nominal(void)
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
+    UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID.Value, MsgID.Value);
+} /* end ProcessPeerMsg_SubMsg_Nominal() */
+
+static void ProcessPeerMsg_UnSubMsg_Nominal(void)
 {
     START();
 
     UT_ResetState(0);
-    uint8           Buf[SBN_PACKED_SUB_SZ];
-    SBN_PackState_t Pack;
+    uint8            Buf[SBN_PACKED_SUB_SZ];
+    SBN_PackState_t  Pack;
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
+
     SBN_Pack_Init(&Pack, &Buf, sizeof(Buf), false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
     SBN_Pack_UInt16(&Pack, 1);
@@ -1568,48 +1571,65 @@ static void ProcessNetMsg_UnSubMsg_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
     UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
 
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_SUB_MSG, ProcessorID, SpacecraftID, sizeof(Buf), &Buf),
-                      SBN_SUCCESS);
+    BufD.MsgType      = SBN_SUB_MSG;
+    BufD.ActualDataSz = sizeof(Buf);
+    BufD.MaxDataSz    = BufD.ActualDataSz;
+    BufD.DataPtr      = Buf;
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
     UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID.Value, MsgID.Value);
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_UNSUB_MSG, ProcessorID, SpacecraftID, sizeof(Buf), &Buf),
-                      SBN_SUCCESS);
+
+    BufD.MsgType      = SBN_UNSUB_MSG;
+    BufD.ActualDataSz = sizeof(Buf);
+    BufD.MaxDataSz    = BufD.ActualDataSz;
+    BufD.DataPtr      = Buf;
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
     UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
-} /* end ProcessNetMsg_UnSubMsg_Nominal() */
+} /* end ProcessPeerMsg_UnSubMsg_Nominal() */
 
-static void ProcessNetMsg_NoMsg_Nominal(void)
+static void ProcessPeerMsg_NoMsg_Nominal(void)
 {
     START();
 
     UT_ResetState(0);
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_NO_MSG, ProcessorID, SpacecraftID, 0, NULL), SBN_SUCCESS);
-} /* end ProcessNetMsg_NoMsg_Nominal() */
+    SBN_BufferDesc_t BufD;
 
-static void ProcessNetMsg_MsgErr(void)
+    memset(&BufD, 0, sizeof(BufD));
+
+    BufD.MsgType = SBN_NO_MSG;
+
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
+} /* end ProcessPeerMsg_NoMsg_Nominal() */
+
+static void ProcessPeerMsg_MsgErr(void)
 {
     START();
 
     UT_ResetState(0);
+    SBN_BufferDesc_t BufD;
+
+    memset(&BufD, 0, sizeof(BufD));
 
     /* send a net message of an invalid type */
-    UtAssert_INT32_EQ(SBN_ProcessNetMsg(NetPtr, SBN_NO_MSG + 100, ProcessorID, SpacecraftID, 0, NULL), SBN_ERROR);
-} /* end ProcessNetMsg_MsgErr() */
+    BufD.MsgType = SBN_NO_MSG + 100;
 
-static void Test_SBN_ProcessNetMsg(void)
+    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_ERROR);
+} /* end ProcessPeerMsg_MsgErr() */
+
+static void Test_SBN_ProcessPeerMsg(void)
 {
-    ProcessNetMsg_PeerErr();
-    ProcessNetMsg_AppMsg_FiltErr();
-    ProcessNetMsg_AppMsg_FiltOut();
-    ProcessNetMsg_AppMsg_PassMsgErr();
-    ProcessNetMsg_ProtoMsg_VerErr();
-    ProcessNetMsg_MsgErr();
+    ProcessPeerMsg_AppMsg_FiltErr();
+    ProcessPeerMsg_AppMsg_FiltOut();
+    ProcessPeerMsg_AppMsg_PassMsgErr();
+    ProcessPeerMsg_ProtoMsg_VerErr();
+    ProcessPeerMsg_MsgErr();
 
-    ProcessNetMsg_AppMsg_Nominal();
-    ProcessNetMsg_SubMsg_Nominal();
-    ProcessNetMsg_UnSubMsg_Nominal();
-    ProcessNetMsg_ProtoMsg_Nominal();
-    ProcessNetMsg_NoMsg_Nominal();
-} /* end Test_SBN_ProcessNetMsg() */
+    ProcessPeerMsg_AppMsg_Nominal();
+    ProcessPeerMsg_SubMsg_Nominal();
+    ProcessPeerMsg_UnSubMsg_Nominal();
+    ProcessPeerMsg_ProtoMsg_Nominal();
+    ProcessPeerMsg_NoMsg_Nominal();
+} /* end Test_SBN_ProcessPeerMsg() */
 
 static void Connected_AlreadyErr(void)
 {
@@ -1702,7 +1722,7 @@ static void Disconnected_ConnErr(void)
      * Peer Setup:
      * - PeerPtr->Connected: 0 (default) - Peer starts disconnected to trigger the error condition
      * - PeerPtr->ProcessorID: ProcessorID - Set for error message identification */
-    SBN_PeerInterface_t *PeerPtr = &SBN_AppData.Nets[0].Peers[0];
+    SBN_PeerInterface_t *PeerPtr = SBN_Peer_GetIntfData(&SBN_AppData.PeerRecords[0]);
 
     PeerPtr->ProcessorID = ProcessorID;
 
@@ -1721,7 +1741,7 @@ static void Disconnected_Nominal(void)
      * Peer Setup:
      * - PeerPtr->ProcessorID: ProcessorID - Set for event message identification
      * - PeerPtr->Connected: 1 - Pre-set peer as connected to allow valid disconnection */
-    SBN_PeerInterface_t *PeerPtr = &SBN_AppData.Nets[0].Peers[0];
+    SBN_PeerInterface_t *PeerPtr = SBN_Peer_GetIntfData(&SBN_AppData.PeerRecords[0]);
 
     PeerPtr->ProcessorID = ProcessorID;
     PeerPtr->Connected   = 1;
@@ -1818,8 +1838,8 @@ static void ReloadConfTbl_Nominal(void)
     UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
 
     /* Set up processor/spacecraft IDs to match this "peer" entry */
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 41);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
 
     /* Set up CFE_TBL_ReleaseAddress to succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
@@ -2332,7 +2352,7 @@ static int32 TaskDelayConn(void *UserObj, int32 StubRetcode, uint32 CallCount, c
 
     if (c++ > 0)
     {
-        SBN_AppData.Nets[0].Peers[0].Connected = true;
+        PeerPtr->Connected = true;
     } /* end if */
 
     return CFE_SUCCESS;
@@ -2508,8 +2528,8 @@ static void SendTask_SendNetMsgErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_MSG_GetSize), 1, CFE_SUCCESS);
 
     /* Set up processor/spacecraft IDs */
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, 42);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
+    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 42);
 
     /* Set up SBN_SendNetMsg to return error - this should cause task to exit */
     UT_SetDeferredRetcode(UT_KEY(SBN_SendNetMsg), 1, SBN_ERROR);
@@ -2607,15 +2627,15 @@ void SendNetMsg_SendErr(void)
     UT_ResetState(0);
     IfOpsPtr->Send = Send_Err;
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
-    UtAssert_INT32_EQ(PeerPtr->SendCnt, 0);
-    UtAssert_INT32_EQ(PeerPtr->SendErrCnt, 1);
+    UtAssert_INT32_EQ(PeerPtr->Counts.SendCnt, 0);
+    UtAssert_INT32_EQ(PeerPtr->Counts.SendErrCnt, 1);
 
     IfOpsPtr->Send = Send_Nominal;
 
     SBN_SendNetMsg(0, 0, NULL, PeerPtr);
 
-    UtAssert_INT32_EQ(PeerPtr->SendCnt, 1);
-    UtAssert_INT32_EQ(PeerPtr->SendErrCnt, 1);
+    UtAssert_INT32_EQ(PeerPtr->Counts.SendCnt, 1);
+    UtAssert_INT32_EQ(PeerPtr->Counts.SendErrCnt, 1);
 } /* end SendNetMsg_SendErr() */
 
 void Test_SBN_SendNetMsg(void)
@@ -2636,7 +2656,7 @@ void UT_TearDown(void)
 void UtTest_Setup(void)
 {
     ADD_TEST(SBN_AppMain);
-    ADD_TEST(SBN_ProcessNetMsg);
+    ADD_TEST(SBN_ProcessPeerMsg);
     ADD_TEST(SBN_Connected);
     ADD_TEST(SBN_Disconnected);
     ADD_TEST(SBN_ReloadConfTbl);
