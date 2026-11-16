@@ -23,32 +23,48 @@
 #include "sbn_app.h"
 #include "sbn_encode.h"
 
-static SBN_NetInterface_t *SBN_GetNetIfFromIdx(SBN_NetIdx_t Idx)
+/*
+ * ------------------------------------------
+ * Compatibilitiy helper: Get the SBN_NetInterface_t  corresponding to the 0-based Index
+ * ------------------------------------------
+ */
+static SBN_NetInterface_t *SBN_Cmds_GetNetIfFromIdx(SBN_NetIdx_t Idx)
 {
-    if (Idx >= SBN_AppData.NetCnt)
-    {
-        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx %d (max=%d)", Idx, SBN_AppData.NetCnt);
-        return NULL;
-    }
+    SBN_NetInterface_t *NetIf;
 
-    return &SBN_AppData.Nets[Idx];
-}
-
-static SBN_PeerInterface_t *SBN_GetPeerFromIdx(SBN_NetInterface_t *NetIf, SBN_PeerIdx_t Idx)
-{
-    /* Note that the netif + peer lookup is often combined, so its easier to pass thru a prior error */
+    NetIf = SBN_Net_GetIntfData(SBN_LocateNetRecordByExtIdx(Idx));
     if (NetIf == NULL)
     {
-        return NULL;
+        EVSSendErr(SBN_CMD_EID, "Invalid NetIdx %d (max=%d)", Idx, SBN_AppData.NetCnt);
     }
 
-    if (Idx >= NetIf->PeerCnt)
+    return NetIf;
+}
+
+/*
+ * ------------------------------------------
+ * Compatibilitiy helper: Get the SBN_PeerInterface_t  corresponding to the 0-based Index
+ * ------------------------------------------
+ */
+static SBN_PeerInterface_t *SBN_Cmds_GetPeerIfFromIdx(SBN_NetInterface_t *NetIf, SBN_PeerIdx_t Idx)
+{
+    SBN_PeerInterface_t *PeerIf;
+
+    /* Note that the netif + peer lookup is often combined, so its easier to pass thru a prior error */
+    if (NetIf != NULL)
     {
-        EVSSendErr(SBN_CMD_EID, "Invalid PeerIdx %d (max=%d)", Idx, NetIf->PeerCnt);
-        return NULL;
+        PeerIf = SBN_Peer_GetIntfData(SBN_LocatePeerRecordInNet(SBN_Net_GetPrivateData(NetIf), Idx));
+        if (PeerIf == NULL)
+        {
+            EVSSendErr(SBN_CMD_EID, "Invalid PeerIdx %d (max=%d)", Idx, NetIf->PeerCnt);
+        }
+    }
+    else
+    {
+        PeerIf = NULL;
     }
 
-    return &NetIf->Peers[Idx];
+    return PeerIf;
 }
 
 static void SBN_TransmitBuffer(SBN_TlmBase_t *TlmBuf)
@@ -150,13 +166,13 @@ CFE_Status_t SBN_ResetPeerCmd(const SBN_ResetPeerCmd_t *MsgPtr)
     const SBN_PeerCmd_Payload_t *CmdPtr = &MsgPtr->Payload;
     SBN_PeerInterface_t         *Peer;
 
-    Peer = SBN_GetPeerFromIdx(SBN_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
+    Peer = SBN_Cmds_GetPeerIfFromIdx(SBN_Cmds_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
     if (Peer != NULL)
     {
         EVSSendInfo(SBN_CMD_EID, "hk reset peer command (NetIdx=%d, PeerIdx=%d)", CmdPtr->NetIdx, CmdPtr->PeerIdx);
         ++SBN_AppData.CmdCnt;
 
-        SBN_InitializePeerCounters(Peer);
+        SBN_InitializePeerCounters(SBN_Peer_GetPrivateData(Peer));
     }
     else
     {
@@ -240,7 +256,7 @@ CFE_Status_t SBN_SendHkNetCmd(const SBN_SendHkNetCmd_t *MsgPtr)
         HKNET_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKNET_TLM_MID);
     }
 
-    NetIf = SBN_GetNetIfFromIdx(CmdPtr->NetIdx);
+    NetIf = SBN_Cmds_GetNetIfFromIdx(CmdPtr->NetIdx);
     if (NetIf != NULL)
     {
         TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
@@ -297,7 +313,7 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
         HKPEER_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKPEER_TLM_MID);
     }
 
-    Peer = SBN_GetPeerFromIdx(SBN_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
+    Peer = SBN_Cmds_GetPeerIfFromIdx(SBN_Cmds_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
     if (Peer != NULL)
     {
         TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));
@@ -319,10 +335,10 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
         OutMsg->Payload.ProcessorId = Peer->ProcessorID;
         OutMsg->Payload.LastSend    = OS_TimeGetTotalMicroseconds(Peer->LastSend);
         OutMsg->Payload.LastRecv    = OS_TimeGetTotalMicroseconds(Peer->LastRecv);
-        OutMsg->Payload.SendCnt     = Peer->SendCnt;
-        OutMsg->Payload.RecvCnt     = Peer->RecvCnt;
-        OutMsg->Payload.SendErrCnt  = Peer->SendErrCnt;
-        OutMsg->Payload.RecvErrCnt  = Peer->RecvErrCnt;
+        OutMsg->Payload.SendCnt     = Peer->Counts.SendCnt;
+        OutMsg->Payload.RecvCnt     = Peer->Counts.RecvCnt;
+        OutMsg->Payload.SendErrCnt  = Peer->Counts.SendErrCnt;
+        OutMsg->Payload.RecvErrCnt  = Peer->Counts.RecvErrCnt;
         OutMsg->Payload.SubCnt      = Peer->SubCnt;
 
         /*
@@ -427,7 +443,7 @@ CFE_Status_t SBN_SendHkPeerSubsCmd(const SBN_SendHkPeerSubsCmd_t *MsgPtr)
         HKPEERSUBS_TLM_MID = CFE_SB_ValueToMsgId(SBN_HKPEERSUBS_TLM_MID);
     }
 
-    Peer = SBN_GetPeerFromIdx(SBN_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
+    Peer = SBN_Cmds_GetPeerIfFromIdx(SBN_Cmds_GetNetIfFromIdx(CmdPtr->NetIdx), CmdPtr->PeerIdx);
     if (Peer != NULL)
     {
         TlmBuf = SBN_Codec_GetTlmBuffer(sizeof(*OutMsg));

@@ -299,6 +299,8 @@ SBN_ProcessorID_t    ProcessorID  = 1234;
 SBN_SpacecraftID_t   SpacecraftID = 5678;
 SBN_NetInterface_t  *NetPtr       = NULL;
 SBN_PeerInterface_t *PeerPtr      = NULL;
+SBN_NetRecord_t     *NetRec       = NULL;
+SBN_PeerRecord_t    *PeerRec      = NULL;
 
 /* SBN tries to look up the symbol of the protocol or filter module using OS_SymbolLookup, if it
  * finds it (because ES loaded it) it does nothing; if it does not, it tries to load the symbol.
@@ -342,11 +344,22 @@ void START_fn(const char *func, int line)
     printf("Start item %s (%d)\n", func, line);
     memset(&SBN_AppData, 0, sizeof(SBN_AppData));
 
-    NetPtr                = &SBN_AppData.Nets[0];
+    NetRec        = &SBN_AppData.NetRecords[0];
+    NetRec->NetId = SBN_NETID_C(CFE_ResourceId_FromInteger(SBN_PLATFORM_MAX_NETS));
+
+    PeerRec         = &SBN_AppData.PeerRecords[0];
+    PeerRec->PeerId = SBN_PEERID_C(CFE_ResourceId_FromInteger(2 * SBN_MISSION_MAX_PEER_CNT));
+    PeerRec->NetId  = NetRec->NetId;
+
+    NetPtr  = SBN_Net_GetIntfData(NetRec);
+    PeerPtr = SBN_Peer_GetIntfData(PeerRec);
+
     SBN_AppData.NetCnt    = 1;
+    SBN_AppData.NetIds[0] = NetRec->NetId;
     NetPtr->PeerCnt       = 1;
     NetPtr->Configured    = 1;
-    PeerPtr               = &NetPtr->Peers[0];
+    NetPtr->PeerIds[0]    = PeerRec->PeerId;
+
     PeerPtr->ProcessorID  = ProcessorID;
     PeerPtr->SpacecraftID = SpacecraftID;
     PeerPtr->Net          = NetPtr;

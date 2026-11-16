@@ -126,6 +126,8 @@ extern SBN_ProcessorID_t      ProcessorID;
 extern SBN_SpacecraftID_t     SpacecraftID;
 extern SBN_NetInterface_t    *NetPtr;
 extern SBN_PeerInterface_t   *PeerPtr;
+extern SBN_NetRecord_t       *NetRec;
+extern SBN_PeerRecord_t      *PeerRec;
 
 #define START() START_fn(__func__, __LINE__)
 void START_fn(const char *func, int line);

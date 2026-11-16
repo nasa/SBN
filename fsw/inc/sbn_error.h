@@ -2,6 +2,7 @@
 #define SBN_ERROR_H
 
 /* General status codes */
+#define SBN_FINISHED        1 /* a flag to finish the current operation, this is >0 because it is not an error */
 #define SBN_SUCCESS         0
 #define SBN_ERROR           -1
 #define SBN_IF_EMPTY        -2

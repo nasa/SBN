@@ -348,21 +348,10 @@ static SBN_Status_t UnloadPeer(SBN_PeerInterface_t *Peer)
 
 static SBN_Status_t UnloadNet(SBN_NetInterface_t *Net)
 {
-    SBN_Status_t Status = SBN_SUCCESS;
+    SBN_Status_t   Status  = SBN_SUCCESS;
+    SBN_UDP_Net_t *NetData = (SBN_UDP_Net_t *)Net->ModulePvt;
 
-    SBN_PeerIdx_t PeerIdx;
-    for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
-    {
-        if (UnloadPeer(&Net->Peers[PeerIdx]) != SBN_SUCCESS)
-        {
-            EVSSendInfo(SBN_UDP_DEBUG_EID, "failed to unload peer: %d\n", PeerIdx);
-            Status = SBN_ERROR;
-        }
-        else
-        {
-            EVSSendInfo(SBN_UDP_DEBUG_EID, "unloaded peer: %d\n", PeerIdx);
-        }
-    } /* end if */
+    OS_close(NetData->Socket);
 
     return Status;
 } /* end UnloadNet() */

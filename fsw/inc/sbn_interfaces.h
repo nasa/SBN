@@ -24,10 +24,103 @@
 #include "sbn_msg.h"
 #include "sbn_platform_cfg.h"
 #include "sbn_extern_typedefs.h"
+#include "cfe_resourceid.h"
 
-typedef struct SBN_IfOps_s         SBN_IfOps_t;
-typedef struct SBN_NetInterface_s  SBN_NetInterface_t;
+/**
+ * \brief  SBN Peer Id to primitive type definition
+ */
+typedef CFE_RESOURCEID_BASE_TYPE SBN_PeerId_t;
+
+/**
+ * \brief  SBN Net Id to primitive type definition
+ */
+typedef CFE_RESOURCEID_BASE_TYPE SBN_NetId_t;
+
+/**
+ * \brief Cast/Convert a generic CFE_ResourceId_t to a SBN_NetId_t
+ */
+#define SBN_NETID_C(val) ((SBN_NetId_t)CFE_RESOURCEID_WRAP(val))
+
+/**
+ * \brief Cast/Convert a generic CFE_ResourceId_t to a SBN_PeerId_t
+ */
+#define SBN_PEERID_C(val) ((SBN_PeerId_t)CFE_RESOURCEID_WRAP(val))
+
+/**
+ * \brief  A SBN_NetId_t value which is always invalid
+ *
+ * This may be used as a safe initializer for SBN_NetId_t values
+ */
+#define SBN_NETID_UNDEFINED SBN_NETID_C(CFE_RESOURCEID_UNDEFINED)
+
+/**
+ * \brief  A SBN_PeerId_t value which is always invalid
+ *
+ * This may be used as a safe initializer for SBN_PeerId_t values
+ */
+#define SBN_PEERID_UNDEFINED SBN_PEERID_C(CFE_RESOURCEID_UNDEFINED)
+
+typedef struct SBN_IfOps_s SBN_IfOps_t;
+
+/**
+ * @brief The interface struct for an SBN net
+ *
+ * This struct contains the details of the SBN net which are shared
+ * between SBN itself and the SBN module implementing the communication
+ * protocol.  Changes to this struct may affect module compatibility.
+ *
+ * All net-based protocol implementation calls use this object as the context.
+ */
+typedef struct SBN_NetInterface_s SBN_NetInterface_t;
+
+/**
+ * @brief The interface struct for an SBN peer
+ *
+ * This struct contains the details of the SBN peer which are shared
+ * between SBN itself and the SBN module implementing the communication
+ * protocol.  Changes to this struct may affect module compatibility.
+ *
+ * All peer-based protocol implementation calls use this object as the context.
+ */
 typedef struct SBN_PeerInterface_s SBN_PeerInterface_t;
+
+/**
+ * @brief The internal record for an SBN net
+ *
+ * This struct contains the full details for the net, and is
+ * NOT exposed to any modules.  This is not part of the API between
+ * modules and SBN, it is visible to SBN proper only.
+ */
+typedef struct SBN_NetRecord SBN_NetRecord_t;
+
+/**
+ * @brief The internal record for an SBN peer
+ *
+ * This struct contains the full details for the peer, and is
+ * NOT exposed to any modules.  This is not part of the API between
+ * modules and SBN, it is visible to SBN proper only.
+ */
+typedef struct SBN_PeerRecord SBN_PeerRecord_t;
+
+/**
+ * @brief Metadata object for SBN messages
+ *
+ * Summarizes the message details including the type and size,
+ * as well as allocation details such as the pointer and size
+ * of the storage buffer.
+ *
+ * This simplifies calling between handling functions as this
+ * information can all be passed in a single parameter.
+ */
+typedef struct SBN_BufferDesc
+{
+    SBN_ProcessorID_t  ProcessorID;
+    SBN_SpacecraftID_t SpacecraftID;
+    SBN_MsgType_t      MsgType;
+    SBN_MsgSz_t        ActualDataSz;
+    SBN_MsgSz_t        MaxDataSz;
+    void              *DataPtr;
+} SBN_BufferDesc_t;
 
 /**
  * SBN packs messages for transmission over the wire, reducing the size to the minimum
@@ -60,6 +153,20 @@ typedef struct
     SBN_ProcessorID_t  PeerProcessorID;
     SBN_SpacecraftID_t PeerSpacecraftID;
 } SBN_Filter_Ctx_t;
+
+/**
+ * Basic counters for SBN Peers
+ *
+ * This is put into a sub-structure so it can be more easily
+ * passed around and (possibly) cleared or snapshotted when needed.
+ */
+typedef struct SBN_IntfCounts
+{
+    SBN_HkCounter_t SendCnt;
+    SBN_HkCounter_t RecvCnt;
+    SBN_HkCounter_t SendErrCnt;
+    SBN_HkCounter_t RecvErrCnt;
+} SBN_IntfCounts_t;
 
 typedef struct
 {
@@ -149,7 +256,8 @@ struct SBN_PeerInterface_s
      * @brief A local table of subscriptions the peer has requested.
      * Includes one extra entry for a null termination.
      */
-    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
+    SBN_Subs_t   Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
+    SBN_SubCnt_t SubCnt;
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
@@ -158,8 +266,8 @@ struct SBN_PeerInterface_s
     const SBN_FilterInterface_t *Filters[SBN_PLATFORM_MAX_FILTERS];
     SBN_ModuleIdx_t              FilterCnt;
 
-    OS_time_t       LastSend, LastRecv;
-    SBN_HkCounter_t SendCnt, RecvCnt, SendErrCnt, RecvErrCnt, SubCnt;
+    OS_time_t        LastSend, LastRecv;
+    SBN_IntfCounts_t Counts;
 
     bool Connected;
 
@@ -192,7 +300,7 @@ struct SBN_NetInterface_s
 
     SBN_PeerIdx_t PeerCnt;
 
-    SBN_PeerInterface_t Peers[SBN_MISSION_MAX_PEER_CNT];
+    SBN_PeerId_t PeerIds[SBN_MISSION_MAX_PEER_CNT];
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
