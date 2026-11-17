@@ -2414,12 +2414,21 @@ static void SendTask_FiltErr(void)
     CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
     SBN_FilterInterface_t Filter_Err;
+    CFE_MSG_Size_t        MsgSz;
+    CFE_MSG_Message_t     Msg;
+    CFE_MSG_Message_t    *MsgPtr;
+
     memset(&Filter_Err, 0, sizeof(Filter_Err));
     Filter_Err.FilterSend = SendFilter_Err;
 
     /* Filters[0].Recv is NULL, should skip */
     PeerPtr->Filters[0] = &Filter_Err;
     PeerPtr->FilterCnt  = 1;
+    MsgSz               = sizeof(Msg);
+    memset(&Msg, 0, sizeof(Msg));
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &MsgSz, sizeof(MsgSz), false);
+    MsgPtr = &Msg;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
@@ -2459,7 +2468,11 @@ static void SendTask_Filters(void)
     /* This calls a stub that fills in the task ID. Other parameters are ignored. */
     CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
 
+    CFE_MSG_Size_t        MsgSz;
+    CFE_MSG_Message_t     Msg;
+    CFE_MSG_Message_t    *MsgPtr;
     SBN_FilterInterface_t Filter_Empty, Filter_Nominal, Filter_Out;
+
     memset(&Filter_Empty, 0, sizeof(Filter_Empty));
     memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
     memset(&Filter_Out, 0, sizeof(Filter_Out));
@@ -2472,6 +2485,11 @@ static void SendTask_Filters(void)
     PeerPtr->Filters[2] = &Filter_Out;
     PeerPtr->FilterCnt  = 3;
 
+    MsgSz = sizeof(Msg);
+    memset(&Msg, 0, sizeof(Msg));
+    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &MsgSz, sizeof(MsgSz), false);
+    MsgPtr = &Msg;
+    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
 
     SBN_SendTask();
@@ -2532,17 +2550,19 @@ static void SendTask_SendNetMsgErr(void)
     UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 42);
 
     /* Set up SBN_SendNetMsg to return error - this should cause task to exit */
-    UT_SetDeferredRetcode(UT_KEY(SBN_SendNetMsg), 1, SBN_ERROR);
+    IfOpsPtr->Send = Send_Err;
 
     /* Run the task - it should exit due to SBN_SendNetMsg error */
     SBN_SendTask();
+
+    IfOpsPtr->Send = Send_Nominal;
 
     /* Verify that the task ID was cleared */
     UtAssert_True(CFE_RESOURCEID_TEST_EQUAL(PeerPtr->SendTaskID, CFE_ES_TASKID_UNDEFINED),
                   "SendTaskID should be cleared after error");
 
     /* Verify that CFE_SB_ReceiveBuffer was called */
-    UtAssert_STUB_COUNT(CFE_SB_ReceiveBuffer, 2);
+    UtAssert_STUB_COUNT(CFE_SB_ReceiveBuffer, 1);
 
     /* Verify that SBN_SendNetMsg was called (via OS_GetLocalTime check) */
     UtAssert_STUB_COUNT(OS_GetLocalTime, 1);

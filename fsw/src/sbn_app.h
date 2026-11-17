@@ -167,6 +167,7 @@ typedef struct
     CFE_SB_MsgId_t       MsgID;
     SBN_NetInterface_t  *Net;
     SBN_PeerInterface_t *Peer;
+    uint8                SbMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_SendTaskData_t;
 
 /*

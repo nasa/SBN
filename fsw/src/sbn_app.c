@@ -30,6 +30,8 @@
 #include "sbn_tbl.h"
 #include "sbn_dispatch.h"
 #include "sbn_module.h"
+#include "sbn_filter.h"
+#include "sbn_outbound.h"
 
 /** \brief SBN global application data, indexed by AppID. */
 SBN_AppData_t SBN_AppData;
@@ -610,14 +612,7 @@ SBN_Status_t SBN_MatchSendPeerToTask(SBN_PeerRecord_t *PeerRec, void *Arg)
 void SBN_SendTask(void)
 {
     SBN_SendTaskData_t D;
-    SBN_Filter_Ctx_t   Filter_Context;
-    CFE_MSG_Size_t     MsgSz;
-    SBN_MsgSz_t        SBN_MsgSz;
-    SBN_ModuleIdx_t    FilterIdx;
-
-    MsgSz                         = 0;
-    Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
-    Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
+    SBN_BufferDesc_t   TempBufD;
 
     memset(&D, 0, sizeof(D));
 
@@ -638,48 +633,37 @@ void SBN_SendTask(void)
             continue;
         } /* end if */
 
-        if (CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&D.MsgPtr, D.Peer->Pipe, CFE_SB_PEND_FOREVER) != CFE_SUCCESS)
+        memset(&TempBufD, 0, sizeof(TempBufD));
+
+        TempBufD.DataPtr   = D.SbMsgBuf;
+        TempBufD.MaxDataSz = sizeof(D.SbMsgBuf);
+
+        D.Status = SBN_Outbound_GetMsg(&TempBufD, D.Peer->Pipe, CFE_SB_PEND_FOREVER);
+        if (D.Status == SBN_IF_EMPTY)
         {
+            /* No valid message */
+            continue;
+        }
+        if (D.Status != SBN_SUCCESS)
+        {
+            /* error occurred */
             break;
-        } /* end if */
+        }
 
-        Filter_Context.PeerProcessorID  = D.Peer->ProcessorID;
-        Filter_Context.PeerSpacecraftID = D.Peer->SpacecraftID;
+        D.MsgPtr = TempBufD.DataPtr; /* just for consistency  */
 
-        for (FilterIdx = 0; FilterIdx < D.Peer->FilterCnt; FilterIdx++)
-        {
-            if (D.Peer->Filters[FilterIdx]->FilterSend == NULL)
-            {
-                continue;
-            } /* end if */
+        TempBufD.ProcessorID  = D.Peer->ProcessorID;
+        TempBufD.SpacecraftID = D.Peer->SpacecraftID;
+        TempBufD.MsgType      = SBN_APP_MSG;
 
-            D.Status = (D.Peer->Filters[FilterIdx]->FilterSend)(D.MsgPtr, &Filter_Context);
-            if (D.Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
-            {
-                break;
-            } /* end if */
-
-            if (D.Status != SBN_SUCCESS)
-            {
-                break;
-            } /* end if */
-        } /* end for */
-
-        if (FilterIdx < D.Peer->FilterCnt)
+        D.Status = SBN_Filter_Mutation(&TempBufD, D.Peer, SBN_Filter_Direction_OUTBOUND);
+        if (D.Status != SBN_SUCCESS)
         {
             /* one of the above filters suggested rejecting this message */
             continue;
         } /* end if */
 
-        if (CFE_MSG_GetSize(D.MsgPtr, &MsgSz) != CFE_SUCCESS)
-        {
-            continue;
-        } /* end if */
-
-        SBN_MsgSz = (SBN_MsgSz_t)MsgSz;
-
-        D.Status = SBN_SendNetMsg(SBN_APP_MSG, SBN_MsgSz, D.MsgPtr, D.Peer);
-
+        D.Status = SBN_Outbound_SendToPeer(&TempBufD, D.Peer);
         if (D.Status == SBN_ERROR)
         {
             break;
@@ -700,23 +684,14 @@ static SBN_Status_t SBN_CheckPeerPipes(void)
     CFE_Status_t         CFE_Status;
     int                  ReceivedFlag;
     int                  iter;
-    CFE_MSG_Message_t   *MsgPtr;
-    CFE_MSG_Size_t       MsgSz;
-    SBN_MsgSz_t          SBN_MsgSz;
-    SBN_Filter_Ctx_t     Filter_Context;
     SBN_NetIdx_t         NetIdx;
     SBN_NetRecord_t     *NetRec;
     SBN_NetInterface_t  *Net;
     SBN_PeerIdx_t        PeerIdx;
-    SBN_ModuleIdx_t      FilterIdx;
     SBN_PeerRecord_t    *PeerRec;
     SBN_PeerInterface_t *Peer;
+    SBN_BufferDesc_t     TempBufD;
     char                 SendTaskName[32];
-
-    MsgPtr                        = NULL;
-    MsgSz                         = 0;
-    Filter_Context.MyProcessorID  = CFE_PSP_GetProcessorId();
-    Filter_Context.MySpacecraftID = CFE_PSP_GetSpacecraftId();
 
     /**
      * \note This processes one message per peer, then start again until no
@@ -794,52 +769,32 @@ static SBN_Status_t SBN_CheckPeerPipes(void)
                     continue;
                 } /* end if */
 
-                /* if peer data is not in use, go to next peer */
-                if (CFE_SB_ReceiveBuffer((CFE_SB_Buffer_t **)&MsgPtr, Peer->Pipe, CFE_SB_POLL) != CFE_SUCCESS)
+                memset(&TempBufD, 0, sizeof(TempBufD));
+
+                TempBufD.DataPtr   = SBN_AppData.MsgBuffer;
+                TempBufD.MaxDataSz = sizeof(SBN_AppData.MsgBuffer);
+
+                SBN_Status = SBN_Outbound_GetMsg(&TempBufD, Peer->Pipe, CFE_SB_POLL);
+                if (SBN_Status != SBN_SUCCESS)
                 {
+                    /* No valid message */
                     continue;
                 } /* end if */
 
                 ReceivedFlag = 1;
 
-                Filter_Context.PeerProcessorID  = Peer->ProcessorID;
-                Filter_Context.PeerSpacecraftID = Peer->SpacecraftID;
+                TempBufD.ProcessorID  = Peer->ProcessorID;
+                TempBufD.SpacecraftID = Peer->SpacecraftID;
+                TempBufD.MsgType      = SBN_APP_MSG;
 
-                for (FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
-                {
-                    if (Peer->Filters[FilterIdx]->FilterSend == NULL)
-                    {
-                        continue;
-                    } /* end if */
-
-                    SBN_Status = (Peer->Filters[FilterIdx]->FilterSend)(MsgPtr, &Filter_Context);
-
-                    if (SBN_Status == SBN_IF_EMPTY) /* filter requests not sending this msg, see below for loop */
-                    {
-                        break;
-                    } /* end if */
-
-                    if (SBN_Status != SBN_SUCCESS)
-                    {
-                        /* something fatal happened, exit */
-                        return SBN_Status;
-                    } /* end if */
-                } /* end for */
-
-                if (FilterIdx < Peer->FilterCnt)
+                SBN_Status = SBN_Filter_Mutation(&TempBufD, Peer, SBN_Filter_Direction_OUTBOUND);
+                if (SBN_Status != SBN_SUCCESS)
                 {
                     /* one of the above filters suggested rejecting this message */
                     continue;
                 } /* end if */
 
-                if (CFE_MSG_GetSize(MsgPtr, &MsgSz) != CFE_SUCCESS)
-                {
-                    continue;
-                } /* end if */
-
-                SBN_MsgSz = (SBN_MsgSz_t)MsgSz;
-
-                SBN_SendNetMsg(SBN_APP_MSG, SBN_MsgSz, MsgPtr, Peer);
+                SBN_Outbound_SendToPeer(&TempBufD, Peer);
             } /* end for */
         } /* end for */
 
@@ -1974,35 +1929,33 @@ void SBN_AppMain(void)
  *
  * @return SBN_SUCCESS on successful processing, SBN_ERROR otherwise
  */
-SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *D)
+SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
 {
     static const char    FAIL_PREFIX[] = "ERROR: could not process peer message:";
     SBN_Status_t         SBN_Status;
     CFE_Status_t         CFE_Status;
     SBN_PeerInterface_t *Peer;
     uint8                Ver;
-    SBN_ModuleIdx_t      FilterIdx;
-    SBN_Filter_Ctx_t     Filter_Context;
     void                *Msg;
 
     if (!PeerRec)
     {
-        EVSSendErr(SBN_PEERTASK_EID, "%s unknown peer (ProcessorID=%d)", FAIL_PREFIX, (int)D->ProcessorID);
+        EVSSendErr(SBN_PEERTASK_EID, "%s unknown peer (ProcessorID=%d)", FAIL_PREFIX, (int)BufD->ProcessorID);
         return SBN_ERROR;
     } /* end if */
 
     /* Check if message is protocol-specific (unkown to SBN core) */
-    if (D->MsgType & SBN_MODULE_SPECIFIC_MESSAGE_ID_MASK)
+    if (BufD->MsgType & SBN_MODULE_SPECIFIC_MESSAGE_ID_MASK)
     {
-        EVSSendDbg(SBN_PEERTASK_EID, "SBN received module-specific message type: 0x%08x", (unsigned int)D->MsgType);
+        EVSSendDbg(SBN_PEERTASK_EID, "SBN received module-specific message type: 0x%08x", (unsigned int)BufD->MsgType);
         return SBN_SUCCESS;
     }
 
     /* Shortcut to interface data */
     Peer = SBN_Peer_GetIntfData(PeerRec);
-    Msg  = D->DataPtr;
+    Msg  = BufD->DataPtr;
 
-    switch (D->MsgType)
+    switch (BufD->MsgType)
     {
         case SBN_PROTO_MSG:
         {
@@ -2029,26 +1982,15 @@ SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *D)
         } /* end case */
         case SBN_APP_MSG:
         {
-            Filter_Context.MyProcessorID    = CFE_PSP_GetProcessorId();
-            Filter_Context.MySpacecraftID   = CFE_PSP_GetSpacecraftId();
-            Filter_Context.PeerProcessorID  = Peer->ProcessorID;
-            Filter_Context.PeerSpacecraftID = Peer->SpacecraftID;
+            /* Note- this goes directly to mutation because this is the backward compatible one.
+             * In a future update this should change to being a gatekeeper */
+            SBN_Status = SBN_Filter_Mutation(BufD, Peer, SBN_Filter_Direction_INBOUND);
 
-            for (FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
+            /* includes SBN_IF_EMPTY, for when filter recommends removing */
+            if (SBN_Status != SBN_SUCCESS)
             {
-                if (Peer->Filters[FilterIdx]->FilterRecv == NULL)
-                {
-                    continue;
-                } /* end if */
-
-                SBN_Status = (Peer->Filters[FilterIdx]->FilterRecv)(Msg, &Filter_Context);
-
-                /* includes SBN_IF_EMPTY, for when filter recommends removing */
-                if (SBN_Status != SBN_SUCCESS)
-                {
-                    return SBN_Status;
-                } /* end if */
-            } /* end for */
+                return SBN_Status;
+            } /* end if */
 
             CFE_Status = CFE_SB_TransmitMsg(Msg, false);
 
@@ -2058,22 +2000,22 @@ SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *D)
                            "%s CFE_SB_PassMsg error (Status=%d MsgType=0x%x)",
                            FAIL_PREFIX,
                            (int)CFE_Status,
-                           D->MsgType);
+                           (unsigned int)BufD->MsgType);
                 return SBN_ERROR;
             } /* end if */
             break;
         } /* end case */
         case SBN_SUB_MSG:
-            return SBN_ProcessSubsFromPeer(PeerRec, D);
+            return SBN_ProcessSubsFromPeer(PeerRec, BufD);
 
         case SBN_UNSUB_MSG:
-            return SBN_ProcessUnsubsFromPeer(PeerRec, D);
+            return SBN_ProcessUnsubsFromPeer(PeerRec, BufD);
 
         case SBN_NO_MSG:
             return SBN_SUCCESS;
         default:
             /* Should I generate an event? Probably... */
-            EVSSendErr(SBN_PEERTASK_EID, "%s unknown message type 0x%08x", FAIL_PREFIX, D->MsgType);
+            EVSSendErr(SBN_PEERTASK_EID, "%s unknown message type 0x%08x", FAIL_PREFIX, (unsigned int)BufD->MsgType);
             return SBN_ERROR;
     } /* end switch */
 

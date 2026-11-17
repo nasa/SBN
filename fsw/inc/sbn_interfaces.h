@@ -184,6 +184,11 @@ typedef struct
      * Interface is called to apply a filter algorithm on an SB (CCSDS) message
      * header and body.
      *
+     * This API permits modification of the message.
+     *
+     * @note The MsgBuf parameter is actually of the CFE_MSG_Message_t* pointer
+     * type, but is passed as void* for backward compatibility.
+     *
      * @param[inout] MsgBuf The message buffer to alter in-place.
      * @param[in] Context The context information for this message (particularly peer info.)
      *
@@ -197,6 +202,11 @@ typedef struct
     /**
      * Interface is called to apply a filter algorithm on an SB (CCSDS) message
      * header and body.
+     *
+     * This API permits modification of the message.
+     *
+     * @note The MsgBuf parameter is actually of the CFE_MSG_Message_t* pointer
+     * type, but is passed as void* for backward compatibility.
      *
      * @param[inout] MsgBuf The message buffer to alter in-place.
      * @param[in] Context The context information for this message (particularly peer info.)
@@ -222,6 +232,43 @@ typedef struct
      *         SBN_ERROR for all other error conditions.
      */
     SBN_Status_t (*RemapMID)(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context);
+
+    /**
+     * Interface is called to apply a filter algorithm on an SB (CCSDS) message
+     * header, inbound direction.
+     *
+     * This is a "gatekeeper" API that does not modify the message, but only checks
+     * if it should be received or not.  If this check indicates that the message
+     * should not be received, then processing can be stopped with no other actions.
+     *
+     * @param[in] MsgBuf The message buffer to check in-place.
+     * @param[in] Context The context information for this message (particularly peer info.)
+     *
+     * @return SBN_SUCCESS when the filter feels it processed the message successfully
+     *         (this doesn't necessarily mean the message was altered.)
+     *         SBN_IF_EMPTY if the filter believes the message should not be relayed.
+     *         SBN_ERROR for all other error conditions.
+     */
+    SBN_Status_t (*CheckInbound)(const CFE_MSG_Message_t *Msg, const SBN_Filter_Ctx_t *Context);
+
+    /**
+     * Interface is called to apply a filter algorithm on an SB (CCSDS) message
+     * header, outbound direction.
+     *
+     * This is a "gatekeeper" API that does not modify the message, but only checks
+     * if it should be forwarded to the peer.  If this check indicates that the message
+     * should not be forwarded, then processing can be stopped with no other actions.
+     *
+     * @param[in] MsgBuf The message buffer to check in-place.
+     * @param[in] Context The context information for this message (particularly peer info.)
+     *
+     * @return SBN_SUCCESS when the filter feels it processed the message successfully
+     *         (this doesn't necessarily mean the message was altered.)
+     *         SBN_IF_EMPTY if the filter believes the message should not be relayed.
+     *         SBN_ERROR for all other error conditions.
+     */
+    SBN_Status_t (*CheckOutbound)(const CFE_MSG_Message_t *Msg, const SBN_Filter_Ctx_t *Context);
+
 } SBN_FilterInterface_t;
 
 struct SBN_PeerInterface_s

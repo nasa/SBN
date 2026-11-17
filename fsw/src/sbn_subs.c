@@ -22,6 +22,7 @@
 #include "cfe_msgids.h"
 #include "sbn_pack.h"
 #include "sbn_error.h"
+#include "sbn_filter.h"
 
 // TODO: instead of using void * for the buffer for SBN messages, use
 // a struct that has the SBN header in packed bytes.
@@ -447,31 +448,14 @@ static SBN_Status_t SBN_Subs_AddPeerSub(SBN_PeerRecord_t *PeerRec, CFE_SB_MsgId_
  */
 SBN_Status_t SBN_ProcessSubFromPeer(SBN_PeerRecord_t *PeerRec, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
 {
-    SBN_ModuleIdx_t  FilterIdx;
-    SBN_Filter_Ctx_t Filter_Context;
-    SBN_Status_t     SBN_Status;
-
-    Filter_Context.MyProcessorID    = CFE_PSP_GetProcessorId();
-    Filter_Context.MySpacecraftID   = CFE_PSP_GetSpacecraftId();
-    Filter_Context.PeerProcessorID  = SBN_Peer_GetProcessorID(PeerRec);
-    Filter_Context.PeerSpacecraftID = SBN_Peer_GetSpacecraftID(PeerRec);
-
+    SBN_Status_t         SBN_Status;
     SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(PeerRec);
 
-    for (FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
+    SBN_Status = SBN_Filter_Remap(&MsgID, Peer);
+    if (SBN_Status != SBN_SUCCESS)
     {
-        if (Peer->Filters[FilterIdx]->RemapMID == NULL)
-        {
-            continue;
-        } /* end if */
-
-        SBN_Status = (Peer->Filters[FilterIdx]->RemapMID)(&MsgID, &Filter_Context);
-
-        if (SBN_Status != SBN_SUCCESS)
-        {
-            return SBN_Status;
-        } /* end if */
-    } /* end for */
+        return SBN_Status;
+    }
 
     return SBN_Subs_AddPeerSub(PeerRec, MsgID, QoS);
 } /* ProcessSubFromPeer */
@@ -532,36 +516,17 @@ SBN_Status_t SBN_ProcessSubsFromPeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t
  */
 SBN_Status_t SBN_ProcessUnsubFromPeer(SBN_PeerRecord_t *PeerRec, CFE_SB_MsgId_t MsgID)
 {
-    CFE_Status_t     CFE_Status;
-    SBN_ModuleIdx_t  FilterIdx;
-    SBN_Filter_Ctx_t Filter_Context;
-    SBN_Status_t     SBN_Status;
-
-    int          i;
-    SBN_SubCnt_t idx = 0;
-
-    Filter_Context.MyProcessorID    = CFE_PSP_GetProcessorId();
-    Filter_Context.MySpacecraftID   = CFE_PSP_GetSpacecraftId();
-    Filter_Context.PeerProcessorID  = SBN_Peer_GetProcessorID(PeerRec);
-    Filter_Context.PeerSpacecraftID = SBN_Peer_GetSpacecraftID(PeerRec);
-
+    CFE_Status_t         CFE_Status;
+    SBN_Status_t         SBN_Status;
+    SBN_SubCnt_t         i;
+    SBN_SubCnt_t         idx  = 0;
     SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(PeerRec);
 
-    for (FilterIdx = 0; FilterIdx < Peer->FilterCnt; FilterIdx++)
+    SBN_Status = SBN_Filter_Remap(&MsgID, Peer);
+    if (SBN_Status != SBN_SUCCESS)
     {
-        if (Peer->Filters[FilterIdx]->RemapMID == NULL)
-        {
-            continue;
-        } /* end if */
-
-        SBN_Status = (Peer->Filters[FilterIdx]->RemapMID)(&MsgID, &Filter_Context);
-
-        if (SBN_Status != SBN_SUCCESS)
-        {
-            /* assume the filter generated an event */
-            return SBN_Status;
-        } /* end if */
-    } /* end for */
+        return SBN_Status;
+    }
 
     if (!SBN_Subs_CheckPeerMsgId(&idx, MsgID, Peer))
     {
