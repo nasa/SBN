@@ -134,13 +134,9 @@ bool SBN_UnpackMsg(void               *SBNBuf,
  */
 SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 {
-    static const char FAIL_PREFIX[] = "ERROR: could not disconnect peer:";
-    SBN_Status_t      SBN_Status;
-    CFE_Status_t      CFE_Status;
-    char              PipeName[OS_MAX_API_NAME];
-    uint8             ProtocolVer;
+    static const char FAIL_PREFIX[] = "ERROR: could not connect peer:";
 
-    if (Peer->Connected != 0)
+    if (Peer->Connected)
     {
         EVSSendErr(SBN_PEER_EID,
                    "%s peer %d:%d already connected",
@@ -150,44 +146,13 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
         return SBN_ERROR;
     } /* end if */
 
-    /* create a pipe name string similar to SBN_0_Pipe */
-    snprintf(PipeName, OS_MAX_API_NAME, "SBN_%d_%d_Pipe", (int)(Peer->ProcessorID), (int)(Peer->SpacecraftID));
-    CFE_Status = CFE_SB_CreatePipe(&(Peer->Pipe), SBN_PLATFORM_PEER_PIPE_DEPTH, PipeName);
-
-    if (CFE_Status != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEER_EID, "%s: could not create peer pipe '%s'", FAIL_PREFIX, PipeName);
-
-        return SBN_ERROR;
-    } /* end if */
-
-    EVSSendInfo(SBN_PEER_EID, "Created peer pipe '%s'", PipeName);
-
-    CFE_Status = CFE_SB_SetPipeOpts(Peer->Pipe, CFE_SB_PIPEOPTS_IGNOREMINE);
-    if (CFE_Status != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEER_EID, "%s: could not set pipe options '%s'", FAIL_PREFIX, PipeName);
-
-        return SBN_ERROR;
-    } /* end if */
-
-    EVSSendInfo(SBN_PEER_EID, "Peer %d:%d connected.", Peer->SpacecraftID, (int)(Peer->ProcessorID));
-
-    ProtocolVer = SBN_PROTO_VER;
-    SBN_Status  = SBN_SendNetMsg(SBN_PROTO_MSG, sizeof(ProtocolVer), &ProtocolVer, Peer);
-    if (SBN_Status != SBN_SUCCESS)
-    {
-        return SBN_Status;
-    } /* end if */
+    EVSSendInfo(SBN_PEER_EID, "Peer %d:%d connected.", (int)Peer->SpacecraftID, (int)(Peer->ProcessorID));
 
     /* set this to current time so we don't think we've already timed out */
     OS_GetLocalTime(&Peer->LastRecv);
+    Peer->Connected = true;
 
-    SBN_Status = SBN_SendLocalSubsToPeer(SBN_Peer_GetPrivateData(Peer));
-
-    Peer->Connected = 1;
-
-    return SBN_Status;
+    return SBN_SUCCESS;
 } /* end SBN_Connected() */
 
 /**
@@ -199,9 +164,8 @@ SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer)
 SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not disconnect peer:";
-    CFE_Status_t      CFE_Status;
 
-    if (Peer->Connected == 0)
+    if (!Peer->Connected)
     {
         EVSSendErr(SBN_PEER_EID,
                    "%s already not connected to peer %d:%d",
@@ -211,22 +175,7 @@ SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer)
         return SBN_ERROR;
     }
 
-    Peer->Connected = 0; /**< mark as disconnected before deleting pipe */
-
-    if ((CFE_Status = CFE_SB_DeletePipe(Peer->Pipe)) != CFE_SUCCESS)
-    {
-        EVSSendErr(SBN_PEER_EID,
-                   "%s could not delete pipe when disconnecting peer %d:%d: 0x%08x",
-                   FAIL_PREFIX,
-                   Peer->SpacecraftID,
-                   Peer->ProcessorID,
-                   CFE_Status);
-    }
-    Peer->Pipe = CFE_SB_INVALID_PIPE;
-
-    memset(&Peer->Counts, 0, sizeof(Peer->Counts));
-
-    Peer->SubCnt = 0; /* reset sub count, in case this is a reconnection */
+    Peer->Connected = false; /* mark as disconnected */
 
     EVSSendInfo(SBN_PEER_EID, "Disconnected from peer %d:%d.", Peer->SpacecraftID, (int)(Peer->ProcessorID));
 
@@ -638,6 +587,12 @@ void SBN_SendTask(void)
         TempBufD.DataPtr   = D.SbMsgBuf;
         TempBufD.MaxDataSz = sizeof(D.SbMsgBuf);
 
+        TempBufD.ProcessorID  = CFE_PSP_GetProcessorId();
+        TempBufD.SpacecraftID = CFE_PSP_GetSpacecraftId();
+
+        /* Before sending any app data, synchronize the subs */
+        SBN_Subs_UpdateConnectedPeerRemoteSubs(SBN_Peer_GetPrivateData(D.Peer), &TempBufD);
+
         D.Status = SBN_Outbound_GetMsg(&TempBufD, D.Peer->Pipe, CFE_SB_PEND_FOREVER);
         if (D.Status == SBN_IF_EMPTY)
         {
@@ -652,9 +607,7 @@ void SBN_SendTask(void)
 
         D.MsgPtr = TempBufD.DataPtr; /* just for consistency  */
 
-        TempBufD.ProcessorID  = D.Peer->ProcessorID;
-        TempBufD.SpacecraftID = D.Peer->SpacecraftID;
-        TempBufD.MsgType      = SBN_APP_MSG;
+        TempBufD.MsgType = SBN_APP_MSG;
 
         D.Status = SBN_Filter_Mutation(&TempBufD, D.Peer, SBN_Filter_Direction_OUTBOUND);
         if (D.Status != SBN_SUCCESS)
@@ -773,6 +726,15 @@ static SBN_Status_t SBN_CheckPeerPipes(void)
 
                 TempBufD.DataPtr   = SBN_AppData.MsgBuffer;
                 TempBufD.MaxDataSz = sizeof(SBN_AppData.MsgBuffer);
+
+                /* Before sending any app data, synchronize the subs */
+                SBN_Subs_UpdateConnectedPeerRemoteSubs(PeerRec, &TempBufD);
+
+                if (!CFE_RESOURCEID_TEST_DEFINED(Peer->Pipe))
+                {
+                    /* no pipe (yet - this is set up in the polling cycle */
+                    continue;
+                }
 
                 SBN_Status = SBN_Outbound_GetMsg(&TempBufD, Peer->Pipe, CFE_SB_POLL);
                 if (SBN_Status != SBN_SUCCESS)
@@ -993,18 +955,20 @@ static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
 
     SBN_RecvNetMsgs();
 
-    SBN_Status = SBN_CheckSubscriptionPipe();
+    SBN_Status = SBN_Subs_PollCycle();
     switch (SBN_Status)
     {
         case SBN_IF_EMPTY:
             break;
         case SBN_ERROR:
-            EVSSendErr(SBN_PEER_EID, "SBN_CheckSubscriptionPipe failed.");
+            EVSSendErr(SBN_PEER_EID, "SBN_Subs_PollCycle failed.");
             break;
         default:
             /* no error */
             break;
     };
+
+    SBN_Subs_SynchronizeAllPeers();
 
     SBN_CheckPeerPipes();
 
@@ -1480,8 +1444,8 @@ static SBN_Status_t SBN_UnloadPeer(SBN_PeerRecord_t *PeerRec)
     SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(PeerRec);
     SBN_NetInterface_t  *Net  = Peer->Net;
 
-    SBN_RemoveAllSubsFromPeer(PeerRec);
     SBN_Disconnected(Peer);
+    SBN_Subs_UpdateDisconnectedPeerLocalSubs(PeerRec);
 
     if (Peer->TaskFlags & SBN_TASK_SEND)
     {
@@ -1800,9 +1764,7 @@ static SBN_Status_t SBN_Cleanup(void)
     }
 
     // cleanup subs
-    memset(SBN_AppData.Subs, 0, sizeof(SBN_AppData.Subs));
-
-    SBN_AppData.SubCnt = 0;
+    memset(&SBN_AppData.SubSet, 0, sizeof(SBN_AppData.SubSet));
 
     if (CFE_TBL_HANDLE_IS_VALID(SBN_AppData.ConfTblHandle))
     {
@@ -2006,10 +1968,8 @@ SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *Buf
             break;
         } /* end case */
         case SBN_SUB_MSG:
-            return SBN_ProcessSubsFromPeer(PeerRec, BufD);
-
         case SBN_UNSUB_MSG:
-            return SBN_ProcessUnsubsFromPeer(PeerRec, BufD);
+            return SBN_Subs_ProcessMsgFromPeer(PeerRec, BufD);
 
         case SBN_NO_MSG:
             return SBN_SUCCESS;

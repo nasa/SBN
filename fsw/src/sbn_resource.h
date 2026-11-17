@@ -20,12 +20,27 @@
 #define SBN_RESOURCE_H
 
 #include "sbn_interfaces.h"
+#include "sbn_subs.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                 */
 /* SBN application data structures                                 */
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* State info about a net that is kept locally in SBN, not shared with modules */
+typedef struct SBN_PeerPrivState
+{
+    /* The subscription version which is currently reflected in the pipe, from incremental
+     * updates since initial creation */
+    uint32 LocalPipeCurrSubVersion;
+
+    /* The local subscription version which has been propagated to the peer */
+    uint32 PeerSentSubVersion;
+
+    SBN_SubJournal_t SubQ;
+
+} SBN_PeerPrivState_t;
 
 /**
  * The actual content of the SBN NetRecord struct
@@ -50,6 +65,8 @@ struct SBN_PeerRecord
 {
     SBN_PeerId_t PeerId; /**< Tracks allocation status for this peer */
     SBN_NetId_t  NetId;  /**< The net associated with this peer */
+
+    SBN_PeerPrivState_t Priv;
 
     SBN_PeerInterface_t Intf; /**< This struct is passed to modules and is part of the SBN-Module interface */
 };

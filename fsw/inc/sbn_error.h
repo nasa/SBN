@@ -10,5 +10,6 @@
 #define SBN_NO_PEER         -4
 #define SBN_INVALID_VERSION -5
 #define SBN_NULL_OUTLET     -6
+#define SBN_SUBS_NOT_SYNCED -7
 
 #endif /* SBN_ERROR_H */

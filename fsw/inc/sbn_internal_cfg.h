@@ -99,6 +99,23 @@
 #define DEFAULT_SBN_PLATFORM_MAX_ALLSUBS_PKTS_ON_PIPE 64
 
 /**
+ * @brief The number of subscription changes that can be tracked as incremental updates
+ *
+ * Changes within this limit can be sent incrementally to the peer,
+ * or applied incrementally to the local pipe for this peer.
+ *
+ * Beyond this, a full subscription re-sync will need to be done.
+ *
+ * This needs to be big enough to absorb the largest number of subs that
+ * can come in a single subscription message from the peer.  In the current
+ * implementation this is #SBN_MISSION_MAX_SUBS_PER_PEER.
+ *
+ * It must be a power of two such that it can be accessed as a ring buffer.
+ */
+#define SBN_PLATFORM_SUBSCRIPTION_UPDATE_QUEUE_DEPTH         SBN_PLATFORM_CFGVAL(SUBSCRIPTION_UPDATE_QUEUE_DEPTH)
+#define DEFAULT_SBN_PLATFORM_SUBSCRIPTION_UPDATE_QUEUE_DEPTH 512
+
+/**
  * @brief If defined, remapping is enabled at boot time.
  */
 #define SBN_PLATFORM_REMAP_ENABLED         SBN_PLATFORM_CFGVAL(REMAP_ENABLED)

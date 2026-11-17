@@ -88,18 +88,16 @@ typedef struct
     CFE_SB_PipeId_t CmdPipe;
 
     /**
-     * \brief Number of local subs.
-     */
-    SBN_SubCnt_t SubCnt;
-
-    /**
-     * \brief All subscriptions by apps connected to the SB.
+     * \brief All subscriptions by local apps connected to this SB.
      *
      * When a peer and I connect, I send that peer all subscriptions I have
      * and they send me theirs. All messages on the local bus that are
      * subscribed to by the peer are sent over, and vice-versa.
      */
-    SBN_Subs_t Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
+    SBN_SubscriptionSet_t SubSet;
+
+    /* Tracks individual changes to the local subscriptions */
+    SBN_SubJournal_t SubQ;
 
     /** \brief CFE scheduling pipe */
     CFE_SB_PipeId_t SchPipe;

@@ -290,7 +290,7 @@ static void HKPeerSubs_Nominal(void)
 
     memset(&Buffer, 0, sizeof(Buffer));
 
-    PeerPtr->SubCnt = 1;
+    PeerPtr->SubSet.SubCnt = 1;
 
     MsgSz   = sizeof(SBN_SendHkPeerSubsCmd_t);
     FcnCode = SBN_HK_PEERSUBS_CC;
@@ -328,7 +328,7 @@ static void HKMySubs_Nominal(void)
 
     memset(&Buffer, 0, sizeof(Buffer));
 
-    SBN_AppData.SubCnt = 1;
+    SBN_AppData.SubSet.SubCnt = 1;
 
     MsgSz   = sizeof(SBN_SendHkMySubsCmd_t);
     FcnCode = SBN_HK_MYSUBS_CC;

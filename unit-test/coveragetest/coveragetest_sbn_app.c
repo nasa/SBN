@@ -602,7 +602,7 @@ static void SBStart_DelPipeErr(void)
     UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
-    /* SBN_CheckSubscriptionPipe() ...*/
+    /* SBN_Subs_PollCycle() ...*/
     /* ...RcvMsg() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
@@ -648,7 +648,7 @@ static void W4W_NoMsg(void)
     UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_INIT_EID, "unable to delete event pipe");
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -658,7 +658,7 @@ static void W4W_NoMsg(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -689,7 +689,7 @@ static void CheckPP_SendTask(void)
 
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_SEND;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -699,7 +699,7 @@ static void CheckPP_SendTask(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetHookFunction(UT_KEY(CFE_PSP_GetProcessorId), PeerConnHook, NULL);
@@ -724,7 +724,7 @@ static void CheckPP_SendTaskErr(void)
 
     NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_SEND;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -734,7 +734,7 @@ static void CheckPP_SendTaskErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, -1);
@@ -759,7 +759,7 @@ static void CheckPP_RecvErr(void)
     UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -769,7 +769,7 @@ static void CheckPP_RecvErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 3, -1);
@@ -814,7 +814,7 @@ static void CheckPP_FilterEmpty(void)
     PeerPtr->Filters[1] = &FilterEmpty;
     PeerPtr->FilterCnt  = 2;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -824,7 +824,7 @@ static void CheckPP_FilterEmpty(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -862,7 +862,7 @@ static void CheckPP_FilterErr(void)
     PeerPtr->Filters[0] = &Filter;
     PeerPtr->FilterCnt  = 1;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -872,7 +872,7 @@ static void CheckPP_FilterErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -910,7 +910,7 @@ static void CheckPP_Nominal(void)
     PeerPtr->Filters[0] = &Filter;
     PeerPtr->FilterCnt  = 1;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -920,7 +920,7 @@ static void CheckPP_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -938,7 +938,7 @@ static void W4W_RcvMsgErr(void)
 
     UT_ResetState(0);
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -948,7 +948,7 @@ static void W4W_RcvMsgErr(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -1030,7 +1030,7 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* Set up main loop handling */
@@ -1040,7 +1040,7 @@ static void PeerPoll_RecvNetTask_ChildTaskErr(void)
     /* Set up SBN_WaitForWakeup to complete quickly */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_TIME_OUT);
 
-    /* Set up SBN_CheckSubscriptionPipe to succeed */
+    /* Set up SBN_Subs_PollCycle to succeed */
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, CFE_SB_NO_MESSAGE);
 
     /* THIS IS THE KEY SETUP: Make CFE_ES_CreateChildTask fail for receive task creation */
@@ -1076,7 +1076,7 @@ static void PeerPoll_RecvNetTask_Nominal(void)
     PeerPtr->Connected                = 1;
     NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_RECV;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -1086,7 +1086,7 @@ static void PeerPoll_RecvNetTask_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -1178,7 +1178,7 @@ static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
     UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* Set up main loop handling */
@@ -1231,7 +1231,7 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
     IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
     IfOpsPtr->RecvFromNet  = NULL;
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -1245,7 +1245,7 @@ static void PeerPoll_RecvPeerTask_Nominal(void)
     /* PeerPtr->RecvTaskID = STUB_TASKID; */
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* go through main loop once */
@@ -1284,7 +1284,7 @@ static void AppMain_Nominal(void)
     UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
-    /* CFE_SB_ReceiveBuffer() in SBN_CheckSubscriptionPipe() should succeed */
+    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
     memset(SubRprtPtr, 0, sizeof(SubRprt));
@@ -1294,7 +1294,7 @@ static void AppMain_Nominal(void)
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
 
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_CheckSubscriptionPipe should succeed to return a sub msg */
+    /* SBN_Subs_PollCycle should succeed to return a sub msg */
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
 
     /* CFE_SB_ReceiveBuffer() in WaitForSBStartup() should succeed */
@@ -1527,6 +1527,9 @@ static void ProcessPeerMsg_SubMsg_Nominal(void)
     uint8            Buf[SBN_PACKED_SUB_SZ];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
+
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
 
     memset(&BufD, 0, sizeof(BufD));
 
@@ -1546,7 +1549,8 @@ static void ProcessPeerMsg_SubMsg_Nominal(void)
     BufD.DataPtr      = Buf;
 
     UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-    UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID.Value, MsgID.Value);
+
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
 } /* end ProcessPeerMsg_SubMsg_Nominal() */
 
 static void ProcessPeerMsg_UnSubMsg_Nominal(void)
@@ -1557,6 +1561,9 @@ static void ProcessPeerMsg_UnSubMsg_Nominal(void)
     uint8            Buf[SBN_PACKED_SUB_SZ];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
+
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
 
     memset(&BufD, 0, sizeof(BufD));
 
@@ -1576,15 +1583,14 @@ static void ProcessPeerMsg_UnSubMsg_Nominal(void)
     BufD.MaxDataSz    = BufD.ActualDataSz;
     BufD.DataPtr      = Buf;
     UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
-    UtAssert_INT32_EQ(PeerPtr->Subs[0].MsgID.Value, MsgID.Value);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
 
     BufD.MsgType      = SBN_UNSUB_MSG;
     BufD.ActualDataSz = sizeof(Buf);
     BufD.MaxDataSz    = BufD.ActualDataSz;
     BufD.DataPtr      = Buf;
     UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 2);
 } /* end ProcessPeerMsg_UnSubMsg_Nominal() */
 
 static void ProcessPeerMsg_NoMsg_Nominal(void)
@@ -1636,7 +1642,7 @@ static void Connected_AlreadyErr(void)
     START();
 
     UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "ERROR: could not disconnect peer: peer 5678:1234 already connected");
+    UT_CheckEvent_Setup(SBN_PEER_EID, "ERROR: could not connect peer: peer 5678:1234 already connected");
 
     /* Configuration Setup Rationale:
      * Peer Setup:
@@ -1647,50 +1653,6 @@ static void Connected_AlreadyErr(void)
     UtAssert_INT32_EQ(PeerPtr->Connected, 1);
     EVENT_CNT(1);
 } /* end Connected_AlreadyErr() */
-
-static void Connected_PipeOptErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID,
-                        "ERROR: could not disconnect peer:: could not set pipe options 'SBN_1234_5678_Pipe'");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SetPipeOpts), 1, -1);
-
-    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
-    EVENT_CNT(1);
-} /* end Connected_PipeOptErr() */
-
-static void Connected_SendErr(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->Send: Send_Err - Set to return error when sending protocol message
-     * - PeerPtr->Connected: 0 (default) - Peer starts disconnected to allow connection attempt */
-    UT_ResetState(0);
-    IfOpsPtr->Send = Send_Err;
-
-    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
-
-    IfOpsPtr->Send = Send_Nominal;
-} /* end Connected_SendErr() */
-
-static void Connected_CrPipeErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID,
-                        "ERROR: could not disconnect peer:: could not create peer pipe 'SBN_1234_5678_Pipe'");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, -1);
-
-    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
-    EVENT_CNT(1);
-} /* end Connected_CrPipeErr() */
 
 static void Connected_Nominal(void)
 {
@@ -1705,9 +1667,6 @@ static void Connected_Nominal(void)
 static void Test_SBN_Connected(void)
 {
     Connected_AlreadyErr();
-    Connected_CrPipeErr();
-    Connected_PipeOptErr();
-    Connected_SendErr();
     Connected_Nominal();
 } /* end Test_SBN_Connected() */
 
