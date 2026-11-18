@@ -113,7 +113,7 @@ static void SBN_Codec_HkMySubsTlm(SBN_PackState_t *Pack, const SBN_TlmBase_t *Ms
     SBN_SubCnt_t             i;
 
     SBN_Pack_UInt16(Pack, Input->Payload.SubCnt);
-    for (i = 0; i < SBN_AppData.SubCnt; i++)
+    for (i = 0; i < Input->Payload.SubCnt; i++)
     {
         SBN_Pack_MsgID(Pack, Input->Payload.Subs[i]);
     }

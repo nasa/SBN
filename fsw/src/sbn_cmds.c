@@ -218,7 +218,7 @@ CFE_Status_t SBN_SendHkCmd(const SBN_SendHkCmd_t *MsgPtr)
         OutMsg->TlmBase.TlmId     = SBN_HK_CC;
         OutMsg->Payload.CmdCnt    = SBN_AppData.CmdCnt;
         OutMsg->Payload.CmdErrCnt = SBN_AppData.CmdErrCnt;
-        OutMsg->Payload.SubCnt    = SBN_AppData.SubCnt;
+        OutMsg->Payload.SubCnt    = SBN_AppData.SubSet.SubCnt;
         OutMsg->Payload.NetCnt    = SBN_AppData.NetCnt;
 
         /*
@@ -339,7 +339,7 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
         OutMsg->Payload.RecvCnt     = Peer->Counts.RecvCnt;
         OutMsg->Payload.SendErrCnt  = Peer->Counts.SendErrCnt;
         OutMsg->Payload.RecvErrCnt  = Peer->Counts.RecvErrCnt;
-        OutMsg->Payload.SubCnt      = Peer->SubCnt;
+        OutMsg->Payload.SubCnt      = Peer->SubSet.SubCnt;
 
         /*
         ** Timestamp and send packet
@@ -362,9 +362,10 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
  */
 CFE_Status_t SBN_SendHkMySubsCmd(const SBN_SendHkMySubsCmd_t *MsgPtr)
 {
-    SBN_TlmBase_t     *TlmBuf;
-    SBN_HkMySubsTlm_t *OutMsg;
-    SBN_SubCnt_t       i;
+    SBN_TlmBase_t         *TlmBuf;
+    SBN_HkMySubsTlm_t     *OutMsg;
+    SBN_SubCnt_t           i;
+    SBN_SubscriptionSet_t *SubSet;
 
     static CFE_SB_MsgId_t HKMYSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
@@ -381,14 +382,15 @@ CFE_Status_t SBN_SendHkMySubsCmd(const SBN_SendHkMySubsCmd_t *MsgPtr)
 
         CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HKMYSUBS_TLM_MID, sizeof(*OutMsg));
 
+        SubSet = &SBN_AppData.SubSet;
         OutMsg = (SBN_HkMySubsTlm_t *)TlmBuf;
 
         OutMsg->TlmBase.TlmId = SBN_HK_MYSUBS_CC;
 
-        OutMsg->Payload.SubCnt = SBN_AppData.SubCnt;
-        for (i = 0; i < SBN_AppData.SubCnt; i++)
+        OutMsg->Payload.SubCnt = SubSet->SubCnt;
+        for (i = 0; i < SubSet->SubCnt; i++)
         {
-            OutMsg->Payload.Subs[i] = SBN_AppData.Subs[i].MsgID;
+            OutMsg->Payload.Subs[i] = SubSet->Subs[i].MsgID;
         }
 
         /*
@@ -434,6 +436,7 @@ CFE_Status_t SBN_SendHkPeerSubsCmd(const SBN_SendHkPeerSubsCmd_t *MsgPtr)
     SBN_TlmBase_t               *TlmBuf;
     SBN_HkPeerSubsTlm_t         *OutMsg;
     SBN_SubCnt_t                 i;
+    SBN_SubscriptionSet_t       *SubSet;
 
     static CFE_SB_MsgId_t HKPEERSUBS_TLM_MID = CFE_SB_MSGID_RESERVED;
 
@@ -459,16 +462,17 @@ CFE_Status_t SBN_SendHkPeerSubsCmd(const SBN_SendHkPeerSubsCmd_t *MsgPtr)
 
         CFE_MSG_Init(CFE_MSG_PTR(TlmBuf->TelemetryHeader), HKPEERSUBS_TLM_MID, sizeof(*OutMsg));
 
+        SubSet = &Peer->SubSet;
         OutMsg = (SBN_HkPeerSubsTlm_t *)TlmBuf;
 
         OutMsg->TlmBase.TlmId   = SBN_HK_PEERSUBS_CC;
         OutMsg->Payload.NetIdx  = CmdPtr->NetIdx;
         OutMsg->Payload.PeerIdx = CmdPtr->PeerIdx;
-        OutMsg->Payload.SubCnt  = Peer->SubCnt;
+        OutMsg->Payload.SubCnt  = SubSet->SubCnt;
 
-        for (i = 0; i < Peer->SubCnt; i++)
+        for (i = 0; i < SubSet->SubCnt; i++)
         {
-            OutMsg->Payload.Subs[i] = Peer->Subs[i].MsgID;
+            OutMsg->Payload.Subs[i] = SubSet->Subs[i].MsgID;
         }
 
         /*

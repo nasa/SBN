@@ -57,22 +57,31 @@ static void SLS2P_SendNetMsgErr(void)
 {
     START();
 
-    SBN_AppData.SubCnt        = 1;
-    SBN_AppData.Subs[0].MsgID = MsgID;
+    uint8            Buf[SBN_PACKED_SUB_SZ];
+    SBN_BufferDesc_t BufD;
+
+    SBN_AppData.SubSet.SubCnt        = 1;
+    SBN_AppData.SubSet.Subs[0].MsgID = MsgID;
 
     PeerPtr->Net = NetPtr;
 
     IfOpsPtr->Send = Send_Err;
 
-    UtAssert_INT32_EQ(SBN_SendLocalSubsToPeer(PeerRec), SBN_ERROR);
+    memset(&BufD, 0, sizeof(BufD));
+    memset(Buf, 0, sizeof(Buf));
+
+    BufD.MaxDataSz = sizeof(Buf);
+    BufD.DataPtr   = Buf;
+
+    UtAssert_INT32_EQ(SBN_Subs_SendLocalToPeer(PeerRec, &BufD), SBN_ERROR);
 
     IfOpsPtr->Send = Send_Nominal;
 } /* end SLS2P_SendNetMsgErr() */
 
-void Test_SBN_SendLocalSubsToPeer(void)
+void Test_SBN_Subs_SendLocalToPeer(void)
 {
     SLS2P_SendNetMsgErr();
-} /* end Test_SBN_SendLocalSubsToPeer() */
+} /* end Test_SBN_Subs_SendLocalToPeer() */
 
 static void CSP_PLS_MaxSubsErr(void)
 {
@@ -80,7 +89,7 @@ static void CSP_PLS_MaxSubsErr(void)
 
     UT_CheckEvent_Setup(SBN_SUB_EID, "local subscription ignored for MsgID 0x");
 
-    SBN_AppData.SubCnt = SBN_MISSION_MAX_SUBS_PER_PEER;
+    SBN_AppData.SubSet.SubCnt = SBN_MISSION_MAX_SUBS_PER_PEER;
 
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
@@ -92,54 +101,10 @@ static void CSP_PLS_MaxSubsErr(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_ERROR);
 
     EVENT_CNT(1);
 } /* end CSP_PLS_MaxSubsErr() */
-
-static void CSP_PLS_AddlSubs(void)
-{
-    START();
-
-    SBN_AppData.SubCnt           = 1;
-    SBN_AppData.Subs[0].InUseCtr = 1;
-    SBN_AppData.Subs[0].MsgID    = MsgID;
-
-    CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
-    MsgPtr = &Msg;
-    memset(MsgPtr, 0, sizeof(Msg));
-    Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    Msg.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
-
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
-
-    UtAssert_INT32_EQ(SBN_AppData.Subs[0].InUseCtr, 2);
-} /* end CSP_PLS_AddlSubs() */
-
-static void CSP_PLS_SendErr(void)
-{
-    START();
-
-    IfOpsPtr->Send = Send_Err;
-
-    CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
-    MsgPtr = &Msg;
-    memset(MsgPtr, 0, sizeof(Msg));
-    Msg.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    Msg.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
-
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
-
-    IfOpsPtr->Send = Send_Nominal;
-} /* end CSP_PLS_SendErr() */
 
 static void CSP_PLS_EvtMsg(void)
 {
@@ -159,7 +124,7 @@ static void CSP_PLS_EvtMsg(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_SUCCESS);
 
     IfOpsPtr->Send = Send_Nominal;
 } /* end CSP_PLS_EvtMsg() */
@@ -182,7 +147,7 @@ static void CSP_PLS_SbnMsg(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_SUCCESS);
 
     IfOpsPtr->Send = Send_Nominal;
 } /* end CSP_PLS_EvtMsg() */
@@ -201,65 +166,15 @@ static void CSP_PLU_NotSub(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_SUCCESS);
 } /* end CSP_PLU_NotSub() */
-
-static void CSP_PLU_OtherSub(void)
-{
-    START();
-
-    SBN_AppData.SubCnt           = 1;
-    SBN_AppData.Subs[0].InUseCtr = 2;
-    SBN_AppData.Subs[0].MsgID    = MsgID;
-
-    CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
-    MsgPtr = &Msg;
-    memset(MsgPtr, 0, sizeof(Msg));
-    Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
-    Msg.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
-
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
-
-    UtAssert_INT32_EQ(SBN_AppData.Subs[0].InUseCtr, 1);
-    UtAssert_INT32_EQ(SBN_AppData.SubCnt, 1);
-} /* end CSP_PLU_OtherSub() */
-
-static void CSP_PLU_SLS2PErr(void)
-{
-    START();
-
-    SBN_AppData.SubCnt           = 1;
-    SBN_AppData.Subs[0].InUseCtr = 1;
-    SBN_AppData.Subs[0].MsgID    = MsgID;
-
-    CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
-    MsgPtr = &Msg;
-    memset(MsgPtr, 0, sizeof(Msg));
-    Msg.Payload.SubType = CFE_SB_UNSUBSCRIPTION;
-    Msg.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
-
-    IfOpsPtr->Send = Send_Err;
-
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
-
-    IfOpsPtr->Send = Send_Nominal;
-} /* end CSP_PLU_SLS2PErr() */
 
 static void CSP_PLU_Nominal(void)
 {
     START();
 
-    SBN_AppData.SubCnt           = 1;
-    SBN_AppData.Subs[0].InUseCtr = 1;
-    SBN_AppData.Subs[0].MsgID    = MsgID;
+    SBN_AppData.SubSet.SubCnt        = 1;
+    SBN_AppData.SubSet.Subs[0].MsgID = MsgID;
 
     CFE_SB_SingleSubscriptionTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
@@ -271,10 +186,9 @@ static void CSP_PLU_Nominal(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(SBN_AppData.Subs[0].InUseCtr, 0);
-    UtAssert_INT32_EQ(SBN_AppData.SubCnt, 0);
+    UtAssert_INT32_EQ(SBN_AppData.SubSet.SubCnt, 0);
 } /* end CSP_PLU_Nominal() */
 
 static void CSP_SubTypeErr(void)
@@ -293,10 +207,9 @@ static void CSP_SubTypeErr(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_ERROR);
 
-    UtAssert_INT32_EQ(SBN_AppData.Subs[0].InUseCtr, 0);
-    UtAssert_INT32_EQ(SBN_AppData.SubCnt, 0);
+    UtAssert_INT32_EQ(SBN_AppData.SubSet.SubCnt, 0);
 
     EVENT_CNT(1);
 } /* end CSP_SubTypeErr() */
@@ -316,10 +229,9 @@ static void CSP_AllSubs_EntryCntErr(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_ERROR);
 
-    UtAssert_INT32_EQ(SBN_AppData.Subs[0].InUseCtr, 0);
-    UtAssert_INT32_EQ(SBN_AppData.SubCnt, 0);
+    UtAssert_INT32_EQ(SBN_AppData.SubSet.SubCnt, 0);
 
     EVENT_CNT(1);
 } /* end CSP_AllSubs_EntryCntErr() */
@@ -331,7 +243,7 @@ static void CSP_AllSubs_PLSErr(void)
     /* err generated by ProcessLocalSub() */
     UT_CheckEvent_Setup(SBN_SUB_EID, "local subscription ignored for MsgID 0x");
 
-    SBN_AppData.SubCnt = SBN_MISSION_MAX_SUBS_PER_PEER;
+    SBN_AppData.SubSet.SubCnt = SBN_MISSION_MAX_SUBS_PER_PEER;
 
     CFE_SB_AllSubscriptionsTlm_t Msg, *MsgPtr;
     MsgPtr = &Msg;
@@ -343,7 +255,7 @@ static void CSP_AllSubs_PLSErr(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_ERROR);
 
     EVENT_CNT(1);
 } /* end CSP_AllSubs_PLSErr() */
@@ -362,10 +274,9 @@ static void CSP_AllSubs_Nominal(void)
     CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ALLSUBS_TLM_MID);
     UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), false);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(SBN_AppData.Subs[0].InUseCtr, 1);
-    UtAssert_INT32_EQ(SBN_AppData.SubCnt, 1);
+    UtAssert_INT32_EQ(SBN_AppData.SubSet.SubCnt, 1);
 } /* end CSP_AllSubs_Nominal() */
 
 static void CSP_NoMsg(void)
@@ -374,26 +285,22 @@ static void CSP_NoMsg(void)
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_NO_MESSAGE);
 
-    UtAssert_INT32_EQ(SBN_CheckSubscriptionPipe(), SBN_IF_EMPTY);
+    UtAssert_INT32_EQ(SBN_Subs_PollCycle(), SBN_IF_EMPTY);
 } /* end CSP_NoMsg() */
 
-void Test_SBN_CheckSubscriptionPipe(void)
+void Test_SBN_Subs_PollCycle(void)
 {
     CSP_PLS_MaxSubsErr();
-    CSP_PLS_AddlSubs();
-    CSP_PLS_SendErr();
     CSP_PLS_EvtMsg();
     CSP_PLS_SbnMsg();
     CSP_PLU_NotSub();
-    CSP_PLU_OtherSub();
-    CSP_PLU_SLS2PErr();
     CSP_PLU_Nominal();
     CSP_SubTypeErr();
     CSP_AllSubs_EntryCntErr();
     CSP_AllSubs_PLSErr();
     CSP_AllSubs_Nominal();
     CSP_NoMsg();
-} /* end Test_SBN_CheckSubscriptionPipe() */
+} /* end Test_SBN_Subs_PollCycle() */
 
 static SBN_Status_t RemapMID_Err(CFE_SB_MsgId_t *FromToMidPtr, SBN_Filter_Ctx_t *Context)
 {
@@ -415,7 +322,9 @@ static void PSFP_PFP_FiltErr(void)
     uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
 
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
     memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -428,21 +337,24 @@ static void PSFP_PFP_FiltErr(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion);
 } /* end PSFP_PFP_FiltErr() */
 
 static void PSFP_PFP_AlreadySub(void)
 {
     START();
 
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
+    PeerPtr->SubSet.SubCnt        = 1;
+    PeerPtr->SubSet.Subs[0].MsgID = MsgID;
 
     uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
+
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
 
     memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
@@ -456,74 +368,10 @@ static void PSFP_PFP_AlreadySub(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
-
-    EVENT_CNT(1);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
 } /* end PSFP_PFP_AlreadySub() */
-
-static void PSFP_PFP_SubErr(void)
-{
-    START();
-
-    UT_CheckEvent_Setup(SBN_SUB_EID, "unable to subscribe to MID 0x");
-
-    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t  Pack;
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
-    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    SBN_Pack_UInt16(&Pack, 1);
-    SBN_Pack_MsgID(&Pack, MsgID);
-    CFE_SB_Qos_t QoS = { 0 };
-    SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 1, -1);
-
-    BufD.MaxDataSz    = sizeof(Buf);
-    BufD.DataPtr      = Buf;
-    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
-
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
-
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
-
-    EVENT_CNT(1);
-} /* end PSFP_PFP_SubErr() */
-
-static void PSFP_PFP_MaxSubsErr(void)
-{
-    START();
-
-    UT_CheckEvent_Setup(SBN_SUB_EID, "cannot process subscription from ProcessorID ");
-
-    PeerPtr->SubCnt = SBN_MISSION_MAX_SUBS_PER_PEER;
-
-    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t  Pack;
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
-    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    SBN_Pack_UInt16(&Pack, 1);
-    SBN_Pack_MsgID(&Pack, MsgID);
-    CFE_SB_Qos_t QoS = { 0 };
-    SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
-
-    BufD.MaxDataSz    = sizeof(Buf);
-    BufD.DataPtr      = Buf;
-    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
-
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
-
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, SBN_MISSION_MAX_SUBS_PER_PEER);
-
-    EVENT_CNT(1);
-} /* end PSFP_PFP_MaxSubsErr() */
 
 static void PSFP_IdentErr(void)
 {
@@ -549,9 +397,9 @@ static void PSFP_IdentErr(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_ERROR);
 
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
+    UtAssert_INT32_EQ(PeerPtr->SubSet.SubCnt, 0);
 
     EVENT_CNT(1);
 } /* end PSFP_IdentErr() */
@@ -563,7 +411,9 @@ static void PSFP_Nominal(void)
     uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
 
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
     memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -576,17 +426,15 @@ static void PSFP_Nominal(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessSubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
 } /* end PSFP_Nominal() */
 
 void Test_SBN_ProcessSubsFromPeer(void)
 {
     PSFP_PFP_FiltErr();
     PSFP_PFP_AlreadySub();
-    PSFP_PFP_SubErr();
-    PSFP_PFP_MaxSubsErr();
     PSFP_IdentErr();
     PSFP_Nominal();
 } /* end Test_SBN_ProcessSubsFromPeer() */
@@ -595,9 +443,9 @@ static void PUSFP_PUFP_FiltErr(void)
 {
     START();
 
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
-    PeerPtr->FilterCnt     = 2;
+    PeerPtr->SubSet.SubCnt        = 1;
+    PeerPtr->SubSet.Subs[0].MsgID = MsgID;
+    PeerPtr->FilterCnt            = 2;
     SBN_FilterInterface_t Filter1, Filter2;
     memset(&Filter1, 0, sizeof(Filter1));
     memset(&Filter2, 0, sizeof(Filter2));
@@ -608,7 +456,9 @@ static void PUSFP_PUFP_FiltErr(void)
     uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
 
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
     memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -621,22 +471,21 @@ static void PUSFP_PUFP_FiltErr(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
-    /* ProcessUnsubsFromPeer() ignores any subs that the filter remap function returns an err */
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 1);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion);
 } /* end PUSFP_PUFP_FiltErr() */
 
 static void PUSFP_PUFP_NotSub(void)
 {
     START();
 
-    UT_CheckEvent_Setup(SBN_SUB_EID, "cannot process unsubscription from ProcessorID ");
-
     uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
 
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
     memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -649,46 +498,10 @@ static void PUSFP_PUFP_NotSub(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
-
-    EVENT_CNT(1);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
 } /* end PUSFP_PUFP_NotSub() */
-
-static void PUSFP_PUFP_UnsubErr(void)
-{
-    START();
-
-    UT_CheckEvent_Setup(SBN_SUB_EID, "unable to unsubscribe from MID 0x");
-
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
-
-    uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-    SBN_PackState_t  Pack;
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-    SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
-    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    SBN_Pack_UInt16(&Pack, 1);
-    SBN_Pack_MsgID(&Pack, MsgID);
-    CFE_SB_Qos_t QoS = { 0 };
-    SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_UnsubscribeLocal), 1, -1);
-
-    BufD.MaxDataSz    = sizeof(Buf);
-    BufD.DataPtr      = Buf;
-    BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
-
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
-
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
-
-    EVENT_CNT(1);
-} /* end PUSFP_PUFP_UnsubErr() */
 
 static void PUSFP_IdentWarn(void)
 {
@@ -696,8 +509,8 @@ static void PUSFP_IdentWarn(void)
 
     UT_CheckEvent_Setup(SBN_PROTO_EID, "version number mismatch with peer CpuID ");
 
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
+    PeerPtr->SubSet.SubCnt        = 1;
+    PeerPtr->SubSet.Subs[0].MsgID = MsgID;
 
     uint8 Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     char  tmpident[SBN_IDENT_LEN];
@@ -717,9 +530,7 @@ static void PUSFP_IdentWarn(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
-
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_ERROR);
 
     EVENT_CNT(1);
 } /* end PUSFP_IdentWarn() */
@@ -728,13 +539,15 @@ static void PUSFP_Nominal(void)
 {
     START();
 
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
+    PeerPtr->SubSet.SubCnt        = 1;
+    PeerPtr->SubSet.Subs[0].MsgID = MsgID;
 
     uint8            Buf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
     SBN_PackState_t  Pack;
     SBN_BufferDesc_t BufD;
+    uint32           StartVersion;
 
+    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
     memset(&BufD, 0, sizeof(BufD));
     SBN_Pack_Init(&Pack, &Buf, CFE_MISSION_SB_MAX_SB_MSG_SIZE, false);
     SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
@@ -747,56 +560,45 @@ static void PUSFP_Nominal(void)
     BufD.DataPtr      = Buf;
     BufD.ActualDataSz = SBN_Pack_GetPosition(&Pack);
 
-    UtAssert_INT32_EQ(SBN_ProcessUnsubsFromPeer(PeerRec, &BufD), SBN_SUCCESS);
+    UtAssert_INT32_EQ(SBN_Subs_ProcessMsgFromPeer(PeerRec, &BufD), SBN_SUCCESS);
 
-    UtAssert_INT32_EQ(PeerPtr->SubCnt, 0);
+    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
 } /* end PUSFP_Nominal() */
 
 void Test_SBN_ProcessUnsubsFromPeer(void)
 {
     PUSFP_PUFP_FiltErr();
     PUSFP_PUFP_NotSub();
-    PUSFP_PUFP_UnsubErr();
     PUSFP_IdentWarn();
     PUSFP_Nominal();
 } /* end Test_SBN_ProcessUnsubsFromPeer() */
 
-static void RASFP_UnsubErr(void)
+static void UDPLS_NoPipe(void)
 {
     START();
 
-    UT_CheckEvent_Setup(SBN_SUB_EID, "unable to unsubscribe from message id 0x");
-
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
+    PeerPtr->Pipe = CFE_SB_INVALID_PIPE;
 
     UT_SetDeferredRetcode(UT_KEY(CFE_SB_UnsubscribeLocal), 1, -1);
 
     /* errors are generate events but still successful return */
-    UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerRec), SBN_SUCCESS);
+    UtAssert_VOIDCALL(SBN_Subs_UpdateDisconnectedPeerLocalSubs(PeerRec));
+} /* end UDPLS_NoPipe() */
 
-    EVENT_CNT(1);
-} /* end RASFP_UnsubErr() */
-
-static void RASFP_Nominal(void)
+static void UDPLS_Nominal(void)
 {
     START();
 
-    UT_CheckEvent_Setup(SBN_SUB_EID, "unsubscribed 1 message id's from ProcessorID ");
+    PeerPtr->Pipe = CFE_SB_PIPEID_C(CFE_ResourceId_FromInteger(1));
 
-    PeerPtr->SubCnt        = 1;
-    PeerPtr->Subs[0].MsgID = MsgID;
+    UtAssert_VOIDCALL(SBN_Subs_UpdateDisconnectedPeerLocalSubs(PeerRec));
+} /* end UDPLS_Nominal() */
 
-    UtAssert_INT32_EQ(SBN_RemoveAllSubsFromPeer(PeerRec), SBN_SUCCESS);
-
-    EVENT_CNT(1);
-} /* end RASFP_Nominal() */
-
-void Test_SBN_RemoveAllSubsFromPeer(void)
+void Test_SBN_Subs_UpdateDisconnectedPeerLocalSubs(void)
 {
-    RASFP_UnsubErr();
-    RASFP_Nominal();
-} /* end Test_SBN_RemoveAllSubsFromPeer() */
+    UDPLS_NoPipe();
+    UDPLS_Nominal();
+} /* end Test_SBN_Subs_UpdateDisconnectedPeerLocalSubs() */
 
 void UT_Setup(void)
 {
@@ -809,9 +611,9 @@ void UT_TearDown(void)
 void UtTest_Setup(void)
 {
     ADD_TEST(SBN_SendSubsRequests);
-    ADD_TEST(SBN_SendLocalSubsToPeer);
-    ADD_TEST(SBN_CheckSubscriptionPipe);
+    ADD_TEST(SBN_Subs_SendLocalToPeer);
+    ADD_TEST(SBN_Subs_PollCycle);
     ADD_TEST(SBN_ProcessSubsFromPeer);
     ADD_TEST(SBN_ProcessUnsubsFromPeer);
-    ADD_TEST(SBN_RemoveAllSubsFromPeer);
+    ADD_TEST(SBN_Subs_UpdateDisconnectedPeerLocalSubs);
 }

@@ -68,7 +68,6 @@ typedef enum
 /* used in local and peer subscription tables */
 typedef struct
 {
-    uint32         InUseCtr;
     CFE_SB_MsgId_t MsgID;
     CFE_SB_Qos_t   QoS;
 } SBN_Subs_t;

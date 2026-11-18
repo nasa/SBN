@@ -168,6 +168,18 @@ typedef struct SBN_IntfCounts
     SBN_HkCounter_t RecvErrCnt;
 } SBN_IntfCounts_t;
 
+/**
+ * Basic counters for SBN Peers
+ *
+ * This is put into a sub-structure so it can be more easily
+ * passed around and (possibly) cleared or snapshotted when needed.
+ */
+typedef struct SBN_SubscriptionSet
+{
+    SBN_Subs_t   Subs[SBN_MISSION_MAX_SUBS_PER_PEER];
+    SBN_SubCnt_t SubCnt;
+} SBN_SubscriptionSet_t;
+
 typedef struct
 {
     /**
@@ -303,8 +315,7 @@ struct SBN_PeerInterface_s
      * @brief A local table of subscriptions the peer has requested.
      * Includes one extra entry for a null termination.
      */
-    SBN_Subs_t   Subs[SBN_MISSION_MAX_SUBS_PER_PEER + 1];
-    SBN_SubCnt_t SubCnt;
+    SBN_SubscriptionSet_t SubSet;
 
     /**
      * @brief Filters alter message headers/bodies before sending to a peer or after
