@@ -47,4 +47,40 @@ SBN_Status_t SBN_Outbound_SendToPeer(SBN_BufferDesc_t *BufD, SBN_PeerInterface_t
  */
 SBN_Status_t SBN_Outbound_GetMsg(SBN_BufferDesc_t *BufD, CFE_SB_PipeId_t PeerPipe, int32 Timeout);
 
+/**
+ * Checks if this peer has an active/pending outbound data job
+ *
+ * Only one outbound job should be pending at any time on any peer.  This
+ * effectively means that only one thread at a time will be sending to
+ * a peer, thus reducing the need for locking.
+ *
+ * @retval true  if this peer has a pending job (should not be re-scheduled)
+ * @retval false if this peer does not have a pending job
+ */
+bool SBN_Outbound_IsScheduled(SBN_PeerRecord_t *PeerRec);
+
+/**
+ * Worker function - Move outbound data at peer scope
+ *
+ * Generates any outbound messages to the peer, including protocol messages
+ * and/or application data messages pulled from the local bus.
+ *
+ * This is intended to be used with the worker tasks.  In this pattern it
+ * does not return a value, but performs its work and sends events and/or
+ * updates any state variables in the record reflecting what was done.  It
+ * may also reschedule itself to reduce latency, if configured.
+ *
+ * @param[inout] PeerRec   The peer record structure
+ * @param[inout] BufD      The buffer to use for receiving messages
+ */
+void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD);
+
+/**
+ * @brief Outbound data top-level maintenance function
+ *
+ * This must be called periodically from the SBN task main polling loop
+ * to check and schedule outbound data tasks for the various peers.
+ */
+void SBN_Outbound_PollCycle(void);
+
 #endif

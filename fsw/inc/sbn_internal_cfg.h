@@ -116,6 +116,84 @@
 #define DEFAULT_SBN_PLATFORM_SUBSCRIPTION_UPDATE_QUEUE_DEPTH 512
 
 /**
+ * @brief The number of worker tasks to create
+ *
+ * These tasks will service moving data between the local machine and the peers
+ *
+ * This should be set to the number of configured peers which are configured
+ * to have a dedicated task, but must be at least 1 even in polling mode.
+ *
+ * This represents the upper bound on the number of parallel operations that
+ * can take place.  If more peers are configured with a "task" flag, then the
+ * worker tasks will round-robin between them.
+ */
+#define SBN_PLATFORM_NUM_WORKER_TASKS         SBN_PLATFORM_CFGVAL(NUM_WORKER_TASKS)
+#define DEFAULT_SBN_PLATFORM_NUM_WORKER_TASKS 2
+
+/**
+ * @brief The depth of the assignment queue
+ *
+ * This is a the size of a ring buffer used to schedule the worker tasks
+ * It must be a power of 2 that is greater than double the number of configured peers
+ * plus the number of nets.
+ *
+ * Each peer may have inbound and outbound traffic is scheduled independently, as well
+ * as inbound traffic at the net level.
+ */
+#define SBN_PLATFORM_WORKER_QUEUE_DEPTH         SBN_PLATFORM_CFGVAL(WORKER_QUEUE_DEPTH)
+#define DEFAULT_SBN_PLATFORM_WORKER_QUEUE_DEPTH 64
+
+/**
+ * @brief Stack Size for SBN worker tasks
+ *
+ * This is the stack size for the threads that process and move network data in SBN.
+ *
+ * Note that some SBN modules create ad-hoc network data buffers on the stack, which can
+ * be at least #SBN_MAX_PACKED_MSG_SZ.  The default value is therefore set large
+ * enough to accommodate use of these modules.
+ *
+ * If the SBN modules in use do _not_ use the stack for buffering, this can be set
+ * to a smaller value to save memory.
+ */
+#define SBN_PLATFORM_WORKER_TASK_STACK_SIZE         SBN_PLATFORM_CFGVAL(WORKER_TASK_STACK_SIZE)
+#define DEFAULT_SBN_PLATFORM_WORKER_TASK_STACK_SIZE 131072
+
+/**
+ * @brief Priority for SBN worker tasks
+ *
+ * The OSAL task priority for SBN worker tasks
+ */
+#define SBN_PLATFORM_WORKER_TASK_PRIORITY         SBN_PLATFORM_CFGVAL(WORKER_TASK_PRIORITY)
+#define DEFAULT_SBN_PLATFORM_WORKER_TASK_PRIORITY 85
+
+/**
+ * @brief Wait time for SBN worker tasks
+ *
+ * When idle/waiting on an assignment, the worker tasks will periodically wake up
+ * and check other system flags, which in turn will allow them to pause or shut down
+ * as needed.  This controls the period of that wake up.  Larger values will be
+ * more CPU efficient at the cost of higher latency for some configuration and
+ * control operations.
+ */
+#define SBN_PLATFORM_WORKER_WAIT_TIME_MSEC         SBN_PLATFORM_CFGVAL(WORKER_WAIT_TIME_MSEC)
+#define DEFAULT_SBN_PLATFORM_WORKER_WAIT_TIME_MSEC 100
+
+/**
+ * @brief Maximum number of messages to process in a single wakeup cycle
+ *
+ * Ideally, a worker task servicing a data pipe (inbound or outbound) will service that
+ * pipe until it is empty.  However, if there is a substantial backlog of data, this can
+ * cause the worker to get stuck servicing the backlogged items, causing other peers/nets
+ * to start backing up as well.
+ *
+ * This limits the number of messages processed on a single wakeup, such that other
+ * peers/nets can still be serviced when one or more of them are saturated and never become
+ * idle.
+ */
+#define SBN_PLATFORM_MAX_MSGS_PER_WAKEUP         SBN_PLATFORM_CFGVAL(MAX_MSGS_PER_WAKEUP)
+#define DEFAULT_SBN_PLATFORM_MAX_MSGS_PER_WAKEUP 25
+
+/**
  * @brief If defined, remapping is enabled at boot time.
  */
 #define SBN_PLATFORM_REMAP_ENABLED         SBN_PLATFORM_CFGVAL(REMAP_ENABLED)

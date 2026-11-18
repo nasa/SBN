@@ -141,12 +141,12 @@ SBN_Status_t SBN_SendSubsRequests(void);
  * be none.
  *
  * @note If the pipe already exists, it will be deleted first.  Upon re-creating
- * the pipe, the known subscriptions are applied.  This allows a peer that has
- * gotten too far out of sync to fully re-establish the local state.
+ * the pipe, the known subscriptions are applied.
  *
  * @param[inout] PeerRec  The local peer record.
+ * @retval #SBN_SUCCESS on success
  */
-void SBN_Subs_SetupLocalPipe(SBN_PeerRecord_t *PeerRec);
+SBN_Status_t SBN_Subs_SetupLocalPipe(SBN_PeerRecord_t *PeerRec);
 
 /*---------------------------------------------------------------------------*/
 /**

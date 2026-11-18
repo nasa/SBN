@@ -584,7 +584,9 @@ void SBN_Subs_UpdateDisconnectedPeerLocalSubs(SBN_PeerRecord_t *PeerRec)
 {
     SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(PeerRec);
 
-    if (CFE_RESOURCEID_TEST_DEFINED(Peer->Pipe))
+    /* Note - the outbound job should not be re-scheduled if it is disconnected.  But in the
+     * event that it had just disconnected and the job is still pending, let it finish */
+    if (CFE_RESOURCEID_TEST_DEFINED(Peer->Pipe) && !SBN_Outbound_IsScheduled(PeerRec))
     {
         /* The peer has disconnected but our local pipe is still open */
         /* Deleting the pipe will also purge all subscriptions, we do not really
@@ -709,37 +711,72 @@ SBN_Status_t SBN_Subs_IncrementLocalPipeSubVersion(SBN_PeerRecord_t *PeerRec)
  * See description in header file for argument/return detail
  *
  *-----------------------------------------------------------------*/
-void SBN_Subs_SetupLocalPipe(SBN_PeerRecord_t *PeerRec)
+SBN_Status_t SBN_Subs_SetupLocalPipe(SBN_PeerRecord_t *PeerRec)
 {
     CFE_Status_t           CFE_Status;
+    CFE_SB_PipeId_t        PendingPipeID;
+    SBN_Status_t           SBN_Status;
     SBN_SubCnt_t           i;
     char                   LocalPipeName[OS_MAX_API_NAME];
     SBN_PeerInterface_t   *Peer   = SBN_Peer_GetIntfData(PeerRec);
     SBN_SubscriptionSet_t *SubSet = &Peer->SubSet;
 
+    SBN_Status    = SBN_SUCCESS;
+    PendingPipeID = CFE_SB_INVALID_PIPE;
+
+    /* There should normally not be a pipe ID yet.  But if there is, then it is in an unknown state.
+     * Only solution is to delete it (no way to "reset" it via the SBN API) */
     if (CFE_RESOURCEID_TEST_DEFINED(Peer->Pipe))
     {
         CFE_SB_DeletePipe(Peer->Pipe);
+        Peer->Pipe = CFE_SB_INVALID_PIPE;
     }
 
     snprintf(LocalPipeName,
              sizeof(LocalPipeName),
              "SBNPEER_%lx",
              CFE_ResourceId_ToInteger(CFE_RESOURCEID_UNWRAP(PeerRec->PeerId)));
-    CFE_Status = CFE_SB_CreatePipe(&Peer->Pipe, SBN_PLATFORM_PEER_PIPE_DEPTH, LocalPipeName);
+
+    CFE_Status = CFE_SB_CreatePipe(&PendingPipeID, SBN_PLATFORM_PEER_PIPE_DEPTH, LocalPipeName);
     if (CFE_Status != CFE_SUCCESS)
     {
-        Peer->Pipe = CFE_SB_INVALID_PIPE;
+        PendingPipeID = CFE_SB_INVALID_PIPE;
+        EVSSendErr(SBN_PEER_EID, "CFE_SB_CreatePipe() failed on '%s', rc=%d", LocalPipeName, (int)CFE_Status);
+        SBN_Status = SBN_ERROR;
     }
     else
     {
-        /* Now subscribe to everything we know about */
-        for (i = 0; i < SubSet->SubCnt; ++i)
+        CFE_Status = CFE_SB_SetPipeOpts(PendingPipeID, CFE_SB_PIPEOPTS_IGNOREMINE);
+        if (CFE_Status != CFE_SUCCESS)
         {
-            /* Best effort; if the peer sent a bad MsgID, it will fail and be ignored (we tried) */
-            CFE_SB_SubscribeLocal(SubSet->Subs[i].MsgID, Peer->Pipe, SBN_PLATFORM_PEER_MSG_LIM);
+            EVSSendErr(SBN_PEER_EID, "CFE_SB_SetPipeOpts() failed on '%s', rc=%d", LocalPipeName, (int)CFE_Status);
+            SBN_Status = SBN_ERROR;
+        }
+        else
+        {
+            /* Now subscribe to everything we know about */
+            for (i = 0; i < SubSet->SubCnt; ++i)
+            {
+                /* Best effort; if the peer sent a bad MsgID, it will fail and be ignored (we tried) */
+                CFE_SB_SubscribeLocal(SubSet->Subs[i].MsgID, PendingPipeID, SBN_PLATFORM_PEER_MSG_LIM);
+            }
         }
     }
+
+    /* If this is exiting with an error, be sure not to leave a valid Pipe ID because
+     * a lot of other logic checks if this pipe ID is defined and assumes its good */
+    if (SBN_Status == SBN_SUCCESS)
+    {
+        /* Successful exit -- export the pipe ID for use */
+        Peer->Pipe = PendingPipeID;
+    }
+    else if (CFE_RESOURCEID_TEST_DEFINED(PendingPipeID))
+    {
+        /* something went wrong when setting it up after creation - do not leak/drop this pipe ID */
+        CFE_SB_DeletePipe(PendingPipeID);
+    }
+
+    return SBN_Status;
 }
 
 /*----------------------------------------------------------------
@@ -786,27 +823,23 @@ void SBN_Subs_UpdateConnectedPeerLocalSubs(SBN_PeerRecord_t *PeerRec)
     SBN_Status_t SBN_Status;
     uint32       LastVersion;
 
-    while (PeerRec->Priv.LocalPipeCurrSubVersion != PeerRec->Priv.SubQ.CurrVersion)
+    /* Make sure we have a valid local pipe ID */
+    if (CFE_RESOURCEID_TEST_DEFINED(PeerRec->Intf.Pipe))
+    {
+        SBN_Status = SBN_SUCCESS;
+    }
+    else
+    {
+        /* [re-]create the pipe to get a clean slate */
+        SBN_Status = SBN_Subs_SetupLocalPipe(PeerRec);
+    }
+
+    while (SBN_Status == SBN_SUCCESS && PeerRec->Priv.LocalPipeCurrSubVersion != PeerRec->Priv.SubQ.CurrVersion)
     {
         LastVersion = PeerRec->Priv.LocalPipeCurrSubVersion;
 
-        /* First try to apply an incremental update to our local pipe */
-        if (CFE_RESOURCEID_TEST_DEFINED(PeerRec->Intf.Pipe))
-        {
-            SBN_Status = SBN_Subs_IncrementLocalPipeSubVersion(PeerRec);
-        }
-        else
-        {
-            /* There may not be a local pipe when initially establishing the connection */
-            /* By definition, the local subs are out of sync */
-            SBN_Status = SBN_SUBS_NOT_SYNCED;
-        }
-
-        if (SBN_Status == SBN_SUBS_NOT_SYNCED)
-        {
-            /* [re-]create the pipe to get a clean slate */
-            SBN_Subs_SetupLocalPipe(PeerRec);
-        }
+        /* try to apply an incremental update to our local pipe */
+        SBN_Status = SBN_Subs_IncrementLocalPipeSubVersion(PeerRec);
 
         /* Note - if either of the above functions worked, it should have updated PeerSentSubVersion */
         if (PeerRec->Priv.LocalPipeCurrSubVersion == LastVersion)

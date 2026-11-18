@@ -125,7 +125,6 @@ static void LoadConf_GetAddrErr(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to get conf table address");
 
     /* make sure it does not return INFO_UPDATED */
@@ -168,7 +167,6 @@ static void LoadConf_ProtoInitErr(void)
 
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in protocol init");
 
     UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
@@ -202,7 +200,6 @@ static void LoadConf_FilterInitErr(void)
 
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "error in filter init");
 
     UT_SBN_SetupModuleBinding("Endian", FilterInterfacePtr);
@@ -233,7 +230,6 @@ static void LoadConf_ProtoNameErr(void)
 
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "protocol XDP is not available");
 
     UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
@@ -266,7 +262,6 @@ static void LoadConf_FiltNameErr(void)
 
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "cannot map filter INVALID");
 
     UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
@@ -294,7 +289,6 @@ static void LoadConf_ReleaseAddrErr(void)
 
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to release address of conf tbl");
 
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
@@ -306,20 +300,6 @@ static void LoadConf_ReleaseAddrErr(void)
     EVENT_CNT(1);
 } /* end LoadConf_ReleaseAddrErr() */
 
-static void LoadConf_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_INIT_EID, "ERROR: could not start SBN: error creating mutex for send tasks");
-
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1); /* fail just after SBN_LoadConfTbl() */
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end LoadConf_Nominal() */
-
 static void Test_LoadConf(void)
 {
     LoadConf_GetAddrErr();
@@ -328,22 +308,7 @@ static void Test_LoadConf(void)
     LoadConf_ProtoNameErr();
     LoadConf_FiltNameErr();
     LoadConf_ReleaseAddrErr();
-    LoadConf_Nominal();
 } /* end Test_LoadConf() */
-
-static void AppMain_MutSemCrErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_INIT_EID, "ERROR: could not start SBN: error creating mutex for send tasks");
-
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, -1);
-
-    SBN_AppMain();
-
-    EVENT_CNT(1);
-} /* end AppMain_MutSemCrErr() */
 
 /* Hook function to modify SBN after SBN_LoadConf completes but before SBN_InitInterfaces */
 static int32 SetupNetConfErr_Hook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
@@ -365,8 +330,6 @@ static void InitInt_NetConfErr(void)
 
     UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
     UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 2, "UDP", NULL);
-
-    UT_ResetState(0);
 
     UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
 
@@ -402,21 +365,6 @@ static void InitInt_NetConfErr(void)
     EVENT_CNT(1);
 } /* end InitInt_NetConfErr() */
 
-static SBN_Status_t RecvFromPeer_Nominal(SBN_NetInterface_t  *Net,
-                                         SBN_PeerInterface_t *Peer,
-                                         SBN_MsgType_t       *MsgTypePtr,
-                                         SBN_MsgSz_t         *MsgSzPtr,
-                                         SBN_ProcessorID_t   *ProcessorIDPtr,
-                                         SBN_SpacecraftID_t  *SpacecraftIDPtr,
-                                         void                *PayloadBuffer)
-{
-    *MsgTypePtr      = SBN_NO_MSG;
-    *MsgSzPtr        = 0;
-    *ProcessorIDPtr  = 1 + CFE_PSP_GetProcessorId();
-    *SpacecraftIDPtr = CFE_PSP_GetSpacecraftId();
-    return SBN_SUCCESS;
-} /* end RecvFromPeer_Nominal() */
-
 static void Test_InitInt(void)
 {
     InitInt_NetConfErr();
@@ -432,8 +380,6 @@ static void AppMain_SubPipeCrErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach SBN_SetupSubPipe where error occurs
      * This allows SBN_LoadConf and SBN_InitInterfaces to succeed, then tests subscription pipe creation failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-
-    UT_ResetState(0);
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to create subscription pipe (Status=");
 
@@ -468,8 +414,6 @@ static void AppMain_SubPipeAllSubErr(void)
      * This allows pipe creation to succeed, then tests the first subscription (allsubs) failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
 
-    UT_ResetState(0);
-
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to allsubs (Status=");
 
     /* Set up CFE_TBL_GetAddress to return our test table */
@@ -503,8 +447,6 @@ static void AppMain_SubPipeOneSubErr(void)
      * - PeerCnt: 0 - No peers needed, minimal config to reach second CFE_SB_SubscribeLocal failure
      * This allows pipe creation and first subscription to succeed, then tests second subscription failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-
-    UT_ResetState(0);
 
     UT_CheckEvent_Setup(SBN_INIT_EID, "failed to subscribe to sub (Status=");
 
@@ -541,8 +483,6 @@ static void AppMain_CmdPipeCrErr(void)
      * This allows SBN_LoadConf to succeed, then tests the very first CFE_SB_CreatePipe failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
 
-    UT_ResetState(0);
-
     UT_CheckEvent_Setup(SBN_INIT_EID, "ERROR: could not start SBN: failed to create command pipe (");
 
     /* Set up CFE_TBL_GetAddress to return our test table */
@@ -573,8 +513,6 @@ static void AppMain_CmdPipeSubErr(void)
      * This allows command pipe creation to succeed, then tests CFE_SB_Subscribe failure */
     memset(&TestConfTbl, 0, sizeof(TestConfTbl));
 
-    UT_ResetState(0);
-
     UT_CheckEvent_Setup(SBN_INIT_EID, "ERROR: could not start SBN: failed to subscribe to command pipe (");
 
     /* Set up CFE_TBL_GetAddress to return our test table */
@@ -599,7 +537,6 @@ static void SBStart_DelPipeErr(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* SBN_Subs_PollCycle() ...*/
@@ -645,7 +582,6 @@ static void W4W_NoMsg(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_INIT_EID, "unable to delete event pipe");
 
     /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
@@ -680,83 +616,10 @@ static int32 PeerConnHook(void *UserObj, int32 StubRetcode, uint32 CallCount, co
     return ProcessorID;
 } /* end PeerConnHook() */
 
-static void CheckPP_SendTask(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_SEND;
-
-    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_Subs_PollCycle should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
-
-    UT_SetHookFunction(UT_KEY(CFE_PSP_GetProcessorId), PeerConnHook, NULL);
-
-    /* go through main loop once */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
-
-    SBN_AppMain();
-
-    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end CheckPP_SendTask() */
-
-static void CheckPP_SendTaskErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_SEND;
-
-    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_Subs_PollCycle should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, -1);
-
-    UT_SetHookFunction(UT_KEY(CFE_PSP_GetProcessorId), PeerConnHook, NULL);
-
-    /* go through main loop once */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
-
-    SBN_AppMain();
-
-    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end CheckPP_SendTaskErr() */
-
 static void CheckPP_RecvErr(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
@@ -794,7 +657,6 @@ static void CheckPP_FilterEmpty(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* Configuration Setup Rationale:
@@ -845,7 +707,6 @@ static void CheckPP_FilterErr(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* Configuration Setup Rationale:
@@ -893,7 +754,6 @@ static void CheckPP_Nominal(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* Configuration Setup Rationale:
@@ -936,8 +796,6 @@ static void W4W_RcvMsgErr(void)
 {
     START();
 
-    UT_ResetState(0);
-
     /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
     CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
     SubRprtPtr = &SubRprt;
@@ -958,330 +816,20 @@ static void W4W_RcvMsgErr(void)
     SBN_AppMain();
 } /* end W4W_RcvMsgErr() */
 
-static void PeerPoll_RecvNetTask_ChildTaskErr(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 1 - Need one protocol module (UDP) to create a network interface
-     * - FilterCnt: 0 - No filters needed for task creation error testing
-     * - PeerCnt: 1 - Need one peer configured as local processor to create a network
-     *
-     * Peer Configuration:
-     * - SpacecraftID: 41 (same as local) - Makes this peer represent the local processor
-     * - ProcessorID: 1 (same as local) - Confirms this is the local processor's network
-     * - TaskFlags: SBN_TASK_RECV - Enables network-level receive task creation
-     * - IfOpsPtr->RecvFromNet: RecvFromNet_Nominal - Must be set to trigger task creation */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-
-    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
-    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
-
-    TestConfTbl.Peers[0].TaskFlags = SBN_TASK_RECV; /* Enable receive task */
-
-    START();
-
-    UT_ResetState(0);
-
-    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
-
-    /* Set up event checking for the expected error */
-    UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for net");
-
-    /* Set up the interface operations to have the necessary functions */
-    IfOpsPtr->InitModule  = ProtoInitModule_Nominal; /* Use your existing nominal function */
-    IfOpsPtr->LoadNet     = LoadNet_Nominal;         /* Use your existing nominal function */
-    IfOpsPtr->InitNet     = InitNet_Nominal;         /* Use your existing nominal function */
-    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;     /* This is key - enables receive task creation */
-
-    /* Set up CFE_TBL_GetAddress to return our test table */
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-
-    /* Set up CFE_TBL_ReleaseAddress to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
-
-    /* Set up processor/spacecraft IDs to match this "peer" entry */
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
-
-    /* Set up mutex creation to succeed */
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 2, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, OS_SUCCESS);
-
-    /* Set up pipe creation to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 2, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_Subscribe), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 2, CFE_SUCCESS);
-
-    /* Set up table functions to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_NotifyByMessage), 1, CFE_SUCCESS);
-
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_Subs_PollCycle should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
-
-    /* Set up main loop handling */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, true);
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 2, false);
-
-    /* Set up SBN_WaitForWakeup to complete quickly */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_TIME_OUT);
-
-    /* Set up SBN_Subs_PollCycle to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, CFE_SB_NO_MESSAGE);
-
-    /* THIS IS THE KEY SETUP: Make CFE_ES_CreateChildTask fail for receive task creation */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, CFE_ES_ERR_CHILD_TASK_CREATE);
-
-    /* Run the main function */
-    SBN_AppMain();
-
-    /* Restore the interface operations */
-    IfOpsPtr->InitModule  = ProtoInitModule_Nominal;
-    IfOpsPtr->LoadNet     = LoadNet_Nominal;
-    IfOpsPtr->InitNet     = InitNet_Nominal;
-    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
-
-    /* Verify the expected event was generated */
-    EVENT_CNT(1);
-} /* end PeerPoll_RecvNetTask_ChildTaskErr() */
-
-static void PeerPoll_RecvNetTask_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    /* Configuration Setup Rationale:
-     * Runtime Configuration:
-     * - SBN_AppData.NetCnt: 0 - Reset to ensure clean state for network counting
-     * - SBN_AppData.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
-     * - PeerPtr->Connected: 1 - Peer must be connected for task creation to be considered
-     * - NominalTblPtr->Peers[0].TaskFlags: SBN_TASK_RECV - Enable network receive task creation */
-
-    PeerPtr->Connected                = 1;
-    NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_RECV;
-
-    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_Subs_PollCycle should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
-
-    /* go through main loop once */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
-
-    SBN_AppMain();
-
-    NominalTblPtr->Peers[0].TaskFlags = SBN_TASK_POLL;
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end PeerPoll_RecvNetTask_Nominal() */
-
-static void PeerPoll_RecvPeerTask_ChildTaskErr(void)
-{
-    /* Configuration Setup Rationale:
-     * - ProtocolCnt: 1 - Need one protocol module (UDP) to create a network interface
-     * - FilterCnt: 0 - No filters needed for task creation error testing
-     * - PeerCnt: 2 - Need two peers: one local (creates network) and one remote with task flag
-     *
-     * Peer Configuration:
-     * - Peers[0]: Local peer (SpacecraftID=41, ProcessorID=1, TaskFlags=0) - Creates network
-     * - Peers[1]: Remote peer (SpacecraftID=42, ProcessorID=2, TaskFlags=SBN_TASK_RECV) - For task creation test
-     * - IfOpsPtr->RecvFromPeer: RecvFromPeer_Nominal - Must be set to trigger task creation
-     * - IfOpsPtr->RecvFromNet: NULL - Disables network-level receive task creation */
-    memset(&TestConfTbl, 0, sizeof(TestConfTbl));
-
-    /* Set up protocol module */
-    UT_SBN_AddProtoConfEntry(&TestConfTbl, 0, "UDP");
-
-    /* Set up local peer (creates network) */
-    UT_SBN_AddPeerConfEntry(&TestConfTbl, 0, 0, "UDP", NULL);
-    UT_SBN_AddPeerConfEntry(&TestConfTbl, 1, 0, "UDP", NULL);
-    TestConfTbl.Peers[1].TaskFlags = SBN_TASK_RECV;
-
-    START();
-
-    UT_ResetState(0);
-
-    UT_SBN_SetupModuleBinding("UDP", IfOpsPtr);
-
-    /* Set up event checking for the expected error */
-    UT_CheckEvent_Setup(SBN_PEER_EID, "error creating task for");
-
-    /* Set up the interface operations */
-    IfOpsPtr->InitModule   = ProtoInitModule_Nominal;
-    IfOpsPtr->LoadNet      = LoadNet_Nominal;
-    IfOpsPtr->InitNet      = InitNet_Nominal;
-    IfOpsPtr->LoadPeer     = LoadPeer_Nominal;
-    IfOpsPtr->InitPeer     = InitPeer_Nominal;
-    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
-    IfOpsPtr->RecvFromNet  = NULL;
-
-    /* Set up CFE_TBL_GetAddress to return our test table */
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-    UT_SetHandlerFunction(UT_KEY(CFE_TBL_GetAddress), CFE_TBL_GetAddress_Hook, NULL);
-
-    /* Set up CFE_TBL_ReleaseAddress to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_ReleaseAddress), 1, CFE_SUCCESS);
-
-    /* Set up processor/spacecraft IDs to match local peer */
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 41);
-
-    /* Set up mutex creation to succeed */
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 1, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemCreate), 2, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, OS_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, OS_SUCCESS);
-
-    /* Set up pipe creation to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_CreatePipe), 2, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_Subscribe), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_SubscribeLocal), 2, CFE_SUCCESS);
-
-    /* Set up table functions to succeed */
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Register), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Load), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_Manage), 1, CFE_SUCCESS);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_NotifyByMessage), 1, CFE_SUCCESS);
-
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_Subs_PollCycle should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
-
-    /* Set up main loop handling */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, true);
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 2, false);
-
-    /* Set up SBN_WaitForWakeup to complete quickly - command pipe timeout */
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SB_TIME_OUT);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, CFE_SB_NO_MESSAGE);
-
-    /* THIS IS THE KEY SETUP: Make CFE_ES_CreateChildTask fail for peer receive task creation */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_CreateChildTask), 1, CFE_ES_ERR_CHILD_TASK_CREATE);
-
-    /* Run the main function */
-    SBN_AppMain();
-
-    /* Restore the interface operations */
-    IfOpsPtr->RecvFromPeer = NULL;
-    IfOpsPtr->RecvFromNet  = RecvFromNet_Nominal;
-
-    /* Verify the expected event was generated */
-    EVENT_CNT(1);
-} /* end PeerPoll_RecvPeerTask_ChildTaskErr() */
-
-static osal_task test_osal_task_entry(void)
-{
-    /* do nothing */
-} /* end osal_task_entry() */
-
-static void PeerPoll_RecvPeerTask_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    /* Configuration Setup Rationale:
-     * Runtime Configuration:
-     * - SBN_AppData.NetCnt: 0 - Reset to ensure clean state for network counting
-     * - SBN_AppData.Nets[0].PeerCnt: 0 - Reset to ensure clean state for peer counting
-     * - PeerPtr->Connected: 1 - Peer must be connected for task creation to be considered
-     * - NominalTblPtr->Peers[1].TaskFlags: SBN_TASK_RECV - Enable peer-level receive task creation
-     * - IfOpsPtr->RecvFromPeer: RecvFromPeer_Nominal - Must be set to trigger peer task creation
-     * - IfOpsPtr->RecvFromNet: NULL - Disables network-level receive task creation */
-
-    PeerPtr->Connected                = 1;
-    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_RECV;
-
-    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
-    IfOpsPtr->RecvFromNet  = NULL;
-
-    /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
-    CFE_SB_SingleSubscriptionTlm_t SubRprt, *SubRprtPtr;
-    SubRprtPtr = &SubRprt;
-    memset(SubRprtPtr, 0, sizeof(SubRprt));
-    SubRprt.Payload.SubType = CFE_SB_SUBSCRIPTION;
-    SubRprt.Payload.MsgId   = MsgID;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &SubRprtPtr, sizeof(SubRprtPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-    /* PeerPtr->RecvTaskID = STUB_TASKID; */
-
-    CFE_SB_MsgId_t mid = CFE_SB_ValueToMsgId(CFE_SB_ONESUB_TLM_MID);
-    /* SBN_Subs_PollCycle should succeed to return a sub msg */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetMsgId), &mid, sizeof(mid), true);
-
-    /* go through main loop once */
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 1);
-    UT_SetDeferredRetcode(UT_KEY(CFE_ES_RunLoop), 1, 0);
-
-    SBN_AppMain();
-
-    IfOpsPtr->RecvFromPeer            = NULL;
-    IfOpsPtr->RecvFromNet             = RecvFromNet_Nominal;
-    NominalTblPtr->Peers[1].TaskFlags = SBN_TASK_POLL;
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end PeerPoll_RecvPeerTask() */
-
 static void Test_WaitForWakeup(void)
 {
     W4W_NoMsg();
     W4W_RcvMsgErr();
-    CheckPP_SendTask();
-    CheckPP_SendTaskErr();
     CheckPP_RecvErr();
     CheckPP_FilterEmpty();
     CheckPP_FilterErr();
     CheckPP_Nominal();
-    PeerPoll_RecvNetTask_ChildTaskErr();
-    PeerPoll_RecvNetTask_Nominal();
-    PeerPoll_RecvPeerTask_ChildTaskErr();
-    PeerPoll_RecvPeerTask_Nominal();
 } /* end Test_SBStart() */
 
 static void AppMain_Nominal(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
 
     /* CFE_SB_ReceiveBuffer() in SBN_Subs_PollCycle() should succeed */
@@ -1328,8 +876,6 @@ static void Test_SBN_AppMain(void)
 
     Test_LoadConf();
 
-    AppMain_MutSemCrErr();
-
     Test_InitInt();
 
     AppMain_SubPipeCrErr();
@@ -1346,376 +892,6 @@ static void Test_SBN_AppMain(void)
     AppMain_Nominal();
 } /* end Test_SBN_AppMain() */
 
-static void ProcessPeerMsg_ProtoMsg_VerErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_SB_EID, "ERROR: could not process peer message: SBN protocol version mismatch with peer ");
-
-    uint8 ver = SBN_PROTO_VER + 1;
-
-    SBN_BufferDesc_t BufD;
-    memset(&BufD, 0, sizeof(BufD));
-
-    BufD.MsgType      = SBN_PROTO_MSG;
-    BufD.ActualDataSz = sizeof(ver);
-    BufD.MaxDataSz    = BufD.ActualDataSz;
-    BufD.DataPtr      = &ver;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-
-    EVENT_CNT(1);
-} /* end ProcessPeerMsg_ProtoMsg_VerErr() */
-
-static void ProcessPeerMsg_ProtoMsg_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_SB_EID, "SBN protocol version match with peer ");
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    uint8 ver = SBN_PROTO_VER;
-
-    BufD.MsgType      = SBN_PROTO_MSG;
-    BufD.ActualDataSz = sizeof(ver);
-    BufD.MaxDataSz    = BufD.ActualDataSz;
-    BufD.DataPtr      = &ver;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-
-    EVENT_CNT(1);
-} /* end ProcessPeerMsg_ProtoMsg_Nominal() */
-
-static SBN_Status_t RecvFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
-{
-    return SBN_ERROR;
-} /* end RecvFilter_Err() */
-
-static void ProcessPeerMsg_AppMsg_FiltErr(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Filter Setup:
-     * - FilterCnt: 1 - Single filter to test error condition
-     * - Filters[0]: Filter with RecvFilter_Err (returns SBN_ERROR) - Triggers filter error during message processing
-     * - ProcessorID/SpacecraftID: Set to match the message being processed to ensure peer lookup succeeds */
-    UT_ResetState(0);
-    SBN_FilterInterface_t Filter;
-    SBN_BufferDesc_t      BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-    memset(&Filter, 0, sizeof(Filter));
-    Filter.FilterRecv = RecvFilter_Err;
-
-    PeerPtr->Filters[0] = &Filter;
-    PeerPtr->FilterCnt  = 1;
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), ProcessorID);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), SpacecraftID);
-
-    BufD.MsgType = SBN_APP_MSG;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_ERROR);
-} /* end ProcessPeerMsg_AppMsg_FiltErr() */
-
-static SBN_Status_t RecvFilter_Out(void *Data, SBN_Filter_Ctx_t *CtxPtr)
-{
-    return SBN_IF_EMPTY;
-} /* end RecvFilter_Out() */
-
-static void ProcessPeerMsg_AppMsg_FiltOut(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Filter Setup:
-     * - FilterCnt: 1 - Single filter to test message filtering
-     * - Filters[0]: Filter with RecvFilter_Out (returns SBN_IF_EMPTY) - Filters out the message
-     * - PeerPtr->ProcessorID/SpacecraftID: Set to match message parameters to ensure peer lookup succeeds
-     * - ProcessorID/SpacecraftID: Set to match the message being processed */
-    UT_ResetState(0);
-    SBN_FilterInterface_t Filter;
-    SBN_BufferDesc_t      BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-    memset(&Filter, 0, sizeof(Filter));
-    Filter.FilterRecv = RecvFilter_Out;
-
-    PeerPtr->ProcessorID  = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
-    PeerPtr->Filters[0]   = &Filter;
-    PeerPtr->FilterCnt    = 1;
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), ProcessorID);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), SpacecraftID);
-
-    BufD.MsgType = SBN_APP_MSG;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_IF_EMPTY);
-} /* end ProcessPeerMsg_AppMsg_FiltOut() */
-
-static SBN_Status_t RecvFilter_Nominal(void *Data, SBN_Filter_Ctx_t *CtxPtr)
-{
-    return SBN_SUCCESS;
-} /* end RecvFilter_Nominal() */
-
-static void ProcessPeerMsg_AppMsg_PassMsgErr(void)
-{
-    START();
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_SB_EID, "ERROR: could not process peer message: CFE_SB_PassMsg error (Status=");
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_TransmitMsg), 1, -1);
-
-    BufD.MsgType = SBN_APP_MSG;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_ERROR);
-
-    EVENT_CNT(1);
-} /* end ProcessPeerMsg_AppMsg_PassMsgErr() */
-
-static void ProcessPeerMsg_AppMsg_Nominal(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Filter Setup:
-     * - FilterCnt: 2 - Two filters to test filter chain processing
-     * - Filters[0]: Filter_Empty (NULL FilterRecv function) - Should be skipped during processing
-     * - Filters[1]: Filter_Nominal (returns SBN_SUCCESS) - Allows message to pass through
-     * - ProcessorID/SpacecraftID: Set to match the message being processed to ensure peer lookup succeeds */
-    UT_ResetState(0);
-    SBN_FilterInterface_t Filter_Empty, Filter_Nominal;
-    SBN_BufferDesc_t      BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    memset(&Filter_Empty, 0, sizeof(Filter_Empty));
-    memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
-    Filter_Nominal.FilterRecv = RecvFilter_Nominal;
-
-    /* Filters[0].Recv is NULL, should skip */
-    PeerPtr->Filters[0] = &Filter_Empty;
-    PeerPtr->Filters[1] = &Filter_Nominal;
-    PeerPtr->FilterCnt  = 2;
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
-
-    BufD.MsgType = SBN_APP_MSG;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-} /* end ProcessPeerMsg_AppMsg_Nominal() */
-
-static void ProcessPeerMsg_SubMsg_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    uint8            Buf[SBN_PACKED_SUB_SZ];
-    SBN_PackState_t  Pack;
-    SBN_BufferDesc_t BufD;
-    uint32           StartVersion;
-
-    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    SBN_Pack_Init(&Pack, &Buf, SBN_PACKED_SUB_SZ, false);
-    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    SBN_Pack_UInt16(&Pack, 1);
-    SBN_Pack_MsgID(&Pack, MsgID);
-    CFE_SB_Qos_t QoS = { 0 };
-    SBN_Pack_Data(&Pack, (void *)&QoS, sizeof(QoS));
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
-
-    BufD.MsgType      = SBN_SUB_MSG;
-    BufD.ActualDataSz = sizeof(Buf);
-    BufD.MaxDataSz    = BufD.ActualDataSz;
-    BufD.DataPtr      = Buf;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-
-    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
-} /* end ProcessPeerMsg_SubMsg_Nominal() */
-
-static void ProcessPeerMsg_UnSubMsg_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    uint8            Buf[SBN_PACKED_SUB_SZ];
-    SBN_PackState_t  Pack;
-    SBN_BufferDesc_t BufD;
-    uint32           StartVersion;
-
-    StartVersion = PeerRec->Priv.SubQ.CurrVersion;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    SBN_Pack_Init(&Pack, &Buf, sizeof(Buf), false);
-    SBN_Pack_Data(&Pack, (void *)SBN_IDENT, SBN_IDENT_LEN);
-    SBN_Pack_UInt16(&Pack, 1);
-
-    SBN_Pack_MsgID(&Pack, MsgID);
-    CFE_SB_Qos_t QoS;
-    SBN_Pack_Data(&Pack, &QoS, sizeof(QoS));
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetProcessorId), 1, ProcessorID);
-    UT_SetDeferredRetcode(UT_KEY(CFE_PSP_GetSpacecraftId), 1, SpacecraftID);
-
-    BufD.MsgType      = SBN_SUB_MSG;
-    BufD.ActualDataSz = sizeof(Buf);
-    BufD.MaxDataSz    = BufD.ActualDataSz;
-    BufD.DataPtr      = Buf;
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 1);
-
-    BufD.MsgType      = SBN_UNSUB_MSG;
-    BufD.ActualDataSz = sizeof(Buf);
-    BufD.MaxDataSz    = BufD.ActualDataSz;
-    BufD.DataPtr      = Buf;
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-    UtAssert_UINT32_EQ(PeerRec->Priv.SubQ.CurrVersion, StartVersion + 2);
-} /* end ProcessPeerMsg_UnSubMsg_Nominal() */
-
-static void ProcessPeerMsg_NoMsg_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    BufD.MsgType = SBN_NO_MSG;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_SUCCESS);
-} /* end ProcessPeerMsg_NoMsg_Nominal() */
-
-static void ProcessPeerMsg_MsgErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    SBN_BufferDesc_t BufD;
-
-    memset(&BufD, 0, sizeof(BufD));
-
-    /* send a net message of an invalid type */
-    BufD.MsgType = SBN_NO_MSG + 100;
-
-    UtAssert_INT32_EQ(SBN_ProcessPeerMsg(PeerRec, &BufD), SBN_ERROR);
-} /* end ProcessPeerMsg_MsgErr() */
-
-static void Test_SBN_ProcessPeerMsg(void)
-{
-    ProcessPeerMsg_AppMsg_FiltErr();
-    ProcessPeerMsg_AppMsg_FiltOut();
-    ProcessPeerMsg_AppMsg_PassMsgErr();
-    ProcessPeerMsg_ProtoMsg_VerErr();
-    ProcessPeerMsg_MsgErr();
-
-    ProcessPeerMsg_AppMsg_Nominal();
-    ProcessPeerMsg_SubMsg_Nominal();
-    ProcessPeerMsg_UnSubMsg_Nominal();
-    ProcessPeerMsg_ProtoMsg_Nominal();
-    ProcessPeerMsg_NoMsg_Nominal();
-} /* end Test_SBN_ProcessPeerMsg() */
-
-static void Connected_AlreadyErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "ERROR: could not connect peer: peer 5678:1234 already connected");
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: 1 - Pre-set peer as already connected to trigger the error condition */
-    PeerPtr->Connected = 1;
-
-    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_ERROR);
-    UtAssert_INT32_EQ(PeerPtr->Connected, 1);
-    EVENT_CNT(1);
-} /* end Connected_AlreadyErr() */
-
-static void Connected_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UtAssert_INT32_EQ(SBN_Connected(PeerPtr), SBN_SUCCESS);
-
-    UtAssert_INT32_EQ(PeerPtr->Connected, 1);
-} /* end Connected_Nominal() */
-
-static void Test_SBN_Connected(void)
-{
-    Connected_AlreadyErr();
-    Connected_Nominal();
-} /* end Test_SBN_Connected() */
-
-static void Disconnected_ConnErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "ERROR: could not disconnect peer: already not connected to peer ");
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: 0 (default) - Peer starts disconnected to trigger the error condition
-     * - PeerPtr->ProcessorID: ProcessorID - Set for error message identification */
-    SBN_PeerInterface_t *PeerPtr = SBN_Peer_GetIntfData(&SBN_AppData.PeerRecords[0]);
-
-    PeerPtr->ProcessorID = ProcessorID;
-
-    UtAssert_INT32_EQ(SBN_Disconnected(PeerPtr), SBN_ERROR);
-    EVENT_CNT(1);
-} /* end Disconnected_Nominal() */
-
-static void Disconnected_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "Disconnected from peer ");
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->ProcessorID: ProcessorID - Set for event message identification
-     * - PeerPtr->Connected: 1 - Pre-set peer as connected to allow valid disconnection */
-    SBN_PeerInterface_t *PeerPtr = SBN_Peer_GetIntfData(&SBN_AppData.PeerRecords[0]);
-
-    PeerPtr->ProcessorID = ProcessorID;
-    PeerPtr->Connected   = 1;
-
-    UtAssert_INT32_EQ(SBN_Disconnected(PeerPtr), SBN_SUCCESS);
-    UtAssert_INT32_EQ(PeerPtr->Connected, 0);
-    EVENT_CNT(1);
-} /* end Disconnected_Nominal() */
-
-static void Test_SBN_Disconnected(void)
-{
-    Disconnected_ConnErr();
-    Disconnected_Nominal();
-} /* end Test_SBN_Disconnected() */
-
 static SBN_Status_t NetIf_Err(SBN_NetInterface_t *Net)
 {
     return SBN_ERROR;
@@ -1725,7 +901,6 @@ static void ReloadConfTbl_UnloadNetErr(void)
 {
     START();
 
-    UT_ResetState(0);
     UT_CheckEvent_Setup(SBN_TBL_EID, "unable to unload network ");
 
     /* Configuration Setup Rationale:
@@ -1738,7 +913,7 @@ static void ReloadConfTbl_UnloadNetErr(void)
 
     PeerPtr->Connected = 1;
 
-    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
+    UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_SUCCESS);
 
     EVENT_CNT(1);
 
@@ -1749,9 +924,8 @@ static void ReloadConfTbl_InitErr(void)
 {
     START();
 
-    UT_ResetState(0);
-
     UT_CheckEvent_Setup(SBN_PEER_EID, "ERROR: could not reload SBN configuration");
+    UT_ResetState(UT_KEY(CFE_TBL_GetAddress));
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_BAD_TABLE_HANDLE);
 
     UtAssert_INT32_EQ(SBN_ReloadConfTbl(), SBN_ERROR);
@@ -1762,8 +936,6 @@ static void ReloadConfTbl_InitErr(void)
 static void ReloadConfTbl_Nominal(void)
 {
     START();
-
-    UT_ResetState(0);
 
     /*
      * Configuration Setup Rationale:
@@ -1886,8 +1058,6 @@ static void SBN_Unpack_Empty(void)
 {
     START();
 
-    UT_ResetState(0);
-
     uint8              Buf[SBN_MAX_PACKED_MSG_SZ] = { 0 }, Payload[1] = { 0 };
     SBN_MsgSz_t        MsgSz;
     SBN_MsgType_t      MsgType;
@@ -1905,8 +1075,6 @@ static void SBN_Unpack_Empty(void)
 static void SBN_Unpack_Err(void)
 {
     START();
-
-    UT_ResetState(0);
 
     uint8              Buf[SBN_MAX_PACKED_MSG_SZ] = { 0 }, Payload[1] = { 0 };
     SBN_MsgSz_t        MsgSz;
@@ -1927,8 +1095,6 @@ static void SBN_Unpack_Err(void)
 static void SBN_Unpack_Nominal(void)
 {
     START();
-
-    UT_ResetState(0);
 
     uint8              Buf[SBN_MAX_PACKED_MSG_SZ] = { 0 }, Payload[1] = { 0 };
     uint8              TestData = 123;
@@ -1955,647 +1121,6 @@ static void Test_SBN_PackUnpack(void)
     SBN_Unpack_Nominal();
 }
 
-void RecvNetMsgs_TaskRecv(void)
-{
-    START();
-
-    UT_ResetState(0);
-    NetPtr->TaskFlags = SBN_TASK_RECV;
-
-    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
-} /* end RecvNetMsgs_TaskRecv() */
-
-static SBN_Status_t RecvFromNet_Empty(SBN_NetInterface_t *Net,
-                                      SBN_MsgType_t      *MsgTypePtr,
-                                      SBN_MsgSz_t        *MsgSzPtr,
-                                      SBN_ProcessorID_t  *ProcessorIDPtr,
-                                      SBN_SpacecraftID_t *SpacecraftIDPtr,
-                                      void               *PayloadBuffer)
-{
-    *ProcessorIDPtr = 1235;
-
-    return SBN_IF_EMPTY;
-} /* end RecvFromNet_Empty() */
-
-void RecvNetMsgs_NetEmpty(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: RecvFromNet_Empty - Set to return SBN_IF_EMPTY (no messages available) */
-    UT_ResetState(0);
-    IfOpsPtr->RecvFromNet = RecvFromNet_Empty;
-
-    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
-
-    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
-} /* end RecvNetMsgs_NetEmpty() */
-
-void RecvNetMsgs_PeerRecv(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: NULL - Disable network-level receive to force peer-level processing
-     * - IfOpsPtr->RecvFromPeer: RecvFromPeer_Nominal - Enable peer-level receive processing */
-    UT_ResetState(0);
-    IfOpsPtr->RecvFromNet  = NULL;
-    IfOpsPtr->RecvFromPeer = RecvFromPeer_Nominal;
-
-    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
-
-    IfOpsPtr->RecvFromNet  = RecvFromNet_Nominal;
-    IfOpsPtr->RecvFromPeer = NULL;
-} /* end RecvNetMsgs_PeerRecv() */
-
-void RecvNetMsgs_NoRecv(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: NULL - Disable network-level receive
-     * - IfOpsPtr->RecvFromPeer: NULL - Disable peer-level receive */
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "neither RecvFromPeer nor RecvFromNet defined for net ");
-
-    IfOpsPtr->RecvFromNet  = NULL;
-    IfOpsPtr->RecvFromPeer = NULL;
-
-    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
-
-    IfOpsPtr->RecvFromNet  = RecvFromNet_Nominal;
-    IfOpsPtr->RecvFromPeer = NULL;
-
-    EVENT_CNT(1);
-} /* end RecvNetMsgs_NoRecv() */
-
-void RecvNetMsgs_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UtAssert_INT32_EQ(SBN_RecvNetMsgs(), SBN_SUCCESS);
-} /* end RecvNetMsgs_Nominal() */
-
-void Test_SBN_RecvNetMsgs(void)
-{
-    RecvNetMsgs_NetEmpty();
-    RecvNetMsgs_TaskRecv();
-    RecvNetMsgs_PeerRecv();
-    RecvNetMsgs_NoRecv();
-    RecvNetMsgs_Nominal();
-} /* end Test_SBN_RecvNetMsgs() */
-
-static void RecvPeerTask_NetConfErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEERTASK_EID, "unable to connect task to peer struct");
-
-    /* Configuration Setup Rationale:
-     * Network Setup:
-     * - NetPtr->Configured: false - Set network as unconfigured to trigger error condition */
-    NetPtr->Configured = false;
-
-    SBN_RecvPeerTask();
-
-    EVENT_CNT(1);
-} /* end RecvPeerTask_NetConfErr() */
-
-static SBN_Status_t RecvFromPeer_EmptyOne(SBN_NetInterface_t  *Net,
-                                          SBN_PeerInterface_t *Peer,
-                                          SBN_MsgType_t       *MsgTypePtr,
-                                          SBN_MsgSz_t         *MsgSzPtr,
-                                          SBN_ProcessorID_t   *ProcessorIDPtr,
-                                          SBN_SpacecraftID_t  *SpacecraftIDPtr,
-                                          void                *PayloadBuffer)
-{
-    static int c = 0;
-
-    if (c++ == 0)
-        return SBN_IF_EMPTY;
-    return SBN_ERROR;
-} /* end RecvFromPeer_EmptyOne() */
-
-static void RecvPeerTask_Empty(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: NULL - Disable network-level receive
-     * - IfOpsPtr->RecvFromPeer: RecvFromPeer_EmptyOne - Returns SBN_IF_EMPTY first call, then SBN_ERROR to exit loop
-     * - PeerPtr->RecvTaskID: Pre-created task ID - Simulates successful task creation */
-    UT_ResetState(0);
-    IfOpsPtr->RecvFromNet  = NULL;
-    IfOpsPtr->RecvFromPeer = RecvFromPeer_EmptyOne;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    SBN_RecvPeerTask();
-
-    IfOpsPtr->RecvFromNet  = RecvFromNet_Nominal;
-    IfOpsPtr->RecvFromPeer = NULL;
-} /* end RecvPeerTask_Empty() */
-
-static SBN_Status_t RecvFromPeer_One(SBN_NetInterface_t  *Net,
-                                     SBN_PeerInterface_t *Peer,
-                                     SBN_MsgType_t       *MsgTypePtr,
-                                     SBN_MsgSz_t         *MsgSzPtr,
-                                     SBN_ProcessorID_t   *ProcessorIDPtr,
-                                     SBN_SpacecraftID_t  *SpacecraftIDPtr,
-                                     void                *PayloadBuffer)
-{
-    static int c = 0;
-
-    if (c++ == 0)
-        return SBN_SUCCESS;
-    return SBN_ERROR;
-} /* end RecvFromPeer_One() */
-
-static void RecvPeerTask_Nominal(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: NULL - Disable network-level receive
-     * - IfOpsPtr->RecvFromPeer: RecvFromPeer_One - Returns SBN_SUCCESS first call, then SBN_ERROR to exit loop
-     * - PeerPtr->RecvTaskID: Pre-created task ID - Simulates successful task creation */
-    UT_ResetState(0);
-    IfOpsPtr->RecvFromNet  = NULL;
-    IfOpsPtr->RecvFromPeer = RecvFromPeer_One;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    SBN_RecvPeerTask();
-
-    IfOpsPtr->RecvFromNet  = RecvFromNet_Nominal;
-    IfOpsPtr->RecvFromPeer = NULL;
-} /* end RecvPeerTask_Nominal() */
-
-static void Test_SBN_RecvPeerTask(void)
-{
-    RecvPeerTask_NetConfErr();
-    RecvPeerTask_Empty();
-    RecvPeerTask_Nominal();
-} /* end Test_SBN_RecvPeerTask() */
-
-static void RecvNetTask_NetConfErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEERTASK_EID,
-                        "ERROR: could not start SBN Receive Net Task: unable to connect task to net struct");
-
-    /* Configuration Setup Rationale:
-     * Network Setup:
-     * - NetPtr->Configured: false - Set network as unconfigured to trigger error condition */
-    NetPtr->Configured = false;
-
-    SBN_RecvNetTask();
-
-    EVENT_CNT(1);
-} /* end RecvNetTask_NetConfErr() */
-
-static SBN_Status_t RecvFromNet_EmptyOne(SBN_NetInterface_t *Net,
-                                         SBN_MsgType_t      *MsgTypePtr,
-                                         SBN_MsgSz_t        *MsgSzPtr,
-                                         SBN_ProcessorID_t  *ProcessorIDPtr,
-                                         SBN_SpacecraftID_t *SpacecraftIDPtr,
-                                         void               *PayloadBuffer)
-{
-    static int c = 0;
-
-    if (c++ == 0)
-        return SBN_IF_EMPTY;
-    return SBN_ERROR;
-} /* end RecvFromNet_EmptyOne() */
-
-static void RecvNetTask_Empty(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: RecvFromNet_EmptyOne - Returns SBN_IF_EMPTY first call, then SBN_ERROR to exit loop
-     * - NetPtr->RecvTaskID: Pre-created task ID - Simulates successful task creation */
-    UT_ResetState(0);
-    IfOpsPtr->RecvFromNet = RecvFromNet_EmptyOne;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&NetPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    SBN_RecvNetTask();
-
-    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
-} /* end RecvNetTask_Empty() */
-
-static SBN_Status_t RecvFromNet_BadPeer(SBN_NetInterface_t *Net,
-                                        SBN_MsgType_t      *MsgTypePtr,
-                                        SBN_MsgSz_t        *MsgSzPtr,
-                                        SBN_ProcessorID_t  *ProcessorIDPtr,
-                                        SBN_SpacecraftID_t *SpacecraftIDPtr,
-                                        void               *PayloadBuffer)
-{
-    *ProcessorIDPtr = 0;
-
-    return SBN_SUCCESS;
-} /* end RecvFromNet_BadPeer() */
-
-static void RecvNetTask_PeerErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEERTASK_EID, "unknown peer (ProcessorID=0)");
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: RecvFromNet_BadPeer - Returns ProcessorID=0 to simulate unknown peer
-     * - NetPtr->RecvTaskID: Pre-created task ID - Simulates successful task creation */
-    IfOpsPtr->RecvFromNet = RecvFromNet_BadPeer;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&NetPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    SBN_RecvNetTask();
-
-    EVENT_CNT(1);
-
-    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
-} /* end RecvNetTask_PeerErr() */
-
-static SBN_Status_t RecvFromNet_One(SBN_NetInterface_t *Net,
-                                    SBN_MsgType_t      *MsgTypePtr,
-                                    SBN_MsgSz_t        *MsgSzPtr,
-                                    SBN_ProcessorID_t  *ProcessorIDPtr,
-                                    SBN_SpacecraftID_t *SpacecraftIDPtr,
-                                    void               *PayloadBuffer)
-{
-    static int c = 0;
-
-    if (c++ == 0)
-    {
-        *MsgTypePtr     = SBN_NO_MSG + 10; /* bogus type */
-        *ProcessorIDPtr = 1234;
-        return SBN_SUCCESS;
-    } /* end if */
-    return SBN_ERROR;
-} /* end RecvFromNet_One() */
-
-static void RecvNetTask_Nominal(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Interface Setup:
-     * - IfOpsPtr->RecvFromNet: RecvFromNet_One - Returns SBN_SUCCESS first call with bogus message type,
-     *                                           then SBN_ERROR to exit loop
-     * - NetPtr->RecvTaskID: Pre-created task ID - Simulates successful task creation */
-    UT_ResetState(0);
-    IfOpsPtr->RecvFromNet = RecvFromNet_One;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&NetPtr->RecvTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    SBN_RecvNetTask();
-
-    IfOpsPtr->RecvFromNet = RecvFromNet_Nominal;
-} /* end RecvNetTask_Nominal() */
-
-static void Test_SBN_RecvNetTask(void)
-{
-    RecvNetTask_NetConfErr();
-    RecvNetTask_Empty();
-    RecvNetTask_PeerErr();
-    RecvNetTask_Nominal();
-} /* end Test_SBN_RecvNetTask() */
-
-static void SendTask_ConnTaskErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: true - Peer must be connected for send task processing to occur
-     * - PeerPtr->SendTaskID: Pre-created task ID - Simulates successful task creation
-     *
-     * Message Setup:
-     * - CFE_SB_ReceiveBuffer: Default CFE_SB_NO_MESSAGE, then error (-1) on 2nd call - Triggers task exit */
-    PeerPtr->Connected = true;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
-
-    SBN_SendTask();
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end SendTask_ConnTaskErr() */
-
-static int32 TaskDelayConn(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_StubContext_t *Context)
-{
-    static int c = 0;
-
-    if (c++ > 0)
-    {
-        PeerPtr->Connected = true;
-    } /* end if */
-
-    return CFE_SUCCESS;
-}
-
-static void SendTask_PeerNotConn(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: false - Peer starts disconnected to test wait-for-connection behavior
-     * - PeerPtr->SendTaskID: Pre-created task ID - Simulates successful task creation
-     *
-     * Message Setup:
-     * - CFE_SB_ReceiveBuffer: Default CFE_SB_NO_MESSAGE, then error (-1) on 2nd call - Triggers task exit
-     * - OS_TaskDelay: TaskDelayConn hook - Sets peer connected after first delay to simulate connection */
-    PeerPtr->Connected = false;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
-
-    UT_SetHookFunction(UT_KEY(OS_TaskDelay), TaskDelayConn, NULL);
-
-    SBN_SendTask();
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end SendTask_PeerNotConn() */
-
-static SBN_Status_t SendFilter_Err(void *Data, SBN_Filter_Ctx_t *CtxPtr)
-{
-    return SBN_ERROR;
-} /* end SendFilter_Err() */
-
-static void SendTask_FiltErr(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: true - Peer must be connected for send task processing to occur
-     * - PeerPtr->SendTaskID: Pre-created task ID - Simulates successful task creation
-     *
-     * Filter Setup:
-     * - FilterCnt: 1 - Single filter to test error condition
-     * - Filters[0]: Filter_Err with SendFilter_Err (returns SBN_ERROR) - Triggers filter error handling
-     *
-     * Message Setup:
-     * - CFE_SB_ReceiveBuffer: Error (-1) on 2nd call - Triggers task exit after filter processing */
-    UT_ResetState(0);
-    PeerPtr->Connected = true;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    SBN_FilterInterface_t Filter_Err;
-    CFE_MSG_Size_t        MsgSz;
-    CFE_MSG_Message_t     Msg;
-    CFE_MSG_Message_t    *MsgPtr;
-
-    memset(&Filter_Err, 0, sizeof(Filter_Err));
-    Filter_Err.FilterSend = SendFilter_Err;
-
-    /* Filters[0].Recv is NULL, should skip */
-    PeerPtr->Filters[0] = &Filter_Err;
-    PeerPtr->FilterCnt  = 1;
-    MsgSz               = sizeof(Msg);
-    memset(&Msg, 0, sizeof(Msg));
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &MsgSz, sizeof(MsgSz), false);
-    MsgPtr = &Msg;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
-
-    SBN_SendTask();
-} /* end SendTask_FiltErr() */
-
-static SBN_Status_t SendFilter_Out(void *Data, SBN_Filter_Ctx_t *CtxPtr)
-{
-    return SBN_IF_EMPTY;
-} /* end SendFilter_Out() */
-
-static SBN_Status_t SendFilter_Nominal(void *Data, SBN_Filter_Ctx_t *CtxPtr)
-{
-    return SBN_SUCCESS;
-} /* end SendFilter_Nominal() */
-
-static void SendTask_Filters(void)
-{
-    START();
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: true - Peer must be connected for send task processing to occur
-     * - PeerPtr->SendTaskID: Pre-created task ID - Simulates successful task creation
-     *
-     * Filter Setup:
-     * - FilterCnt: 3 - Three filters to test different filter behaviors in chain
-     * - Filters[0]: Filter_Empty (NULL FilterSend function) - Should be skipped during processing
-     * - Filters[1]: Filter_Nominal (returns SBN_SUCCESS) - Allows message to pass through
-     * - Filters[2]: Filter_Out (returns SBN_IF_EMPTY) - Filters out the message
-     *
-     * Message Setup:
-     * - CFE_SB_ReceiveBuffer: Error (-1) on 2nd call - Triggers task exit after filter processing */
-    UT_ResetState(0);
-    PeerPtr->Connected = true;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    CFE_MSG_Size_t        MsgSz;
-    CFE_MSG_Message_t     Msg;
-    CFE_MSG_Message_t    *MsgPtr;
-    SBN_FilterInterface_t Filter_Empty, Filter_Nominal, Filter_Out;
-
-    memset(&Filter_Empty, 0, sizeof(Filter_Empty));
-    memset(&Filter_Nominal, 0, sizeof(Filter_Nominal));
-    memset(&Filter_Out, 0, sizeof(Filter_Out));
-    Filter_Nominal.FilterSend = SendFilter_Nominal;
-    Filter_Out.FilterSend     = SendFilter_Out;
-
-    /* Filters[0].Recv is NULL, should skip */
-    PeerPtr->Filters[0] = &Filter_Empty;
-    PeerPtr->Filters[1] = &Filter_Nominal;
-    PeerPtr->Filters[2] = &Filter_Out;
-    PeerPtr->FilterCnt  = 3;
-
-    MsgSz = sizeof(Msg);
-    memset(&Msg, 0, sizeof(Msg));
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &MsgSz, sizeof(MsgSz), false);
-    MsgPtr = &Msg;
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &MsgPtr, sizeof(MsgPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
-
-    SBN_SendTask();
-} /* end SendTask_Filters() */
-
-static void SendTask_SendNetMsgErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: true - Peer must be connected for send task processing to occur
-     * - PeerPtr->FilterCnt: 0 - No filters for simplicity to focus on SendNetMsg error
-     * - PeerPtr->SendTaskID: Pre-created task ID - Simulates successful task creation
-     *
-     * Message Setup:
-     * - CFE_SB_ReceiveBuffer: Returns test message buffer on first call, then CFE_SB_NO_MESSAGE default
-     * - CFE_MSG_GetSize: Returns 100 bytes - Simulates valid message size
-     * - CFE_ES_GetTaskID: Returns matching task ID - Ensures task validation succeeds
-     * - CFE_PSP_GetProcessorId/SpacecraftId: Set to valid IDs for message processing
-     *
-     * Error Injection:
-     * - SBN_SendNetMsg: Set to return SBN_ERROR - Triggers error handling and task exit */
-    CFE_SB_Buffer_t  TestBuffer;
-    CFE_SB_Buffer_t *TestBufferPtr = &TestBuffer;
-    CFE_MSG_Size_t   TestMsgSize   = 100;
-    CFE_ES_TaskId_t  TestTaskID;
-
-    /*
-     * Test Case: SBN_SendTask with SBN_SendNetMsg error
-     * This should cause the task to exit the main loop
-     */
-
-    /* Set up the peer to be connected */
-    PeerPtr->Connected = true;
-    PeerPtr->FilterCnt = 0; /* No filters for simplicity */
-
-    /* Create a valid task ID and assign it to the peer */
-    CFE_ES_CreateChildTask(&TestTaskID, "test_task", test_osal_task_entry, NULL, 0, 0, 0);
-    PeerPtr->SendTaskID = TestTaskID;
-
-    /* Set up CFE_ES_GetTaskID to return the same task ID */
-    UT_SetDataBuffer(UT_KEY(CFE_ES_GetTaskID), &TestTaskID, sizeof(TestTaskID), false);
-
-    /* Set up message reception - first call succeeds, providing a message */
-    UT_SetDataBuffer(UT_KEY(CFE_SB_ReceiveBuffer), &TestBufferPtr, sizeof(TestBufferPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 1, CFE_SUCCESS);
-
-    /* Set up message size */
-    UT_SetDataBuffer(UT_KEY(CFE_MSG_GetSize), &TestMsgSize, sizeof(TestMsgSize), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_MSG_GetSize), 1, CFE_SUCCESS);
-
-    /* Set up processor/spacecraft IDs */
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), 1);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), 42);
-
-    /* Set up SBN_SendNetMsg to return error - this should cause task to exit */
-    IfOpsPtr->Send = Send_Err;
-
-    /* Run the task - it should exit due to SBN_SendNetMsg error */
-    SBN_SendTask();
-
-    IfOpsPtr->Send = Send_Nominal;
-
-    /* Verify that the task ID was cleared */
-    UtAssert_True(CFE_RESOURCEID_TEST_EQUAL(PeerPtr->SendTaskID, CFE_ES_TASKID_UNDEFINED),
-                  "SendTaskID should be cleared after error");
-
-    /* Verify that CFE_SB_ReceiveBuffer was called */
-    UtAssert_STUB_COUNT(CFE_SB_ReceiveBuffer, 1);
-
-    /* Verify that SBN_SendNetMsg was called (via OS_GetLocalTime check) */
-    UtAssert_STUB_COUNT(OS_GetLocalTime, 1);
-} /* end SendTask_SendNetMsgErr() */
-
-static void SendTask_Nominal(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SB_NO_MESSAGE);
-
-    /* Configuration Setup Rationale:
-     * Peer Setup:
-     * - PeerPtr->Connected: true - Peer must be connected for send task processing to occur
-     * - PeerPtr->SendTaskID: Pre-created task ID - Simulates successful task creation
-     * - PeerPtr->FilterCnt: 0 (default) - No filters configured for simplicity
-     *
-     * Message Setup:
-     * - CFE_SB_ReceiveBuffer: Default CFE_SB_NO_MESSAGE, then error (-1) on 2nd call - Triggers clean task exit */
-    PeerPtr->Connected = true;
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-
-    UT_SetDeferredRetcode(UT_KEY(CFE_SB_ReceiveBuffer), 2, -1);
-
-    SBN_SendTask();
-
-    UT_SetDefaultReturnValue(UT_KEY(CFE_SB_ReceiveBuffer), CFE_SUCCESS);
-} /* end SendTask_Nominal() */
-
-static void Test_SBN_SendTask(void)
-{
-    SendTask_ConnTaskErr();
-    SendTask_PeerNotConn();
-    SendTask_FiltErr();
-    SendTask_Filters();
-    SendTask_SendNetMsgErr();
-    SendTask_Nominal();
-} /* end Test_SBN_SendTask() */
-
-void SendNetMsg_MutexTakeErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "unable to take send mutex");
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemTake), 1, -1);
-
-    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
-
-    EVENT_CNT(1);
-} /* end SendNetMsg_MutexTakeErr() */
-
-void SendNetMsg_MutexGiveErr(void)
-{
-    START();
-
-    UT_ResetState(0);
-    UT_CheckEvent_Setup(SBN_PEER_EID, "unable to give send mutex");
-
-    /* This calls a stub that fills in the task ID. Other parameters are ignored. */
-    CFE_ES_CreateChildTask(&PeerPtr->SendTaskID, "coverage", test_osal_task_entry, NULL, 0, 0, 0);
-    UT_SetDeferredRetcode(UT_KEY(OS_MutSemGive), 1, -1);
-
-    UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
-
-    EVENT_CNT(1);
-} /* end SendNetMsg_MutexTakeErr() */
-
 void SendNetMsg_SendErr(void)
 {
     START();
@@ -2603,7 +1128,7 @@ void SendNetMsg_SendErr(void)
     /* Configuration Setup Rationale:
      * Interface Setup:
      * - IfOpsPtr->Send: Set to Send_Err first, then Send_Nominal - Tests both error and success paths */
-    UT_ResetState(0);
+
     IfOpsPtr->Send = Send_Err;
     UtAssert_INT32_EQ(SBN_SendNetMsg(0, 0, NULL, PeerPtr), SBN_ERROR);
     UtAssert_INT32_EQ(PeerPtr->Counts.SendCnt, 0);
@@ -2619,8 +1144,6 @@ void SendNetMsg_SendErr(void)
 
 void Test_SBN_SendNetMsg(void)
 {
-    SendNetMsg_MutexTakeErr();
-    SendNetMsg_MutexGiveErr();
     SendNetMsg_SendErr();
 } /* end Test_SBN_SendNetMsg() */
 
@@ -2635,15 +1158,8 @@ void UT_TearDown(void)
 void UtTest_Setup(void)
 {
     ADD_TEST(SBN_AppMain);
-    ADD_TEST(SBN_ProcessPeerMsg);
-    ADD_TEST(SBN_Connected);
-    ADD_TEST(SBN_Disconnected);
     ADD_TEST(SBN_ReloadConfTbl);
     ADD_TEST(SBN_ValidateConfTbl);
     ADD_TEST(SBN_PackUnpack);
-    ADD_TEST(SBN_RecvNetMsgs);
-    ADD_TEST(SBN_RecvPeerTask);
-    ADD_TEST(SBN_RecvNetTask);
-    ADD_TEST(SBN_SendTask);
     ADD_TEST(SBN_SendNetMsg);
 }

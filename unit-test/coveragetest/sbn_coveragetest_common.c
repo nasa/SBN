@@ -18,6 +18,7 @@
 
 #include "sbn_coveragetest_common.h"
 #include "sbn_error.h"
+#include "sbn_worker.h"
 
 SBN_ModuleBindingEntry_t UT_SBN_MODULE_BINDINGS[SBN_MISSION_MAX_MOD_CNT] = {
     { NULL, NULL, NULL }
@@ -338,6 +339,22 @@ int32 SymLookHook(void *UserObj, int32 StubRetcode, uint32 CallCount, const UT_S
     } /* end if */
 } /* end SymLookHook() */
 
+/* A handler that bumps the worker count with every call */
+void UT_CondVarWait_Worker_Handler(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
+{
+    if (SBN_WorkQueue.ShouldExit)
+    {
+        if (SBN_WorkQueue.NumWorkers > 0)
+        {
+            --SBN_WorkQueue.NumWorkers;
+        }
+    }
+    else if (SBN_WorkQueue.NumWorkers < SBN_PLATFORM_NUM_WORKER_TASKS)
+    {
+        ++SBN_WorkQueue.NumWorkers;
+    }
+}
+
 void START_fn(const char *func, int line)
 {
     UT_ResetState(0);
@@ -366,6 +383,7 @@ void START_fn(const char *func, int line)
     NetPtr->IfOps         = &IfOps;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
+    UT_SetHandlerFunction(UT_KEY(OS_CondVarWait), UT_CondVarWait_Worker_Handler, NULL);
 
     UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
     UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);

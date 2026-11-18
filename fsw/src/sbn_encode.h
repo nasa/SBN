@@ -15,12 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ************************************************************************/
+
 #ifndef SBN_ENCODE_H
 #define SBN_ENCODE_H
 
 #include "sbn_msg.h"
 #include "cfe_sb_api_typedefs.h"
 #include "cfe_msg_hdr.h"
+#include "sbn_msg.h"
 
 /*************************************************************** */
 /**
