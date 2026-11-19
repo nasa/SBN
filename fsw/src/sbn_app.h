@@ -109,9 +109,6 @@ typedef struct
     SBN_ProtocolModInfo_t ProtocolModInfo[SBN_MISSION_MAX_MOD_CNT];
     SBN_FilterModInfo_t   FilterModInfo[SBN_MISSION_MAX_MOD_CNT];
 
-    /** Global mutex for Send Tasks. */
-    osal_id_t SendMutex;
-
     SBN_HkCounter_t CmdCnt, CmdErrCnt;
 
     CFE_TBL_Handle_t ConfTblHandle;
@@ -119,8 +116,6 @@ typedef struct
     CFE_ResourceId_t LastPeerId;
     CFE_ResourceId_t LastNetId;
 
-    /* Buffer for receiving messages, allocated here to avoid stack smashing */
-    uint8 MsgBuffer[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
 } SBN_AppData_t;
 
 /**
@@ -128,59 +123,14 @@ typedef struct
  */
 extern SBN_AppData_t SBN_AppData;
 
-/* Use a struct for all local variables in the task so we can specify exactly
- * how large of a stack we need for the task.
- */
-
-typedef struct
-{
-    SBN_Status_t         Status;
-    CFE_ES_TaskId_t      RecvTaskID;
-    SBN_PeerId_t         PeerId;
-    SBN_NetId_t          NetId;
-    SBN_PeerInterface_t *Peer;
-    SBN_NetInterface_t  *Net;
-    SBN_BufferDesc_t     BufD;
-    uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} SBN_RecvPeerTaskData_t;
-
-typedef struct
-{
-    SBN_NetId_t          NetId;
-    SBN_NetInterface_t  *Net;
-    SBN_PeerInterface_t *Peer;
-    SBN_Status_t         Status;
-    CFE_ES_TaskId_t      RecvTaskID;
-    SBN_BufferDesc_t     BufD;
-    uint8                NetMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} SBN_RecvNetTaskData_t;
-
-typedef struct
-{
-    SBN_Status_t         Status;
-    SBN_NetId_t          NetId;
-    SBN_PeerId_t         PeerId;
-    CFE_ES_TaskId_t      SendTaskID;
-    CFE_MSG_Message_t   *MsgPtr;
-    CFE_SB_MsgId_t       MsgID;
-    SBN_NetInterface_t  *Net;
-    SBN_PeerInterface_t *Peer;
-    uint8                SbMsgBuf[CFE_MISSION_SB_MAX_SB_MSG_SIZE];
-} SBN_SendTaskData_t;
-
 /*
 ** Prototypes
 */
 
-void         SBN_AppMain(void);
-SBN_Status_t SBN_ProcessPeerMsg(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *D);
+void SBN_AppMain(void);
 SBN_PeerRecord_t              *
 SBN_GetPeerRecord(SBN_NetRecord_t *NetRec, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
 SBN_Status_t SBN_ReloadConfTbl(void);
-void         SBN_RecvNetTask(void);
-void         SBN_RecvPeerTask(void);
-void         SBN_SendTask(void);
-SBN_Status_t SBN_RecvNetMsgs(void);
 
 /**
  * @brief Initializes the housekeeping counters for a peer.
@@ -286,8 +236,6 @@ static inline SBN_NetInterface_t *SBN_Net_GetIntfData(SBN_NetRecord_t *NetRec)
  * They cannot be changed without affecting module compatibility.
  * All I/O should be in the form of "Interface" structs where applicable.
  */
-SBN_Status_t SBN_Connected(SBN_PeerInterface_t *Peer);
-SBN_Status_t SBN_Disconnected(SBN_PeerInterface_t *Peer);
 SBN_PeerInterface_t              *
 SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
 void         SBN_PackMsg(void              *SBNBuf,

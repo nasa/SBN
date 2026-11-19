@@ -302,6 +302,7 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
 {
     const SBN_PeerCmd_Payload_t *CmdPtr = &MsgPtr->Payload;
     SBN_PeerInterface_t         *Peer;
+    SBN_IntfCounts_t            *LastZero;
     SBN_TlmBase_t               *TlmBuf;
     SBN_HkPeerTlm_t             *OutMsg;
 
@@ -335,11 +336,13 @@ CFE_Status_t SBN_SendHkPeerCmd(const SBN_SendHkPeerCmd_t *MsgPtr)
         OutMsg->Payload.ProcessorId = Peer->ProcessorID;
         OutMsg->Payload.LastSend    = OS_TimeGetTotalMicroseconds(Peer->LastSend);
         OutMsg->Payload.LastRecv    = OS_TimeGetTotalMicroseconds(Peer->LastRecv);
-        OutMsg->Payload.SendCnt     = Peer->Counts.SendCnt;
-        OutMsg->Payload.RecvCnt     = Peer->Counts.RecvCnt;
-        OutMsg->Payload.SendErrCnt  = Peer->Counts.SendErrCnt;
-        OutMsg->Payload.RecvErrCnt  = Peer->Counts.RecvErrCnt;
-        OutMsg->Payload.SubCnt      = Peer->SubSet.SubCnt;
+
+        LastZero                   = &SBN_Peer_GetPrivateData(Peer)->Priv.LastZero;
+        OutMsg->Payload.SendCnt    = Peer->Counts.RecvCnt - LastZero->RecvCnt;
+        OutMsg->Payload.RecvCnt    = Peer->Counts.RecvErrCnt - LastZero->RecvErrCnt;
+        OutMsg->Payload.SendErrCnt = Peer->Counts.SendCnt - LastZero->SendCnt;
+        OutMsg->Payload.RecvErrCnt = Peer->Counts.SendErrCnt - LastZero->SendErrCnt;
+        OutMsg->Payload.SubCnt     = Peer->SubSet.SubCnt;
 
         /*
         ** Timestamp and send packet

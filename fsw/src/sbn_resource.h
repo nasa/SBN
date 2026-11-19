@@ -31,6 +31,9 @@
 /* State info about a net that is kept locally in SBN, not shared with modules */
 typedef struct SBN_PeerPrivState
 {
+    /* Flag indicating that the initial protocol message was sent to the peer */
+    bool ProtoMsgSent;
+
     /* The subscription version which is currently reflected in the pipe, from incremental
      * updates since initial creation */
     uint32 LocalPipeCurrSubVersion;
@@ -38,9 +41,35 @@ typedef struct SBN_PeerPrivState
     /* The local subscription version which has been propagated to the peer */
     uint32 PeerSentSubVersion;
 
+    /* A log of subscription changes as received from the remote peer */
     SBN_SubJournal_t SubQ;
 
+    SBN_IntfCounts_t LastZero;
+
 } SBN_PeerPrivState_t;
+
+/**
+ * Flags to track job scheduling status.
+ *
+ * Notes for inbound and outbound scheduling:
+ *  - Only the main task sets "IsScheduled" flags from false to true
+ *    This is done when the conditions observed in the polling loop permit worker activity
+ *  - Only a worker task sets "IsScheduled" flags from true to false
+ *    This is done when the worker has completed its activity
+ *
+ * Other flags are set or cleared in the main task and only read by
+ * the worker tasks.  These are based on config or connection status.
+ */
+typedef struct SBN_SchedState
+{
+    bool InboundSchedulingEnabled; /* If true, then inbound activity is permitted */
+    bool InboundAutoReschedule;    /* if true, self-reschedules inbound activity.  This mimics an inbound task. */
+    bool OutboundAutoReschedule;   /* if true, self-reschedules outbound activity.  This mimics an outbound task. */
+
+    uint32 LastInboundJobId;
+    uint32 LastOutboundJobId;
+
+} SBN_SchedState_t;
 
 /**
  * The actual content of the SBN NetRecord struct
@@ -51,6 +80,8 @@ typedef struct SBN_PeerPrivState
 struct SBN_NetRecord
 {
     SBN_NetId_t NetId; /**< Tracks allocation status for this net */
+
+    SBN_SchedState_t Sched; /**< Synchronization flags between main task and worker */
 
     SBN_NetInterface_t Intf; /**< This struct is passed to modules and is part of the SBN-Module interface */
 };
@@ -67,6 +98,8 @@ struct SBN_PeerRecord
     SBN_NetId_t  NetId;  /**< The net associated with this peer */
 
     SBN_PeerPrivState_t Priv;
+
+    SBN_SchedState_t Sched; /**< Synchronization flags between main task and worker */
 
     SBN_PeerInterface_t Intf; /**< This struct is passed to modules and is part of the SBN-Module interface */
 };

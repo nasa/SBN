@@ -36,6 +36,9 @@ set(APP_SRC_FILES
   fsw/src/sbn_resource.c
   fsw/src/sbn_filter.c
   fsw/src/sbn_outbound.c
+  fsw/src/sbn_inbound.c
+  fsw/src/sbn_worker.c
+  fsw/src/sbn_connection.c
 )
 
 if (CFE_EDS_ENABLED)
