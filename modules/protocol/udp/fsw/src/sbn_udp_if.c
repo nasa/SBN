@@ -316,19 +316,15 @@ static SBN_Status_t Recv(SBN_NetInterface_t *Net,
         return SBN_ERROR;
     } /* end if */
 
-    if (!Peer->Connected)
-    {
-        EVSSendInfo(SBN_UDP_DEBUG_EID, "connecting to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
-        UDP_ProtocolOutlet.Connected(Peer);
-    }
-    else
-    {
-        EVSSendDbg(SBN_UDP_DEBUG_EID, "already connected to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
-    } /* end if */
-
     if (*MsgTypePtr == SBN_UDP_DISCONN_MSG)
     {
         UDP_ProtocolOutlet.Disconnected(Peer);
+    }
+    else if (!Peer->Connected)
+    {
+        /* Implicit connection ? */
+        EVSSendInfo(SBN_UDP_DEBUG_EID, "connecting to peer %d:%d", *SpacecraftIDPtr, *ProcessorIDPtr);
+        UDP_ProtocolOutlet.Connected(Peer);
     }
 
     return SBN_SUCCESS;
