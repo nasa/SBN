@@ -19,6 +19,7 @@
 #include "sbn_coveragetest_common.h"
 #include "sbn_error.h"
 #include "sbn_worker.h"
+#include "sbn_module.h"
 
 SBN_ModuleBindingEntry_t UT_SBN_MODULE_BINDINGS[SBN_MISSION_MAX_MOD_CNT] = {
     { NULL, NULL, NULL }
@@ -123,8 +124,8 @@ void UT_SBN_AddPeerConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, uint8 Net, const cha
 {
     SBN_Peer_Entry_t *PeerEnt = &Tbl->Peers[Pos];
 
-    PeerEnt->ProcessorID  = 1 + Pos;
-    PeerEnt->SpacecraftID = 41;
+    PeerEnt->ProcessorID  = SBN_UT_LOCAL_PROCESSOR_ID + Pos;
+    PeerEnt->SpacecraftID = SBN_UT_SPACECRAFT_ID;
     PeerEnt->NetNum       = Net;
     if (Proto != NULL)
     {
@@ -296,8 +297,8 @@ SBN_ConfTbl_t NominalTbl = {.ProtocolModules = {{.Name        = "UDP",
 SBN_ConfTbl_t *NominalTblPtr = &NominalTbl;
 
 /********************************** globals ************************************/
-SBN_ProcessorID_t    ProcessorID  = 1234;
-SBN_SpacecraftID_t   SpacecraftID = 5678;
+SBN_ProcessorID_t    ProcessorID  = SBN_UT_LOCAL_PROCESSOR_ID;
+SBN_SpacecraftID_t   SpacecraftID = SBN_UT_SPACECRAFT_ID;
 SBN_NetInterface_t  *NetPtr       = NULL;
 SBN_PeerInterface_t *PeerPtr      = NULL;
 SBN_NetRecord_t     *NetRec       = NULL;
@@ -355,6 +356,26 @@ void UT_CondVarWait_Worker_Handler(void *UserObj, UT_EntryKey_t FuncKey, const U
     }
 }
 
+void SBN_UT_Handler_Module_GetProtocolIf(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
+{
+    const SBN_IfOps_t **ProtoIf = UT_Hook_GetArgValueByName(Context, "ProtoIf", const SBN_IfOps_t **);
+
+    if (ProtoIf != NULL)
+    {
+        *ProtoIf = UserObj;
+    }
+}
+void SBN_UT_Handler_Module_GetFilterIf(void *UserObj, UT_EntryKey_t FuncKey, const UT_StubContext_t *Context)
+{
+    const SBN_FilterInterface_t **FilterIf =
+        UT_Hook_GetArgValueByName(Context, "FilterIf", const SBN_FilterInterface_t **);
+
+    if (FilterIf != NULL)
+    {
+        *FilterIf = UserObj;
+    }
+}
+
 void START_fn(const char *func, int line)
 {
     UT_ResetState(0);
@@ -377,20 +398,22 @@ void START_fn(const char *func, int line)
     NetPtr->Configured    = 1;
     NetPtr->PeerIds[0]    = PeerRec->PeerId;
 
-    PeerPtr->ProcessorID  = ProcessorID;
-    PeerPtr->SpacecraftID = SpacecraftID;
+    PeerPtr->ProcessorID  = SBN_UT_PEER_PROCESSOR_ID;
+    PeerPtr->SpacecraftID = SBN_UT_SPACECRAFT_ID;
     PeerPtr->Net          = NetPtr;
     NetPtr->IfOps         = &IfOps;
 
     UT_SetHookFunction(UT_KEY(OS_SymbolLookup), SymLookHook, NULL);
     UT_SetHandlerFunction(UT_KEY(OS_CondVarWait), UT_CondVarWait_Worker_Handler, NULL);
 
-    UT_SetDataBuffer(UT_KEY(CFE_TBL_GetAddress), &NominalTblPtr, sizeof(NominalTblPtr), false);
-    UT_SetDeferredRetcode(UT_KEY(CFE_TBL_GetAddress), 1, CFE_TBL_INFO_UPDATED);
-
     UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetProcessorId), ProcessorID);
-
     UT_SetDefaultReturnValue(UT_KEY(CFE_PSP_GetSpacecraftId), SpacecraftID);
+
+    UT_SetHandlerFunction(UT_KEY(SBN_Module_GetProtocolIf), SBN_UT_Handler_Module_GetProtocolIf, &IfOps);
+    UT_SetHandlerFunction(UT_KEY(SBN_Module_GetFilterIf), SBN_UT_Handler_Module_GetFilterIf, &FilterInterface);
+
+    UT_SetDefaultReturnValue(UT_KEY(SBN_LocatePeerRecordInNet), (UT_IntReturn_t)PeerRec);
+    UT_SetDefaultReturnValue(UT_KEY(SBN_LocateNetRecordByExtIdx), (UT_IntReturn_t)NetRec);
 
     memset(UT_SBN_MODULE_BINDINGS, 0, sizeof(UT_SBN_MODULE_BINDINGS));
 

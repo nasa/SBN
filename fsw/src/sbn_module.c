@@ -23,32 +23,8 @@
 #include "sbn_module.h"
 #include "sbn_module_bindings.h"
 
-const SBN_ModuleBindingEntry_t *SBN_ModuleBinding_FindByModName(const char                     *ModName,
-                                                                const SBN_ModuleBindingEntry_t *BindingList)
-{
-    const SBN_ModuleBindingEntry_t *Entry;
-
-    Entry = BindingList;
-    while (Entry != NULL)
-    {
-        if (Entry->ModName == NULL)
-        {
-            /* end of list */
-            Entry = NULL;
-            break;
-        }
-        if (strcmp(Entry->ModName, ModName) == 0)
-        {
-            /* found a match */
-            break;
-        }
-        ++Entry;
-    }
-    return Entry;
-}
-
-const SBN_ModuleBindingEntry_t *SBN_ModuleBinding_FindBySymName(const char                     *SymName,
-                                                                const SBN_ModuleBindingEntry_t *BindingList)
+const SBN_ModuleBindingEntry_t *SBN_Module_FindBySymName(const char                     *SymName,
+                                                         const SBN_ModuleBindingEntry_t *BindingList)
 {
     const SBN_ModuleBindingEntry_t *Entry;
 
@@ -76,7 +52,7 @@ SBN_Status_t SBN_Module_GetGenericIntf(const char *SymName, const void **OutPtr)
     const SBN_ModuleBindingEntry_t *Entry;
     SBN_Status_t                    Status;
 
-    Entry = SBN_ModuleBinding_FindBySymName(SymName, SBN_MODULE_BINDINGS);
+    Entry = SBN_Module_FindBySymName(SymName, SBN_MODULE_BINDINGS);
     if (Entry == NULL)
     {
         Status  = SBN_ERROR;

@@ -41,15 +41,9 @@
 #include "sbn_interfaces.h"
 #include "sbn_module_bindings.h"
 
-/*
- * Macro to call a function and check its int32 return code
- */
-#define UT_TEST_FUNCTION_RC(func, exp)                                                                \
-    {                                                                                                 \
-        int32 rcexp = exp;                                                                            \
-        int32 rcact = func;                                                                           \
-        UtAssert_True(rcact == rcexp, "%s (%ld) == %s (%ld)", #func, (long)rcact, #exp, (long)rcexp); \
-    }
+#define SBN_UT_PEER_PROCESSOR_ID  102
+#define SBN_UT_LOCAL_PROCESSOR_ID 201
+#define SBN_UT_SPACECRAFT_ID      5678
 
 /*
  * Macro to add a test case to the list of tests to execute
@@ -75,7 +69,7 @@ typedef struct
     const char *ExpectedText;
 } UT_CheckEvent_t;
 
-extern SBN_ModuleBindingEntry_t UT_SBN_MODULE_BINDINGS[SBN_MISSION_MAX_MOD_CNT];
+extern struct SBN_ModuleBindingEntry UT_SBN_MODULE_BINDINGS[SBN_MISSION_MAX_MOD_CNT];
 
 void UT_SBN_AddProtoConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, const char *Proto);
 void UT_SBN_AddFilterConfEntry(SBN_ConfTbl_t *Tbl, uint8 Pos, const char *Filt);

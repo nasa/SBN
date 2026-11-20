@@ -35,6 +35,7 @@
 #include "sbn_extern_typedefs.h"
 #include "sbn_msgdefs.h"
 #include "sbn_msgstruct.h"
+#include "cfe_msg_hdr.h"
 
 #define SBN_CMD_NET_LEN sizeof(CFE_MSG_CommandHeader_t) + sizeof(SBN_NetIdx_t)
 

@@ -42,8 +42,9 @@
  *
  * @param[inout] PeerRec   The peer record structure
  * @param[inout] BufD      The buffer to use for receiving messages
+ * @param[in]    MsgLim    The maximum number of messages to process
  */
-void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD);
+void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD, int32 MsgLim);
 
 /**
  * Worker function - Move inbound data at net scope
@@ -63,8 +64,9 @@ void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD);
  *
  * @param[inout] NetRec    The net record structure
  * @param[inout] BufD      The buffer to use for receiving messages
+ * @param[in]    MsgLim    The maximum number of messages to process
  */
-void SBN_Inbound_ServiceNet(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD);
+void SBN_Inbound_ServiceNet(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD, int32 MsgLim);
 
 /**
  * Forwards a received message to the local software bus

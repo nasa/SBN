@@ -27,6 +27,7 @@ void Test_Pack(void)
     SBN_PackState_t Pack;
 
     UtAssert_True(SBN_Pack_Init(&Pack, Buf, sizeof(Buf), true), "pack init");
+    UtAssert_True(SBN_Pack_Init(&Pack, Buf, sizeof(Buf), false), "pack init no clear");
 
     UtAssert_UINT32_EQ(SBN_Pack_GetPosition(&Pack), 0);
 

@@ -180,18 +180,16 @@ SBN_Status_t SBN_Inbound_ProcessMsg(SBN_BufferDesc_t *BufD, SBN_PeerRecord_t *Pe
  * See description in header file for argument/return detail
  *
  *-----------------------------------------------------------------*/
-void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
+void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD, int32 MsgLim)
 {
     SBN_Status_t         Status;
     SBN_PeerInterface_t *Peer;
     SBN_NetInterface_t  *Net;
     bool                 IsOK;
-    int32                MsgLim;
 
-    Peer   = SBN_Peer_GetIntfData(PeerRec);
-    Net    = Peer->Net;
-    IsOK   = Peer->Connected;
-    MsgLim = SBN_PLATFORM_MAX_MSGS_PER_WAKEUP;
+    Peer = SBN_Peer_GetIntfData(PeerRec);
+    Net  = Peer->Net;
+    IsOK = Peer->Connected;
 
     EVSSendDbg(SBN_PEERTASK_EID, "Try to receive from peer...");
 
@@ -212,30 +210,29 @@ void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
             /* fine */
             break;
         }
-        if (Status != SBN_SUCCESS)
+        if (Status == SBN_SUCCESS)
+        {
+            SBN_Inbound_ProcessMsg(BufD, PeerRec);
+        }
+        else
         {
             /* This is a problem */
             Peer->Counts.RecvErrCnt++;
             IsOK = false;
-            break;
-        }
 
-        SBN_Inbound_ProcessMsg(BufD, PeerRec);
+            /* send an event as this is not expected */
+            EVSSendErr(SBN_PEERTASK_EID,
+                       "%s failed for peer %d: status=%d",
+                       __func__,
+                       SBN_PeerId_AsInt(SBN_PeerRecordGetID(PeerRec)),
+                       (int)Status);
+        }
     }
 
     if (PeerRec->Sched.InboundAutoReschedule && IsOK)
     {
         /* In task mode, immediately reschedule this same job */
         SBN_Inbound_AddPeerDataSchedule(PeerRec);
-    }
-    else if (!IsOK)
-    {
-        /* send an event as this is not expected */
-        EVSSendErr(SBN_PEERTASK_EID,
-                   "%s failed for peer %d: status=%d",
-                   __func__,
-                   SBN_PeerId_AsInt(SBN_PeerRecordGetID(PeerRec)),
-                   (int)Status);
     }
 }
 
@@ -245,17 +242,15 @@ void SBN_Inbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
  * See description in header file for argument/return detail
  *
  *-----------------------------------------------------------------*/
-void SBN_Inbound_ServiceNet(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD)
+void SBN_Inbound_ServiceNet(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD, int32 MsgLim)
 {
     SBN_Status_t        Status;
     SBN_PeerRecord_t   *PeerRec;
     SBN_NetInterface_t *Net;
     bool                IsOK;
-    int32               MsgLim;
 
-    Net    = SBN_Net_GetIntfData(NetRec);
-    IsOK   = true;
-    MsgLim = SBN_PLATFORM_MAX_MSGS_PER_WAKEUP;
+    Net  = SBN_Net_GetIntfData(NetRec);
+    IsOK = true;
 
     EVSSendDbg(SBN_PEERTASK_EID, "Try to receive from net...");
 
@@ -270,32 +265,35 @@ void SBN_Inbound_ServiceNet(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD)
                                          &BufD->SpacecraftID,
                                          BufD->DataPtr);
 
-        /* Note - there is not a counter at the net level */
-        if (Status != SBN_SUCCESS)
+        if (Status == SBN_IF_EMPTY)
         {
-            /* This is the acceptable status, anything else is a problem */
-            IsOK = (Status == SBN_IF_EMPTY);
+            /* fine */
             break;
         }
+        if (Status == SBN_SUCCESS)
+        {
+            /* Note - ProcessPeerMsg handles an unknown (NULL) peer */
+            PeerRec = SBN_GetPeerRecord(NetRec, BufD->ProcessorID, BufD->SpacecraftID);
+            SBN_Inbound_ProcessMsg(BufD, PeerRec);
+        }
+        else
+        {
+            /* Note - there is not a counter at the net level */
+            IsOK = false;
 
-        /* Note - ProcessPeerMsg handles an unknown (NULL) peer */
-        PeerRec = SBN_GetPeerRecord(NetRec, BufD->ProcessorID, BufD->SpacecraftID);
-        SBN_Inbound_ProcessMsg(BufD, PeerRec);
+            /* this should generally not happen on properly configured nets */
+            EVSSendErr(SBN_PEERTASK_EID,
+                       "%s failed for net %d: status=%d",
+                       __func__,
+                       SBN_NetId_AsInt(SBN_NetRecordGetID(NetRec)),
+                       (int)Status);
+        }
     }
 
     if (NetRec->Sched.InboundAutoReschedule && IsOK)
     {
         /* In task mode, immediately reschedule this same job */
         SBN_Inbound_AddNetDataSchedule(NetRec);
-    }
-    else if (!IsOK)
-    {
-        /* this should generally not happen on properly configured nets */
-        EVSSendErr(SBN_PEERTASK_EID,
-                   "%s failed for net %d: status=%d",
-                   __func__,
-                   SBN_NetId_AsInt(SBN_NetRecordGetID(NetRec)),
-                   (int)Status);
     }
 }
 

@@ -131,12 +131,12 @@ extern SBN_Worker_WorkQueue_t SBN_WorkQueue;
 /**
  * The signature of a worker function that operates on a peer
  */
-typedef void (*SBN_Worker_PeerJobFunc_t)(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD);
+typedef void (*SBN_Worker_PeerJobFunc_t)(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD, int32 MsgLim);
 
 /**
  * The signature of a worker function that operates on a net
  */
-typedef void (*SBN_Worker_NetJobFunc_t)(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD);
+typedef void (*SBN_Worker_NetJobFunc_t)(SBN_NetRecord_t *NetRec, SBN_BufferDesc_t *BufD, int32 MsgLim);
 
 /**
  * Gets the next assignment

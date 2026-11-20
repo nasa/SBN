@@ -61,7 +61,7 @@ static bool SBN_VerifyMsgLen(const CFE_MSG_Message_t *MsgPtr, uint16 ExpectedLen
 
     if (CFE_MSG_GetSize(MsgPtr, &ActualLen) != CFE_SUCCESS)
     {
-        EVSSendErr(SBN_CMD_EID, "invalid hk message (Name=%s)", MsgName);
+        EVSSendErr(SBN_CMD_EID, "error getting msg size (Name=%s)", MsgName);
         return false;
     }
 

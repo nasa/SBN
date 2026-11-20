@@ -72,8 +72,9 @@ bool SBN_Outbound_IsScheduled(SBN_PeerRecord_t *PeerRec);
  *
  * @param[inout] PeerRec   The peer record structure
  * @param[inout] BufD      The buffer to use for receiving messages
+ * @param[in]    MsgLim    The maximum number of messages to process
  */
-void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD);
+void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD, int32 MsgLim);
 
 /**
  * @brief Outbound data top-level maintenance function

@@ -128,7 +128,7 @@ void SBN_Worker_DispatchToNet(SBN_Worker_TaskCtxt_t *Ctxt, SBN_NetId_t NetId, SB
     NetRec = SBN_LocateNetRecordByID(NetId);
     if (SBN_NetRecordIsMatch(NetRec, NetId))
     {
-        HandlerFunc(NetRec, &Ctxt->BufferDesc);
+        HandlerFunc(NetRec, &Ctxt->BufferDesc, SBN_PLATFORM_MAX_MSG_PER_WAKEUP);
     }
 }
 
@@ -145,7 +145,7 @@ void SBN_Worker_DispatchToPeer(SBN_Worker_TaskCtxt_t *Ctxt, SBN_PeerId_t PeerId,
     PeerRec = SBN_LocatePeerRecordByID(PeerId);
     if (SBN_PeerRecordIsMatch(PeerRec, PeerId))
     {
-        HandlerFunc(PeerRec, &Ctxt->BufferDesc);
+        HandlerFunc(PeerRec, &Ctxt->BufferDesc, SBN_PLATFORM_MAX_MSG_PER_WAKEUP);
     }
 }
 

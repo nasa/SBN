@@ -54,7 +54,7 @@ SBN_SubChange_t *SBN_Subs_GetPrevChangeEntry(SBN_SubJournal_t *Journal, uint32 V
     uint32           Age;
     SBN_SubChange_t *Entry;
 
-    Age = Journal->CurrVersion - Version;
+    Age = Journal->CurrVersion - Version - 1;
     if (Age > (SBN_PLATFORM_SUBSCRIPTION_UPDATE_QUEUE_DEPTH - 2))
     {
         /* too old! */
@@ -145,11 +145,7 @@ static bool SBN_Subs_CheckInSet(SBN_SubCnt_t *IdxPtr, SBN_SubscriptionSet_t *Sub
     {
         if (CFE_SB_MsgId_Equal(SubSet->Subs[i].MsgID, MsgID))
         {
-            if (IdxPtr)
-            {
-                *IdxPtr = i;
-            } /* end if */
-
+            *IdxPtr = i;
             return true;
         } /* end if */
     } /* end for */
@@ -338,8 +334,8 @@ static SBN_Status_t SBN_ProcessLocalSub(CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS)
         EVENT_MSG_MID       = CFE_SB_ValueToMsgId(CFE_EVS_LONG_EVENT_MSG_MID);
     }
 
-    /* don't send event messages */
-    if (CFE_SB_MsgId_Equal(MsgID, EVENT_MSG_MID))
+    /* don't send event messages or anything invalid */
+    if (CFE_SB_MsgId_Equal(MsgID, EVENT_MSG_MID) || !CFE_SB_IsValidMsgId(MsgID))
     {
         return SBN_SUCCESS;
     }
@@ -821,7 +817,6 @@ void SBN_Subs_UpdateConnectedPeerRemoteSubs(SBN_PeerRecord_t *PeerRec, SBN_Buffe
 void SBN_Subs_UpdateConnectedPeerLocalSubs(SBN_PeerRecord_t *PeerRec)
 {
     SBN_Status_t SBN_Status;
-    uint32       LastVersion;
 
     /* Make sure we have a valid local pipe ID */
     if (CFE_RESOURCEID_TEST_DEFINED(PeerRec->Intf.Pipe))
@@ -836,17 +831,8 @@ void SBN_Subs_UpdateConnectedPeerLocalSubs(SBN_PeerRecord_t *PeerRec)
 
     while (SBN_Status == SBN_SUCCESS && PeerRec->Priv.LocalPipeCurrSubVersion != PeerRec->Priv.SubQ.CurrVersion)
     {
-        LastVersion = PeerRec->Priv.LocalPipeCurrSubVersion;
-
         /* try to apply an incremental update to our local pipe */
         SBN_Status = SBN_Subs_IncrementLocalPipeSubVersion(PeerRec);
-
-        /* Note - if either of the above functions worked, it should have updated PeerSentSubVersion */
-        if (PeerRec->Priv.LocalPipeCurrSubVersion == LastVersion)
-        {
-            /* no update was possible, something is broken, do not try endlessly */
-            break;
-        }
     }
 }
 
