@@ -35,6 +35,7 @@
 #include "sbn_worker.h"
 #include "sbn_inbound.h"
 #include "sbn_connection.h"
+#include "sbn_version.h"
 
 /** \brief SBN global application data, indexed by AppID. */
 SBN_AppData_t SBN_AppData;
@@ -119,7 +120,8 @@ bool SBN_UnpackMsg(void               *SBNBuf,
         return true;
     } /* end if */
 
-    if (*MsgSzPtr < 0 || *MsgSzPtr > CFE_MISSION_SB_MAX_SB_MSG_SIZE)
+    /* MsgSz is unsigned, no need to check for <0 */
+    if (*MsgSzPtr > CFE_MISSION_SB_MAX_SB_MSG_SIZE)
     {
         return false;
     } /* end if */
@@ -159,7 +161,7 @@ SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg,
  * @return SBN_SUCCESS if interface is initialized successfully
  *         SBN_ERROR otherwise
  */
-static SBN_Status_t SBN_InitInterfaces(void)
+SBN_Status_t SBN_InitInterfaces(void)
 {
     SBN_NetIdx_t         NetIdx;
     SBN_NetRecord_t     *NetRec;
@@ -168,8 +170,11 @@ static SBN_Status_t SBN_InitInterfaces(void)
     SBN_PeerRecord_t    *PeerRec;
     SBN_PeerInterface_t *Peer;
     SBN_NetIdx_t         NetCnt;
+    SBN_Status_t         Status;
+    uint32               ErrCnt;
 
     NetCnt = 0;
+    ErrCnt = 0;
     for (NetIdx = 0; NetIdx < SBN_AppData.NetCnt; NetIdx++)
     {
         NetRec = SBN_LocateNetRecordByExtIdx(NetIdx);
@@ -182,8 +187,24 @@ static SBN_Status_t SBN_InitInterfaces(void)
         {
             EVSSendInfo(SBN_INIT_EID, "initializing net: %u", (unsigned int)NetIdx);
 
-            Net->IfOps->InitNet(Net);
-            ++NetCnt;
+            if (Net->IfOps->InitNet)
+            {
+                Status = Net->IfOps->InitNet(Net);
+            }
+            else
+            {
+                Status = SBN_SUCCESS;
+            }
+
+            if (Status == SBN_SUCCESS)
+            {
+                ++NetCnt;
+            }
+            else
+            {
+                EVSSendErr(SBN_INIT_EID, "network #%u failed to init: %d", (unsigned int)NetIdx, (int)Status);
+                ++ErrCnt;
+            }
 
             EVSSendInfo(SBN_INIT_EID, "Net %d has %d peers", NetIdx, Net->PeerCnt);
             for (PeerIdx = 0; PeerIdx < Net->PeerCnt; PeerIdx++)
@@ -202,12 +223,34 @@ static SBN_Status_t SBN_InitInterfaces(void)
                             Peer->SpacecraftID,
                             Peer->ProcessorID);
 
-                Net->IfOps->InitPeer(Peer);
+                if (Net->IfOps->InitPeer)
+                {
+                    Status = Net->IfOps->InitPeer(Peer);
+                }
+                else
+                {
+                    Status = SBN_SUCCESS;
+                }
+
+                if (Status != SBN_SUCCESS)
+                {
+                    EVSSendErr(SBN_INIT_EID,
+                               "peer #%u on net #%u failed to init: %d",
+                               (unsigned int)PeerIdx,
+                               (unsigned int)NetIdx,
+                               (int)Status);
+                    ++ErrCnt;
+                }
             }
         }
     } /* end for */
 
     EVSSendInfo(SBN_INIT_EID, "configured, %d nets", (int)NetCnt);
+
+    if (ErrCnt != 0)
+    {
+        return SBN_ERROR;
+    }
 
     return SBN_SUCCESS;
 } /* end SBN_InitInterfaces */
@@ -219,7 +262,7 @@ static SBN_Status_t SBN_InitInterfaces(void)
  * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
  * @return CFE_SUCCESS on success, otherwise an error value.
  */
-static SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
+SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
 {
     CFE_Status_t           CFE_Status;
     SBN_Status_t           SBN_Status;
@@ -454,7 +497,7 @@ static void SBN_InitFilterModules(const SBN_ConfTbl_t *ConfTbl)
     }
 }
 
-static const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolName)
+const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolName)
 {
     const SBN_ProtocolModInfo_t *ProtoEntry;
     SBN_ModuleIdx_t              ModuleIdx;
@@ -486,7 +529,7 @@ static const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolN
     return ProtoEntry;
 }
 
-static const SBN_FilterModInfo_t *SBN_FindActiveFilter(const char *FilterName)
+const SBN_FilterModInfo_t *SBN_FindActiveFilter(const char *FilterName)
 {
     const SBN_FilterModInfo_t *FilterEntry;
     SBN_ModuleIdx_t            ModuleIdx;
@@ -745,7 +788,7 @@ static SBN_Status_t SBN_UnloadPeer(SBN_PeerRecord_t *PeerRec)
     SBN_Connection_HandleDisconnect(Peer);
     SBN_Subs_UpdateDisconnectedPeerLocalSubs(PeerRec);
 
-    if (Net->IfOps && Net->IfOps->UnloadPeer)
+    if (Net->IfOps->UnloadPeer)
     {
         Net->IfOps->UnloadPeer(Peer);
     }
@@ -789,6 +832,7 @@ static SBN_Status_t SBN_DoUnloadNet(SBN_NetRecord_t *NetRec, void *Arg)
     // Peers were cleared, reset the count
     Net->PeerCnt = 0;
 
+    /* Note -- if the net was not ever correctly loaded, the Ops pointer can be NULL */
     if (Net->IfOps && Net->IfOps->UnloadNet)
     {
         Status = Net->IfOps->UnloadNet(Net);
@@ -1008,7 +1052,7 @@ static SBN_Status_t SBN_Init(void)
     return Status;
 }
 
-static SBN_Status_t SBN_Cleanup(void)
+SBN_Status_t SBN_Cleanup(void)
 {
     SBN_Status_t Status;
 
@@ -1134,10 +1178,8 @@ void SBN_AppMain(void)
 
     SBN_Worker_Shutdown();
 
-    if (SBN_Cleanup() != SBN_SUCCESS)
-    {
-        EVSSendErr(SBN_INIT_EID, "ERROR: could not clean up SBN");
-    }
+    /* Cleanup is best effort */
+    SBN_Cleanup();
 
     CFE_ES_ExitApp(RunStatus);
 } /* end SBN_AppMain */

@@ -37,13 +37,21 @@ SBN_Status_t SBN_Connection_SendProtocolVersionMsg(SBN_BufferDesc_t *BufD, SBN_P
     SBN_Status_t SBN_Status;
     uint8       *ProtocolVer;
 
-    ProtocolVer        = BufD->DataPtr;
-    BufD->ActualDataSz = sizeof(*ProtocolVer);
-    BufD->MsgType      = SBN_PROTO_MSG;
+    ProtocolVer = BufD->DataPtr;
 
-    *ProtocolVer = SBN_PROTO_VER;
+    if (BufD->MaxDataSz >= sizeof(*ProtocolVer))
+    {
+        BufD->ActualDataSz = sizeof(*ProtocolVer);
+        BufD->MsgType      = SBN_PROTO_MSG;
 
-    SBN_Status = SBN_Outbound_SendToPeer(BufD, &PeerRec->Intf);
+        *ProtocolVer = SBN_PROTO_VER;
+
+        SBN_Status = SBN_Outbound_SendToPeer(BufD, &PeerRec->Intf);
+    }
+    else
+    {
+        SBN_Status = SBN_ERROR;
+    }
 
     return SBN_Status;
 }
@@ -170,7 +178,7 @@ SBN_Status_t SBN_Connection_CheckPeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_
     IfOps = Peer->Net->IfOps;
 
     /* Poll peer here to detect disconnections */
-    if (IfOps && IfOps->PollPeer)
+    if (IfOps->PollPeer)
     {
         SBN_Status = IfOps->PollPeer(Peer);
     }

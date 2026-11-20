@@ -47,7 +47,15 @@
 
 /**
  * @brief At most process this many SB messages per peer per wakeup.
- * (To prevent starvation if a peer is babbling.)
+ *
+ * Ideally, a worker task servicing a data pipe (inbound or outbound) will service that
+ * pipe until it is empty.  However, if there is a substantial backlog of data, this can
+ * cause the worker to get stuck servicing the backlogged items, causing other peers/nets
+ * to start backing up as well.
+ *
+ * This limits the number of messages processed on a single wakeup, such that other
+ * peers/nets can still be serviced when one or more of them are saturated and never become
+ * idle.
  */
 #define SBN_PLATFORM_MAX_MSG_PER_WAKEUP         SBN_PLATFORM_CFGVAL(MAX_MSG_PER_WAKEUP)
 #define DEFAULT_SBN_PLATFORM_MAX_MSG_PER_WAKEUP 32
@@ -177,21 +185,6 @@
  */
 #define SBN_PLATFORM_WORKER_WAIT_TIME_MSEC         SBN_PLATFORM_CFGVAL(WORKER_WAIT_TIME_MSEC)
 #define DEFAULT_SBN_PLATFORM_WORKER_WAIT_TIME_MSEC 100
-
-/**
- * @brief Maximum number of messages to process in a single wakeup cycle
- *
- * Ideally, a worker task servicing a data pipe (inbound or outbound) will service that
- * pipe until it is empty.  However, if there is a substantial backlog of data, this can
- * cause the worker to get stuck servicing the backlogged items, causing other peers/nets
- * to start backing up as well.
- *
- * This limits the number of messages processed on a single wakeup, such that other
- * peers/nets can still be serviced when one or more of them are saturated and never become
- * idle.
- */
-#define SBN_PLATFORM_MAX_MSGS_PER_WAKEUP         SBN_PLATFORM_CFGVAL(MAX_MSGS_PER_WAKEUP)
-#define DEFAULT_SBN_PLATFORM_MAX_MSGS_PER_WAKEUP 25
 
 /**
  * @brief If defined, remapping is enabled at boot time.

@@ -16,15 +16,13 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_app_
-#define _sbn_app_
+#ifndef SBN_APP_H
+#define SBN_APP_H
 
 #include <string.h>
-#include <errno.h>
 
 #include "osconfig.h"
 #include "cfe.h"
-#include "sbn_version.h"
 #include "sbn_interfaces.h"
 #include "sbn_msg.h"
 #include "sbn_platform_cfg.h"
@@ -132,6 +130,10 @@ SBN_PeerRecord_t              *
 SBN_GetPeerRecord(SBN_NetRecord_t *NetRec, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
 SBN_Status_t SBN_ReloadConfTbl(void);
 
+const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolName);
+const SBN_FilterModInfo_t   *SBN_FindActiveFilter(const char *FilterName);
+SBN_Status_t                 SBN_InitInterfaces(void);
+
 /**
  * @brief Initializes the housekeeping counters for a peer.
  *
@@ -160,19 +162,12 @@ SBN_Status_t SBN_ValidateConfTbl(void *TableData);
 /**
  * @brief Compatibility routine for Peer interfaces
  *
- * Get the private data record associated with the interface object for a peer
- * To simplify error checking around transitional use cases, NULL is passed through
+ * This must only be used on valid Peer references (no error check)
+ * @returns Pointer to parent PeerRecord
  */
 static inline SBN_PeerRecord_t *SBN_Peer_GetPrivateData(SBN_PeerInterface_t *PeerIf)
 {
-    if (PeerIf != NULL)
-    {
-        return (void *)(((char *)PeerIf) - offsetof(SBN_PeerRecord_t, Intf));
-    }
-    else
-    {
-        return NULL;
-    }
+    return (void *)(((char *)PeerIf) - offsetof(SBN_PeerRecord_t, Intf));
 }
 
 /**
@@ -196,19 +191,12 @@ static inline SBN_PeerInterface_t *SBN_Peer_GetIntfData(SBN_PeerRecord_t *PeerRe
 /**
  * @brief Compatibility routine for Net interfaces
  *
- * Get the private data record associated with the interface object for a net
- * To simplify error checking around transitional use cases, NULL is passed through
+ * This must only be used on valid Net references (no error check)
+ * @returns Pointer to parent NetRecord
  */
 static inline SBN_NetRecord_t *SBN_Net_GetPrivateData(SBN_NetInterface_t *NetIf)
 {
-    if (NetIf != NULL)
-    {
-        return (void *)(((char *)NetIf) - offsetof(SBN_NetRecord_t, Intf));
-    }
-    else
-    {
-        return NULL;
-    }
+    return (void *)(((char *)NetIf) - offsetof(SBN_NetRecord_t, Intf));
 }
 
 /**
@@ -228,6 +216,16 @@ static inline SBN_NetInterface_t *SBN_Net_GetIntfData(SBN_NetRecord_t *NetRec)
         return NULL;
     }
 }
+
+/**
+ * This function waits for the scheduler (SCH) to wake this code up, so that
+ * nothing transpires until the cFE is fully operational.
+ *
+ * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
+ * @return CFE_SUCCESS on success, otherwise an error value.
+ */
+SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut);
+SBN_Status_t SBN_Cleanup(void);
 
 /*
  * ~~~~~~~~~~~~ MODULE INTERFACE METHODS ~~~~~~~~~~~~~~~

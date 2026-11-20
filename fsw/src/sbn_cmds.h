@@ -16,8 +16,8 @@
  * limitations under the License.
  ************************************************************************/
 
-#ifndef _sbn_cmds_h_
-#define _sbn_cmds_h_
+#ifndef SBN_CMDS_H
+#define SBN_CMDS_H
 
 #include "cfe_error.h"
 #include "sbn_msg.h"

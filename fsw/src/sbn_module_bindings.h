@@ -20,13 +20,13 @@
 #define SBN_MODULE_BINDINGS_H
 
 /* This is the list that is exported by the bindings.c file */
-typedef struct SBN_ModuleBindingEntry
+struct SBN_ModuleBindingEntry
 {
     const char *ModName;
     const char *SymName;
     const void *Intf;
-} SBN_ModuleBindingEntry_t;
+};
 
-extern const SBN_ModuleBindingEntry_t *SBN_MODULE_BINDINGS;
+extern const struct SBN_ModuleBindingEntry *SBN_MODULE_BINDINGS;
 
 #endif /* SBN_MODULE_BINDINGS_H */

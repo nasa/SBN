@@ -23,6 +23,11 @@
 #include "sbn_types.h"
 #include "sbn_interfaces.h"
 
+typedef struct SBN_ModuleBindingEntry SBN_ModuleBindingEntry_t;
+
+const SBN_ModuleBindingEntry_t *SBN_Module_FindBySymName(const char                     *SymName,
+                                                         const SBN_ModuleBindingEntry_t *BindingList);
+
 SBN_Status_t SBN_Module_GetProtocolIf(const char *ModName, const SBN_IfOps_t **ProtoIf);
 SBN_Status_t SBN_Module_GetFilterIf(const char *ModName, const SBN_FilterInterface_t **FilterIf);
 

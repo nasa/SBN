@@ -61,6 +61,35 @@ typedef struct SBN_SubJournal
 
 /*---------------------------------------------------------------------------*/
 /**
+ * @brief Utility function to add a subscription to a set
+ *
+ * This is a local function but declared here to allow full testing
+ *
+ * @param[inout]   SubSet the set to operate on
+ * @param[in]      MsgID  the msgid to add
+ * @param[in]      QoS    the QoS
+ *
+ * @retval true   if MsgID is added successfully
+ * @retval false  if an error occurred
+ */
+bool SBN_Subs_AddToSet(SBN_SubscriptionSet_t *SubSet, CFE_SB_MsgId_t MsgID, CFE_SB_Qos_t QoS);
+
+/*---------------------------------------------------------------------------*/
+/**
+ * @brief Utility function to remove a subscription from a set
+ *
+ * This is a local function but declared here to allow full testing
+ *
+ * @param[inout]   SubSet the set to operate on
+ * @param[in]      Idx    the index to remove
+ *
+ * @retval true   if MsgID is removed successfully
+ * @retval false  if an error occurred
+ */
+bool SBN_Subs_RemoveFromSet(SBN_SubscriptionSet_t *SubSet, SBN_SubCnt_t Idx);
+
+/*---------------------------------------------------------------------------*/
+/**
  * @brief Gets a historical subscription change event from the journal
  *
  * Returns a pointer to the entry, which indicates what changed in that

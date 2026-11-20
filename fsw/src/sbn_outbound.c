@@ -145,11 +145,10 @@ SBN_Status_t SBN_Outbound_SendToPeer(SBN_BufferDesc_t *BufD, SBN_PeerInterface_t
  * See description in header file for argument/return detail
  *
  *-----------------------------------------------------------------*/
-void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
+void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD, int32 MsgLim)
 {
     const CFE_SB_Buffer_t *BufPtr;
     int32                  TimeOut;
-    int32                  MsgLim;
     CFE_MSG_Size_t         MsgSz;
     CFE_Status_t           CFE_Status;
     SBN_Status_t           SBN_Status;
@@ -158,7 +157,6 @@ void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
 
     IsOK   = Peer->Connected;
     BufPtr = NULL;
-    MsgLim = SBN_PLATFORM_MAX_MSGS_PER_WAKEUP;
 
     /* First take care of connection maintenance - subscription sync and protocol messages */
     /* This is done independently of whether the connection is ready for data */
@@ -175,7 +173,7 @@ void SBN_Outbound_ServicePeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD)
     }
 
     /* Now move on to data passing */
-    if (PeerRec->Sched.InboundAutoReschedule)
+    if (PeerRec->Sched.OutboundAutoReschedule)
     {
         /* Emulate a dedicated task by pending on the pipe, but not forever */
         /* Notably this needs to pause looking for data to check subscriptions */

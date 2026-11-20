@@ -44,10 +44,10 @@
 #undef SBN_MODULE
 
 #define SBN_MODULE(mod, sym) { #mod, #sym, &sym },
-static const SBN_ModuleBindingEntry_t SBN_MODULE_BINDING_LIST[] = {
+static const struct SBN_ModuleBindingEntry SBN_MODULE_BINDING_LIST[] = {
 #include "sbn_modules.inc"
     { NULL, NULL, NULL }  /* end marker */
 };
 #undef SBN_MODULE
 
-const SBN_ModuleBindingEntry_t *SBN_MODULE_BINDINGS = SBN_MODULE_BINDING_LIST;
+const struct SBN_ModuleBindingEntry *SBN_MODULE_BINDINGS = SBN_MODULE_BINDING_LIST;
