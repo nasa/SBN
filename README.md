@@ -13,6 +13,13 @@ A demonstration bundle of the Core Flight System including the cFE, OSAL, and PS
 
 For information about a mission ready cFS bundle, see: https://github.com/nasa/cFS#cfs-gov-mission-ready-version
 
+## Integration example
+
+Use the [cFS bundle](https://github.com/nasa/cFS/tree/dev) and its SBN application
+configuration for an integration example. The bundle is maintained and exercised
+by the cFS build and test workflows. The obsolete examples formerly in this
+repository have been removed.
+
 ## Known issues
 
 See all [open issues](https://github.com/nasa/SBN/issues) and closed to milestones later than this version.
