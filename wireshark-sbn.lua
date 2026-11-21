@@ -26,6 +26,8 @@ local proto_sbn_type =
 
 local proto_sbn_cpuid = ProtoField.uint32("cfs_sbn.CPUID", "CPUID", base.DEC)
 
+local proto_sbn_spacecraftid = ProtoField.uint32("cfs_sbn.SPACECRAFTID", "SPACECRAFTID", base.HEX)
+
 local proto_sbn_version =
     ProtoField.string("cfs_sbn.sub.Version", "Version", base.ASCII)
 
@@ -39,6 +41,7 @@ proto_sbn.fields = {
     proto_sbn_msgsz,
     proto_sbn_type,
     proto_sbn_cpuid,
+    proto_sbn_spacecraftid,
     proto_sbn_sub,
     proto_sbn_version,
     proto_sbn_sub_cnt,
@@ -52,28 +55,41 @@ function proto_sbn.dissector(buffer, pinfo, tree)
     local subtree = tree:add(proto_sbn, buffer(), "SBN Data")
     local offset = 0
 
+    -- Size (2 B)
     subtree:add(proto_sbn_msgsz, buffer(offset, 2))
     offset = offset + 2
 
+    -- Type (1 B)
     subtree:add(proto_sbn_type, buffer(offset, 1))
     local msgtype = buffer(offset, 1):uint()
     offset = offset + 1
 
-    subtree:add(proto_sbn_cpuid, buffer(3, 4))
+    -- CPUID (4 B)
+    subtree:add(proto_sbn_cpuid, buffer(offset, 4))
     offset = offset + 4
 
+    -- SpacecraftID (4 B)
+    subtree:add(proto_sbn_spacecraftid, buffer(offset, 4))
+    offset = offset + 4
+    
     if msgtype == 1 then -- sub
+        -- Version (48 B)
         subtree:add(proto_sbn_version, buffer(offset, 48))
         offset = offset + 48
     end
 
     if msgtype == 1 or msgtype == 2 then -- sub/unsub
+        -- Count (2 B)
         subtree:add(proto_sbn_sub_cnt, buffer(offset, 2))
         local sub_cnt = buffer(offset, 2):uint()
         offset = offset + 2
 
         for i = 0, sub_cnt - 1, 1 do
-            subtree:add(proto_sbn_sub_mid, buffer(offset, 2))
+            -- MID (4 B)
+            subtree:add(proto_sbn_sub_mid, buffer(offset, 4))
+            offset = offset + 4
+
+            -- QOS (2 B) - ignored
             offset = offset + 2
         end
     end
