@@ -51,7 +51,9 @@ SBN_Status_t SBN_Connection_HandleDisconnect(SBN_PeerInterface_t *Peer);
  * as it may produce outbound data, thus should be synchronized with other outbound
  * traffic.
  *
- * @param[in] Peer The peer that has been connected.
+ * @param[in]    PeerRec The peer that has been connected.
+ * @param[inout] BufD    A buffer that may be used for sending messages to the peer
+ *
  * @retval #SBN_SUCCESS or SBN_ERROR if there was an issue.
  */
 SBN_Status_t SBN_Connection_CheckPeer(SBN_PeerRecord_t *PeerRec, SBN_BufferDesc_t *BufD);

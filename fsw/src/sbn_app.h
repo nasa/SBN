@@ -125,25 +125,60 @@ extern SBN_AppData_t SBN_AppData;
 ** Prototypes
 */
 
+/**
+ * @brief Main SBN entry point
+ *
+ * This is the entry point that should be put into CFE ES startup script
+ */
 void SBN_AppMain(void);
-SBN_PeerRecord_t              *
+
+/**
+ * @brief Gets a peer record on a net
+ *
+ * This is similar to the SBN_GetPeer() function that is part of the module interface,
+ * but works on (and returns) the internal record structure instead of the interface structure
+ *
+ * @param[in] NetRec       The net record to operate on
+ * @param[in] ProcessorID  The processor ID to find
+ * @param[in] SpacecraftID The spacecraft ID to find
+ * @return Pointer to peer interface
+ * @retval NULL if peer is not found
+ */
+SBN_PeerRecord_t *
 SBN_GetPeerRecord(SBN_NetRecord_t *NetRec, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
+
+/**
+ * Full reload of configuration table
+ *
+ * Invoked via a notification from table services that the table has been updated
+ * This fully removes any existing configuration, resets the internal state, and
+ * reloads the config based on the updated configuration table.
+ *
+ * @returns SBN Status code
+ * @retval  #SBN_SUCCESS if successful
+ */
 SBN_Status_t SBN_ReloadConfTbl(void);
 
 const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolName);
 const SBN_FilterModInfo_t   *SBN_FindActiveFilter(const char *FilterName);
-SBN_Status_t                 SBN_InitInterfaces(void);
+
+/**
+ * @brief Loops through all hosts and peers, initializing all.
+ *
+ * @returns SBN Status code
+ * @retval  #SBN_SUCCESS if successful
+ */
+SBN_Status_t SBN_InitInterfaces(void);
 
 /**
  * @brief Initializes the housekeeping counters for a peer.
  *
- * @param[in] Peer The peer interface for which to reset housekeeping.
+ * @param[in] PeerRec The peer record for which to reset housekeeping.
  */
 void SBN_InitializePeerCounters(SBN_PeerRecord_t *PeerRec);
 
 /**
- * @brief Initializes the housekeeping counters both at the app level
- *        and for each peer.
+ * @brief Initializes the housekeeping counters at the app level and for each peer
  */
 void SBN_InitializeCounters(void);
 
@@ -218,6 +253,8 @@ static inline SBN_NetInterface_t *SBN_Net_GetIntfData(SBN_NetRecord_t *NetRec)
 }
 
 /**
+ * @brief Waits for next scheduled wakeup
+ *
  * This function waits for the scheduler (SCH) to wake this code up, so that
  * nothing transpires until the cFE is fully operational.
  *
@@ -225,6 +262,25 @@ static inline SBN_NetInterface_t *SBN_Net_GetIntfData(SBN_NetRecord_t *NetRec)
  * @return CFE_SUCCESS on success, otherwise an error value.
  */
 SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut);
+
+/**
+ * @brief Full initialization routine
+ *
+ * Initializes SBN based off configuration table
+ *
+ * @retval #SBN_SUCCESS if successfull
+ * @returns SBN status code
+ */
+SBN_Status_t SBN_Init(void);
+
+/**
+ * @brief Full cleanup routine
+ *
+ * De-Initializes SBN, removes all configured resources
+ *
+ * @retval #SBN_SUCCESS if successfull
+ * @returns SBN status code
+ */
 SBN_Status_t SBN_Cleanup(void);
 
 /*
@@ -234,20 +290,70 @@ SBN_Status_t SBN_Cleanup(void);
  * They cannot be changed without affecting module compatibility.
  * All I/O should be in the form of "Interface" structs where applicable.
  */
-SBN_PeerInterface_t              *
+
+/**
+ * Gets a peer based on processor ID and spacecraft ID
+ *
+ * @param[in] Net          The net to operate on
+ * @param[in] ProcessorID  The processor ID to find
+ * @param[in] SpacecraftID The spacecraft ID to find
+ * @return Pointer to peer interface
+ * @retval NULL if peer is not found
+ */
+SBN_PeerInterface_t *
 SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID);
-void         SBN_PackMsg(void              *SBNBuf,
-                         SBN_MsgSz_t        MsgSz,
-                         SBN_MsgType_t      MsgType,
-                         SBN_ProcessorID_t  ProcessorID,
-                         SBN_SpacecraftID_t SpacecraftID,
-                         void              *Msg);
-bool         SBN_UnpackMsg(void               *SBNBuf,
-                           SBN_MsgSz_t        *MsgSzPtr,
-                           SBN_MsgType_t      *MsgTypePtr,
-                           SBN_ProcessorID_t  *ProcessorIDPtr,
-                           SBN_SpacecraftID_t *SpacecraftIDPtr,
-                           void               *Msg);
+
+/**
+ * Packs a CCSDS message with an SBN message header.
+ *
+ * @note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
+ *       are in network (big-endian) byte order.
+ * @param[out] SBNBuf The buffer to pack into.
+ * @param[in] MsgSz The size of the payload.
+ * @param[in] MsgType The SBN message type.
+ * @param[in] ProcessorID The ProcessorID of the sender (should be CFE_CPU_ID)
+ * @param[in] SpacecraftID The SpacecraftID of the sender
+ * @param[in] Msg The payload (CCSDS message or SBN sub/unsub.)
+ */
+void SBN_PackMsg(void              *SBNBuf,
+                 SBN_MsgSz_t        MsgSz,
+                 SBN_MsgType_t      MsgType,
+                 SBN_ProcessorID_t  ProcessorID,
+                 SBN_SpacecraftID_t SpacecraftID,
+                 void              *Msg);
+
+/**
+ * Unpacks a CCSDS message with an SBN message header.
+ *
+ * @param[in] SBNBuf The buffer to unpack.
+ * @param[out] MsgSzPtr The payload size.
+ * @param[out] MsgTypePtr The SBN message type.
+ * @param[out] ProcessorIDPtr The ProcessorID of the sender.
+ * @param[out] SpacecraftIDPtr The SpacecraftID of the sender.
+ * @param[out] Msg The payload (a CCSDS message, or SBN sub/unsub).
+ * @retval true if we were able to unpack the message.
+ *
+ * @note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
+ *       are in platform byte order.
+ * @todo Use a type for SBNBuf.
+ */
+bool SBN_UnpackMsg(void               *SBNBuf,
+                   SBN_MsgSz_t        *MsgSzPtr,
+                   SBN_MsgType_t      *MsgTypePtr,
+                   SBN_ProcessorID_t  *ProcessorIDPtr,
+                   SBN_SpacecraftID_t *SpacecraftIDPtr,
+                   void               *Msg);
+
+/**
+ * Sends a message to a peer using the module's send API.
+ *
+ * @param MsgType SBN type of the message
+ * @param MsgSz Size of the message
+ * @param Msg Message to send
+ * @param Peer The peer to send the message to.
+ * @return Number of characters sent on success, -1 on error.
+ *
+ */
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer);
 
 #endif /* _sbn_app_ */

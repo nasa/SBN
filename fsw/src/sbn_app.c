@@ -42,18 +42,13 @@ SBN_AppData_t SBN_AppData;
 
 static SBN_Status_t SBN_UnloadNets(void);
 
-/**
- * Packs a CCSDS message with an SBN message header.
+/*----------------------------------------------------------------
  *
- * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
- *       are in network (big-endian) byte order.
- * \param[out] SBNBuf The buffer to pack into.
- * \param[in] MsgSz The size of the payload.
- * \param[in] MsgType The SBN message type.
- * \param[in] ProcessorID The ProcessorID of the sender (should be CFE_CPU_ID)
- * \param[in] SpacecraftID The SpacecraftID of the sender
- * \param[in] Msg The payload (CCSDS message or SBN sub/unsub.)
- */
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ * NOTE: This is part of the module interface
+ *
+ *-----------------------------------------------------------------*/
 void SBN_PackMsg(void             *SBNBuf,
                  SBN_MsgSz_t       MsgSz,
                  SBN_MsgType_t     MsgType,
@@ -78,21 +73,13 @@ void SBN_PackMsg(void             *SBNBuf,
     SBN_Pack_Data(&Pack, Msg, MsgSz);
 }
 
-/**
- * Unpacks a CCSDS message with an SBN message header.
+/*----------------------------------------------------------------
  *
- * \param[in] SBNBuf The buffer to unpack.
- * \param[out] MsgSzPtr The payload size.
- * \param[out] MsgTypePtr The SBN message type.
- * \param[out] ProcessorIDPtr The ProcessorID of the sender.
- * \param[out] SpacecraftIDPtr The SpacecraftID of the sender.
- * \param[out] Msg The payload (a CCSDS message, or SBN sub/unsub).
- * \return true if we were able to unpack the message.
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ * NOTE: This is part of the module interface
  *
- * \note Ensures the SBN fields (CPU ID, MsgSz) and CCSDS message headers
- *       are in platform byte order.
- * \todo Use a type for SBNBuf.
- */
+ *-----------------------------------------------------------------*/
 bool SBN_UnpackMsg(void               *SBNBuf,
                    SBN_MsgSz_t        *MsgSzPtr,
                    SBN_MsgType_t      *MsgTypePtr,
@@ -131,16 +118,13 @@ bool SBN_UnpackMsg(void               *SBNBuf,
     return true;
 }
 
-/**
- * Sends a message to a peer using the module's send API.
+/*----------------------------------------------------------------
  *
- * @param MsgType SBN type of the message
- * @param MsgSz Size of the message
- * @param Msg Message to send
- * @param Peer The peer to send the message to.
- * @return Number of characters sent on success, -1 on error.
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ * NOTE: This is part of the module interface
  *
- */
+ *-----------------------------------------------------------------*/
 SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg, SBN_PeerInterface_t *Peer)
 {
     SBN_BufferDesc_t TempDesc;
@@ -155,12 +139,12 @@ SBN_Status_t SBN_SendNetMsg(SBN_MsgType_t MsgType, SBN_MsgSz_t MsgSz, void *Msg,
     return SBN_Outbound_SendToPeer(&TempDesc, Peer);
 } /* end SBN_SendNetMsg */
 
-/**
- * Loops through all hosts and peers, initializing all.
+/*----------------------------------------------------------------
  *
- * @return SBN_SUCCESS if interface is initialized successfully
- *         SBN_ERROR otherwise
- */
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 SBN_Status_t SBN_InitInterfaces(void)
 {
     SBN_NetIdx_t         NetIdx;
@@ -255,13 +239,12 @@ SBN_Status_t SBN_InitInterfaces(void)
     return SBN_SUCCESS;
 } /* end SBN_InitInterfaces */
 
-/**
- * This function waits for the scheduler (SCH) to wake this code up, so that
- * nothing transpires until the cFE is fully operational.
+/*----------------------------------------------------------------
  *
- * @param[in] iTimeOut The time to wait for the scheduler to notify this code.
- * @return CFE_SUCCESS on success, otherwise an error value.
- */
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
 {
     CFE_Status_t           CFE_Status;
@@ -314,6 +297,13 @@ SBN_Status_t SBN_WaitForWakeup(int32 iTimeOut)
     return SBN_SUCCESS;
 } /* end SBN_WaitForWakeup */
 
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ * Compatible with CFE TBL validation routine
+ *
+ *-----------------------------------------------------------------*/
 SBN_Status_t SBN_ValidateConfTbl(void *TableData)
 {
     const SBN_ConfTbl_t    *PendingTbl = TableData;
@@ -392,6 +382,12 @@ SBN_Status_t SBN_ValidateConfTbl(void *TableData)
     return SBN_SUCCESS;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Sets up the protocol modules specified in the config file
+ *
+ *-----------------------------------------------------------------*/
 static void SBN_InitProtoModules(const SBN_ConfTbl_t *ConfTbl)
 {
     SBN_Status_t              Status;
@@ -448,6 +444,12 @@ static void SBN_InitProtoModules(const SBN_ConfTbl_t *ConfTbl)
     } /* end for */
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Sets up the filter modules specified in the config file
+ *
+ *-----------------------------------------------------------------*/
 static void SBN_InitFilterModules(const SBN_ConfTbl_t *ConfTbl)
 {
     SBN_Status_t                 Status;
@@ -497,6 +499,12 @@ static void SBN_InitFilterModules(const SBN_ConfTbl_t *ConfTbl)
     }
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Maps a protocol name to a configured protocol module
+ *
+ *-----------------------------------------------------------------*/
 const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolName)
 {
     const SBN_ProtocolModInfo_t *ProtoEntry;
@@ -529,6 +537,12 @@ const SBN_ProtocolModInfo_t *SBN_FindActiveProtocol(const char *ProtocolName)
     return ProtoEntry;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Maps a filter name to a configured filter module
+ *
+ *-----------------------------------------------------------------*/
 const SBN_FilterModInfo_t *SBN_FindActiveFilter(const char *FilterName)
 {
     const SBN_FilterModInfo_t *FilterEntry;
@@ -561,6 +575,12 @@ const SBN_FilterModInfo_t *SBN_FindActiveFilter(const char *FilterName)
     return FilterEntry;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Sets up all peers according to configuration file
+ *
+ *-----------------------------------------------------------------*/
 static void SBN_InitPeersFromConfig(const SBN_ConfTbl_t *ConfTbl)
 {
     const SBN_Peer_Entry_t       *PeerConf;
@@ -727,6 +747,12 @@ static void SBN_InitPeersFromConfig(const SBN_ConfTbl_t *ConfTbl)
     SBN_AppData.NetCnt = MaxNet;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Configuration loading function - gets addrress of table and performs full setup
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_LoadConf(void)
 {
     void        *TableAddr;
@@ -765,6 +791,12 @@ static SBN_Status_t SBN_LoadConf(void)
     return SBN_SUCCESS;
 } /* end SBN_LoadConf() */
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Configuration unloading - tears down all existing config
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_UnloadConf(void)
 {
     SBN_Status_t Status;
@@ -780,6 +812,12 @@ static SBN_Status_t SBN_UnloadConf(void)
     return Status;
 } /* end SBN_UnloadConf() */
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Unloads a single peer, including unload at the module level
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_UnloadPeer(SBN_PeerRecord_t *PeerRec)
 {
     SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(PeerRec);
@@ -804,6 +842,12 @@ static SBN_Status_t SBN_UnloadPeer(SBN_PeerRecord_t *PeerRec)
     return SBN_SUCCESS;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Unloads a single net, including all peers on that net
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_DoUnloadNet(SBN_NetRecord_t *NetRec, void *Arg)
 {
     uint32             *Errs = Arg;
@@ -856,6 +900,12 @@ static SBN_Status_t SBN_DoUnloadNet(SBN_NetRecord_t *NetRec, void *Arg)
     return SBN_SUCCESS;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Unloads all nets
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_UnloadNets(void)
 {
     uint32 Errs;
@@ -872,6 +922,12 @@ static SBN_Status_t SBN_UnloadNets(void)
     return SBN_SUCCESS;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Registers and loads the configuration table
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_LoadConfTbl(void)
 {
     CFE_Status_t Status;
@@ -904,6 +960,12 @@ static SBN_Status_t SBN_LoadConfTbl(void)
     return SBN_SUCCESS;
 } /* end SBN_LoadConfTbl() */
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Removes the local subscription pipe
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_TeardownSubPipe(void)
 {
     CFE_Status_t Status;
@@ -924,6 +986,12 @@ static SBN_Status_t SBN_TeardownSubPipe(void)
     return SBN_SUCCESS;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Local Helper function, not used outside of this unit
+ * Sets up the local subscription pipe
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_SetupSubPipe(void)
 {
     CFE_Status_t Status;
@@ -958,11 +1026,13 @@ static SBN_Status_t SBN_SetupSubPipe(void)
     return SBN_SUCCESS;
 }
 
-/**
- * @brief Initializes the housekeeping counters for a peer.
+/*----------------------------------------------------------------
  *
- * @param[in] Peer The peer interface for which to reset housekeeping.
- */
+ * Local Helper function, not used outside of this unit
+ * Gets/Updates the "zero" point for the counters.
+ * Compatible with SBN_ForEachConfiguredPeer()
+ *
+ *-----------------------------------------------------------------*/
 static SBN_Status_t SBN_DoInitializePeerCounters(SBN_PeerRecord_t *PeerRec, void *Arg)
 {
     SBN_PeerInterface_t *Peer = SBN_Peer_GetIntfData(PeerRec);
@@ -979,10 +1049,12 @@ static SBN_Status_t SBN_DoInitializePeerCounters(SBN_PeerRecord_t *PeerRec, void
     return SBN_SUCCESS;
 }
 
-/**
- * @brief Initializes the housekeeping counters both at the app level
- *        and for each peer.
- */
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 void SBN_InitializeCounters(void)
 {
     SBN_AppData.CmdCnt    = 0;
@@ -992,18 +1064,25 @@ void SBN_InitializeCounters(void)
     SBN_ForEachConfiguredPeer(SBN_DoInitializePeerCounters, NULL);
 }
 
-/**
- * @brief Initializes the housekeeping counters for a peer.
+/*----------------------------------------------------------------
  *
- * @param[in] Peer The peer interface for which to reset housekeeping.
- */
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 void SBN_InitializePeerCounters(SBN_PeerRecord_t *PeerRec)
 {
     /* Wipe the counters on only this peer */
     SBN_DoInitializePeerCounters(PeerRec, NULL);
 }
 
-static SBN_Status_t SBN_Init(void)
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+SBN_Status_t SBN_Init(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not initialize SBN:";
 
@@ -1052,6 +1131,12 @@ static SBN_Status_t SBN_Init(void)
     return Status;
 }
 
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 SBN_Status_t SBN_Cleanup(void)
 {
     SBN_Status_t Status;
@@ -1083,7 +1168,11 @@ SBN_Status_t SBN_Cleanup(void)
     return SBN_SUCCESS;
 }
 
-/** \brief SBN Main Routine */
+/*----------------------------------------------------------------
+ *
+ * Main SBN app entry point
+ *
+ *-----------------------------------------------------------------*/
 void SBN_AppMain(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not start SBN:";
@@ -1184,6 +1273,12 @@ void SBN_AppMain(void)
     CFE_ES_ExitApp(RunStatus);
 } /* end SBN_AppMain */
 
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 SBN_PeerRecord_t *
 SBN_GetPeerRecord(SBN_NetRecord_t *NetRec, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID)
 {
@@ -1208,13 +1303,13 @@ SBN_GetPeerRecord(SBN_NetRecord_t *NetRec, SBN_ProcessorID_t ProcessorID, SBN_Sp
     return NULL;
 }
 
-/**
- * Find the PeerIndex for a given ProcessorID and net.
- * @param[in] Net The network interface to search.
- * @param[in] ProcessorID The ProcessorID of the peer being sought.
- * @param[in] SpacecraftID The SpacecraftI of the peer being sought.
- * @return The Peer interface pointer, or NULL if not found.
- */
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ * NOTE: This is part of the module interface
+ *
+ *-----------------------------------------------------------------*/
 SBN_PeerInterface_t *
 SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_SpacecraftID_t SpacecraftID)
 {
@@ -1222,9 +1317,12 @@ SBN_GetPeer(SBN_NetInterface_t *Net, SBN_ProcessorID_t ProcessorID, SBN_Spacecra
     return SBN_Peer_GetIntfData(SBN_GetPeerRecord(SBN_Net_GetPrivateData(Net), ProcessorID, SpacecraftID));
 } /* end SBN_GetPeer */
 
-/** \brief Reload configuration and re-initialize
- * This is only called after receiving a message from TBL service.
- */
+/*----------------------------------------------------------------
+ *
+ * Application-scope internal function
+ * See description in header file for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
 SBN_Status_t SBN_ReloadConfTbl(void)
 {
     static const char FAIL_PREFIX[] = "ERROR: could not reload SBN configuration:";
