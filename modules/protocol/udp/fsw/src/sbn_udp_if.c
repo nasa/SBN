@@ -219,8 +219,7 @@ static SBN_Status_t PollPeer(SBN_PeerInterface_t *Peer)
     }
     else
     {
-        if (Peer->ProcessorID != CFE_PSP_GetProcessorId() && Peer->SpacecraftID != CFE_PSP_GetSpacecraftId()
-            && OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastSend)) > SBN_UDP_ANNOUNCE_TIMEOUT)
+        if (OS_TimeGetTotalSeconds(OS_TimeSubtract(CurrentTime, Peer->LastSend)) > SBN_UDP_ANNOUNCE_TIMEOUT)
         {
             OS_GetLocalTime(&Peer->LastSend);
             EVSSendInfo(SBN_UDP_DEBUG_EID, "announce to peer %d:%d", Peer->SpacecraftID, Peer->ProcessorID);
