@@ -38,9 +38,9 @@ SBN_Status_t SBN_Outbound_SendToPeer(SBN_BufferDesc_t *BufD, SBN_PeerInterface_t
 /**
  * Gets an outbound message from the peer software bus pipe
  *
- * @param[inout] BufD    The buffer where the message can be stored
- * @param[in]    Peer    The peer to send the message to.
- * @param[in]    Timeout Timeout to use when reading from SB
+ * @param[inout] BufD      The buffer where the message can be stored
+ * @param[in]    PeerPipe  The software bus pipe ID for this peer
+ * @param[in]    Timeout   Timeout to use when reading from SB
  * @returns SBN status value
  * @retval  #SBN_SUCCESS if successfully retrieved
  * @retval  #SBN_IF_EMPTY if the software bus pipe had no messages

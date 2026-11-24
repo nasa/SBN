@@ -63,6 +63,4 @@ typedef enum
 
 typedef uint8 SBN_TaskFlag_Enum_t; /* This uses SBN_TaskFlag enum labels but fixed as 8 bits */
 
-/**\}*/
-
 #endif
